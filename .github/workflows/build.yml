@@ -67,6 +67,10 @@ jobs:
         run: flutter analyze || true
         working-directory: app
 
+      - name: Run tests
+        run: flutter test
+        working-directory: app
+
       # ---------- web build -> GitHub Pages ----------
       - name: Build web
         run: |
