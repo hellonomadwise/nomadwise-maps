@@ -1,0 +1,21 @@
+<!-- Keys the CI script merges into ios/Runner/Info.plist after `flutter create`.
+     (We merge rather than replace so Flutter's own template keys stay intact.) -->
+<dict>
+  <key>NSLocationWhenInUseUsageDescription</key>
+  <string>Nomadwise Maps shows work-friendly cafes near you and verifies that venue updates are made on location.</string>
+  <key>NSCameraUsageDescription</key>
+  <string>A photo of the venue is required to verify your submission and unlock your coins.</string>
+  <key>NSPhotoLibraryUsageDescription</key>
+  <string>Choose an existing photo of the venue for your submission.</string>
+  <key>CFBundleURLTypes</key>
+  <array>
+    <dict>
+      <key>CFBundleTypeRole</key>
+      <string>Editor</string>
+      <key>CFBundleURLSchemes</key>
+      <array>
+        <string>com.nomadwise.maps</string>
+      </array>
+    </dict>
+  </array>
+</dict>

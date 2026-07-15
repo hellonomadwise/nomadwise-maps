@@ -1,0 +1,53 @@
+name: nomadwise_maps
+description: "Nomadwise Maps — find cafes & coworking spaces you can actually work from."
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.7.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  supabase_flutter: ^2.9.0
+  google_maps_flutter: ^2.12.1
+  geolocator: ^13.0.2
+  http: ^1.2.2
+  image_picker: ^1.1.2
+  intl: ^0.20.2
+  url_launcher: ^6.3.1
+  cupertino_icons: ^1.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.14.3
+
+# Generates all Android/iOS/web icon sizes from the brand icon.
+flutter_launcher_icons:
+  android: true
+  ios: true
+  remove_alpha_ios: true
+  image_path: "assets/brand/app_icon.png"
+  web:
+    generate: true
+    image_path: "assets/brand/app_icon.png"
+    background_color: "#ffffff"
+    theme_color: "#ff444f"
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/brand/
+    - assets/pins/
+  fonts:
+    - family: Roboto
+      fonts:
+        - asset: assets/fonts/Roboto-Regular.ttf
+        - asset: assets/fonts/Roboto-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Roboto-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/Roboto-Black.ttf
+          weight: 900

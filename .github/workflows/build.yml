@@ -1,0 +1,106 @@
+name: Build Nomadwise Maps
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: build
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      # ---------- one-time platform scaffolding ----------
+      # Generates android/ ios/ web/ folders on the first run, applies our
+      # custom platform files, bakes the app icons, and commits the result
+      # back so Codemagic (iOS/TestFlight) can build from the same repo.
+      - name: Scaffold platforms (first run only)
+        run: |
+          if [ ! -d app/android ]; then
+            cd app
+            flutter create --org com.nomadwise --project-name nomadwise_maps \
+              --platforms=android,ios,web .
+            cd ..
+            # apply overrides (manifest, index.html, AppDelegate)
+            cp platform_overrides/android/app/src/main/AndroidManifest.xml app/android/app/src/main/AndroidManifest.xml
+            cp platform_overrides/web/index.html app/web/index.html
+            cp platform_overrides/ios/Runner/AppDelegate.swift app/ios/Runner/AppDelegate.swift
+            # merge Info.plist additions
+            python3 scripts/merge_plist.py platform_overrides/ios/Runner/Info-additions.plist app/ios/Runner/Info.plist
+            cd app
+            flutter pub get
+            dart run flutter_launcher_icons
+            cd ..
+            git config user.name "nomadwise-bot"
+            git config user.email "actions@github.com"
+            git add -A
+            git commit -m "chore: scaffold platform folders + icons [skip ci]" || true
+            git push
+          fi
+
+      # ---------- inject keys ----------
+      - name: Inject API keys
+        run: |
+          sed -i "s|__GOOGLE_MAPS_ANDROID_KEY__|${{ secrets.GOOGLE_MAPS_ANDROID_KEY }}|" app/android/app/src/main/AndroidManifest.xml
+          sed -i "s|__GOOGLE_MAPS_WEB_KEY__|${{ secrets.GOOGLE_MAPS_WEB_KEY }}|" app/web/index.html
+
+      - name: Pub get
+        run: flutter pub get
+        working-directory: app
+
+      - name: Analyze (report only)
+        run: flutter analyze || true
+        working-directory: app
+
+      # ---------- web build -> GitHub Pages ----------
+      - name: Build web
+        run: |
+          flutter build web --release \
+            --base-href "/${{ github.event.repository.name }}/" \
+            --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }} \
+            --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }} \
+            --dart-define=GOOGLE_PLACES_KEY=${{ secrets.GOOGLE_PLACES_KEY }}
+        working-directory: app
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: app/build/web
+
+      # ---------- Android APK ----------
+      - name: Build APK
+        run: |
+          flutter build apk --release \
+            --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }} \
+            --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }} \
+            --dart-define=GOOGLE_PLACES_KEY=${{ secrets.GOOGLE_PLACES_KEY }}
+        working-directory: app
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nomadwise-maps-apk
+          path: app/build/app/outputs/flutter-apk/app-release.apk
+
+  deploy-pages:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
