@@ -35,6 +35,7 @@ class _MapScreenState extends State<MapScreen> {
   // Which pin colours are visible (tap the legend to toggle).
   final Set<WorkFriendly> _wfVisible = {...WorkFriendly.values};
   bool _showUnscreened = true;
+  bool _legendOpen = false;
   bool _showList = false;
   Venue? _selected;
   DiscoveredPlace? _selectedDiscovered;
@@ -571,6 +572,13 @@ class _MapScreenState extends State<MapScreen> {
                                 const EdgeInsets.only(left: 16, top: 2),
                             child: _countBadge(visible.length),
                           ),
+                          // "Search this area" sits under the chips,
+                          // centred — like Google Maps.
+                          if (!_showList)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Center(child: _searchAreaPill()),
+                            ),
                         ]),
                   ),
                 ),
@@ -582,54 +590,6 @@ class _MapScreenState extends State<MapScreen> {
                 bottom: 24,
                 child: PointerInterceptor(child: _legend()),
               ),
-
-              // ---- "Search this area" (map mode only) ----
-              if (!_showList)
-                Positioned(
-                  bottom: 26,
-                  left: 0,
-                  right: 0,
-                  child: Center(
-                    child: PointerInterceptor(
-                      child: Material(
-                        color: Colors.white,
-                        elevation: 4,
-                        borderRadius: BorderRadius.circular(24),
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(24),
-                          onTap: _searchThisArea,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 10),
-                            child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  _searchingArea
-                                      ? const SizedBox(
-                                          width: 16,
-                                          height: 16,
-                                          child:
-                                              CircularProgressIndicator(
-                                                  strokeWidth: 2,
-                                                  color: Brand.red))
-                                      : const Icon(Icons.coffee_outlined,
-                                          size: 17, color: Brand.red),
-                                  const SizedBox(width: 7),
-                                  Text(
-                                      _searchingArea
-                                          ? 'Searching…'
-                                          : 'Search this area',
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: 13,
-                                          color: Brand.charcoal)),
-                                ]),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
 
               // ---- locate me (map mode only) ----
               if (!_showList)
@@ -778,6 +738,38 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
+  Widget _searchAreaPill() {
+    return Material(
+      color: Colors.white,
+      elevation: 4,
+      borderRadius: BorderRadius.circular(24),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(24),
+        onTap: _searchThisArea,
+        child: Padding(
+          padding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            _searchingArea
+                ? const SizedBox(
+                    width: 15,
+                    height: 15,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Brand.red))
+                : const Icon(Icons.coffee_outlined,
+                    size: 16, color: Brand.red),
+            const SizedBox(width: 7),
+            Text(_searchingArea ? 'Searching…' : 'Search this area',
+                style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                    color: Brand.charcoal)),
+          ]),
+        ),
+      ),
+    );
+  }
+
   Widget _unscreenedLegendRow() {
     final on = _showUnscreened;
     return InkWell(
@@ -863,10 +855,44 @@ class _MapScreenState extends State<MapScreen> {
       );
     }
 
+    final pinsHidden = _wfVisible.length < WorkFriendly.values.length ||
+        !_showUnscreened;
+
+    // Collapsed: a small round button that opens the legend.
+    if (!_legendOpen) {
+      return Material(
+        color: Colors.white,
+        shape: const CircleBorder(),
+        elevation: 4,
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: () => setState(() => _legendOpen = true),
+          child: Padding(
+            padding: const EdgeInsets.all(11),
+            child: Stack(clipBehavior: Clip.none, children: [
+              const Icon(Icons.layers_outlined,
+                  color: Brand.charcoal, size: 22),
+              if (pinsHidden)
+                Positioned(
+                  right: -2,
+                  top: -2,
+                  child: Container(
+                    width: 9,
+                    height: 9,
+                    decoration: const BoxDecoration(
+                        color: Brand.red, shape: BoxShape.circle),
+                  ),
+                ),
+            ]),
+          ),
+        ),
+      );
+    }
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: .94),
+        color: Colors.white.withValues(alpha: .96),
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
@@ -874,16 +900,25 @@ class _MapScreenState extends State<MapScreen> {
         ],
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Text('PINS · tap to filter',
+              style: TextStyle(
+                  fontSize: 9,
+                  letterSpacing: .5,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.grey.shade500)),
+          const SizedBox(width: 12),
+          InkWell(
+            onTap: () => setState(() => _legendOpen = false),
+            child: Icon(Icons.close,
+                size: 15, color: Colors.grey.shade500),
+          ),
+        ]),
+        const SizedBox(height: 3),
         row(Brand.red, 'Work-friendly', WorkFriendly.yes),
         row(const Color(0xFF9AA3AD), 'Not for laptops', WorkFriendly.no),
         row(Brand.amber, 'Unknown · confirm & earn', WorkFriendly.unknown),
         _unscreenedLegendRow(),
-        Padding(
-          padding: const EdgeInsets.only(top: 2, left: 2),
-          child: Text('tap to filter',
-              style: TextStyle(
-                  fontSize: 9, color: Colors.grey.shade500)),
-        ),
       ]),
     );
   }
