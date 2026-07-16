@@ -173,10 +173,6 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_photo == null) {
-      _snack('A photo of the venue is required — it\'s how we verify.');
-      return;
-    }
     if (_features['laptops_allowed'] == null) {
       _snack('Please answer the key question: are laptops allowed?');
       return;
@@ -233,7 +229,7 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
         kind: isConfirm ? 'confirm' : 'new_venue',
         venueId: venueId,
         payload: payload,
-        photoBytes: _photo!,
+        photoBytes: _photo,
         gpsLat: pos.latitude,
         gpsLng: pos.longitude,
         gpsDistanceM: distance,
@@ -408,7 +404,7 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
                 _photo == null ? Icons.photo_camera : Icons.check_circle,
                 color: _photo == null ? Brand.red : Colors.green),
             label: Text(_photo == null
-                ? 'Take a photo (required)'
+                ? 'Add a photo (optional — helps other nomads)'
                 : 'Photo added ✓ — tap to retake'),
             style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 14),

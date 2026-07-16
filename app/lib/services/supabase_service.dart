@@ -137,23 +137,25 @@ class SupabaseService {
 
   // ---------- submissions & coins ----------
 
-  /// Upload the required photo, then record the submission.
+  /// Record a submission (photo optional — uploads it when provided).
   /// Coin awards happen automatically in the database (triggers).
   Future<void> submit({
     required String kind, // 'new_venue' | 'confirm'
     String? venueId,
     required Map<String, dynamic> payload,
-    required Uint8List photoBytes,
+    Uint8List? photoBytes,
     required double gpsLat,
     required double gpsLng,
     double? gpsDistanceM,
   }) async {
     final uid = currentUser!.id;
-    final path =
-        '$uid/${DateTime.now().millisecondsSinceEpoch}.jpg';
-    await _db.storage.from('submission-photos').uploadBinary(
-        path, photoBytes,
-        fileOptions: const FileOptions(contentType: 'image/jpeg'));
+    String? path;
+    if (photoBytes != null) {
+      path = '$uid/${DateTime.now().millisecondsSinceEpoch}.jpg';
+      await _db.storage.from('submission-photos').uploadBinary(
+          path, photoBytes,
+          fileOptions: const FileOptions(contentType: 'image/jpeg'));
+    }
 
     await _db.from('submissions').insert({
       'user_id': uid,
