@@ -427,6 +427,19 @@ class _MapScreenState extends State<MapScreen> {
                   MaterialPageRoute(builder: (_) => const WalletScreen())));
             },
           ),
+          ListTile(
+            leading:
+                const Icon(Icons.rate_review_outlined, color: Brand.red),
+            title: const Text('Review a space'),
+            subtitle: Text(
+                'Earn up to ${AppConfig.coinsNewVenue} coins',
+                style:
+                    TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+            onTap: () {
+              Navigator.pop(context);
+              _openAddVenue();
+            },
+          ),
           if (_isAdmin)
             ListTile(
               leading: const Icon(Icons.fact_check_outlined,
@@ -611,7 +624,7 @@ class _MapScreenState extends State<MapScreen> {
                 Positioned(
                   right: 14,
                   bottom: _selected == null && _selectedDiscovered == null
-                      ? 96
+                      ? 24
                       : 210,
                   child: PointerInterceptor(
                     child: Material(
@@ -652,16 +665,6 @@ class _MapScreenState extends State<MapScreen> {
                             onScreen: () =>
                                 _openScreening(_selectedDiscovered!)))),
             ]),
-      floatingActionButton:
-          _selected == null && _selectedDiscovered == null
-              ? PointerInterceptor(
-                  child: FloatingActionButton.extended(
-                    onPressed: () => _openAddVenue(),
-                    icon: const Icon(Icons.rate_review_outlined),
-                    label: const Text('Review a space'),
-                  ),
-                )
-              : null,
     );
   }
 
