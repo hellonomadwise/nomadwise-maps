@@ -54,11 +54,19 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
   Widget build(BuildContext context) {
     final closing =
         venue.closingLabel(soonMinutes: AppConfig.closingSoonMinutes);
+    // Comfortable reading width on desktop; full width on phones.
+    final screenW = MediaQuery.of(context).size.width;
+    final contentW = screenW > 760 ? 760.0 : screenW;
+    final carouselH = (contentW * 0.55).clamp(180.0, 380.0);
+
     return Scaffold(
       appBar: AppBar(title: Text(venue.name)),
-      body: ListView(padding: EdgeInsets.zero, children: [
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 760),
+          child: ListView(padding: EdgeInsets.zero, children: [
         // ---- photo carousel ----
-        _carousel(),
+        _carousel(carouselH),
 
         Padding(
           padding: const EdgeInsets.all(20),
@@ -252,12 +260,14 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
               ]),
         ),
       ]),
+        ),
+      ),
     );
   }
 
   // ---------- widgets ----------
 
-  Widget _carousel() {
+  Widget _carousel(double height) {
     if (_photos.isEmpty) {
       return Container(
         height: 150,
@@ -274,7 +284,7 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
       );
     }
     return SizedBox(
-      height: 220,
+      height: height,
       child: Stack(children: [
         PageView.builder(
           itemCount: _photos.length,
