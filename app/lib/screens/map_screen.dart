@@ -285,7 +285,7 @@ class _MapScreenState extends State<MapScreen> {
               markerId: MarkerId(v.id),
               position: LatLng(v.lat!, v.lng!),
               icon: _iconFor(v),
-              alpha: v.workFriendly == WorkFriendly.no ? 0.55 : 1.0,
+              alpha: v.workFriendly == WorkFriendly.no ? 0.85 : 1.0,
               onTap: () => setState(() {
                 _selected = v;
                 _selectedDiscovered = null;
@@ -790,8 +790,15 @@ class _MapScreenState extends State<MapScreen> {
     return InkWell(
       borderRadius: BorderRadius.circular(8),
       onTap: () => setState(() {
+        if (on && _wfVisible.isEmpty) return; // never hide everything
         _showUnscreened = !_showUnscreened;
         if (!_showUnscreened) _selectedDiscovered = null;
+      }),
+      onDoubleTap: () => setState(() {
+        // Solo: only unscreened places.
+        _wfVisible.clear();
+        _showUnscreened = true;
+        _selected = null;
       }),
       child: Opacity(
         opacity: on ? 1 : .35,
@@ -833,6 +840,10 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Widget _legend() {
+    // Total categories currently visible (3 pin colours + unscreened).
+    int visibleCategories() =>
+        _wfVisible.length + (_showUnscreened ? 1 : 0);
+
     Widget row(Color color, String label, WorkFriendly wf) {
       final on = _wfVisible.contains(wf);
       return InkWell(
@@ -840,10 +851,21 @@ class _MapScreenState extends State<MapScreen> {
         onTap: () => setState(() {
           if (on) {
             // Never allow hiding everything.
-            if (_wfVisible.length > 1) _wfVisible.remove(wf);
+            if (visibleCategories() > 1) _wfVisible.remove(wf);
           } else {
             _wfVisible.add(wf);
           }
+          if (_selected != null && !_visibleVenues.contains(_selected)) {
+            _selected = null;
+          }
+        }),
+        onDoubleTap: () => setState(() {
+          // Solo: show only this category.
+          _wfVisible
+            ..clear()
+            ..add(wf);
+          _showUnscreened = false;
+          _selectedDiscovered = null;
           if (_selected != null && !_visibleVenues.contains(_selected)) {
             _selected = null;
           }
@@ -931,9 +953,15 @@ class _MapScreenState extends State<MapScreen> {
         ]),
         const SizedBox(height: 3),
         row(Brand.red, 'Work-friendly', WorkFriendly.yes),
-        row(const Color(0xFF9AA3AD), 'Not for laptops', WorkFriendly.no),
+        row(const Color(0xFF4A5561), 'Not for laptops', WorkFriendly.no),
         row(Brand.amber, 'Unknown · confirm & earn', WorkFriendly.unknown),
         _unscreenedLegendRow(),
+        Padding(
+          padding: const EdgeInsets.only(top: 2, left: 2),
+          child: Text('double-tap a row to show only that type',
+              style:
+                  TextStyle(fontSize: 9, color: Colors.grey.shade500)),
+        ),
       ]),
     );
   }
