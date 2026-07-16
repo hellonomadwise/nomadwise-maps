@@ -12,5 +12,5 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          GOOGLE_PLACES_KEY: ${{ secrets.GOOGLE_PLACES_KEY }}
+          GOOGLE_PLACES_KEY: ${{ secrets.GOOGLE_PLACES_SERVER_KEY || secrets.GOOGLE_PLACES_KEY }}
         run: python3 scripts/enrich_venues.py

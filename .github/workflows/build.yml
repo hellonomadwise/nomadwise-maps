@@ -78,7 +78,9 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          GOOGLE_PLACES_KEY: ${{ secrets.GOOGLE_PLACES_KEY }}
+          # Server-side job: uses the server key (no website restriction);
+          # falls back to the browser key if the server key isn't set yet.
+          GOOGLE_PLACES_KEY: ${{ secrets.GOOGLE_PLACES_SERVER_KEY || secrets.GOOGLE_PLACES_KEY }}
         run: |
           if [ -n "$SUPABASE_SERVICE_ROLE_KEY" ] && [ -n "$GOOGLE_PLACES_KEY" ]; then
             python3 scripts/enrich_venues.py
