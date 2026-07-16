@@ -61,6 +61,12 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
     'comfortable_seating': null,
     'cozy': null,
     'quiet_space': null,
+    // coworking-only questions (shown when type == coworking)
+    'good_for_calls': null,
+    'call_room': null,
+    'monitor': null,
+    'office_chairs': null,
+    'access_24h': null,
   };
 
   Uint8List? _photo;
@@ -101,6 +107,11 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
       _features['comfortable_seating'] = v.comfortableSeating;
       _features['cozy'] = v.cozy;
       _features['quiet_space'] = v.quietSpace;
+      _features['good_for_calls'] = v.goodForCalls;
+      _features['call_room'] = v.callRoom;
+      _features['monitor'] = v.monitorAvailable;
+      _features['office_chairs'] = v.officeChairs;
+      _features['access_24h'] = v.access24h;
     }
   }
 
@@ -400,6 +411,21 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
           _triState('Comfortable seating', 'comfortable_seating'),
           _triState('Cozy', 'cozy'),
           _triState('Quiet space', 'quiet_space'),
+          if (_type == 'coworking') ...[
+            const SizedBox(height: 12),
+            const Text('COWORKING EXTRAS',
+                style: TextStyle(
+                    color: Brand.red,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 13,
+                    letterSpacing: 1)),
+            const SizedBox(height: 4),
+            _triState('Good for calls', 'good_for_calls'),
+            _triState('Call/Skype room', 'call_room'),
+            _triState('Monitor available', 'monitor'),
+            _triState('Office chairs', 'office_chairs'),
+            _triState('24h access', 'access_24h'),
+          ],
           const SizedBox(height: 20),
 
           // ---- photo ----
