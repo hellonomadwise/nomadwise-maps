@@ -28,7 +28,13 @@ class PlacesService {
     'regularOpeningHours',
     'location',
     'shortFormattedAddress',
+    'photos',
   ];
+
+  /// Turns a Google photo resource name into a loadable image URL.
+  static String photoUrl(String photoName, {int maxWidth = 900}) =>
+      'https://places.googleapis.com/v1/$photoName/media'
+      '?maxWidthPx=$maxWidth&key=${AppConfig.googlePlacesKey}';
 
   Future<PlaceLive?> details(String placeId) async {
     final hit = _cache[placeId];

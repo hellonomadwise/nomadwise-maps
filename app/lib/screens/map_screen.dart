@@ -55,6 +55,19 @@ class _MapScreenState extends State<MapScreen> {
 
   Future<void> _boot() async {
     await _loadPinIcons();
+
+    // Instant start: show venues remembered from the last visit while the
+    // fresh data and the user's location load in the background.
+    final cached = await _supabase.cachedVenues();
+    if (cached.isNotEmpty && mounted && _loading) {
+      _venues = cached;
+      final (la, ln) = LocationService.fallback();
+      _userLat ??= la;
+      _userLng ??= ln;
+      _computeDistances();
+      setState(() => _loading = false);
+    }
+
     final results = await Future.wait([
       LocationService.current(),
       _supabase.fetchVenues(),
@@ -64,10 +77,13 @@ class _MapScreenState extends State<MapScreen> {
     if (pos != null) {
       _userLat = pos.latitude;
       _userLng = pos.longitude;
+      // If we started from cache with the fallback centre, fly to the user.
+      _map?.animateCamera(CameraUpdate.newLatLngZoom(
+          LatLng(pos.latitude, pos.longitude), 14));
     } else {
       final (la, ln) = LocationService.fallback();
-      _userLat = la;
-      _userLng = ln;
+      _userLat ??= la;
+      _userLng ??= ln;
     }
     _computeDistances();
     if (mounted) setState(() => _loading = false);
@@ -861,6 +877,22 @@ class _VenueListCard extends StatelessWidget {
           ),
           children: [
             _featureWrap(),
+            if (venue.unansweredCount > 0)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Row(children: [
+                  const Icon(Icons.monetization_on,
+                      color: Brand.amber, size: 16),
+                  const SizedBox(width: 5),
+                  Text(
+                    '${venue.unansweredCount} unanswered · earn ${AppConfig.coinsConfirmVenue} coins',
+                    style: const TextStyle(
+                        fontSize: 12,
+                        color: Brand.charcoal,
+                        fontWeight: FontWeight.w500),
+                  ),
+                ]),
+              ),
             const SizedBox(height: 8),
             Row(children: [
               Expanded(

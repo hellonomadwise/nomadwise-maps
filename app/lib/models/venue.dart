@@ -35,6 +35,12 @@ class Venue {
   /// {"mon": "8:00 AM - 4:00 PM", ..., "sun": "Closed"}
   final Map<String, dynamic>? fallbackHours;
 
+  /// When the community last confirmed this venue's info.
+  final DateTime? lastConfirmedAt;
+
+  /// Raw database row (kept for offline caching).
+  final Map<String, dynamic> raw;
+
   /// Live data filled in from Google Places at runtime.
   PlaceLive? live;
 
@@ -66,7 +72,45 @@ class Venue {
         instagram = j['instagram'],
         ratingSnapshot = j['google_rating_snapshot'],
         reviewsSnapshot = j['google_reviews_snapshot'],
-        fallbackHours = j['opening_hours'] as Map<String, dynamic>?;
+        fallbackHours = j['opening_hours'] as Map<String, dynamic>?,
+        lastConfirmedAt = j['last_confirmed_at'] != null
+            ? DateTime.tryParse(j['last_confirmed_at'])
+            : null,
+        raw = j;
+
+  /// How many of the core questions are still unanswered — each one is
+  /// a coin-earning opportunity for contributors.
+  int get unansweredCount => [
+        laptopsAllowed,
+        wifiSpeedMbps,
+        powerOutlets,
+        aircon,
+        comfortableSeating,
+        cozy,
+        quietSpace,
+      ].where((v) => v == null).length;
+
+  /// "today" / "3 days ago" / "2 months ago" — or null if never confirmed.
+  String? get confirmedAgoLabel {
+    final t = lastConfirmedAt;
+    if (t == null) return null;
+    final d = DateTime.now().difference(t);
+    if (d.inDays < 1) return 'today';
+    if (d.inDays == 1) return 'yesterday';
+    if (d.inDays < 30) return '${d.inDays} days ago';
+    if (d.inDays < 365) {
+      final m = (d.inDays / 30).floor();
+      return m == 1 ? '1 month ago' : '$m months ago';
+    }
+    final y = (d.inDays / 365).floor();
+    return y == 1 ? '1 year ago' : '$y years ago';
+  }
+
+  /// Info older than 6 months (or never confirmed) counts as stale —
+  /// which the app presents as an invitation to earn coins.
+  bool get infoIsStale =>
+      lastConfirmedAt == null ||
+      DateTime.now().difference(lastConfirmedAt!).inDays > 180;
 
   WorkFriendly get workFriendly {
     if (laptopsAllowed == true) return WorkFriendly.yes;
@@ -223,6 +267,9 @@ class PlaceLive {
   final double? lng;
   final String? address;
 
+  /// Google photo resource names (turn into URLs via PlacesService.photoUrl).
+  final List<String> photoNames;
+
   /// regularOpeningHours.periods — [{open:{day,hour,minute}, close:{day,hour,minute}}]
   /// Google day: 0 = Sunday … 6 = Saturday.
   final List<dynamic>? periods;
@@ -239,6 +286,9 @@ class PlaceLive {
         lat = (j['location']?['latitude'] as num?)?.toDouble(),
         lng = (j['location']?['longitude'] as num?)?.toDouble(),
         address = j['shortFormattedAddress'] ?? j['formattedAddress'],
+        photoNames = ((j['photos'] as List?) ?? [])
+            .map((p) => p['name'] as String)
+            .toList(),
         periods = (j['currentOpeningHours'] ?? j['regularOpeningHours'])
             ?['periods'],
         weekdayDescriptions =

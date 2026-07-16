@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config.dart';
 import '../models/venue.dart';
@@ -33,11 +35,51 @@ class SupabaseService {
 
   // ---------- venues ----------
 
+  static const _venueCacheKey = 'venues_cache_v1';
+
   Future<List<Venue>> fetchVenues() async {
     final rows = await _db.from('venues').select();
-    return (rows as List)
+    final list = (rows as List)
         .map((r) => Venue.fromJson(Map<String, dynamic>.from(r)))
         .toList();
+    // Remember for instant startup next time.
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+          _venueCacheKey, jsonEncode(list.map((v) => v.raw).toList()));
+    } catch (_) {}
+    return list;
+  }
+
+  /// Venues remembered from the last visit — instant, may be slightly stale.
+  Future<List<Venue>> cachedVenues() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final s = prefs.getString(_venueCacheKey);
+      if (s == null) return [];
+      return (jsonDecode(s) as List)
+          .map((r) => Venue.fromJson(Map<String, dynamic>.from(r)))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Community photos for a venue (verified submissions only), newest first.
+  Future<List<String>> venuePhotoUrls(String venueId) async {
+    try {
+      final rows = await _db
+          .from('venue_photos')
+          .select('photo_path')
+          .eq('venue_id', venueId)
+          .order('verified_at', ascending: false)
+          .limit(10);
+      return (rows as List)
+          .map((r) => photoUrl(r['photo_path'] as String))
+          .toList();
+    } catch (_) {
+      return []; // view not created yet -> just no community photos
+    }
   }
 
   /// Is this Google place already on the map?

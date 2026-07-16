@@ -20,6 +20,7 @@ dependencies:
   # Stops taps on buttons overlaying the map from "falling through"
   # to the map beneath (web platform-view quirk).
   pointer_interceptor: ^0.10.1
+  shared_preferences: ^2.3.2
 
 dev_dependencies:
   flutter_test:
