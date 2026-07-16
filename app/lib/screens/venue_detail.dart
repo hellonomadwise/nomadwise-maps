@@ -396,29 +396,65 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
   Widget _wifiTestButton() {
     if (_testingWifi) {
       return Container(
-        padding: const EdgeInsets.symmetric(vertical: 13),
-        alignment: Alignment.center,
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        decoration: BoxDecoration(
+            color: Brand.amber.withValues(alpha: .18),
+            borderRadius: BorderRadius.circular(14)),
         child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
           const SizedBox(
               width: 16,
               height: 16,
               child: CircularProgressIndicator(
-                  strokeWidth: 2, color: Brand.red)),
+                  strokeWidth: 2, color: Brand.charcoal)),
           const SizedBox(width: 10),
           Text(_testPhase,
-              style: const TextStyle(fontWeight: FontWeight.w500)),
+              style: const TextStyle(
+                  fontWeight: FontWeight.w600, color: Brand.charcoal)),
         ]),
       );
     }
-    return OutlinedButton.icon(
-      onPressed: _testWifi,
-      icon: const Icon(Icons.speed, size: 20),
-      label: Text(venue.wifiSpeedMbps == null
-          ? 'Test the WiFi here now  ·  earn ${AppConfig.coinsWifiTest} coins'
-          : 'Re-test the WiFi  ·  earn ${AppConfig.coinsWifiTest} coins'),
-      style: OutlinedButton.styleFrom(
-          padding: const EdgeInsets.symmetric(vertical: 13),
-          side: const BorderSide(color: Brand.red)),
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: _testWifi,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Brand.amber,
+          foregroundColor: Brand.charcoal,
+          elevation: 0,
+          padding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14)),
+        ),
+        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          const Icon(Icons.speed, size: 20),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              venue.wifiSpeedMbps == null
+                  ? 'Test the WiFi here'
+                  : 'Re-test the WiFi',
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                  fontWeight: FontWeight.w800, fontSize: 15),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(
+                horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: .55),
+                borderRadius: BorderRadius.circular(10)),
+            child: Text('+${AppConfig.coinsWifiTest}',
+                style: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 13,
+                    color: Brand.charcoal)),
+          ),
+        ]),
+      ),
     );
   }
 
