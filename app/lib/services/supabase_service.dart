@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config.dart';
 import '../models/venue.dart';
@@ -21,7 +22,11 @@ class SupabaseService {
 
   Future<void> signInWithGoogle() => _db.auth.signInWithOAuth(
         OAuthProvider.google,
-        redirectTo: AppConfig.authRedirect,
+        // Web: come back to the page the user is on (the app itself).
+        // Mobile: come back into the app via its deep link.
+        redirectTo: kIsWeb
+            ? '${Uri.base.origin}${Uri.base.path}'
+            : AppConfig.authRedirect,
       );
 
   Future<void> signOut() => _db.auth.signOut();
