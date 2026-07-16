@@ -493,6 +493,20 @@ class _MapScreenState extends State<MapScreen> {
 
   // ---------- build ----------
 
+  /// Venues + unscreened places merged, nearest first (for the list view).
+  List<Object> get _listEntries {
+    double distOf(Object e) {
+      if (e is Venue) return e.distanceM ?? double.infinity;
+      final d = e as DiscoveredPlace;
+      if (_userLat == null) return double.infinity;
+      return Venue.haversineM(_userLat!, _userLng!, d.lat, d.lng);
+    }
+
+    final entries = <Object>[..._visibleVenues, ..._visibleDiscovered];
+    entries.sort((a, b) => distOf(a).compareTo(distOf(b)));
+    return entries;
+  }
+
   @override
   Widget build(BuildContext context) {
     final visible = _visibleVenues;
@@ -547,22 +561,56 @@ class _MapScreenState extends State<MapScreen> {
                       color: Colors.white,
                       padding: EdgeInsets.only(
                           top: MediaQuery.of(context).padding.top + 96),
-                      child: visible.isEmpty
+                      child: _listEntries.isEmpty
                           ? Center(
-                              child: Text(
-                                  'No $_noun match these filters.',
-                                  style: TextStyle(
-                                      color: Colors.grey.shade600)))
+                              child: Padding(
+                                padding: const EdgeInsets.all(32),
+                                child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text('No $_noun match these filters.',
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                              color:
+                                                  Colors.grey.shade600)),
+                                      const SizedBox(height: 14),
+                                      OutlinedButton.icon(
+                                          onPressed: () {
+                                            setState(
+                                                () => _showList = false);
+                                            _searchThisArea();
+                                          },
+                                          icon: const Icon(
+                                              Icons.coffee_outlined,
+                                              size: 18),
+                                          label: const Text(
+                                              'Search this area for cafes')),
+                                    ]),
+                              ))
                           : ListView.builder(
                               padding:
                                   const EdgeInsets.fromLTRB(12, 0, 12, 90),
-                              itemCount: visible.length,
-                              itemBuilder: (_, i) => _VenueListCard(
-                                venue: visible[i],
-                                onDetails: () => _openDetail(visible[i]),
-                                onConfirm: () => _openAddVenue(
-                                    confirming: visible[i]),
-                              ),
+                              itemCount: _listEntries.length,
+                              itemBuilder: (_, i) {
+                                final e = _listEntries[i];
+                                if (e is Venue) {
+                                  return _VenueListCard(
+                                    venue: e,
+                                    onDetails: () => _openDetail(e),
+                                    onConfirm: () =>
+                                        _openAddVenue(confirming: e),
+                                  );
+                                }
+                                final d = e as DiscoveredPlace;
+                                return _DiscoveredListCard(
+                                  place: d,
+                                  distanceM: _userLat == null
+                                      ? null
+                                      : Venue.haversineM(_userLat!,
+                                          _userLng!, d.lat, d.lng),
+                                  onScreen: () => _openScreening(d),
+                                );
+                              },
                             ),
                     ),
                   ),
@@ -833,9 +881,13 @@ class _MapScreenState extends State<MapScreen> {
           color: Brand.charcoal.withValues(alpha: .85),
           borderRadius: BorderRadius.circular(12)),
       child: Text(
-        _anyFilterOn
-            ? '$shown of ${_venues.length} $_noun shown'
-            : '${_venues.length} $_noun',
+        [
+          _anyFilterOn
+              ? '$shown of ${_venues.length} $_noun shown'
+              : '${_venues.length} $_noun',
+          if (_visibleDiscovered.isNotEmpty)
+            '${_visibleDiscovered.length} unscreened',
+        ].join(' · '),
         style: const TextStyle(
             color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500),
       ),
@@ -1294,6 +1346,85 @@ class _VenueListCard extends StatelessWidget {
       chip('Cozy', venue.cozy),
       chip('Quiet', venue.quietSpace),
     ]);
+  }
+}
+
+// ============================================================
+// List-view row for an unscreened place
+// ============================================================
+
+class _DiscoveredListCard extends StatelessWidget {
+  final DiscoveredPlace place;
+  final double? distanceM;
+  final VoidCallback onScreen;
+  const _DiscoveredListCard(
+      {required this.place, this.distanceM, required this.onScreen});
+
+  String get _distLabel {
+    final d = distanceM;
+    if (d == null) return '';
+    if (d < 1000) return '${d.round()} m';
+    return '${(d / 1000).toStringAsFixed(1)} km';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      elevation: 1.5,
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: Colors.grey.shade200)),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+        child: Row(children: [
+          const Icon(Icons.location_on,
+              size: 30, color: Color(0xFFC7CDD4)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(place.name,
+                      style:
+                          const TextStyle(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 2),
+                  Wrap(
+                      spacing: 8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        if (_distLabel.isNotEmpty)
+                          Text(_distLabel,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w500,
+                                  fontSize: 13)),
+                        if (place.rating != null)
+                          Row(mainAxisSize: MainAxisSize.min, children: [
+                            const Icon(Icons.star,
+                                color: Brand.amber, size: 14),
+                            Text(' ${place.rating}',
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 13)),
+                          ]),
+                        Text('Unscreened',
+                            style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade500)),
+                      ]),
+                ]),
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton(
+              onPressed: onScreen,
+              style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 10)),
+              child: Text('+${AppConfig.coinsNewVenue}',
+                  style: const TextStyle(fontSize: 14))),
+        ]),
+      ),
+    );
   }
 }
 
