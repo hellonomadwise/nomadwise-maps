@@ -959,6 +959,29 @@ class _MapScreenState extends State<MapScreen> {
         row(const Color(0xFF4A5561), 'Not for laptops', WorkFriendly.no),
         row(Brand.amber, 'Unknown · confirm & earn', WorkFriendly.unknown),
         _unscreenedLegendRow(),
+        if (pinsHidden)
+          InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: () => setState(() {
+              _wfVisible
+                ..clear()
+                ..addAll(WorkFriendly.values);
+              _showUnscreened = true;
+            }),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                  vertical: 5, horizontal: 2),
+              child: Row(mainAxisSize: MainAxisSize.min, children: const [
+                Icon(Icons.refresh, size: 14, color: Brand.red),
+                SizedBox(width: 5),
+                Text('Show all pins',
+                    style: TextStyle(
+                        fontSize: 11,
+                        color: Brand.red,
+                        fontWeight: FontWeight.w700)),
+              ]),
+            ),
+          ),
         Padding(
           padding: const EdgeInsets.only(top: 2, left: 2),
           child: Text('double-tap a row to show only that type',
