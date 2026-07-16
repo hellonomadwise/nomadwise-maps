@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:pointer_interceptor/pointer_interceptor.dart';
 
 import '../config.dart';
 import '../models/venue.dart';
@@ -72,6 +73,24 @@ class _MapScreenState extends State<MapScreen> {
     _pinNo = await BitmapDescriptor.asset(cfg, 'assets/pins/pin_no.png');
     _pinUnknown =
         await BitmapDescriptor.asset(cfg, 'assets/pins/pin_unknown.png');
+  }
+
+  Future<void> _goToMyLocation() async {
+    final pos = await LocationService.current();
+    if (pos == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text(
+                'Location unavailable — check your browser/phone location permission.')));
+      }
+      return;
+    }
+    _userLat = pos.latitude;
+    _userLng = pos.longitude;
+    _computeDistances();
+    if (mounted) setState(() {});
+    _map?.animateCamera(CameraUpdate.newLatLngZoom(
+        LatLng(pos.latitude, pos.longitude), 15));
   }
 
   void _computeDistances() {
@@ -180,18 +199,44 @@ class _MapScreenState extends State<MapScreen> {
               ),
               // ---- filter chips ----
               Positioned(
-                top: 10,
+                top: 0,
                 left: 0,
                 right: 0,
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Row(children: [
-                    _chip('Open now', VenueFilter.openNow),
-                    _chip('Open late', VenueFilter.openLate),
-                    _chip('24 hours', VenueFilter.open24h),
-                    _chip('Work-friendly', VenueFilter.workFriendly),
-                  ]),
+                child: SafeArea(
+                  bottom: false,
+                  child: PointerInterceptor(
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+                      child: Row(children: [
+                        _chip('Open now', VenueFilter.openNow),
+                        _chip('Open late', VenueFilter.openLate),
+                        _chip('24 hours', VenueFilter.open24h),
+                        _chip('Work-friendly', VenueFilter.workFriendly),
+                      ]),
+                    ),
+                  ),
+                ),
+              ),
+              // ---- locate me ----
+              Positioned(
+                right: 14,
+                bottom: _selected == null ? 96 : 210,
+                child: PointerInterceptor(
+                  child: Material(
+                    color: Colors.white,
+                    shape: const CircleBorder(),
+                    elevation: 4,
+                    child: InkWell(
+                      customBorder: const CircleBorder(),
+                      onTap: _goToMyLocation,
+                      child: const Padding(
+                        padding: EdgeInsets.all(12),
+                        child: Icon(Icons.my_location,
+                            color: Brand.red, size: 22),
+                      ),
+                    ),
+                  ),
                 ),
               ),
               if (_selected != null)
@@ -199,21 +244,24 @@ class _MapScreenState extends State<MapScreen> {
                     left: 12,
                     right: 12,
                     bottom: 24,
-                    child: _VenueCard(
-                        venue: _selected!,
-                        onDetails: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (_) => VenueDetailScreen(
-                                    venue: _selected!,
-                                    onConfirm: () => _openAddVenue(
-                                        confirming: _selected)))))),
+                    child: PointerInterceptor(
+                        child: _VenueCard(
+                            venue: _selected!,
+                            onDetails: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (_) => VenueDetailScreen(
+                                        venue: _selected!,
+                                        onConfirm: () => _openAddVenue(
+                                            confirming: _selected))))))),
             ]),
       floatingActionButton: _selected == null
-          ? FloatingActionButton.extended(
-              onPressed: () => _openAddVenue(),
-              icon: const Icon(Icons.add_location_alt_outlined),
-              label: const Text('Add / confirm a cafe'),
+          ? PointerInterceptor(
+              child: FloatingActionButton.extended(
+                onPressed: () => _openAddVenue(),
+                icon: const Icon(Icons.add_location_alt_outlined),
+                label: const Text('Add / confirm a cafe'),
+              ),
             )
           : null,
     );
@@ -225,10 +273,14 @@ class _MapScreenState extends State<MapScreen> {
       padding: const EdgeInsets.only(right: 8),
       child: FilterChip(
         label: Text(label,
-            style: TextStyle(color: on ? Colors.white : Brand.charcoal)),
+            style: TextStyle(
+                color: on ? Colors.white : Brand.charcoal,
+                fontWeight: FontWeight.w500)),
         selected: on,
         showCheckmark: false,
-        elevation: 2,
+        elevation: 3,
+        pressElevation: 1,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         onSelected: (_) => setState(() {
           on ? _filters.remove(f) : _filters.add(f);
           if (_selected != null && !_visibleVenues.contains(_selected)) {

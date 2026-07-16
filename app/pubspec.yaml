@@ -17,6 +17,9 @@ dependencies:
   intl: ^0.20.2
   url_launcher: ^6.3.1
   cupertino_icons: ^1.0.8
+  # Stops taps on buttons overlaying the map from "falling through"
+  # to the map beneath (web platform-view quirk).
+  pointer_interceptor: ^0.10.1
 
 dev_dependencies:
   flutter_test:
