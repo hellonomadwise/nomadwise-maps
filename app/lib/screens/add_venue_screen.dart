@@ -72,6 +72,24 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
   Uint8List? _photo;
   bool _saving = false;
 
+  /// Google's photos of the place, shown so the reviewer can see what
+  /// they're assessing.
+  List<String> _refPhotos = [];
+  num? _refRating;
+
+  Future<void> _loadReference(String placeId) async {
+    final live = await _places.details(placeId);
+    if (mounted && live != null) {
+      setState(() {
+        _refPhotos = live.photoNames
+            .take(6)
+            .map((n) => PlacesService.photoUrl(n, maxWidth: 500))
+            .toList();
+        _refRating = live.rating;
+      });
+    }
+  }
+
   bool get isConfirm => _confirmTarget != null;
   Venue? get _confirmTarget => widget.confirming ?? _existing;
 
@@ -86,6 +104,9 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
       _placeLat = s.lat;
       _placeLng = s.lng;
       if (s.primaryType == 'coworking_space') _type = 'coworking';
+      _loadReference(s.placeId);
+    } else if (widget.confirming?.googlePlaceId != null) {
+      _loadReference(widget.confirming!.googlePlaceId!);
     }
   }
 
@@ -166,6 +187,13 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
       _placeLat = live?.lat;
       _placeLng = live?.lng;
       if (live?.displayName != null) _name.text = live!.displayName!;
+      if (live != null) {
+        _refPhotos = live.photoNames
+            .take(6)
+            .map((n) => PlacesService.photoUrl(n, maxWidth: 500))
+            .toList();
+        _refRating = live.rating;
+      }
     });
   }
 
@@ -315,6 +343,39 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
                   color: Colors.white, fontWeight: FontWeight.w700),
             ),
           ),
+          if (_refPhotos.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            SizedBox(
+              height: 110,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: _refPhotos.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                itemBuilder: (_, i) => ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.network(_refPhotos[i],
+                      width: 150,
+                      height: 110,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) =>
+                          const SizedBox(width: 150)),
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Row(children: [
+              Text('Photos from Google, for reference',
+                  style: TextStyle(
+                      fontSize: 11, color: Colors.grey.shade500)),
+              const Spacer(),
+              if (_refRating != null) ...[
+                const Icon(Icons.star, color: Brand.amber, size: 14),
+                Text(' $_refRating',
+                    style: const TextStyle(
+                        fontSize: 12, fontWeight: FontWeight.w700)),
+              ],
+            ]),
+          ],
           const SizedBox(height: 20),
           TextFormField(
             controller: _name,
