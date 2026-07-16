@@ -21,6 +21,10 @@ class AppConfig {
   /// from Google, so it's easier than the old "add a venue" — hence 50).
   static const coinsNewVenue = 50;
   static const coinsConfirmVenue = 30;
+
+  /// Running the in-app wifi speed test at a venue (max once per space
+  /// per month per user; enforced in the database).
+  static const coinsWifiTest = 100;
   static const cashOutThreshold = 5000; // coins
   static const cashOutValueEuro = 50; // €
 

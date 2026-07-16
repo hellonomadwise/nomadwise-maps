@@ -3,9 +3,12 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../config.dart';
 import '../models/venue.dart';
+import '../services/location_service.dart';
 import '../services/places_service.dart';
+import '../services/speed_test_service.dart';
 import '../services/supabase_service.dart';
 import '../theme.dart';
+import 'auth_screen.dart';
 
 class VenueDetailScreen extends StatefulWidget {
   final Venue venue;
@@ -20,6 +23,8 @@ class VenueDetailScreen extends StatefulWidget {
 class _VenueDetailScreenState extends State<VenueDetailScreen> {
   final _supabase = SupabaseService();
   List<String> _photos = [];
+  bool _testingWifi = false;
+  String _testPhase = '';
   int _photoIndex = 0;
 
   Venue get venue => widget.venue;
@@ -118,8 +123,10 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
                 ]),
                 const SizedBox(height: 16),
 
-                // ---- wifi hero ----
+                // ---- wifi hero + in-place speed test ----
                 _wifiHero(),
+                const SizedBox(height: 8),
+                _wifiTestButton(),
                 const SizedBox(height: 14),
 
                 // ---- Google live block ----
@@ -375,14 +382,132 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
                 children: [
                   const Text('WiFi speed not measured yet',
                       style: TextStyle(fontWeight: FontWeight.w700)),
-                  Text(
-                      'Know it? Confirm this venue and earn ${AppConfig.coinsConfirmVenue} coins.',
+                  Text('Sitting there right now? Test it below.',
                       style: TextStyle(
                           fontSize: 12, color: Colors.grey.shade600)),
                 ]),
           ),
       ]),
     );
+  }
+
+  Widget _wifiTestButton() {
+    if (_testingWifi) {
+      return Container(
+        padding: const EdgeInsets.symmetric(vertical: 13),
+        alignment: Alignment.center,
+        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                  strokeWidth: 2, color: Brand.red)),
+          const SizedBox(width: 10),
+          Text(_testPhase,
+              style: const TextStyle(fontWeight: FontWeight.w500)),
+        ]),
+      );
+    }
+    return OutlinedButton.icon(
+      onPressed: _testWifi,
+      icon: const Icon(Icons.speed, size: 20),
+      label: Text(venue.wifiSpeedMbps == null
+          ? 'Test the WiFi here now  ·  earn ${AppConfig.coinsWifiTest} coins'
+          : 'Re-test the WiFi  ·  earn ${AppConfig.coinsWifiTest} coins'),
+      style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 13),
+          side: const BorderSide(color: Brand.red)),
+    );
+  }
+
+  Future<void> _testWifi() async {
+    if (!_supabase.signedIn) {
+      final ok = await Navigator.push<bool>(context,
+          MaterialPageRoute(builder: (_) => const AuthScreen()));
+      if (ok != true) return;
+    }
+    if (!mounted) return;
+    setState(() {
+      _testingWifi = true;
+      _testPhase = 'Starting…';
+    });
+    final mbps = await SpeedTestService.measureMbps(
+        onPhase: (p) => mounted ? setState(() => _testPhase = p) : null);
+    if (!mounted) return;
+    setState(() => _testingWifi = false);
+    if (mbps == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content:
+              Text('Could not measure. Check the connection and retry.')));
+      return;
+    }
+    final submit = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20)),
+              title: Row(children: [
+                const Icon(Icons.wifi, color: Brand.red),
+                const SizedBox(width: 8),
+                Text('$mbps Mbps'),
+              ]),
+              content: Text(
+                  'Measured on the connection you\'re using right now. '
+                  'Submit it for ${venue.name}?'),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    child: const Text('Discard')),
+                ElevatedButton(
+                    onPressed: () => Navigator.pop(ctx, true),
+                    child: Text(
+                        'Submit  ·  +${AppConfig.coinsWifiTest} coins')),
+              ],
+            ));
+    if (submit != true || !mounted) return;
+    final pos = await LocationService.current();
+    if (pos == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text(
+                'Location is needed to verify you\'re at the venue.')));
+      }
+      return;
+    }
+    double? distance;
+    if (venue.lat != null && venue.lng != null) {
+      distance = Venue.haversineM(
+          pos.latitude, pos.longitude, venue.lat!, venue.lng!);
+    }
+    await _supabase.submit(
+      kind: 'wifi_test',
+      venueId: venue.id,
+      payload: {'wifi_speed_mbps': mbps},
+      gpsLat: pos.latitude,
+      gpsLng: pos.longitude,
+      gpsDistanceM: distance,
+    );
+    if (!mounted) return;
+    showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20)),
+              title: Row(children: [
+                const Icon(Icons.monetization_on, color: Brand.amber),
+                const SizedBox(width: 8),
+                Text('+${AppConfig.coinsWifiTest} coins'),
+              ]),
+              content: const Text(
+                  'Thanks! Coins are credited after verification, '
+                  'usually within 5 minutes. (WiFi tests pay once per '
+                  'space per month.)'),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('Nice!'))
+              ],
+            ));
   }
 
   Widget _freshnessBadge() {
