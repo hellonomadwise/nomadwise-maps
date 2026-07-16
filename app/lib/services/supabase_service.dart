@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config.dart';
+import '../models/discovered_place.dart';
 import '../models/venue.dart';
 
 /// All reads/writes to the Nomadwise Supabase backend live here.
@@ -63,6 +64,38 @@ class SupabaseService {
     } catch (_) {
       return [];
     }
+  }
+
+  // ---------- discovery ----------
+
+  /// Unscreened places already cached for a map area.
+  Future<List<DiscoveredPlace>> discoveredInBounds(double minLat,
+      double maxLat, double minLng, double maxLng) async {
+    try {
+      final rows = await _db
+          .from('discovered_places')
+          .select()
+          .gte('lat', minLat)
+          .lte('lat', maxLat)
+          .gte('lng', minLng)
+          .lte('lng', maxLng)
+          .limit(200);
+      return (rows as List)
+          .map((r) => DiscoveredPlace.fromRow(Map<String, dynamic>.from(r)))
+          .toList();
+    } catch (_) {
+      return []; // table not created yet
+    }
+  }
+
+  /// Remember Google results so this area never needs a second Google call.
+  Future<void> cacheDiscovered(List<DiscoveredPlace> places) async {
+    if (places.isEmpty) return;
+    try {
+      await _db.from('discovered_places').upsert(
+          places.map((p) => p.toRow()).toList(),
+          onConflict: 'google_place_id');
+    } catch (_) {}
   }
 
   /// Community photos for a venue (verified submissions only), newest first.

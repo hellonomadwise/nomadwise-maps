@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../config.dart';
+import '../models/discovered_place.dart';
 import '../models/venue.dart';
 
 class PlaceSuggestion {
@@ -56,6 +57,43 @@ class PlacesService {
       return live;
     } catch (_) {
       return null;
+    }
+  }
+
+  /// Find cafes & coworking spaces Google knows about around a point.
+  /// Used by "Search this area" — results get cached in Supabase so the
+  /// same area never costs a second Google call.
+  Future<List<DiscoveredPlace>> searchNearby(
+      double lat, double lng, double radiusM) async {
+    try {
+      final resp = await http.post(
+        Uri.parse('https://places.googleapis.com/v1/places:searchNearby'),
+        headers: {
+          'X-Goog-Api-Key': AppConfig.googlePlacesKey,
+          'Content-Type': 'application/json',
+          'X-Goog-FieldMask':
+              'places.id,places.displayName,places.location,'
+              'places.primaryType,places.rating,places.userRatingCount',
+        },
+        body: jsonEncode({
+          'includedTypes': ['cafe', 'coffee_shop'],
+          'maxResultCount': 20,
+          'locationRestriction': {
+            'circle': {
+              'center': {'latitude': lat, 'longitude': lng},
+              'radius': radiusM.clamp(200.0, 50000.0),
+            }
+          },
+        }),
+      );
+      if (resp.statusCode != 200) return [];
+      final places = (jsonDecode(resp.body)['places'] as List?) ?? [];
+      return places
+          .map((p) =>
+              DiscoveredPlace.fromGoogle(Map<String, dynamic>.from(p)))
+          .toList();
+    } catch (_) {
+      return [];
     }
   }
 

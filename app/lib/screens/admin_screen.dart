@@ -178,7 +178,7 @@ class _SubmissionCardState extends State<_SubmissionCard> {
               decoration: BoxDecoration(
                   color: isNew ? Brand.red : Brand.amber,
                   borderRadius: BorderRadius.circular(12)),
-              child: Text(isNew ? 'NEW VENUE' : 'CONFIRMATION',
+              child: Text(isNew ? 'NEW SPACE' : 'CONFIRMATION',
                   style: const TextStyle(
                       color: Colors.white,
                       fontSize: 11,

@@ -4,6 +4,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 
 import '../config.dart';
+import '../models/discovered_place.dart';
 import '../models/venue.dart';
 import '../services/location_service.dart';
 import '../services/places_service.dart';
@@ -33,13 +34,17 @@ class _MapScreenState extends State<MapScreen> {
   String? _typeFilter; // null = all, 'cafe', 'coworking'
   // Which pin colours are visible (tap the legend to toggle).
   final Set<WorkFriendly> _wfVisible = {...WorkFriendly.values};
+  bool _showUnscreened = true;
   bool _showList = false;
   Venue? _selected;
+  DiscoveredPlace? _selectedDiscovered;
+  List<DiscoveredPlace> _discovered = [];
+  bool _searchingArea = false;
   double? _userLat, _userLng;
   bool _loading = true;
   bool _isAdmin = false;
 
-  BitmapDescriptor? _pinYes, _pinNo, _pinUnknown;
+  BitmapDescriptor? _pinYes, _pinNo, _pinUnknown, _pinUnscreened;
 
   @override
   void initState() {
@@ -101,6 +106,95 @@ class _MapScreenState extends State<MapScreen> {
     _pinNo = await BitmapDescriptor.asset(cfg, 'assets/pins/pin_no.png');
     _pinUnknown =
         await BitmapDescriptor.asset(cfg, 'assets/pins/pin_unknown.png');
+    _pinUnscreened = await BitmapDescriptor.asset(
+        cfg, 'assets/pins/pin_unscreened.png');
+  }
+
+  // ---------- discovery ("Search this area") ----------
+
+  Future<void> _searchThisArea() async {
+    final map = _map;
+    if (map == null || _searchingArea) return;
+    setState(() => _searchingArea = true);
+    try {
+      final bounds = await map.getVisibleRegion();
+      final cLat = (bounds.southwest.latitude +
+              bounds.northeast.latitude) /
+          2;
+      final cLng = (bounds.southwest.longitude +
+              bounds.northeast.longitude) /
+          2;
+
+      // 1. Our own cache first — free.
+      final cached = await _supabase.discoveredInBounds(
+          bounds.southwest.latitude,
+          bounds.northeast.latitude,
+          bounds.southwest.longitude,
+          bounds.northeast.longitude);
+      _mergeDiscovered(cached);
+
+      // 2. Ask Google only when this area is still thin.
+      if (cached.length < 5) {
+        final radius = Venue.haversineM(
+                cLat, cLng,
+                bounds.northeast.latitude, bounds.northeast.longitude)
+            .clamp(300.0, 5000.0);
+        final fresh = await _places.searchNearby(cLat, cLng, radius);
+        await _supabase.cacheDiscovered(fresh);
+        _mergeDiscovered(fresh);
+      }
+      if (mounted) {
+        final n = _visibleDiscovered.length;
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            duration: const Duration(seconds: 2),
+            content: Text(n == 0
+                ? 'No unscreened cafes found here yet.'
+                : '$n unscreened cafes here — screen one & earn ${AppConfig.coinsNewVenue} coins!')));
+      }
+    } finally {
+      if (mounted) setState(() => _searchingArea = false);
+    }
+  }
+
+  void _mergeDiscovered(List<DiscoveredPlace> more) {
+    final have = _discovered.map((d) => d.placeId).toSet();
+    _discovered = [
+      ..._discovered,
+      ...more.where((d) => !have.contains(d.placeId)),
+    ];
+    if (mounted) setState(() {});
+  }
+
+  /// Discovered places not yet on our map as venues.
+  List<DiscoveredPlace> get _visibleDiscovered {
+    if (!_showUnscreened) return [];
+    final venuePlaceIds =
+        _venues.map((v) => v.googlePlaceId).whereType<String>().toSet();
+    return _discovered
+        .where((d) => !venuePlaceIds.contains(d.placeId))
+        .toList();
+  }
+
+  Future<void> _openScreening(DiscoveredPlace p) async {
+    if (!_supabase.signedIn) {
+      final ok = await Navigator.push<bool>(context,
+          MaterialPageRoute(builder: (_) => const AuthScreen()));
+      if (ok != true) return;
+    }
+    if (!mounted) return;
+    await Navigator.push(
+        context,
+        MaterialPageRoute(
+            builder: (_) => AddVenueScreen(
+                screening: p,
+                userLat: _userLat,
+                userLng: _userLng)));
+    // Their new pending venue should appear for them right away.
+    _venues = await _supabase.fetchVenues();
+    _computeDistances();
+    if (mounted) {
+      setState(() => _selectedDiscovered = null);
+    }
   }
 
   Future<void> _goToMyLocation() async {
@@ -170,15 +264,29 @@ class _MapScreenState extends State<MapScreen> {
           _pinUnknown ?? BitmapDescriptor.defaultMarkerWithHue(30),
       };
 
-  Set<Marker> get _markers => _visibleVenues
-      .map((v) => Marker(
-            markerId: MarkerId(v.id),
-            position: LatLng(v.lat!, v.lng!),
-            icon: _iconFor(v),
-            alpha: v.workFriendly == WorkFriendly.no ? 0.55 : 1.0,
-            onTap: () => setState(() => _selected = v),
-          ))
-      .toSet();
+  Set<Marker> get _markers => {
+        ..._visibleVenues.map((v) => Marker(
+              markerId: MarkerId(v.id),
+              position: LatLng(v.lat!, v.lng!),
+              icon: _iconFor(v),
+              alpha: v.workFriendly == WorkFriendly.no ? 0.55 : 1.0,
+              onTap: () => setState(() {
+                _selected = v;
+                _selectedDiscovered = null;
+              }),
+            )),
+        ..._visibleDiscovered.map((d) => Marker(
+              markerId: MarkerId('disc-${d.placeId}'),
+              position: LatLng(d.lat, d.lng),
+              icon: _pinUnscreened ??
+                  BitmapDescriptor.defaultMarkerWithHue(200),
+              alpha: 0.92,
+              onTap: () => setState(() {
+                _selectedDiscovered = d;
+                _selected = null;
+              }),
+            )),
+      };
 
   Future<void> _openAddVenue({Venue? confirming}) async {
     if (!_supabase.signedIn) {
@@ -396,7 +504,10 @@ class _MapScreenState extends State<MapScreen> {
                 zoomControlsEnabled: false,
                 markers: _markers,
                 onMapCreated: (c) => _map = c,
-                onTap: (_) => setState(() => _selected = null),
+                onTap: (_) => setState(() {
+                  _selected = null;
+                  _selectedDiscovered = null;
+                }),
               ),
 
               // ---- list panel (over the map, under the chips) ----
@@ -472,11 +583,61 @@ class _MapScreenState extends State<MapScreen> {
                 child: PointerInterceptor(child: _legend()),
               ),
 
+              // ---- "Search this area" (map mode only) ----
+              if (!_showList)
+                Positioned(
+                  bottom: 26,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: PointerInterceptor(
+                      child: Material(
+                        color: Colors.white,
+                        elevation: 4,
+                        borderRadius: BorderRadius.circular(24),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(24),
+                          onTap: _searchThisArea,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 10),
+                            child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  _searchingArea
+                                      ? const SizedBox(
+                                          width: 16,
+                                          height: 16,
+                                          child:
+                                              CircularProgressIndicator(
+                                                  strokeWidth: 2,
+                                                  color: Brand.red))
+                                      : const Icon(Icons.coffee_outlined,
+                                          size: 17, color: Brand.red),
+                                  const SizedBox(width: 7),
+                                  Text(
+                                      _searchingArea
+                                          ? 'Searching…'
+                                          : 'Search this area',
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 13,
+                                          color: Brand.charcoal)),
+                                ]),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
               // ---- locate me (map mode only) ----
               if (!_showList)
                 Positioned(
                   right: 14,
-                  bottom: _selected == null ? 96 : 210,
+                  bottom: _selected == null && _selectedDiscovered == null
+                      ? 96
+                      : 210,
                   child: PointerInterceptor(
                     child: Material(
                       color: Colors.white,
@@ -504,16 +665,28 @@ class _MapScreenState extends State<MapScreen> {
                         child: _VenueCard(
                             venue: _selected!,
                             onDetails: () => _openDetail(_selected!)))),
+
+              if (_selectedDiscovered != null && !_showList)
+                Positioned(
+                    left: 12,
+                    right: 12,
+                    bottom: 24,
+                    child: PointerInterceptor(
+                        child: _DiscoveredCard(
+                            place: _selectedDiscovered!,
+                            onScreen: () =>
+                                _openScreening(_selectedDiscovered!)))),
             ]),
-      floatingActionButton: _selected == null
-          ? PointerInterceptor(
-              child: FloatingActionButton.extended(
-                onPressed: () => _openAddVenue(),
-                icon: const Icon(Icons.add_location_alt_outlined),
-                label: const Text('Add / confirm a cafe'),
-              ),
-            )
-          : null,
+      floatingActionButton:
+          _selected == null && _selectedDiscovered == null
+              ? PointerInterceptor(
+                  child: FloatingActionButton.extended(
+                    onPressed: () => _openAddVenue(),
+                    icon: const Icon(Icons.rate_review_outlined),
+                    label: const Text('Review a space'),
+                  ),
+                )
+              : null,
     );
   }
 
@@ -605,6 +778,36 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
+  Widget _unscreenedLegendRow() {
+    final on = _showUnscreened;
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: () => setState(() {
+        _showUnscreened = !_showUnscreened;
+        if (!_showUnscreened) _selectedDiscovered = null;
+      }),
+      child: Opacity(
+        opacity: on ? 1 : .35,
+        child: Padding(
+          padding:
+              const EdgeInsets.symmetric(vertical: 3, horizontal: 2),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(on ? Icons.location_on : Icons.location_off,
+                size: 16, color: const Color(0xFFC7CDD4)),
+            const SizedBox(width: 5),
+            Text('Unscreened · review & earn',
+                style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    decoration: on
+                        ? TextDecoration.none
+                        : TextDecoration.lineThrough)),
+          ]),
+        ),
+      ),
+    );
+  }
+
   Widget _countBadge(int shown) {
     if (!_anyFilterOn && !_showList) return const SizedBox.shrink();
     return Container(
@@ -674,6 +877,7 @@ class _MapScreenState extends State<MapScreen> {
         row(Brand.red, 'Work-friendly', WorkFriendly.yes),
         row(const Color(0xFF9AA3AD), 'Not for laptops', WorkFriendly.no),
         row(Brand.amber, 'Unknown · confirm & earn', WorkFriendly.unknown),
+        _unscreenedLegendRow(),
         Padding(
           padding: const EdgeInsets.only(top: 2, left: 2),
           child: Text('tap to filter',
@@ -986,6 +1190,75 @@ class _VenueListCard extends StatelessWidget {
       chip('Cozy', venue.cozy),
       chip('Quiet', venue.quietSpace),
     ]);
+  }
+}
+
+// ============================================================
+// Card for an unscreened (Google-discovered) place
+// ============================================================
+
+class _DiscoveredCard extends StatelessWidget {
+  final DiscoveredPlace place;
+  final VoidCallback onScreen;
+  const _DiscoveredCard({required this.place, required this.onScreen});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 6,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Row(children: [
+            Expanded(
+                child: Text(place.name,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w700, fontSize: 17))),
+            if (place.rating != null) ...[
+              const Icon(Icons.star, color: Brand.amber, size: 18),
+              Text(' ${place.rating}',
+                  style: const TextStyle(fontWeight: FontWeight.w700)),
+              if (place.userRatingCount != null)
+                Text(' (${place.userRatingCount})',
+                    style: TextStyle(
+                        color: Colors.grey.shade600, fontSize: 12)),
+            ],
+          ]),
+          const SizedBox(height: 8),
+          Row(children: [
+            Container(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                  color: Colors.blueGrey.withValues(alpha: .1),
+                  borderRadius: BorderRadius.circular(20)),
+              child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.help_outline, size: 15, color: Colors.blueGrey),
+                SizedBox(width: 5),
+                Text('Not screened by nomads yet',
+                    style: TextStyle(
+                        color: Colors.blueGrey,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12)),
+              ]),
+            ),
+            const Spacer(),
+          ]),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: onScreen,
+              icon: const Icon(Icons.rate_review_outlined, size: 19),
+              label: Text(
+                  'Screen this space  ·  earn ${AppConfig.coinsNewVenue} coins'),
+            ),
+          ),
+        ]),
+      ),
+    );
   }
 }
 

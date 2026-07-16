@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../config.dart';
+import '../models/discovered_place.dart';
 import '../models/venue.dart';
 import '../services/location_service.dart';
 import '../services/places_service.dart';
@@ -18,9 +19,17 @@ import '../theme.dart';
 /// (photo + you-were-actually-there check) before coins unlock.
 class AddVenueScreen extends StatefulWidget {
   final Venue? confirming;
+
+  /// Set when the user tapped an unscreened (Google-discovered) pin —
+  /// the place identity is prefilled and locked.
+  final DiscoveredPlace? screening;
   final double? userLat, userLng;
   const AddVenueScreen(
-      {super.key, this.confirming, this.userLat, this.userLng});
+      {super.key,
+      this.confirming,
+      this.screening,
+      this.userLat,
+      this.userLng});
 
   @override
   State<AddVenueScreen> createState() => _AddVenueScreenState();
@@ -63,6 +72,14 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
   void initState() {
     super.initState();
     _prefillFrom(widget.confirming);
+    final s = widget.screening;
+    if (s != null) {
+      _name.text = s.name;
+      _placeId = s.placeId;
+      _placeLat = s.lat;
+      _placeLng = s.lng;
+      if (s.primaryType == 'coworking_space') _type = 'coworking';
+    }
   }
 
   @override
@@ -266,8 +283,8 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
     return Scaffold(
       appBar: AppBar(
           title: Text(isConfirm
-              ? 'Confirm this venue'
-              : 'Add a new venue')),
+              ? 'Confirm this space'
+              : 'Review a space')),
       body: Form(
         key: _formKey,
         child: ListView(padding: const EdgeInsets.all(20), children: [
@@ -280,7 +297,7 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
               isConfirm
                   ? 'Confirm what this place is really like and earn '
                       '${AppConfig.coinsConfirmVenue} coins.'
-                  : 'Add a place nomads can work from and earn '
+                  : 'Be the first to review this space for nomads and earn '
                       '${AppConfig.coinsNewVenue} coins.',
               style: const TextStyle(
                   color: Colors.white, fontWeight: FontWeight.w700),
@@ -289,14 +306,15 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
           const SizedBox(height: 20),
           TextFormField(
             controller: _name,
-            enabled: !isConfirm,
+            enabled: !isConfirm && widget.screening == null,
             onChanged: _onNameChanged,
             decoration: InputDecoration(
-              labelText:
-                  isConfirm ? 'Venue name' : 'Search for the venue…',
-              helperText: isConfirm
+              labelText: isConfirm || widget.screening != null
+                  ? 'Space name'
+                  : 'Search for the space…',
+              helperText: isConfirm || widget.screening != null
                   ? null
-                  : 'Start typing and pick it from the list — venues must '
+                  : 'Start typing and pick it from the list — spaces must '
                       'be real places on Google Maps.',
               helperMaxLines: 2,
               suffixIcon: isConfirm
@@ -414,7 +432,7 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
                         color: Colors.white, strokeWidth: 2.5))
                 : Text(isConfirm
                     ? 'Submit confirmation  ·  +${AppConfig.coinsConfirmVenue} coins'
-                    : 'Submit new venue  ·  +${AppConfig.coinsNewVenue} coins'),
+                    : 'Submit review  ·  +${AppConfig.coinsNewVenue} coins'),
           ),
           const SizedBox(height: 10),
           Text(

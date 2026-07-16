@@ -17,7 +17,9 @@ class AppConfig {
   static const authRedirect = 'com.nomadwise.maps://login-callback/';
 
   // ---- Coin economy ----
-  static const coinsNewVenue = 100;
+  /// Reviewing/screening a space that isn't listed yet (identity comes
+  /// from Google, so it's easier than the old "add a venue" — hence 50).
+  static const coinsNewVenue = 50;
   static const coinsConfirmVenue = 30;
   static const cashOutThreshold = 5000; // coins
   static const cashOutValueEuro = 50; // €
