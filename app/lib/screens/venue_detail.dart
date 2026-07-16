@@ -1,3 +1,4 @@
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -25,6 +26,7 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
   List<String> _photos = [];
   bool _testingWifi = false;
   String _testPhase = '';
+  String _wifiConnType = 'unknown';
   int _photoIndex = 0;
 
   Venue get venue => widget.venue;
@@ -427,6 +429,50 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
       if (ok != true) return;
     }
     if (!mounted) return;
+
+    // What connection is the phone on? (Not all platforms can tell:
+    // Android Chrome usually can, iPhone Safari can't.)
+    String connType = 'unknown';
+    try {
+      final results = await Connectivity().checkConnectivity();
+      if (results.contains(ConnectivityResult.mobile)) {
+        connType = 'cellular';
+      } else if (results.contains(ConnectivityResult.wifi)) {
+        connType = 'wifi';
+      }
+    } catch (_) {}
+    if (!mounted) return;
+
+    if (connType == 'cellular') {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text(
+              'You\'re on mobile data. Connect to the venue\'s WiFi first, then retest.')));
+      return;
+    }
+
+    // Honesty gate (and a data-cost warning) before anything downloads.
+    final ready = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20)),
+              title: const Text('On the venue\'s WiFi?'),
+              content: const Text(
+                  'Make sure you\'re connected to this venue\'s WiFi, not '
+                  'mobile data. Tests on mobile data don\'t count and this '
+                  'uses about 12 MB.'),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    child: const Text('Cancel')),
+                ElevatedButton(
+                    onPressed: () => Navigator.pop(ctx, true),
+                    child: const Text('I\'m on the WiFi')),
+              ],
+            ));
+    if (ready != true || !mounted) return;
+
+    _wifiConnType = connType;
     setState(() {
       _testingWifi = true;
       _testPhase = 'Starting…';
@@ -482,7 +528,11 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
     await _supabase.submit(
       kind: 'wifi_test',
       venueId: venue.id,
-      payload: {'wifi_speed_mbps': mbps},
+      payload: {
+        'wifi_speed_mbps': mbps,
+        // Audit trail: what the browser could tell about the connection.
+        'connection_type': _wifiConnType,
+      },
       gpsLat: pos.latitude,
       gpsLng: pos.longitude,
       gpsDistanceM: distance,

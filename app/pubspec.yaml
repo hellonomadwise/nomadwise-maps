@@ -21,6 +21,8 @@ dependencies:
   # to the map beneath (web platform-view quirk).
   pointer_interceptor: ^0.10.1
   shared_preferences: ^2.3.2
+  # Detect wifi vs mobile data before the speed test (where the platform allows)
+  connectivity_plus: ^6.0.5
 
 dev_dependencies:
   flutter_test:
