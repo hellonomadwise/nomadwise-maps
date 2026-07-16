@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -5,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import '../config.dart';
 import '../models/venue.dart';
 import '../services/location_service.dart';
+import '../services/places_service.dart';
 import '../services/supabase_service.dart';
 import '../theme.dart';
 
@@ -26,12 +28,20 @@ class AddVenueScreen extends StatefulWidget {
 
 class _AddVenueScreenState extends State<AddVenueScreen> {
   final _supabase = SupabaseService();
+  final _places = PlacesService();
   final _formKey = GlobalKey<FormState>();
 
   final _name = TextEditingController();
   final _neighbourhood = TextEditingController();
   final _wifi = TextEditingController();
   String _type = 'cafe';
+
+  // New venues must be picked from Google so they're real places.
+  String? _placeId;
+  double? _placeLat, _placeLng;
+  List<PlaceSuggestion> _suggestions = [];
+  Timer? _debounce;
+  Venue? _existing; // set when the picked place is already on the map
 
   // tri-state features: null = don't know
   final Map<String, bool?> _features = {
@@ -46,12 +56,22 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
   Uint8List? _photo;
   bool _saving = false;
 
-  bool get isConfirm => widget.confirming != null;
+  bool get isConfirm => _confirmTarget != null;
+  Venue? get _confirmTarget => widget.confirming ?? _existing;
 
   @override
   void initState() {
     super.initState();
-    final v = widget.confirming;
+    _prefillFrom(widget.confirming);
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    super.dispose();
+  }
+
+  void _prefillFrom(Venue? v) {
     if (v != null) {
       _name.text = v.name;
       _neighbourhood.text = v.neighbourhood ?? '';
@@ -64,6 +84,60 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
       _features['cozy'] = v.cozy;
       _features['quiet_space'] = v.quietSpace;
     }
+  }
+
+  void _onNameChanged(String text) {
+    if (isConfirm) return;
+    _placeId = null;
+    _placeLat = null;
+    _placeLng = null;
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 350), () async {
+      final res = await _places.autocomplete(text,
+          nearLat: widget.userLat, nearLng: widget.userLng);
+      if (mounted) setState(() => _suggestions = res);
+    });
+  }
+
+  Future<void> _pickSuggestion(PlaceSuggestion s) async {
+    setState(() {
+      _suggestions = [];
+      _name.text = s.main;
+    });
+    // Is this place already on the map? Then confirm it instead (no dupes).
+    final existing = await _supabase.venueByPlaceId(s.placeId);
+    if (existing != null) {
+      if (!mounted) return;
+      setState(() {
+        _existing = existing;
+        _prefillFrom(existing);
+      });
+      showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20)),
+                title: const Text('Already on the map!'),
+                content: Text(
+                    '${existing.name} is already listed, so you\'re now '
+                    'confirming it instead — still worth '
+                    '${AppConfig.coinsConfirmVenue} coins.'),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('Got it'))
+                ],
+              ));
+      return;
+    }
+    final live = await _places.details(s.placeId);
+    if (!mounted) return;
+    setState(() {
+      _placeId = s.placeId;
+      _placeLat = live?.lat;
+      _placeLng = live?.lng;
+      if (live?.displayName != null) _name.text = live!.displayName!;
+    });
   }
 
   Future<void> _pickPhoto() async {
@@ -90,20 +164,27 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
       _snack('Please answer the key question: are laptops allowed?');
       return;
     }
+    if (!isConfirm && _placeId == null) {
+      _snack('Please pick the venue from the search suggestions.');
+      return;
+    }
     setState(() => _saving = true);
     try {
       // GPS check: where is the user right now?
       final pos = await LocationService.current();
       if (pos == null) {
-        _snack('Location is required to verify you\'re at the venue.');
+        _snack('Please allow location access to submit your update.');
         setState(() => _saving = false);
         return;
       }
       double? distance;
-      final v = widget.confirming;
+      final v = _confirmTarget;
       if (v?.lat != null && v?.lng != null) {
         distance = Venue.haversineM(
             pos.latitude, pos.longitude, v!.lat!, v.lng!);
+      } else if (_placeLat != null && _placeLng != null) {
+        distance = Venue.haversineM(
+            pos.latitude, pos.longitude, _placeLat!, _placeLng!);
       }
 
       final payload = {
@@ -115,14 +196,16 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
         ..._features,
       };
 
-      String? venueId = widget.confirming?.id;
+      String? venueId = _confirmTarget?.id;
       if (!isConfirm) {
         venueId = await _supabase.addPendingVenue({
           'name': _name.text.trim(),
           'type': _type,
           'neighbourhood': _neighbourhood.text.trim(),
-          'lat': pos.latitude,
-          'lng': pos.longitude,
+          'google_place_id': _placeId,
+          // Venue pin sits where Google says the place is.
+          'lat': _placeLat ?? pos.latitude,
+          'lng': _placeLng ?? pos.longitude,
           if (_wifi.text.trim().isNotEmpty)
             'wifi_speed_mbps': num.tryParse(_wifi.text.trim()),
           ..._features,
@@ -153,9 +236,12 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
                   const SizedBox(width: 8),
                   Text('+$coins coins'),
                 ]),
-                content: const Text(
-                    'Thanks! Your coins are pending and will unlock once the '
-                    'photo and location are verified.'),
+                content: Text(isConfirm
+                    ? 'Thanks! Your coins will be credited after '
+                        'verification — usually within 5 minutes.'
+                    : 'Thanks! New venues get a quick once-over by the '
+                        'Nomadwise team — your coins are usually credited '
+                        'within a day.'),
                 actions: [
                   TextButton(
                       onPressed: () {
@@ -204,10 +290,56 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
           TextFormField(
             controller: _name,
             enabled: !isConfirm,
-            decoration: const InputDecoration(labelText: 'Venue name'),
+            onChanged: _onNameChanged,
+            decoration: InputDecoration(
+              labelText:
+                  isConfirm ? 'Venue name' : 'Search for the venue…',
+              helperText: isConfirm
+                  ? null
+                  : 'Start typing and pick it from the list — venues must '
+                      'be real places on Google Maps.',
+              helperMaxLines: 2,
+              suffixIcon: isConfirm
+                  ? null
+                  : Icon(
+                      _placeId != null
+                          ? Icons.check_circle
+                          : Icons.search,
+                      color: _placeId != null
+                          ? Colors.green
+                          : Colors.grey.shade500),
+            ),
             validator: (v) =>
                 (v == null || v.trim().isEmpty) ? 'Required' : null,
           ),
+          if (_suggestions.isNotEmpty)
+            Container(
+              margin: const EdgeInsets.only(top: 4),
+              decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [
+                    BoxShadow(
+                        color: Colors.black.withValues(alpha: .08),
+                        blurRadius: 12)
+                  ]),
+              child: Column(
+                  children: _suggestions
+                      .take(5)
+                      .map((s) => ListTile(
+                            dense: true,
+                            leading: const Icon(Icons.place_outlined,
+                                color: Brand.red, size: 20),
+                            title: Text(s.main),
+                            subtitle: s.secondary.isEmpty
+                                ? null
+                                : Text(s.secondary,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis),
+                            onTap: () => _pickSuggestion(s),
+                          ))
+                      .toList()),
+            ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
             value: _type,
@@ -286,8 +418,9 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
           ),
           const SizedBox(height: 10),
           Text(
-            'Coins unlock after verification (photo + a check that you were '
-            'really at the venue).',
+            isConfirm
+                ? 'Coins are credited after verification — usually within 5 minutes.'
+                : 'Coins are credited after a quick review — usually within a day.',
             textAlign: TextAlign.center,
             style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
           ),
@@ -305,11 +438,21 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
         Expanded(child: Text(label)),
         SegmentedButton<bool?>(
           segments: const [
-            ButtonSegment(value: true, label: Text('Yes')),
-            ButtonSegment(value: false, label: Text('No')),
-            ButtonSegment(value: null, label: Text('?')),
+            ButtonSegment(
+                value: true,
+                label: SizedBox(
+                    width: 34, child: Center(child: Text('Yes')))),
+            ButtonSegment(
+                value: false,
+                label: SizedBox(
+                    width: 34, child: Center(child: Text('No')))),
+            ButtonSegment(
+                value: null,
+                label: SizedBox(
+                    width: 34, child: Center(child: Text('?')))),
           ],
           selected: {val},
+          showSelectedIcon: false, // no checkmark = no width jumping
           onSelectionChanged: (s) =>
               setState(() => _features[key] = s.first),
           style: ButtonStyle(

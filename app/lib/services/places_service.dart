@@ -3,6 +3,14 @@ import 'package:http/http.dart' as http;
 import '../config.dart';
 import '../models/venue.dart';
 
+class PlaceSuggestion {
+  final String placeId;
+  final String main;
+  final String secondary;
+  PlaceSuggestion(
+      {required this.placeId, required this.main, required this.secondary});
+}
+
 /// Fetches live venue details (rating, review count, open/closed, hours,
 /// coordinates) from the Google Places API (New) using each venue's Place ID.
 ///
@@ -13,6 +21,7 @@ class PlacesService {
   final Map<String, (DateTime, PlaceLive)> _cache = {};
 
   static const _fields = [
+    'displayName',
     'rating',
     'userRatingCount',
     'currentOpeningHours',
@@ -41,6 +50,49 @@ class PlacesService {
       return live;
     } catch (_) {
       return null;
+    }
+  }
+
+  /// Autocomplete for the "Add a venue" search box, biased to the user's
+  /// location so nearby places rank first.
+  Future<List<PlaceSuggestion>> autocomplete(String input,
+      {double? nearLat, double? nearLng}) async {
+    if (input.trim().length < 3) return [];
+    try {
+      final resp = await http.post(
+        Uri.parse('https://places.googleapis.com/v1/places:autocomplete'),
+        headers: {
+          'X-Goog-Api-Key': AppConfig.googlePlacesKey,
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'input': input,
+          if (nearLat != null && nearLng != null)
+            'locationBias': {
+              'circle': {
+                'center': {'latitude': nearLat, 'longitude': nearLng},
+                'radius': 15000.0,
+              }
+            },
+        }),
+      );
+      if (resp.statusCode != 200) return [];
+      final suggestions =
+          (jsonDecode(resp.body)['suggestions'] as List?) ?? [];
+      return suggestions
+          .map((s) => s['placePrediction'])
+          .where((p) => p != null)
+          .map((p) => PlaceSuggestion(
+                placeId: p['placeId'],
+                main: p['structuredFormat']?['mainText']?['text'] ??
+                    p['text']?['text'] ??
+                    '',
+                secondary:
+                    p['structuredFormat']?['secondaryText']?['text'] ?? '',
+              ))
+          .toList();
+    } catch (_) {
+      return [];
     }
   }
 

@@ -9,6 +9,7 @@ import '../services/places_service.dart';
 import '../services/supabase_service.dart';
 import '../theme.dart';
 import 'add_venue_screen.dart';
+import 'admin_screen.dart';
 import 'auth_screen.dart';
 import 'venue_detail.dart';
 import 'wallet_screen.dart';
@@ -31,6 +32,7 @@ class _MapScreenState extends State<MapScreen> {
   Venue? _selected;
   double? _userLat, _userLng;
   bool _loading = true;
+  bool _isAdmin = false;
 
   BitmapDescriptor? _pinYes, _pinNo, _pinUnknown;
 
@@ -38,6 +40,13 @@ class _MapScreenState extends State<MapScreen> {
   void initState() {
     super.initState();
     _boot();
+    _checkAdmin();
+    _supabase.authChanges.listen((_) => _checkAdmin());
+  }
+
+  Future<void> _checkAdmin() async {
+    final admin = await _supabase.isAdmin();
+    if (mounted && admin != _isAdmin) setState(() => _isAdmin = admin);
   }
 
   Future<void> _boot() async {
@@ -167,6 +176,14 @@ class _MapScreenState extends State<MapScreen> {
           const Text('maps', style: TextStyle(color: Brand.red)),
         ]),
         actions: [
+          if (_isAdmin)
+            IconButton(
+              icon: const Icon(Icons.fact_check_outlined,
+                  color: Brand.charcoal),
+              tooltip: 'Review submissions',
+              onPressed: () => Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const AdminScreen())),
+            ),
           IconButton(
             icon: const Icon(Icons.account_balance_wallet_outlined,
                 color: Brand.amber),

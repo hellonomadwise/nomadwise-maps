@@ -40,6 +40,17 @@ class SupabaseService {
         .toList();
   }
 
+  /// Is this Google place already on the map?
+  Future<Venue?> venueByPlaceId(String placeId) async {
+    final rows = await _db
+        .from('venues')
+        .select()
+        .eq('google_place_id', placeId)
+        .limit(1);
+    if ((rows as List).isEmpty) return null;
+    return Venue.fromJson(Map<String, dynamic>.from(rows.first));
+  }
+
   /// Insert a brand-new (pending) venue; returns its id.
   Future<String> addPendingVenue(Map<String, dynamic> fields) async {
     fields['status'] = 'pending';
@@ -98,6 +109,77 @@ class SupabaseService {
       total: (r['total'] as num).toInt(),
     );
   }
+
+  // ---------- admin ----------
+
+  Future<bool> isAdmin() async {
+    final uid = currentUser?.id;
+    if (uid == null) return false;
+    try {
+      final row = await _db
+          .from('profiles')
+          .select('is_admin')
+          .eq('id', uid)
+          .single();
+      return row['is_admin'] == true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Pending submissions for admin review (needs admin policies).
+  Future<List<Map<String, dynamic>>> pendingSubmissions() async {
+    final rows = await _db
+        .from('submissions')
+        .select()
+        .eq('status', 'pending')
+        .order('created_at', ascending: true);
+    return (rows as List).map((r) => Map<String, dynamic>.from(r)).toList();
+  }
+
+  /// Credibility snapshot of a submitter: name, coin totals, verified count.
+  Future<Map<String, dynamic>> submitterStats(String userId) async {
+    final results = await Future.wait([
+      _db.from('profiles').select('display_name').eq('id', userId).single(),
+      _db.from('wallet').select().eq('user_id', userId),
+      _db
+          .from('submissions')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('status', 'verified'),
+    ]);
+    final profile = results[0] as Map;
+    final wallet = (results[1] as List).isEmpty
+        ? {'withdrawable': 0, 'pending': 0}
+        : (results[1] as List).first as Map;
+    return {
+      'display_name': profile['display_name'] ?? 'Unknown',
+      'withdrawable': (wallet['withdrawable'] as num?)?.toInt() ?? 0,
+      'pending': (wallet['pending'] as num?)?.toInt() ?? 0,
+      'verified_count': (results[2] as List).length,
+    };
+  }
+
+  Future<Venue?> venueById(String id) async {
+    final rows = await _db.from('venues').select().eq('id', id).limit(1);
+    if ((rows as List).isEmpty) return null;
+    return Venue.fromJson(Map<String, dynamic>.from(rows.first));
+  }
+
+  /// Admin fixes venue fields (spelling, wrong toggles) before approving.
+  Future<void> updateVenueFields(
+          String venueId, Map<String, dynamic> fields) =>
+      _db.from('venues').update(fields).eq('id', venueId);
+
+  Future<void> setSubmissionStatus(String submissionId, String status) =>
+      _db.from('submissions').update({
+        'status': status,
+        if (status == 'verified')
+          'verified_at': DateTime.now().toIso8601String(),
+      }).eq('id', submissionId);
+
+  String photoUrl(String path) =>
+      _db.storage.from('submission-photos').getPublicUrl(path);
 
   Future<List<Map<String, dynamic>>> ledger() async {
     final uid = currentUser?.id;

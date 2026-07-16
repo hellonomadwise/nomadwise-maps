@@ -215,6 +215,7 @@ class Venue {
 
 /// Live details fetched from Google Places API (New).
 class PlaceLive {
+  final String? displayName;
   final num? rating;
   final int? userRatingCount;
   final bool? openNow;
@@ -230,7 +231,8 @@ class PlaceLive {
   final List<String>? weekdayDescriptions;
 
   PlaceLive.fromJson(Map<String, dynamic> j)
-      : rating = j['rating'],
+      : displayName = j['displayName']?['text'],
+        rating = j['rating'],
         userRatingCount = j['userRatingCount'],
         openNow = (j['currentOpeningHours'] ?? j['regularOpeningHours'])
             ?['openNow'],
