@@ -25,6 +25,9 @@ class AppConfig {
   /// Running the in-app wifi speed test at a venue (max once per space
   /// per month per user; enforced in the database).
   static const coinsWifiTest = 100;
+
+  /// Sharing a venue's wifi login (max once per space per month per user).
+  static const coinsWifiLogin = 20;
   static const cashOutThreshold = 5000; // coins
   static const cashOutValueEuro = 50; // €
 

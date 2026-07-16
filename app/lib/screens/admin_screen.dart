@@ -210,7 +210,12 @@ class _SubmissionCardState extends State<_SubmissionCard> {
               decoration: BoxDecoration(
                   color: isNew ? Brand.red : Brand.amber,
                   borderRadius: BorderRadius.circular(12)),
-              child: Text(isNew ? 'NEW SPACE' : 'CONFIRMATION',
+              child: Text(switch (s['kind']) {
+                    'new_venue' => 'NEW SPACE',
+                    'wifi_test' => 'WIFI TEST',
+                    'wifi_login' => 'WIFI LOGIN',
+                    _ => 'CONFIRMATION',
+                  },
                   style: const TextStyle(
                       color: Colors.white,
                       fontSize: 11,

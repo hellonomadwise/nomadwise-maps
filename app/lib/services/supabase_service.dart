@@ -98,6 +98,21 @@ class SupabaseService {
     } catch (_) {}
   }
 
+  /// The venue's shared wifi login (signed-in users only; null if none).
+  Future<Map<String, dynamic>?> venueWifi(String venueId) async {
+    try {
+      final rows = await _db
+          .from('venue_wifi')
+          .select()
+          .eq('venue_id', venueId)
+          .limit(1);
+      if ((rows as List).isEmpty) return null;
+      return Map<String, dynamic>.from(rows.first);
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Community photos for a venue (verified submissions only), newest first.
   Future<List<String>> venuePhotoUrls(String venueId) async {
     try {

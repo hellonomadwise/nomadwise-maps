@@ -1,5 +1,6 @@
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../config.dart';
@@ -27,6 +28,12 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
   bool _testingWifi = false;
   String _testPhase = '';
   String _wifiConnType = 'unknown';
+  Map<String, dynamic>? _wifiLogin;
+
+  Future<void> _loadWifiLogin() async {
+    final w = await _supabase.venueWifi(venue.id);
+    if (mounted) setState(() => _wifiLogin = w);
+  }
   int _photoIndex = 0;
 
   Venue get venue => widget.venue;
@@ -35,6 +42,7 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
   void initState() {
     super.initState();
     _loadPhotos();
+    _loadWifiLogin();
   }
 
   Future<void> _loadPhotos() async {
@@ -125,8 +133,10 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
                 ]),
                 const SizedBox(height: 16),
 
-                // ---- wifi hero + in-place speed test ----
+                // ---- wifi hero + login + in-place speed test ----
                 _wifiHero(),
+                const SizedBox(height: 8),
+                _wifiLoginCard(),
                 const SizedBox(height: 8),
                 _wifiTestButton(),
                 const SizedBox(height: 14),
@@ -391,6 +401,181 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
           ),
       ]),
     );
+  }
+
+  Widget _wifiLoginCard() {
+    // Signed out: invite to sign in (the login may or may not exist).
+    if (!_supabase.signedIn) {
+      return _wifiLoginShell(
+        icon: Icons.lock_outline,
+        child: Row(children: [
+          Expanded(
+            child: Text('Sign in to see or share this space\'s WiFi login',
+                style: TextStyle(
+                    fontSize: 13, color: Colors.grey.shade700)),
+          ),
+          TextButton(
+              onPressed: () => Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const AuthScreen()))
+                  .then((_) {
+                if (mounted) setState(() {});
+                _loadWifiLogin();
+              }),
+              child: const Text('Sign in')),
+        ]),
+      );
+    }
+
+    final w = _wifiLogin;
+    if (w == null) {
+      return _wifiLoginShell(
+        icon: Icons.key_outlined,
+        child: Row(children: [
+          Expanded(
+            child: Text('Know the WiFi login here?',
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey.shade800)),
+          ),
+          TextButton(
+              onPressed: _shareWifiLogin,
+              child:
+                  Text('Share it · +${AppConfig.coinsWifiLogin}')),
+        ]),
+      );
+    }
+
+    Widget copyRow(String label, String value) => Row(children: [
+          Text('$label  ',
+              style: TextStyle(
+                  fontSize: 12, color: Colors.grey.shade600)),
+          Expanded(
+            child: Text(value,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                    fontWeight: FontWeight.w700, fontSize: 14)),
+          ),
+          InkWell(
+            onTap: () {
+              Clipboard.setData(ClipboardData(text: value));
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  duration: const Duration(seconds: 1),
+                  content: Text('$label copied')));
+            },
+            child: const Padding(
+              padding: EdgeInsets.all(4),
+              child: Icon(Icons.copy, size: 16, color: Brand.red),
+            ),
+          ),
+        ]);
+
+    return _wifiLoginShell(
+      icon: Icons.key,
+      child:
+          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        copyRow('Network', w['ssid'] ?? ''),
+        if (w['password'] != null) ...[
+          const SizedBox(height: 4),
+          copyRow('Password', w['password']),
+        ] else
+          Text('Open network, no password',
+              style:
+                  TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+        const SizedBox(height: 2),
+        Row(children: [
+          const Spacer(),
+          InkWell(
+            onTap: _shareWifiLogin,
+            child: Text('Wrong? Update it · +${AppConfig.coinsWifiLogin}',
+                style: const TextStyle(
+                    fontSize: 11,
+                    color: Brand.red,
+                    fontWeight: FontWeight.w600)),
+          ),
+        ]),
+      ]),
+    );
+  }
+
+  Widget _wifiLoginShell({required IconData icon, required Widget child}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+          color: Brand.lightGrey, borderRadius: BorderRadius.circular(14)),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+        Icon(icon, size: 20, color: Brand.charcoal),
+        const SizedBox(width: 10),
+        Expanded(child: child),
+      ]),
+    );
+  }
+
+  Future<void> _shareWifiLogin() async {
+    final ssid = TextEditingController();
+    final pass = TextEditingController();
+    final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20)),
+              title: const Text('Share the WiFi login'),
+              content: Column(mainAxisSize: MainAxisSize.min, children: [
+                TextField(
+                    controller: ssid,
+                    decoration: const InputDecoration(
+                        labelText: 'Network name (SSID)')),
+                const SizedBox(height: 10),
+                TextField(
+                    controller: pass,
+                    decoration: const InputDecoration(
+                        labelText: 'Password',
+                        helperText: 'Leave empty for open networks')),
+              ]),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    child: const Text('Cancel')),
+                ElevatedButton(
+                    onPressed: () => Navigator.pop(ctx, true),
+                    child: Text(
+                        'Share · +${AppConfig.coinsWifiLogin} coins')),
+              ],
+            ));
+    if (ok != true || ssid.text.trim().isEmpty || !mounted) return;
+    final pos = await LocationService.current();
+    if (pos == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text(
+                'Location is needed to verify you\'re at the venue.')));
+      }
+      return;
+    }
+    double? distance;
+    if (venue.lat != null && venue.lng != null) {
+      distance = Venue.haversineM(
+          pos.latitude, pos.longitude, venue.lat!, venue.lng!);
+    }
+    await _supabase.submit(
+      kind: 'wifi_login',
+      venueId: venue.id,
+      payload: {
+        'ssid': ssid.text.trim(),
+        'password': pass.text.trim(),
+      },
+      gpsLat: pos.latitude,
+      gpsLng: pos.longitude,
+      gpsDistanceM: distance,
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(
+            'Thanks! +${AppConfig.coinsWifiLogin} coins after verification. '
+            '(Once per space per month.)')));
+    // If GPS verified it instantly, the login appears right away.
+    await Future.delayed(const Duration(seconds: 2));
+    _loadWifiLogin();
   }
 
   Widget _wifiTestButton() {
