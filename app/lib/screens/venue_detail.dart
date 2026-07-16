@@ -25,6 +25,7 @@ class VenueDetailScreen extends StatefulWidget {
 
 class _VenueDetailScreenState extends State<VenueDetailScreen> {
   final _supabase = SupabaseService();
+  final _places = PlacesService();
   List<String> _photos = [];
   bool _testingWifi = false;
   String _testPhase = '';
@@ -50,7 +51,15 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
 
   Future<void> _loadPhotos() async {
     // Google's listing photos first (curated), community photos after.
-    final google = (venue.live?.photoNames ?? [])
+    // If this screen opened before the map fetched the live details,
+    // fetch them ourselves so the photos always appear.
+    var live = venue.live;
+    if ((live == null || live.photoNames.isEmpty) &&
+        venue.googlePlaceId != null) {
+      live = await _places.details(venue.googlePlaceId!);
+      if (live != null) venue.live = live;
+    }
+    final google = (live?.photoNames ?? [])
         .take(6)
         .map((n) => PlacesService.photoUrl(n))
         .toList();
@@ -292,17 +301,26 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
 
   Widget _carousel(double height) {
     if (_photos.isEmpty) {
-      return Container(
-        height: 150,
-        decoration: const BoxDecoration(gradient: Brand.gradient),
-        child: Center(
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Image.asset('assets/brand/logo_mark.png',
-                height: 46, color: Colors.white),
-            const SizedBox(height: 8),
-            const Text('No photos yet. Add one & earn coins',
-                style: TextStyle(color: Colors.white, fontSize: 13)),
-          ]),
+      return InkWell(
+        onTap: () {
+          Navigator.pop(context);
+          widget.onConfirm();
+        },
+        child: Container(
+          height: 150,
+          decoration: const BoxDecoration(gradient: Brand.gradient),
+          child: Center(
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              const Icon(Icons.add_a_photo_outlined,
+                  size: 34, color: Colors.white),
+              const SizedBox(height: 8),
+              const Text('No photos yet. Tap to add one & earn coins',
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600)),
+            ]),
+          ),
         ),
       );
     }
