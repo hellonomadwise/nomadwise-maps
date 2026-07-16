@@ -71,6 +71,20 @@ jobs:
         run: flutter test
         working-directory: app
 
+      # Fill in venue coordinates from Google (skips venues already done).
+      # Runs only when the needed secrets exist; safe to run every build.
+      - name: Enrich venue coordinates
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          GOOGLE_PLACES_KEY: ${{ secrets.GOOGLE_PLACES_KEY }}
+        run: |
+          if [ -n "$SUPABASE_SERVICE_ROLE_KEY" ] && [ -n "$GOOGLE_PLACES_KEY" ]; then
+            python3 scripts/enrich_venues.py
+          else
+            echo "Skipping enrichment — secrets not set yet."
+          fi
+
       # ---------- web build -> GitHub Pages ----------
       - name: Build web
         run: |
