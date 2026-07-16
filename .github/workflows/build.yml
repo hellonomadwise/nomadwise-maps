@@ -74,6 +74,7 @@ jobs:
       # Fill in venue coordinates from Google (skips venues already done).
       # Runs only when the needed secrets exist; safe to run every build.
       - name: Enrich venue coordinates
+        continue-on-error: true
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
