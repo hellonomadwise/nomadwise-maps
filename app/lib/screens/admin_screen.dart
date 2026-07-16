@@ -241,7 +241,8 @@ class _SubmissionCardState extends State<_SubmissionCard> {
                   size: 15,
                   color: dist <= 150 ? Colors.green : Brand.red),
               const SizedBox(width: 5),
-              Text('Submitted $dist m from the venue',
+              Text(
+                  'Submitted ${dist < 1000 ? '$dist m' : '${NumberFormat("#,##0").format(dist / 1000)} km'} from the venue',
                   style: TextStyle(
                       fontSize: 12,
                       color: dist <= 150
