@@ -172,12 +172,11 @@ class PlacesService {
     ],
   };
 
-  final Map<String, Map<String, int>> _signalCache = {};
+  final Map<String, List<String>> _reviewsCache = {};
 
-  /// Scans a place's Google reviews for signs it might suit nomads.
-  /// Returns mention counts per signal, e.g. {wifi: 3, power: 1, laptop: 2}.
-  Future<Map<String, int>> nomadSignals(String placeId) async {
-    final hit = _signalCache[placeId];
+  /// The place's Google review texts (up to 5, cached).
+  Future<List<String>> _reviewTexts(String placeId) async {
+    final hit = _reviewsCache[placeId];
     if (hit != null) return hit;
     try {
       final resp = await http.get(
@@ -187,24 +186,61 @@ class PlacesService {
           'X-Goog-FieldMask': 'reviews',
         },
       );
-      if (resp.statusCode != 200) return {};
+      if (resp.statusCode != 200) return [];
       final reviews = (jsonDecode(resp.body)['reviews'] as List?) ?? [];
       final texts = reviews
-          .map((r) => (r['text']?['text'] ?? '').toString().toLowerCase())
+          .map((r) => (r['text']?['text'] ?? '').toString())
+          .where((t) => t.isNotEmpty)
           .toList();
-      final counts = <String, int>{};
-      _signalWords.forEach((signal, words) {
-        var n = 0;
-        for (final t in texts) {
-          if (words.any(t.contains)) n++;
-        }
-        if (n > 0) counts[signal] = n;
-      });
-      _signalCache[placeId] = counts;
-      return counts;
+      _reviewsCache[placeId] = texts;
+      return texts;
     } catch (_) {
-      return {};
+      return [];
     }
+  }
+
+  /// Scans a place's Google reviews for signs it might suit nomads.
+  /// Returns mention counts per signal, e.g. {wifi: 3, power: 1, laptop: 2}.
+  Future<Map<String, int>> nomadSignals(String placeId) async {
+    final texts = (await _reviewTexts(placeId))
+        .map((t) => t.toLowerCase())
+        .toList();
+    final counts = <String, int>{};
+    _signalWords.forEach((signal, words) {
+      var n = 0;
+      for (final t in texts) {
+        if (words.any(t.contains)) n++;
+      }
+      if (n > 0) counts[signal] = n;
+    });
+    return counts;
+  }
+
+  /// Short quotes from reviews that mention wifi/plugs/laptops, for the
+  /// admin to weigh a submission against. Max [limit] excerpts.
+  Future<List<String>> keywordExcerpts(String placeId,
+      {int limit = 3}) async {
+    final texts = await _reviewTexts(placeId);
+    final allWords =
+        _signalWords.values.expand((w) => w).toList(growable: false);
+    final excerpts = <String>[];
+    for (final t in texts) {
+      final lower = t.toLowerCase();
+      int idx = -1;
+      for (final w in allWords) {
+        final i = lower.indexOf(w);
+        if (i >= 0 && (idx == -1 || i < idx)) idx = i;
+      }
+      if (idx == -1) continue;
+      final start = (idx - 60).clamp(0, t.length);
+      final end = (idx + 90).clamp(0, t.length);
+      var snippet = t.substring(start, end).replaceAll('\n', ' ').trim();
+      if (start > 0) snippet = '…$snippet';
+      if (end < t.length) snippet = '$snippet…';
+      excerpts.add(snippet);
+      if (excerpts.length >= limit) break;
+    }
+    return excerpts;
   }
 
   /// Autocomplete for the "Add a venue" search box, biased to the user's

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../models/venue.dart';
+import '../services/places_service.dart';
 import '../services/supabase_service.dart';
 import '../theme.dart';
 
@@ -16,6 +17,7 @@ class AdminScreen extends StatefulWidget {
 
 class _AdminScreenState extends State<AdminScreen> {
   final _supabase = SupabaseService();
+  final _places = PlacesService();
   List<Map<String, dynamic>>? _pending;
 
   @override
@@ -55,6 +57,7 @@ class _AdminScreenState extends State<AdminScreen> {
                     itemBuilder: (_, i) => _SubmissionCard(
                         submission: pending[i],
                         supabase: _supabase,
+                        places: _places,
                         onDone: _load),
                   ),
                 ),
@@ -65,10 +68,12 @@ class _AdminScreenState extends State<AdminScreen> {
 class _SubmissionCard extends StatefulWidget {
   final Map<String, dynamic> submission;
   final SupabaseService supabase;
+  final PlacesService places;
   final VoidCallback onDone;
   const _SubmissionCard(
       {required this.submission,
       required this.supabase,
+      required this.places,
       required this.onDone});
 
   @override
@@ -79,6 +84,13 @@ class _SubmissionCardState extends State<_SubmissionCard> {
   Map<String, dynamic>? _stats;
   Venue? _venue;
   bool _busy = false;
+
+  // Google reference data for quality assessment
+  List<String> _googlePhotos = [];
+  num? _googleRating;
+  int? _googleReviewCount;
+  Map<String, int> _signals = {};
+  List<String> _excerpts = [];
 
   Map<String, dynamic> get s => widget.submission;
   Map<String, dynamic> get payload =>
@@ -97,6 +109,26 @@ class _SubmissionCardState extends State<_SubmissionCard> {
       venue = await widget.supabase.venueById(s['venue_id']);
     }
     if (mounted) setState(() { _stats = stats; _venue = venue; });
+
+    // Google reference for this place: photos, rating, review evidence.
+    final pid = venue?.googlePlaceId;
+    if (pid != null) {
+      final live = await widget.places.details(pid);
+      final signals = await widget.places.nomadSignals(pid);
+      final excerpts = await widget.places.keywordExcerpts(pid);
+      if (mounted) {
+        setState(() {
+          _googlePhotos = (live?.photoNames ?? [])
+              .take(6)
+              .map((n) => PlacesService.photoUrl(n, maxWidth: 400))
+              .toList();
+          _googleRating = live?.rating;
+          _googleReviewCount = live?.userRatingCount;
+          _signals = signals;
+          _excerpts = excerpts;
+        });
+      }
+    }
   }
 
   Future<void> _decide(String status) async {
@@ -250,6 +282,80 @@ class _SubmissionCardState extends State<_SubmissionCard> {
                           : Brand.red)),
             ]),
           const SizedBox(height: 8),
+
+          // ---- Google reference: assess the submission's reliability ----
+          if (_googlePhotos.isNotEmpty ||
+              _googleRating != null ||
+              _excerpts.isNotEmpty)
+            Theme(
+              data: Theme.of(context)
+                  .copyWith(dividerColor: Colors.transparent),
+              child: ExpansionTile(
+                tilePadding: EdgeInsets.zero,
+                childrenPadding: const EdgeInsets.only(bottom: 8),
+                dense: true,
+                title: Row(children: [
+                  const Icon(Icons.travel_explore,
+                      size: 17, color: Brand.charcoal),
+                  const SizedBox(width: 6),
+                  const Text('Compare with Google',
+                      style: TextStyle(
+                          fontSize: 13, fontWeight: FontWeight.w700)),
+                  const SizedBox(width: 8),
+                  if (_googleRating != null)
+                    Text('★ $_googleRating ($_googleReviewCount)',
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade600)),
+                ]),
+                children: [
+                  if (_googlePhotos.isNotEmpty) ...[
+                    SizedBox(
+                      height: 74,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: _googlePhotos.length,
+                        separatorBuilder: (_, __) =>
+                            const SizedBox(width: 6),
+                        itemBuilder: (_, i) => ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.network(_googlePhotos[i],
+                              width: 100,
+                              height: 74,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) =>
+                                  const SizedBox(width: 100)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                  if (_signals.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Text(
+                        'Reviews mention: '
+                        '${_signals.entries.map((e) => '${e.key} ×${e.value}').join(' · ')}',
+                        style: const TextStyle(
+                            fontSize: 12, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ..._excerpts.map((e) => Padding(
+                        padding: const EdgeInsets.only(bottom: 5),
+                        child: Text('"$e"',
+                            style: TextStyle(
+                                fontSize: 12,
+                                fontStyle: FontStyle.italic,
+                                color: Colors.grey.shade700)),
+                      )),
+                  if (_signals.isEmpty && _excerpts.isEmpty)
+                    Text(
+                        'No wifi/laptop mentions in its Google reviews.',
+                        style: TextStyle(
+                            fontSize: 12, color: Colors.grey.shade600)),
+                ],
+              ),
+            ),
 
           // ---- venue features (tap to cycle yes/no/unknown) ----
           if (venue != null) ...[
