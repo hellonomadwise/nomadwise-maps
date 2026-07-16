@@ -97,18 +97,6 @@ jobs:
             2>&1 | tee -a ../ci_debug.log
         working-directory: app
 
-      # If anything above failed, save the log into the repo so it can be
-      # read and fixed from the development session.
-      - name: Save failure log
-        if: failure()
-        run: |
-          mkdir -p ci-debug
-          mv ci_debug.log ci-debug/last_failure.log || true
-          git config user.name "nomadwise-bot"
-          git config user.email "actions@github.com"
-          git pull --rebase || true
-          git add -f ci-debug/last_failure.log
-          git commit -m "ci: failure log [skip ci]" && git push || true
 
       - uses: actions/upload-pages-artifact@v3
         with:
@@ -127,6 +115,20 @@ jobs:
         with:
           name: nomadwise-maps-apk
           path: app/build/app/outputs/flutter-apk/app-release.apk
+
+      # On ANY failure, publish the collected log to a ci-debug branch so it
+      # can be read and fixed from the development session.
+      - name: Publish failure log
+        if: failure()
+        run: |
+          mkdir -p ci-debug
+          cp ci_debug.log ci-debug/last_failure.log 2>/dev/null || echo "log file missing — failure happened before Pub get" > ci-debug/last_failure.log
+          git config user.name "nomadwise-bot"
+          git config user.email "actions@github.com"
+          git checkout -B ci-debug
+          git add -f ci-debug/last_failure.log
+          git commit -m "ci: failure log"
+          git push -f origin ci-debug
 
   deploy-pages:
     needs: build
