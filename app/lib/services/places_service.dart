@@ -56,7 +56,7 @@ class PlacesService {
   /// Autocomplete for the "Add a venue" search box, biased to the user's
   /// location so nearby places rank first.
   Future<List<PlaceSuggestion>> autocomplete(String input,
-      {double? nearLat, double? nearLng}) async {
+      {double? nearLat, double? nearLng, List<String>? types}) async {
     if (input.trim().length < 3) return [];
     try {
       final resp = await http.post(
@@ -67,6 +67,7 @@ class PlacesService {
         },
         body: jsonEncode({
           'input': input,
+          if (types != null) 'includedPrimaryTypes': types,
           if (nearLat != null && nearLng != null)
             'locationBias': {
               'circle': {

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
@@ -29,6 +30,8 @@ class _MapScreenState extends State<MapScreen> {
   GoogleMapController? _map;
   List<Venue> _venues = [];
   final Set<VenueFilter> _filters = {};
+  String? _typeFilter; // null = all, 'cafe', 'coworking'
+  bool _showList = false;
   Venue? _selected;
   double? _userLat, _userLng;
   bool _loading = true;
@@ -50,6 +53,127 @@ class _MapScreenState extends State<MapScreen> {
     if (mounted) setState(() {}); // refresh signed-in state in the menu
   }
 
+  Future<void> _boot() async {
+    await _loadPinIcons();
+    final results = await Future.wait([
+      LocationService.current(),
+      _supabase.fetchVenues(),
+    ]);
+    final pos = results[0] as dynamic;
+    _venues = results[1] as List<Venue>;
+    if (pos != null) {
+      _userLat = pos.latitude;
+      _userLng = pos.longitude;
+    } else {
+      final (la, ln) = LocationService.fallback();
+      _userLat = la;
+      _userLng = ln;
+    }
+    _computeDistances();
+    if (mounted) setState(() => _loading = false);
+
+    await _places.enrich(_venues);
+    _computeDistances();
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _loadPinIcons() async {
+    const cfg = ImageConfiguration(size: Size(38, 48));
+    _pinYes = await BitmapDescriptor.asset(cfg, 'assets/pins/pin_yes.png');
+    _pinNo = await BitmapDescriptor.asset(cfg, 'assets/pins/pin_no.png');
+    _pinUnknown =
+        await BitmapDescriptor.asset(cfg, 'assets/pins/pin_unknown.png');
+  }
+
+  Future<void> _goToMyLocation() async {
+    final pos = await LocationService.current();
+    if (pos == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text(
+                'Location unavailable — check your browser/phone location permission.')));
+      }
+      return;
+    }
+    _userLat = pos.latitude;
+    _userLng = pos.longitude;
+    _computeDistances();
+    if (mounted) setState(() {});
+    _map?.animateCamera(CameraUpdate.newLatLngZoom(
+        LatLng(pos.latitude, pos.longitude), 15));
+  }
+
+  void _computeDistances() {
+    if (_userLat == null) return;
+    for (final v in _venues) {
+      if (v.lat != null && v.lng != null) {
+        v.distanceM =
+            Venue.haversineM(_userLat!, _userLng!, v.lat!, v.lng!);
+      }
+    }
+    _venues.sort((a, b) => (a.distanceM ?? double.infinity)
+        .compareTo(b.distanceM ?? double.infinity));
+  }
+
+  /// "Spaces" / "Cafes" / "Coworking Spaces" depending on the type filter.
+  String get _noun => switch (_typeFilter) {
+        'cafe' => 'Cafes',
+        'coworking' => 'Coworking Spaces',
+        _ => 'Spaces',
+      };
+
+  bool get _anyFilterOn => _filters.isNotEmpty || _typeFilter != null;
+
+  List<Venue> get _visibleVenues => _venues.where((v) {
+        if (v.lat == null || v.lng == null) return false;
+        if (_typeFilter != null && v.type != _typeFilter) return false;
+        if (_filters.contains(VenueFilter.workFriendly) &&
+            v.workFriendly != WorkFriendly.yes) return false;
+        if (_filters.contains(VenueFilter.openNow) && v.openNow != true) {
+          return false;
+        }
+        if (_filters.contains(VenueFilter.openLate) && !v.openLate) {
+          return false;
+        }
+        if (_filters.contains(VenueFilter.open24h) && !v.is24h) return false;
+        return true;
+      }).toList();
+
+  BitmapDescriptor _iconFor(Venue v) => switch (v.workFriendly) {
+        WorkFriendly.yes =>
+          _pinYes ?? BitmapDescriptor.defaultMarkerWithHue(358),
+        WorkFriendly.no =>
+          _pinNo ?? BitmapDescriptor.defaultMarkerWithHue(0),
+        WorkFriendly.unknown =>
+          _pinUnknown ?? BitmapDescriptor.defaultMarkerWithHue(30),
+      };
+
+  Set<Marker> get _markers => _visibleVenues
+      .map((v) => Marker(
+            markerId: MarkerId(v.id),
+            position: LatLng(v.lat!, v.lng!),
+            icon: _iconFor(v),
+            alpha: v.workFriendly == WorkFriendly.no ? 0.55 : 1.0,
+            onTap: () => setState(() => _selected = v),
+          ))
+      .toSet();
+
+  Future<void> _openAddVenue({Venue? confirming}) async {
+    if (!_supabase.signedIn) {
+      final ok = await Navigator.push<bool>(context,
+          MaterialPageRoute(builder: (_) => const AuthScreen()));
+      if (ok != true) return;
+    }
+    if (!mounted) return;
+    await Navigator.push(
+        context,
+        MaterialPageRoute(
+            builder: (_) => AddVenueScreen(
+                confirming: confirming,
+                userLat: _userLat,
+                userLng: _userLng)));
+  }
+
   Future<void> _requireSignIn(VoidCallback then) async {
     if (_supabase.signedIn) {
       then();
@@ -60,6 +184,65 @@ class _MapScreenState extends State<MapScreen> {
     if (ok == true && mounted) then();
   }
 
+  void _openDetail(Venue v) => Navigator.push(
+      context,
+      MaterialPageRoute(
+          builder: (_) => VenueDetailScreen(
+              venue: v, onConfirm: () => _openAddVenue(confirming: v))));
+
+  // ---------- venue name search ----------
+
+  Future<void> _openSearch() async {
+    final v = await showSearch<Venue?>(
+        context: context,
+        delegate: _VenueSearchDelegate(_venues));
+    if (v != null && v.lat != null && mounted) {
+      setState(() {
+        _showList = false;
+        _selected = v;
+      });
+      _map?.animateCamera(
+          CameraUpdate.newLatLngZoom(LatLng(v.lat!, v.lng!), 16));
+    }
+  }
+
+  // ---------- jump to city ----------
+
+  Future<void> _openJumpToCity() async {
+    final citiesWithSpaces =
+        _venues.map((v) => v.city).toSet().toList()..sort();
+    final placeId = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(22))),
+      builder: (ctx) => PointerInterceptor(
+          child: _JumpToCitySheet(
+              places: _places, citiesWithSpaces: citiesWithSpaces)),
+    );
+    if (placeId == null || !mounted) return;
+    if (placeId.startsWith('venue-city:')) {
+      // A city we already have venues in — fly to its first venue.
+      final city = placeId.substring('venue-city:'.length);
+      final v = _venues
+          .where((v) => v.city == city && v.lat != null)
+          .firstOrNull;
+      if (v != null) {
+        _map?.animateCamera(
+            CameraUpdate.newLatLngZoom(LatLng(v.lat!, v.lng!), 13));
+      }
+      return;
+    }
+    final live = await _places.details(placeId);
+    if (live?.lat != null && mounted) {
+      _map?.animateCamera(
+          CameraUpdate.newLatLngZoom(LatLng(live!.lat!, live.lng!), 12));
+    }
+  }
+
+  // ---------- menu ----------
+
   Widget _buildMenu() {
     final user = _supabase.currentUser;
     return Drawer(
@@ -67,7 +250,6 @@ class _MapScreenState extends State<MapScreen> {
       child: SafeArea(
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-          // ---- header ----
           Container(
             padding: const EdgeInsets.all(20),
             decoration: const BoxDecoration(gradient: Brand.gradient),
@@ -150,122 +332,11 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
-  Future<void> _boot() async {
-    await _loadPinIcons();
-    // Location and venue list in parallel.
-    final results = await Future.wait([
-      LocationService.current(),
-      _supabase.fetchVenues(),
-    ]);
-    final pos = results[0] as dynamic;
-    _venues = results[1] as List<Venue>;
-    if (pos != null) {
-      _userLat = pos.latitude;
-      _userLng = pos.longitude;
-    } else {
-      final (la, ln) = LocationService.fallback();
-      _userLat = la;
-      _userLng = ln;
-    }
-    _computeDistances();
-    if (mounted) setState(() => _loading = false);
-
-    // Live Google data (rating, hours, coordinates) arrives second;
-    // markers refresh when it lands.
-    await _places.enrich(_venues);
-    _computeDistances();
-    if (mounted) setState(() {});
-  }
-
-  Future<void> _loadPinIcons() async {
-    const cfg = ImageConfiguration(size: Size(38, 48));
-    _pinYes = await BitmapDescriptor.asset(cfg, 'assets/pins/pin_yes.png');
-    _pinNo = await BitmapDescriptor.asset(cfg, 'assets/pins/pin_no.png');
-    _pinUnknown =
-        await BitmapDescriptor.asset(cfg, 'assets/pins/pin_unknown.png');
-  }
-
-  Future<void> _goToMyLocation() async {
-    final pos = await LocationService.current();
-    if (pos == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text(
-                'Location unavailable — check your browser/phone location permission.')));
-      }
-      return;
-    }
-    _userLat = pos.latitude;
-    _userLng = pos.longitude;
-    _computeDistances();
-    if (mounted) setState(() {});
-    _map?.animateCamera(CameraUpdate.newLatLngZoom(
-        LatLng(pos.latitude, pos.longitude), 15));
-  }
-
-  void _computeDistances() {
-    if (_userLat == null) return;
-    for (final v in _venues) {
-      if (v.lat != null && v.lng != null) {
-        v.distanceM =
-            Venue.haversineM(_userLat!, _userLng!, v.lat!, v.lng!);
-      }
-    }
-    _venues.sort((a, b) => (a.distanceM ?? double.infinity)
-        .compareTo(b.distanceM ?? double.infinity));
-  }
-
-  List<Venue> get _visibleVenues => _venues.where((v) {
-        if (v.lat == null || v.lng == null) return false;
-        if (_filters.contains(VenueFilter.workFriendly) &&
-            v.workFriendly != WorkFriendly.yes) return false;
-        if (_filters.contains(VenueFilter.openNow) && v.openNow != true) {
-          return false;
-        }
-        if (_filters.contains(VenueFilter.openLate) && !v.openLate) {
-          return false;
-        }
-        if (_filters.contains(VenueFilter.open24h) && !v.is24h) return false;
-        return true;
-      }).toList();
-
-  BitmapDescriptor _iconFor(Venue v) => switch (v.workFriendly) {
-        WorkFriendly.yes =>
-          _pinYes ?? BitmapDescriptor.defaultMarkerWithHue(358),
-        WorkFriendly.no =>
-          _pinNo ?? BitmapDescriptor.defaultMarkerWithHue(0),
-        WorkFriendly.unknown =>
-          _pinUnknown ?? BitmapDescriptor.defaultMarkerWithHue(30),
-      };
-
-  Set<Marker> get _markers => _visibleVenues
-      .map((v) => Marker(
-            markerId: MarkerId(v.id),
-            position: LatLng(v.lat!, v.lng!),
-            icon: _iconFor(v),
-            alpha: v.workFriendly == WorkFriendly.no ? 0.55 : 1.0,
-            onTap: () => setState(() => _selected = v),
-          ))
-      .toSet();
-
-  Future<void> _openAddVenue({Venue? confirming}) async {
-    if (!_supabase.signedIn) {
-      final ok = await Navigator.push<bool>(context,
-          MaterialPageRoute(builder: (_) => const AuthScreen()));
-      if (ok != true) return;
-    }
-    if (!mounted) return;
-    await Navigator.push(
-        context,
-        MaterialPageRoute(
-            builder: (_) => AddVenueScreen(
-                confirming: confirming,
-                userLat: _userLat,
-                userLng: _userLng)));
-  }
+  // ---------- build ----------
 
   @override
   Widget build(BuildContext context) {
+    final visible = _visibleVenues;
     return Scaffold(
       drawer: _buildMenu(),
       appBar: AppBar(
@@ -278,6 +349,11 @@ class _MapScreenState extends State<MapScreen> {
           const Text('maps', style: TextStyle(color: Brand.red)),
         ]),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.search, color: Brand.charcoal),
+            tooltip: 'Search venues',
+            onPressed: _openSearch,
+          ),
           IconButton(
             icon: const Icon(Icons.account_balance_wallet_outlined,
                 color: Brand.amber),
@@ -294,13 +370,43 @@ class _MapScreenState extends State<MapScreen> {
                 initialCameraPosition: CameraPosition(
                     target: LatLng(_userLat!, _userLng!), zoom: 14),
                 myLocationEnabled: true,
-                myLocationButtonEnabled: true,
+                myLocationButtonEnabled: false,
                 zoomControlsEnabled: false,
                 markers: _markers,
                 onMapCreated: (c) => _map = c,
                 onTap: (_) => setState(() => _selected = null),
               ),
-              // ---- filter chips ----
+
+              // ---- list panel (over the map, under the chips) ----
+              if (_showList)
+                Positioned.fill(
+                  child: PointerInterceptor(
+                    child: Container(
+                      color: Colors.white,
+                      padding: EdgeInsets.only(
+                          top: MediaQuery.of(context).padding.top + 96),
+                      child: visible.isEmpty
+                          ? Center(
+                              child: Text(
+                                  'No $_noun match these filters.',
+                                  style: TextStyle(
+                                      color: Colors.grey.shade600)))
+                          : ListView.builder(
+                              padding:
+                                  const EdgeInsets.fromLTRB(12, 0, 12, 90),
+                              itemCount: visible.length,
+                              itemBuilder: (_, i) => _VenueListCard(
+                                venue: visible[i],
+                                onDetails: () => _openDetail(visible[i]),
+                                onConfirm: () => _openAddVenue(
+                                    confirming: visible[i]),
+                              ),
+                            ),
+                    ),
+                  ),
+                ),
+
+              // ---- filter chips + count ----
               Positioned(
                 top: 0,
                 left: 0,
@@ -308,41 +414,67 @@ class _MapScreenState extends State<MapScreen> {
                 child: SafeArea(
                   bottom: false,
                   child: PointerInterceptor(
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
-                      child: Row(children: [
-                        _chip('Open now', VenueFilter.openNow),
-                        _chip('Open late', VenueFilter.openLate),
-                        _chip('24 hours', VenueFilter.open24h),
-                        _chip('Work-friendly', VenueFilter.workFriendly),
-                      ]),
-                    ),
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            padding:
+                                const EdgeInsets.fromLTRB(12, 10, 12, 2),
+                            child: Row(children: [
+                              _toggleListChip(),
+                              _typeChip('Cafes', 'cafe'),
+                              _typeChip('Coworking', 'coworking'),
+                              _chip('Open now', VenueFilter.openNow),
+                              _chip('Open late', VenueFilter.openLate),
+                              _chip('24 hours', VenueFilter.open24h),
+                              _chip('Work-friendly',
+                                  VenueFilter.workFriendly),
+                              _jumpChip(),
+                            ]),
+                          ),
+                          Padding(
+                            padding:
+                                const EdgeInsets.only(left: 16, top: 2),
+                            child: _countBadge(visible.length),
+                          ),
+                        ]),
                   ),
                 ),
               ),
-              // ---- locate me ----
-              Positioned(
-                right: 14,
-                bottom: _selected == null ? 96 : 210,
-                child: PointerInterceptor(
-                  child: Material(
-                    color: Colors.white,
-                    shape: const CircleBorder(),
-                    elevation: 4,
-                    child: InkWell(
-                      customBorder: const CircleBorder(),
-                      onTap: _goToMyLocation,
-                      child: const Padding(
-                        padding: EdgeInsets.all(12),
-                        child: Icon(Icons.my_location,
-                            color: Brand.red, size: 22),
+
+              // ---- legend (map mode only) ----
+              if (!_showList)
+                Positioned(
+                  left: 12,
+                  bottom: 24,
+                  child: PointerInterceptor(child: _legend()),
+                ),
+
+              // ---- locate me (map mode only) ----
+              if (!_showList)
+                Positioned(
+                  right: 14,
+                  bottom: _selected == null ? 96 : 210,
+                  child: PointerInterceptor(
+                    child: Material(
+                      color: Colors.white,
+                      shape: const CircleBorder(),
+                      elevation: 4,
+                      child: InkWell(
+                        customBorder: const CircleBorder(),
+                        onTap: _goToMyLocation,
+                        child: const Padding(
+                          padding: EdgeInsets.all(12),
+                          child: Icon(Icons.my_location,
+                              color: Brand.red, size: 22),
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-              if (_selected != null)
+
+              if (_selected != null && !_showList)
                 Positioned(
                     left: 12,
                     right: 12,
@@ -350,13 +482,7 @@ class _MapScreenState extends State<MapScreen> {
                     child: PointerInterceptor(
                         child: _VenueCard(
                             venue: _selected!,
-                            onDetails: () => Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                    builder: (_) => VenueDetailScreen(
-                                        venue: _selected!,
-                                        onConfirm: () => _openAddVenue(
-                                            confirming: _selected))))))),
+                            onDetails: () => _openDetail(_selected!)))),
             ]),
       floatingActionButton: _selected == null
           ? PointerInterceptor(
@@ -367,6 +493,53 @@ class _MapScreenState extends State<MapScreen> {
               ),
             )
           : null,
+    );
+  }
+
+  // ---------- chips & badges ----------
+
+  Widget _toggleListChip() {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: FilterChip(
+        avatar: Icon(_showList ? Icons.map_outlined : Icons.list,
+            size: 18, color: Colors.white),
+        label: Text(_showList ? 'Map' : 'List',
+            style: const TextStyle(
+                color: Colors.white, fontWeight: FontWeight.w700)),
+        selected: true,
+        showCheckmark: false,
+        selectedColor: Brand.charcoal,
+        elevation: 3,
+        onSelected: (_) => setState(() {
+          _showList = !_showList;
+          _selected = null;
+        }),
+      ),
+    );
+  }
+
+  Widget _typeChip(String label, String type) {
+    final on = _typeFilter == type;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: FilterChip(
+        label: Text(label,
+            style: TextStyle(
+                color: on ? Colors.white : Brand.charcoal,
+                fontWeight: FontWeight.w500)),
+        selected: on,
+        showCheckmark: false,
+        elevation: 3,
+        pressElevation: 1,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        onSelected: (_) => setState(() {
+          _typeFilter = on ? null : type;
+          if (_selected != null && !_visibleVenues.contains(_selected)) {
+            _selected = null;
+          }
+        }),
+      ),
     );
   }
 
@@ -393,9 +566,363 @@ class _MapScreenState extends State<MapScreen> {
       ),
     );
   }
+
+  Widget _jumpChip() {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: FilterChip(
+        avatar: const Icon(Icons.travel_explore,
+            size: 18, color: Brand.charcoal),
+        label: const Text('Jump to…',
+            style: TextStyle(
+                color: Brand.charcoal, fontWeight: FontWeight.w500)),
+        selected: false,
+        showCheckmark: false,
+        elevation: 3,
+        onSelected: (_) => _openJumpToCity(),
+      ),
+    );
+  }
+
+  Widget _countBadge(int shown) {
+    if (!_anyFilterOn && !_showList) return const SizedBox.shrink();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+          color: Brand.charcoal.withValues(alpha: .85),
+          borderRadius: BorderRadius.circular(12)),
+      child: Text(
+        _anyFilterOn
+            ? '$shown of ${_venues.length} $_noun shown'
+            : '${_venues.length} $_noun',
+        style: const TextStyle(
+            color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500),
+      ),
+    );
+  }
+
+  Widget _legend() {
+    Widget row(Color color, Color laptop, String label) => Padding(
+          padding: const EdgeInsets.symmetric(vertical: 2),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(Icons.location_on, size: 16, color: color),
+            const SizedBox(width: 5),
+            Text(label,
+                style: const TextStyle(
+                    fontSize: 11, fontWeight: FontWeight.w500)),
+          ]),
+        );
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: .92),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withValues(alpha: .12), blurRadius: 8)
+        ],
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        row(Brand.red, Colors.white, 'Work-friendly'),
+        row(const Color(0xFF9AA3AD), Colors.white, 'Not for laptops'),
+        row(Brand.amber, Brand.amber, 'Unknown · confirm & earn'),
+      ]),
+    );
+  }
 }
 
-/// Compact card shown when a pin is tapped.
+// ============================================================
+// Venue search (by name)
+// ============================================================
+
+class _VenueSearchDelegate extends SearchDelegate<Venue?> {
+  final List<Venue> venues;
+  _VenueSearchDelegate(this.venues)
+      : super(searchFieldLabel: 'Search venues…');
+
+  @override
+  List<Widget> buildActions(BuildContext context) => [
+        if (query.isNotEmpty)
+          IconButton(
+              icon: const Icon(Icons.clear), onPressed: () => query = '')
+      ];
+
+  @override
+  Widget buildLeading(BuildContext context) => IconButton(
+      icon: const Icon(Icons.arrow_back),
+      onPressed: () => close(context, null));
+
+  Widget _resultList(BuildContext context) {
+    final q = query.trim().toLowerCase();
+    final matches = venues
+        .where((v) =>
+            v.name.toLowerCase().contains(q) ||
+            (v.neighbourhood ?? '').toLowerCase().contains(q))
+        .toList();
+    if (matches.isEmpty) {
+      return Center(
+          child: Text('No venues found for "$query"',
+              style: TextStyle(color: Colors.grey.shade600)));
+    }
+    return ListView(
+      children: matches
+          .map((v) => ListTile(
+                leading: Icon(Icons.location_on,
+                    color: switch (v.workFriendly) {
+                      WorkFriendly.yes => Brand.red,
+                      WorkFriendly.no => const Color(0xFF9AA3AD),
+                      WorkFriendly.unknown => Brand.amber,
+                    }),
+                title: Text(v.name),
+                subtitle: Text([
+                  if (v.neighbourhood != null) v.neighbourhood!,
+                  if (v.distanceM != null) v.distanceLabel(),
+                ].join(' · ')),
+                trailing: v.rating != null
+                    ? Row(mainAxisSize: MainAxisSize.min, children: [
+                        const Icon(Icons.star,
+                            color: Brand.amber, size: 16),
+                        Text(' ${v.rating}')
+                      ])
+                    : null,
+                onTap: () => close(context, v),
+              ))
+          .toList(),
+    );
+  }
+
+  @override
+  Widget buildResults(BuildContext context) => _resultList(context);
+
+  @override
+  Widget buildSuggestions(BuildContext context) => query.isEmpty
+      ? Center(
+          child: Text('Type a venue name…',
+              style: TextStyle(color: Colors.grey.shade500)))
+      : _resultList(context);
+}
+
+// ============================================================
+// Jump-to-city bottom sheet
+// ============================================================
+
+class _JumpToCitySheet extends StatefulWidget {
+  final PlacesService places;
+  final List<String> citiesWithSpaces;
+  const _JumpToCitySheet(
+      {required this.places, required this.citiesWithSpaces});
+
+  @override
+  State<_JumpToCitySheet> createState() => _JumpToCitySheetState();
+}
+
+class _JumpToCitySheetState extends State<_JumpToCitySheet> {
+  List<PlaceSuggestion> _suggestions = [];
+  Timer? _debounce;
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    super.dispose();
+  }
+
+  void _onChanged(String text) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 350), () async {
+      final res = await widget.places
+          .autocomplete(text, types: ['locality']);
+      if (mounted) setState(() => _suggestions = res);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+          left: 20,
+          right: 20,
+          top: 20,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 20),
+      child: Column(mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Jump to a city',
+                style:
+                    TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+            const SizedBox(height: 12),
+            if (widget.citiesWithSpaces.isNotEmpty) ...[
+              Text('Cities with Spaces',
+                  style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade600,
+                      fontWeight: FontWeight.w700)),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 8,
+                children: widget.citiesWithSpaces
+                    .map((c) => ActionChip(
+                          avatar: const Icon(Icons.location_city,
+                              size: 16, color: Brand.red),
+                          label: Text(c),
+                          onPressed: () =>
+                              Navigator.pop(context, 'venue-city:$c'),
+                        ))
+                    .toList(),
+              ),
+              const SizedBox(height: 14),
+            ],
+            TextField(
+              autofocus: true,
+              onChanged: _onChanged,
+              decoration: const InputDecoration(
+                  labelText: 'Search any city…',
+                  prefixIcon: Icon(Icons.search)),
+            ),
+            ..._suggestions.take(5).map((s) => ListTile(
+                  dense: true,
+                  leading: const Icon(Icons.location_city,
+                      color: Brand.charcoal, size: 20),
+                  title: Text(s.main),
+                  subtitle: s.secondary.isEmpty ? null : Text(s.secondary),
+                  onTap: () => Navigator.pop(context, s.placeId),
+                )),
+            const SizedBox(height: 6),
+          ]),
+    );
+  }
+}
+
+// ============================================================
+// List-view card ("window shopping")
+// ============================================================
+
+class _VenueListCard extends StatelessWidget {
+  final Venue venue;
+  final VoidCallback onDetails;
+  final VoidCallback onConfirm;
+  const _VenueListCard(
+      {required this.venue,
+      required this.onDetails,
+      required this.onConfirm});
+
+  @override
+  Widget build(BuildContext context) {
+    final closing =
+        venue.closingLabel(soonMinutes: AppConfig.closingSoonMinutes);
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      elevation: 1.5,
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: Colors.grey.shade200)),
+      clipBehavior: Clip.antiAlias,
+      child: Theme(
+        data: Theme.of(context)
+            .copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          tilePadding:
+              const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+          childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+          leading: Icon(Icons.location_on,
+              size: 30,
+              color: switch (venue.workFriendly) {
+                WorkFriendly.yes => Brand.red,
+                WorkFriendly.no => const Color(0xFF9AA3AD),
+                WorkFriendly.unknown => Brand.amber,
+              }),
+          title: Text(venue.name,
+              style: const TextStyle(fontWeight: FontWeight.w700)),
+          subtitle: Padding(
+            padding: const EdgeInsets.only(top: 3),
+            child: Wrap(
+                spacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Text(venue.distanceLabel(),
+                      style:
+                          const TextStyle(fontWeight: FontWeight.w500)),
+                  if (venue.rating != null)
+                    Row(mainAxisSize: MainAxisSize.min, children: [
+                      const Icon(Icons.star,
+                          color: Brand.amber, size: 15),
+                      Text(' ${venue.rating}',
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w700)),
+                    ]),
+                  if (closing != null)
+                    Text(closing,
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: closing.startsWith('Closing') ||
+                                    closing == 'Closed'
+                                ? Brand.red
+                                : Colors.green.shade700)),
+                ]),
+          ),
+          children: [
+            _featureWrap(),
+            const SizedBox(height: 8),
+            Row(children: [
+              Expanded(
+                child: OutlinedButton(
+                    onPressed: onDetails,
+                    child: const Text('Full details')),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ElevatedButton(
+                    onPressed: onConfirm,
+                    child: Text(
+                        'Confirm · +${AppConfig.coinsConfirmVenue}')),
+              ),
+            ]),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _featureWrap() {
+    Widget chip(String label, bool? v) {
+      final (color, icon) = switch (v) {
+        true => (Colors.green.shade600, Icons.check),
+        false => (Brand.red, Icons.close),
+        null => (Colors.grey.shade400, Icons.help_outline),
+      };
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+            color: color.withValues(alpha: .08),
+            borderRadius: BorderRadius.circular(10)),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 13, color: color),
+          const SizedBox(width: 3),
+          Text(label,
+              style: TextStyle(fontSize: 11, color: Brand.charcoal)),
+        ]),
+      );
+    }
+
+    return Wrap(spacing: 6, runSpacing: 6, children: [
+      chip('Laptops', venue.laptopsAllowed),
+      chip(
+          venue.wifiSpeedMbps != null
+              ? 'Wifi ${venue.wifiSpeedMbps} Mbps'
+              : 'Wifi ?',
+          venue.wifiSpeedMbps != null ? true : null),
+      chip('Power', venue.powerOutlets),
+      chip('Aircon', venue.aircon),
+      chip('Seating', venue.comfortableSeating),
+      chip('Cozy', venue.cozy),
+      chip('Quiet', venue.quietSpace),
+    ]);
+  }
+}
+
+// ============================================================
+// Compact card shown when a pin is tapped (map mode)
+// ============================================================
+
 class _VenueCard extends StatelessWidget {
   final Venue venue;
   final VoidCallback onDetails;
