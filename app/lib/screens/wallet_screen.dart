@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../config.dart';
+import '../services/analytics_service.dart';
 import '../services/supabase_service.dart';
 import '../theme.dart';
 
@@ -20,6 +21,7 @@ class _WalletScreenState extends State<WalletScreen> {
   void initState() {
     super.initState();
     _load();
+    Analytics.capture('wallet_viewed');
   }
 
   Future<void> _load() async {

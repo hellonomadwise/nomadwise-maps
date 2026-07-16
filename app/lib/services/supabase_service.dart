@@ -202,6 +202,31 @@ class SupabaseService {
     );
   }
 
+  // ---------- profile ----------
+
+  Future<String?> myDisplayName() async {
+    final uid = currentUser?.id;
+    if (uid == null) return null;
+    try {
+      final row = await _db
+          .from('profiles')
+          .select('display_name')
+          .eq('id', uid)
+          .single();
+      return row['display_name'] as String?;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> updateDisplayName(String name) async {
+    final uid = currentUser?.id;
+    if (uid == null) return;
+    await _db
+        .from('profiles')
+        .update({'display_name': name}).eq('id', uid);
+  }
+
   // ---------- admin ----------
 
   Future<bool> isAdmin() async {

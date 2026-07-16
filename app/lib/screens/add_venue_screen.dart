@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import '../config.dart';
 import '../models/discovered_place.dart';
 import '../models/venue.dart';
+import '../services/analytics_service.dart';
 import '../services/location_service.dart';
 import '../services/places_service.dart';
 import '../services/supabase_service.dart';
@@ -236,6 +237,10 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
       );
 
       if (!mounted) return;
+      Analytics.capture('submission_sent', {
+        'kind': isConfirm ? 'confirm' : 'new_venue',
+        'has_photo': _photo != null,
+      });
       final coins = isConfirm
           ? AppConfig.coinsConfirmVenue
           : AppConfig.coinsNewVenue;

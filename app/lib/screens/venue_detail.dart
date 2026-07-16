@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../config.dart';
 import '../models/venue.dart';
+import '../services/analytics_service.dart';
 import '../services/location_service.dart';
 import '../services/places_service.dart';
 import '../services/speed_test_service.dart';
@@ -43,6 +44,8 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
     super.initState();
     _loadPhotos();
     _loadWifiLogin();
+    Analytics.capture('venue_viewed',
+        {'venue': venue.name, 'type': venue.type});
   }
 
   Future<void> _loadPhotos() async {
@@ -56,6 +59,7 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
   }
 
   Future<void> _openDirections() async {
+    Analytics.capture('directions_clicked', {'venue': venue.name});
     final lat = venue.lat, lng = venue.lng;
     if (lat == null || lng == null) return;
     final pid = venue.googlePlaceId;
@@ -708,6 +712,8 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
               Text('Could not measure. Check the connection and retry.')));
       return;
     }
+    Analytics.capture('wifi_test_measured',
+        {'venue': venue.name, 'mbps': mbps, 'connection': _wifiConnType});
     final submit = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(

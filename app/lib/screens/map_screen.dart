@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../config.dart';
 import '../models/discovered_place.dart';
 import '../models/venue.dart';
+import '../services/analytics_service.dart';
 import '../services/location_service.dart';
 import '../services/places_service.dart';
 import '../services/supabase_service.dart';
@@ -49,18 +50,72 @@ class _MapScreenState extends State<MapScreen> {
   BitmapDescriptor? _pinYes, _pinNo, _pinUnknown, _pinUnscreened, _pinMe;
   bool _hasRealLocation = false;
 
+  String? _displayName;
+
   @override
   void initState() {
     super.initState();
     _boot();
     _checkAdmin();
-    _supabase.authChanges.listen((_) => _checkAdmin());
+    Analytics.capture('app_opened');
+    _supabase.authChanges.listen((state) {
+      _checkAdmin();
+      final user = _supabase.currentUser;
+      if (state.event == AuthChangeEvent.signedIn && user != null) {
+        _onSignedIn(user.id, user.email);
+      } else if (state.event == AuthChangeEvent.signedOut) {
+        Analytics.capture('signed_out');
+        Analytics.reset();
+        if (mounted) setState(() => _displayName = null);
+      }
+    });
+  }
+
+  Future<void> _onSignedIn(String userId, String? email) async {
+    final name = await _supabase.myDisplayName();
+    if (mounted) setState(() => _displayName = name);
+    await Analytics.identify(userId, email: email, name: name);
+    await Analytics.capture('signed_in');
   }
 
   Future<void> _checkAdmin() async {
     final admin = await _supabase.isAdmin();
     if (mounted && admin != _isAdmin) setState(() => _isAdmin = admin);
+    _displayName ??= await _supabase.myDisplayName();
     if (mounted) setState(() {}); // refresh signed-in state in the menu
+  }
+
+  Future<void> _editNickname() async {
+    final ctrl = TextEditingController(text: _displayName ?? '');
+    final saved = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20)),
+              title: const Text('Your nickname'),
+              content: TextField(
+                controller: ctrl,
+                autofocus: true,
+                maxLength: 24,
+                decoration: const InputDecoration(
+                    labelText: 'Shown on the leaderboard',
+                    counterText: ''),
+              ),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    child: const Text('Cancel')),
+                ElevatedButton(
+                    onPressed: () => Navigator.pop(ctx, true),
+                    child: const Text('Save')),
+              ],
+            ));
+    final name = ctrl.text.trim();
+    if (saved == true && name.isNotEmpty) {
+      await _supabase.updateDisplayName(name);
+      if (mounted) setState(() => _displayName = name);
+      Analytics.capture('nickname_set');
+    }
   }
 
   Future<void> _boot() async {
@@ -150,6 +205,8 @@ class _MapScreenState extends State<MapScreen> {
         await _supabase.cacheDiscovered(fresh);
         _mergeDiscovered(fresh);
       }
+      Analytics.capture(
+          'area_searched', {'found': _visibleDiscovered.length});
       if (mounted) {
         final n = _visibleDiscovered.length;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -189,6 +246,7 @@ class _MapScreenState extends State<MapScreen> {
       if (ok != true) return;
     }
     if (!mounted) return;
+    Analytics.capture('screening_opened', {'place': p.name});
     await Navigator.push(
         context,
         MaterialPageRoute(
@@ -404,17 +462,40 @@ class _MapScreenState extends State<MapScreen> {
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Image.asset('assets/brand/app_icon.png', height: 52),
               const SizedBox(height: 12),
-              Text(
-                user != null
-                    ? (user.email ?? 'Signed in')
-                    : 'Not signed in',
-                style: const TextStyle(
-                    color: Colors.white, fontWeight: FontWeight.w700),
-                overflow: TextOverflow.ellipsis,
-              ),
-              if (user == null)
+              if (user != null) ...[
+                InkWell(
+                  onTap: () {
+                    Navigator.pop(context);
+                    _editNickname();
+                  },
+                  child: Row(children: [
+                    Flexible(
+                      child: Text(
+                        _displayName ?? 'Set your nickname',
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 17,
+                            fontWeight: FontWeight.w900),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    const Icon(Icons.edit, size: 15, color: Colors.white70),
+                  ]),
+                ),
+                Text(
+                  user.email ?? '',
+                  style: const TextStyle(
+                      color: Colors.white70, fontSize: 12),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ] else ...[
+                const Text('Not signed in',
+                    style: TextStyle(
+                        color: Colors.white, fontWeight: FontWeight.w700)),
                 const Text('Sign in to earn coins',
                     style: TextStyle(color: Colors.white70, fontSize: 13)),
+              ],
             ]),
           ),
           const SizedBox(height: 8),
