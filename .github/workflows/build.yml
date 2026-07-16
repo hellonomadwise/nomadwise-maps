@@ -60,15 +60,15 @@ jobs:
           sed -i "s|__GOOGLE_MAPS_WEB_KEY__|${{ secrets.GOOGLE_MAPS_WEB_KEY }}|" app/web/index.html
 
       - name: Pub get
-        run: flutter pub get
+        run: flutter pub get 2>&1 | tee -a ../ci_debug.log
         working-directory: app
 
       - name: Analyze (report only)
-        run: flutter analyze || true
+        run: flutter analyze 2>&1 | tee -a ../ci_debug.log || true
         working-directory: app
 
       - name: Run tests
-        run: flutter test
+        run: flutter test 2>&1 | tee -a ../ci_debug.log
         working-directory: app
 
       # Fill in venue coordinates from Google (skips venues already done).
@@ -93,8 +93,22 @@ jobs:
             --base-href "/${{ github.event.repository.name }}/" \
             --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }} \
             --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }} \
-            --dart-define=GOOGLE_PLACES_KEY=${{ secrets.GOOGLE_PLACES_KEY }}
+            --dart-define=GOOGLE_PLACES_KEY=${{ secrets.GOOGLE_PLACES_KEY }} \
+            2>&1 | tee -a ../ci_debug.log
         working-directory: app
+
+      # If anything above failed, save the log into the repo so it can be
+      # read and fixed from the development session.
+      - name: Save failure log
+        if: failure()
+        run: |
+          mkdir -p ci-debug
+          mv ci_debug.log ci-debug/last_failure.log || true
+          git config user.name "nomadwise-bot"
+          git config user.email "actions@github.com"
+          git pull --rebase || true
+          git add -f ci-debug/last_failure.log
+          git commit -m "ci: failure log [skip ci]" && git push || true
 
       - uses: actions/upload-pages-artifact@v3
         with:
