@@ -31,6 +31,8 @@ class _MapScreenState extends State<MapScreen> {
   List<Venue> _venues = [];
   final Set<VenueFilter> _filters = {};
   String? _typeFilter; // null = all, 'cafe', 'coworking'
+  // Which pin colours are visible (tap the legend to toggle).
+  final Set<WorkFriendly> _wfVisible = {...WorkFriendly.values};
   bool _showList = false;
   Venue? _selected;
   double? _userLat, _userLng;
@@ -138,10 +140,14 @@ class _MapScreenState extends State<MapScreen> {
         _ => 'Spaces',
       };
 
-  bool get _anyFilterOn => _filters.isNotEmpty || _typeFilter != null;
+  bool get _anyFilterOn =>
+      _filters.isNotEmpty ||
+      _typeFilter != null ||
+      _wfVisible.length < WorkFriendly.values.length;
 
   List<Venue> get _visibleVenues => _venues.where((v) {
         if (v.lat == null || v.lng == null) return false;
+        if (!_wfVisible.contains(v.workFriendly)) return false;
         if (_typeFilter != null && v.type != _typeFilter) return false;
         if (_filters.contains(VenueFilter.workFriendly) &&
             v.workFriendly != WorkFriendly.yes) return false;
@@ -459,13 +465,12 @@ class _MapScreenState extends State<MapScreen> {
                 ),
               ),
 
-              // ---- legend (map mode only) ----
-              if (!_showList)
-                Positioned(
-                  left: 12,
-                  bottom: 24,
-                  child: PointerInterceptor(child: _legend()),
-                ),
+              // ---- legend (doubles as pin-colour filter) ----
+              Positioned(
+                left: 12,
+                bottom: 24,
+                child: PointerInterceptor(child: _legend()),
+              ),
 
               // ---- locate me (map mode only) ----
               if (!_showList)
@@ -618,20 +623,47 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Widget _legend() {
-    Widget row(Color color, Color laptop, String label) => Padding(
-          padding: const EdgeInsets.symmetric(vertical: 2),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Icon(Icons.location_on, size: 16, color: color),
-            const SizedBox(width: 5),
-            Text(label,
-                style: const TextStyle(
-                    fontSize: 11, fontWeight: FontWeight.w500)),
-          ]),
-        );
+    Widget row(Color color, String label, WorkFriendly wf) {
+      final on = _wfVisible.contains(wf);
+      return InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: () => setState(() {
+          if (on) {
+            // Never allow hiding everything.
+            if (_wfVisible.length > 1) _wfVisible.remove(wf);
+          } else {
+            _wfVisible.add(wf);
+          }
+          if (_selected != null && !_visibleVenues.contains(_selected)) {
+            _selected = null;
+          }
+        }),
+        child: Opacity(
+          opacity: on ? 1 : .35,
+          child: Padding(
+            padding:
+                const EdgeInsets.symmetric(vertical: 3, horizontal: 2),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(on ? Icons.location_on : Icons.location_off,
+                  size: 16, color: color),
+              const SizedBox(width: 5),
+              Text(label,
+                  style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      decoration: on
+                          ? TextDecoration.none
+                          : TextDecoration.lineThrough)),
+            ]),
+          ),
+        ),
+      );
+    }
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: .92),
+        color: Colors.white.withValues(alpha: .94),
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
@@ -639,9 +671,15 @@ class _MapScreenState extends State<MapScreen> {
         ],
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        row(Brand.red, Colors.white, 'Work-friendly'),
-        row(const Color(0xFF9AA3AD), Colors.white, 'Not for laptops'),
-        row(Brand.amber, Brand.amber, 'Unknown · confirm & earn'),
+        row(Brand.red, 'Work-friendly', WorkFriendly.yes),
+        row(const Color(0xFF9AA3AD), 'Not for laptops', WorkFriendly.no),
+        row(Brand.amber, 'Unknown · confirm & earn', WorkFriendly.unknown),
+        Padding(
+          padding: const EdgeInsets.only(top: 2, left: 2),
+          child: Text('tap to filter',
+              style: TextStyle(
+                  fontSize: 9, color: Colors.grey.shade500)),
+        ),
       ]),
     );
   }
