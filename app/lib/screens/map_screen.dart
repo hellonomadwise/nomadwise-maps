@@ -47,6 +47,107 @@ class _MapScreenState extends State<MapScreen> {
   Future<void> _checkAdmin() async {
     final admin = await _supabase.isAdmin();
     if (mounted && admin != _isAdmin) setState(() => _isAdmin = admin);
+    if (mounted) setState(() {}); // refresh signed-in state in the menu
+  }
+
+  Future<void> _requireSignIn(VoidCallback then) async {
+    if (_supabase.signedIn) {
+      then();
+      return;
+    }
+    final ok = await Navigator.push<bool>(
+        context, MaterialPageRoute(builder: (_) => const AuthScreen()));
+    if (ok == true && mounted) then();
+  }
+
+  Widget _buildMenu() {
+    final user = _supabase.currentUser;
+    return Drawer(
+      backgroundColor: Colors.white,
+      child: SafeArea(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+          // ---- header ----
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: const BoxDecoration(gradient: Brand.gradient),
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Image.asset('assets/brand/app_icon.png', height: 52),
+              const SizedBox(height: 12),
+              Text(
+                user != null
+                    ? (user.email ?? 'Signed in')
+                    : 'Not signed in',
+                style: const TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.w700),
+                overflow: TextOverflow.ellipsis,
+              ),
+              if (user == null)
+                const Text('Sign in to earn coins',
+                    style: TextStyle(color: Colors.white70, fontSize: 13)),
+            ]),
+          ),
+          const SizedBox(height: 8),
+          ListTile(
+            leading: const Icon(Icons.account_balance_wallet_outlined,
+                color: Brand.amber),
+            title: const Text('Wallet'),
+            onTap: () {
+              Navigator.pop(context);
+              _requireSignIn(() => Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const WalletScreen())));
+            },
+          ),
+          if (_isAdmin)
+            ListTile(
+              leading: const Icon(Icons.fact_check_outlined,
+                  color: Brand.charcoal),
+              title: const Text('Review submissions'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const AdminScreen()));
+              },
+            ),
+          ListTile(
+            enabled: false,
+            leading: Icon(Icons.settings_outlined,
+                color: Colors.grey.shade400),
+            title: Text('Settings',
+                style: TextStyle(color: Colors.grey.shade400)),
+            subtitle: Text('Coming soon',
+                style:
+                    TextStyle(color: Colors.grey.shade400, fontSize: 12)),
+          ),
+          const Spacer(),
+          const Divider(height: 1),
+          if (user != null)
+            ListTile(
+              leading: const Icon(Icons.logout, color: Brand.red),
+              title: const Text('Sign out'),
+              onTap: () async {
+                await _supabase.signOut();
+                if (mounted) {
+                  Navigator.pop(context);
+                  setState(() => _isAdmin = false);
+                }
+              },
+            )
+          else
+            ListTile(
+              leading: const Icon(Icons.login, color: Brand.red),
+              title: const Text('Sign in'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const AuthScreen()));
+              },
+            ),
+          const SizedBox(height: 8),
+        ]),
+      ),
+    );
   }
 
   Future<void> _boot() async {
@@ -166,6 +267,7 @@ class _MapScreenState extends State<MapScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      drawer: _buildMenu(),
       appBar: AppBar(
         title: Row(children: [
           Image.asset('assets/brand/logo_mark.png', height: 28),
@@ -176,28 +278,12 @@ class _MapScreenState extends State<MapScreen> {
           const Text('maps', style: TextStyle(color: Brand.red)),
         ]),
         actions: [
-          if (_isAdmin)
-            IconButton(
-              icon: const Icon(Icons.fact_check_outlined,
-                  color: Brand.charcoal),
-              tooltip: 'Review submissions',
-              onPressed: () => Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => const AdminScreen())),
-            ),
           IconButton(
             icon: const Icon(Icons.account_balance_wallet_outlined,
                 color: Brand.amber),
             tooltip: 'Wallet',
-            onPressed: () async {
-              if (!_supabase.signedIn) {
-                final ok = await Navigator.push<bool>(context,
-                    MaterialPageRoute(builder: (_) => const AuthScreen()));
-                if (ok != true) return;
-              }
-              if (!context.mounted) return;
-              Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => const WalletScreen()));
-            },
+            onPressed: () => _requireSignIn(() => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const WalletScreen()))),
           ),
         ],
       ),
