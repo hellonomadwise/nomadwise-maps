@@ -230,7 +230,7 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
                           child: Text(
                             '${venue.unansweredCount} unanswered '
                             'question${venue.unansweredCount == 1 ? '' : 's'} '
-                            '— help other nomads and earn coins',
+                            '. Help other nomads and earn coins',
                             style: const TextStyle(
                                 fontWeight: FontWeight.w500,
                                 fontSize: 13),
@@ -267,7 +267,7 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
             Image.asset('assets/brand/logo_mark.png',
                 height: 46, color: Colors.white),
             const SizedBox(height: 8),
-            const Text('No photos yet — add one & earn coins',
+            const Text('No photos yet. Add one & earn coins',
                 style: TextStyle(color: Colors.white, fontSize: 13)),
           ]),
         ),
@@ -381,7 +381,7 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
     final (text, color) = ago == null
         ? ('Not yet confirmed', Brand.amber)
         : stale
-            ? ('Confirmed $ago — needs a refresh', Brand.amber)
+            ? ('Confirmed $ago · needs a refresh', Brand.amber)
             : ('Confirmed $ago', Colors.green.shade700);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),

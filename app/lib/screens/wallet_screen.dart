@@ -118,7 +118,7 @@ class _WalletScreenState extends State<WalletScreen> {
                           onPressed: () => ScaffoldMessenger.of(context)
                               .showSnackBar(const SnackBar(
                                   content: Text(
-                                      'Cash-out requests open soon — your coins are safe!'))),
+                                      'Cash-out requests open soon. Your coins are safe!'))),
                           icon: const Icon(Icons.euro),
                           label: const Text('Request cash-out')),
                     const SizedBox(height: 16),
@@ -133,7 +133,7 @@ class _WalletScreenState extends State<WalletScreen> {
                       Padding(
                         padding: const EdgeInsets.all(24),
                         child: Text(
-                          'No coins yet — add or confirm a venue on the map '
+                          'No coins yet. Review or confirm a space on the map '
                           'to start earning!',
                           textAlign: TextAlign.center,
                           style:

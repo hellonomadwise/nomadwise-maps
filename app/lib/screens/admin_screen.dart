@@ -44,7 +44,7 @@ class _AdminScreenState extends State<AdminScreen> {
                       const Icon(Icons.check_circle_outline,
                           size: 56, color: Colors.green),
                       const SizedBox(height: 12),
-                      Text('All caught up — nothing to review.',
+                      Text('All caught up. Nothing to review.',
                           style: TextStyle(color: Colors.grey.shade600)),
                     ]))
               : RefreshIndicator(
@@ -186,7 +186,7 @@ class _SubmissionCardState extends State<_SubmissionCard> {
             ),
             const SizedBox(width: 8),
             Expanded(
-                child: Text(venue?.name ?? payload['name'] ?? '—',
+                child: Text(venue?.name ?? payload['name'] ?? 'Unnamed',
                     style:
                         const TextStyle(fontWeight: FontWeight.w700))),
             if (date != null)

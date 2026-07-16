@@ -137,7 +137,7 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
                 title: const Text('Already on the map!'),
                 content: Text(
                     '${existing.name} is already listed, so you\'re now '
-                    'confirming it instead — still worth '
+                    'confirming it instead, still worth '
                     '${AppConfig.coinsConfirmVenue} coins.'),
                 actions: [
                   TextButton(
@@ -251,9 +251,9 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
                 ]),
                 content: Text(isConfirm
                     ? 'Thanks! Your coins will be credited after '
-                        'verification — usually within 5 minutes.'
+                        'verification, usually within 5 minutes.'
                     : 'Thanks! New venues get a quick once-over by the '
-                        'Nomadwise team — your coins are usually credited '
+                        'Nomadwise team. Your coins are usually credited '
                         'within a day.'),
                 actions: [
                   TextButton(
@@ -310,7 +310,7 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
                   : 'Search for the space…',
               helperText: isConfirm || widget.screening != null
                   ? null
-                  : 'Start typing and pick it from the list — spaces must '
+                  : 'Start typing and pick it from the list. Spaces must '
                       'be real places on Google Maps.',
               helperMaxLines: 2,
               suffixIcon: isConfirm
@@ -377,7 +377,7 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
             controller: _wifi,
             keyboardType: TextInputType.number,
             decoration: const InputDecoration(
-                labelText: 'WiFi speed (Mbps) — if you know it',
+                labelText: 'WiFi speed (Mbps), if you know it',
                 helperText:
                     'Soon the app will measure this for you automatically.'),
           ),
@@ -404,8 +404,8 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
                 _photo == null ? Icons.photo_camera : Icons.check_circle,
                 color: _photo == null ? Brand.red : Colors.green),
             label: Text(_photo == null
-                ? 'Add a photo (optional — helps other nomads)'
-                : 'Photo added ✓ — tap to retake'),
+                ? 'Add a photo (optional, helps other nomads)'
+                : 'Photo added ✓ · tap to retake'),
             style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 side: const BorderSide(color: Brand.red)),
@@ -433,8 +433,8 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
           const SizedBox(height: 10),
           Text(
             isConfirm
-                ? 'Coins are credited after verification — usually within 5 minutes.'
-                : 'Coins are credited after a quick review — usually within a day.',
+                ? 'Coins are credited after verification, usually within 5 minutes.'
+                : 'Coins are credited after a quick review, usually within a day.',
             textAlign: TextAlign.center,
             style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
           ),

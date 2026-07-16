@@ -155,7 +155,7 @@ class _MapScreenState extends State<MapScreen> {
             duration: const Duration(seconds: 2),
             content: Text(n == 0
                 ? 'No unscreened cafes found here yet.'
-                : '$n unscreened cafes here — screen one & earn ${AppConfig.coinsNewVenue} coins!')));
+                : '$n unscreened cafes here. Screen one & earn ${AppConfig.coinsNewVenue} coins!')));
       }
     } finally {
       if (mounted) setState(() => _searchingArea = false);
@@ -209,7 +209,7 @@ class _MapScreenState extends State<MapScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
             content: Text(
-                'Location unavailable — check your browser/phone location permission.')));
+                'Location unavailable. Check your browser/phone location permission.')));
       }
       return;
     }
@@ -1485,8 +1485,8 @@ class _DiscoveredCardState extends State<_DiscoveredCard> {
       ]);
     }
     if (s.isEmpty) {
-      return Text('No wifi/laptop mentions found in its reviews — '
-          'be the first to find out!',
+      return Text('No wifi/laptop mentions found in its reviews. '
+          'Be the first to find out!',
           style: TextStyle(fontSize: 12, color: Colors.grey.shade600));
     }
     Widget chip(IconData icon, String label) => Container(
@@ -1504,7 +1504,7 @@ class _DiscoveredCardState extends State<_DiscoveredCard> {
           ]),
         );
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Text('Promising — reviews mention:',
+      const Text('Promising! Reviews mention:',
           style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
       const SizedBox(height: 5),
       Wrap(spacing: 6, runSpacing: 4, children: [
@@ -1651,7 +1651,7 @@ class _VenueCard extends StatelessWidget {
           Icons.laptop_chromebook
         ),
       WorkFriendly.unknown => (
-          'Unknown — confirm & earn',
+          'Unknown · confirm & earn',
           Brand.amber,
           Icons.help_outline
         ),
