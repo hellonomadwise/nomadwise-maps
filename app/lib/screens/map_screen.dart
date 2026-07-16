@@ -710,6 +710,7 @@ class _MapScreenState extends State<MapScreen> {
                     child: PointerInterceptor(
                         child: _DiscoveredCard(
                             place: _selectedDiscovered!,
+                            places: _places,
                             onScreen: () =>
                                 _openScreening(_selectedDiscovered!)))),
             ]),
@@ -1432,10 +1433,89 @@ class _DiscoveredListCard extends StatelessWidget {
 // Card for an unscreened (Google-discovered) place
 // ============================================================
 
-class _DiscoveredCard extends StatelessWidget {
+class _DiscoveredCard extends StatefulWidget {
   final DiscoveredPlace place;
+  final PlacesService places;
   final VoidCallback onScreen;
-  const _DiscoveredCard({required this.place, required this.onScreen});
+  const _DiscoveredCard(
+      {required this.place, required this.places, required this.onScreen});
+
+  @override
+  State<_DiscoveredCard> createState() => _DiscoveredCardState();
+}
+
+class _DiscoveredCardState extends State<_DiscoveredCard> {
+  Map<String, int>? _signals;
+
+  DiscoveredPlace get place => widget.place;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSignals();
+  }
+
+  @override
+  void didUpdateWidget(covariant _DiscoveredCard old) {
+    super.didUpdateWidget(old);
+    if (old.place.placeId != place.placeId) {
+      _signals = null;
+      _loadSignals();
+    }
+  }
+
+  Future<void> _loadSignals() async {
+    final s = await widget.places.nomadSignals(place.placeId);
+    if (mounted) setState(() => _signals = s);
+  }
+
+  Widget _signalsRow() {
+    final s = _signals;
+    if (s == null) {
+      return Row(children: [
+        const SizedBox(
+            width: 12,
+            height: 12,
+            child: CircularProgressIndicator(
+                strokeWidth: 1.5, color: Brand.amber)),
+        const SizedBox(width: 8),
+        Text('Checking reviews for nomad signals…',
+            style:
+                TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+      ]);
+    }
+    if (s.isEmpty) {
+      return Text('No wifi/laptop mentions found in its reviews — '
+          'be the first to find out!',
+          style: TextStyle(fontSize: 12, color: Colors.grey.shade600));
+    }
+    Widget chip(IconData icon, String label) => Container(
+          padding:
+              const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+              color: Brand.amber.withValues(alpha: .15),
+              borderRadius: BorderRadius.circular(10)),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(icon, size: 13, color: Brand.charcoal),
+            const SizedBox(width: 4),
+            Text(label,
+                style: const TextStyle(
+                    fontSize: 11, fontWeight: FontWeight.w600)),
+          ]),
+        );
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const Text('Promising — reviews mention:',
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+      const SizedBox(height: 5),
+      Wrap(spacing: 6, runSpacing: 4, children: [
+        if (s['wifi'] != null) chip(Icons.wifi, 'wifi ×${s['wifi']}'),
+        if (s['power'] != null)
+          chip(Icons.power, 'plugs ×${s['power']}'),
+        if (s['laptop'] != null)
+          chip(Icons.laptop_mac, 'laptops ×${s['laptop']}'),
+      ]),
+    ]);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1481,11 +1561,13 @@ class _DiscoveredCard extends StatelessWidget {
             ),
             const Spacer(),
           ]),
+          const SizedBox(height: 8),
+          Align(alignment: Alignment.centerLeft, child: _signalsRow()),
           const SizedBox(height: 10),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: onScreen,
+              onPressed: widget.onScreen,
               icon: const Icon(Icons.rate_review_outlined, size: 19),
               label: Text(
                   'Screen this space  ·  earn ${AppConfig.coinsNewVenue} coins'),

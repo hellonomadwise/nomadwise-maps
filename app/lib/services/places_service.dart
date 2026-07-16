@@ -63,17 +63,38 @@ class PlacesService {
   /// Find cafes & coworking spaces Google knows about around a point.
   /// Used by "Search this area" — results get cached in Supabase so the
   /// same area never costs a second Google call.
+  static const _searchFieldMask =
+      'places.id,places.displayName,places.location,'
+      'places.primaryType,places.rating,places.userRatingCount';
+
   Future<List<DiscoveredPlace>> searchNearby(
       double lat, double lng, double radiusM) async {
+    final radius = radiusM.clamp(200.0, 50000.0);
+    // Cafes and coworking spaces live in different corners of Google's
+    // catalogue, so run both lookups in parallel and merge.
+    final results = await Future.wait([
+      _nearbyCafes(lat, lng, radius),
+      _textSearchCoworking(lat, lng, radius),
+    ]);
+    final seen = <String>{};
+    final merged = <DiscoveredPlace>[];
+    for (final list in results) {
+      for (final p in list) {
+        if (seen.add(p.placeId)) merged.add(p);
+      }
+    }
+    return merged;
+  }
+
+  Future<List<DiscoveredPlace>> _nearbyCafes(
+      double lat, double lng, double radius) async {
     try {
       final resp = await http.post(
         Uri.parse('https://places.googleapis.com/v1/places:searchNearby'),
         headers: {
           'X-Goog-Api-Key': AppConfig.googlePlacesKey,
           'Content-Type': 'application/json',
-          'X-Goog-FieldMask':
-              'places.id,places.displayName,places.location,'
-              'places.primaryType,places.rating,places.userRatingCount',
+          'X-Goog-FieldMask': _searchFieldMask,
         },
         body: jsonEncode({
           'includedTypes': ['cafe', 'coffee_shop'],
@@ -81,7 +102,7 @@ class PlacesService {
           'locationRestriction': {
             'circle': {
               'center': {'latitude': lat, 'longitude': lng},
-              'radius': radiusM.clamp(200.0, 50000.0),
+              'radius': radius,
             }
           },
         }),
@@ -94,6 +115,95 @@ class PlacesService {
           .toList();
     } catch (_) {
       return [];
+    }
+  }
+
+  Future<List<DiscoveredPlace>> _textSearchCoworking(
+      double lat, double lng, double radius) async {
+    try {
+      final resp = await http.post(
+        Uri.parse('https://places.googleapis.com/v1/places:searchText'),
+        headers: {
+          'X-Goog-Api-Key': AppConfig.googlePlacesKey,
+          'Content-Type': 'application/json',
+          'X-Goog-FieldMask': _searchFieldMask,
+        },
+        body: jsonEncode({
+          'textQuery': 'coworking space',
+          'maxResultCount': 10,
+          'locationBias': {
+            'circle': {
+              'center': {'latitude': lat, 'longitude': lng},
+              'radius': radius,
+            }
+          },
+        }),
+      );
+      if (resp.statusCode != 200) return [];
+      final places = (jsonDecode(resp.body)['places'] as List?) ?? [];
+      return places.map((p) {
+        final d = DiscoveredPlace.fromGoogle(Map<String, dynamic>.from(p));
+        // Text search may not set a primary type — mark these as coworking
+        // so the review form prefills correctly.
+        return DiscoveredPlace(
+          placeId: d.placeId,
+          name: d.name,
+          lat: d.lat,
+          lng: d.lng,
+          primaryType: d.primaryType ?? 'coworking_space',
+          rating: d.rating,
+          userRatingCount: d.userRatingCount,
+        );
+      }).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  // ---------- nomad-signal pre-screening ----------
+
+  static const _signalWords = {
+    'wifi': ['wifi', 'wi-fi', 'wlan', 'internet'],
+    'power': ['plug', 'socket', 'outlet', 'steckdose', 'tomada', 'enchufe'],
+    'laptop': [
+      'laptop', 'notebook', 'digital nomad', 'remote work', 'work from',
+      'working from', 'arbeiten', 'trabalhar', 'trabajar', 'study',
+      'studying',
+    ],
+  };
+
+  final Map<String, Map<String, int>> _signalCache = {};
+
+  /// Scans a place's Google reviews for signs it might suit nomads.
+  /// Returns mention counts per signal, e.g. {wifi: 3, power: 1, laptop: 2}.
+  Future<Map<String, int>> nomadSignals(String placeId) async {
+    final hit = _signalCache[placeId];
+    if (hit != null) return hit;
+    try {
+      final resp = await http.get(
+        Uri.parse('https://places.googleapis.com/v1/places/$placeId'),
+        headers: {
+          'X-Goog-Api-Key': AppConfig.googlePlacesKey,
+          'X-Goog-FieldMask': 'reviews',
+        },
+      );
+      if (resp.statusCode != 200) return {};
+      final reviews = (jsonDecode(resp.body)['reviews'] as List?) ?? [];
+      final texts = reviews
+          .map((r) => (r['text']?['text'] ?? '').toString().toLowerCase())
+          .toList();
+      final counts = <String, int>{};
+      _signalWords.forEach((signal, words) {
+        var n = 0;
+        for (final t in texts) {
+          if (words.any(t.contains)) n++;
+        }
+        if (n > 0) counts[signal] = n;
+      });
+      _signalCache[placeId] = counts;
+      return counts;
+    } catch (_) {
+      return {};
     }
   }
 
