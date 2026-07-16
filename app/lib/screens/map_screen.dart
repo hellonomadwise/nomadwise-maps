@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
+import 'package:supabase_flutter/supabase_flutter.dart'
+    show AuthChangeEvent;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../config.dart';
