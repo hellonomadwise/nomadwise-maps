@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../config.dart';
 import '../models/discovered_place.dart';
@@ -604,6 +605,7 @@ class _MapScreenState extends State<MapScreen> {
                                 final d = e as DiscoveredPlace;
                                 return _DiscoveredListCard(
                                   place: d,
+                                  places: _places,
                                   distanceM: _userLat == null
                                       ? null
                                       : Venue.haversineM(_userLat!,
@@ -1354,76 +1356,169 @@ class _VenueListCard extends StatelessWidget {
 // List-view row for an unscreened place
 // ============================================================
 
-class _DiscoveredListCard extends StatelessWidget {
+class _DiscoveredListCard extends StatefulWidget {
   final DiscoveredPlace place;
+  final PlacesService places;
   final double? distanceM;
   final VoidCallback onScreen;
   const _DiscoveredListCard(
-      {required this.place, this.distanceM, required this.onScreen});
+      {required this.place,
+      required this.places,
+      this.distanceM,
+      required this.onScreen});
+
+  @override
+  State<_DiscoveredListCard> createState() => _DiscoveredListCardState();
+}
+
+class _DiscoveredListCardState extends State<_DiscoveredListCard> {
+  Map<String, int>? _signals;
+  List<String> _photos = [];
+  bool _loaded = false;
+
+  DiscoveredPlace get place => widget.place;
 
   String get _distLabel {
-    final d = distanceM;
+    final d = widget.distanceM;
     if (d == null) return '';
     if (d < 1000) return '${d.round()} m';
     return '${(d / 1000).toStringAsFixed(1)} km';
   }
 
+  Future<void> _loadEvidence() async {
+    if (_loaded) return;
+    _loaded = true;
+    final live = await widget.places.details(place.placeId);
+    final signals = await widget.places.nomadSignals(place.placeId);
+    if (mounted) {
+      setState(() {
+        _photos = (live?.photoNames ?? [])
+            .take(4)
+            .map((n) => PlacesService.photoUrl(n, maxWidth: 400))
+            .toList();
+        _signals = signals;
+      });
+    }
+  }
+
+  Future<void> _openOnGoogle() async {
+    final url = Uri.parse(
+        'https://www.google.com/maps/search/?api=1&query='
+        '${Uri.encodeComponent(place.name)}&query_place_id=${place.placeId}');
+    await launchUrl(url, mode: LaunchMode.externalApplication);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final s = _signals;
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       elevation: 1.5,
       shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
           side: BorderSide(color: Colors.grey.shade200)),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
-        child: Row(children: [
-          const Icon(Icons.location_on,
+      clipBehavior: Clip.antiAlias,
+      child: Theme(
+        data:
+            Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          onExpansionChanged: (open) {
+            if (open) _loadEvidence();
+          },
+          tilePadding:
+              const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+          childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+          leading: const Icon(Icons.location_on,
               size: 30, color: Color(0xFFC7CDD4)),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+          title: Text(place.name,
+              style: const TextStyle(fontWeight: FontWeight.w700)),
+          subtitle: Padding(
+            padding: const EdgeInsets.only(top: 3),
+            child: Wrap(
+                spacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  Text(place.name,
-                      style:
-                          const TextStyle(fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 2),
-                  Wrap(
-                      spacing: 8,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        if (_distLabel.isNotEmpty)
-                          Text(_distLabel,
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.w500,
-                                  fontSize: 13)),
-                        if (place.rating != null)
-                          Row(mainAxisSize: MainAxisSize.min, children: [
-                            const Icon(Icons.star,
-                                color: Brand.amber, size: 14),
-                            Text(' ${place.rating}',
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 13)),
-                          ]),
-                        Text('Unscreened',
-                            style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey.shade500)),
-                      ]),
+                  if (_distLabel.isNotEmpty)
+                    Text(_distLabel,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w500, fontSize: 13)),
+                  if (place.rating != null)
+                    Row(mainAxisSize: MainAxisSize.min, children: [
+                      const Icon(Icons.star,
+                          color: Brand.amber, size: 14),
+                      Text(' ${place.rating}',
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13)),
+                    ]),
+                  Text('Unscreened',
+                      style: TextStyle(
+                          fontSize: 12, color: Colors.grey.shade500)),
                 ]),
           ),
-          const SizedBox(width: 8),
-          ElevatedButton(
-              onPressed: onScreen,
-              style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 10)),
-              child: Text('+${AppConfig.coinsNewVenue}',
-                  style: const TextStyle(fontSize: 14))),
-        ]),
+          children: [
+            // ---- evidence: photos + review signals ----
+            if (_photos.isNotEmpty) ...[
+              SizedBox(
+                height: 70,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _photos.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 6),
+                  itemBuilder: (_, i) => ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.network(_photos[i],
+                        width: 94,
+                        height: 70,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) =>
+                            const SizedBox(width: 94)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+            if (s == null)
+              Row(children: [
+                const SizedBox(
+                    width: 12,
+                    height: 12,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 1.5, color: Brand.amber)),
+                const SizedBox(width: 8),
+                Text('Checking reviews for nomad signals…',
+                    style: TextStyle(
+                        fontSize: 12, color: Colors.grey.shade600)),
+              ])
+            else if (s.isEmpty)
+              Text('No wifi/laptop mentions in its Google reviews yet.',
+                  style: TextStyle(
+                      fontSize: 12, color: Colors.grey.shade600))
+            else
+              Text(
+                'Reviews mention: '
+                '${s.entries.map((e) => '${e.key} ×${e.value}').join(' · ')}',
+                style: const TextStyle(
+                    fontSize: 12, fontWeight: FontWeight.w600),
+              ),
+            const SizedBox(height: 10),
+            Row(children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                    onPressed: _openOnGoogle,
+                    icon: const Icon(Icons.map_outlined, size: 17),
+                    label: const Text('View on Google')),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ElevatedButton(
+                    onPressed: widget.onScreen,
+                    child: Text(
+                        'Screen it · +${AppConfig.coinsNewVenue}')),
+              ),
+            ]),
+          ],
+        ),
       ),
     );
   }
