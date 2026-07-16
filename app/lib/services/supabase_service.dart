@@ -139,24 +139,26 @@ class SupabaseService {
 
   /// Credibility snapshot of a submitter: name, coin totals, verified count.
   Future<Map<String, dynamic>> submitterStats(String userId) async {
-    final results = await Future.wait([
-      _db.from('profiles').select('display_name').eq('id', userId).single(),
-      _db.from('wallet').select().eq('user_id', userId),
-      _db
-          .from('submissions')
-          .select('id')
-          .eq('user_id', userId)
-          .eq('status', 'verified'),
-    ]);
-    final profile = results[0] as Map;
-    final wallet = (results[1] as List).isEmpty
-        ? {'withdrawable': 0, 'pending': 0}
-        : (results[1] as List).first as Map;
+    final profile = await _db
+        .from('profiles')
+        .select('display_name')
+        .eq('id', userId)
+        .single();
+    final walletRows =
+        await _db.from('wallet').select().eq('user_id', userId);
+    final verified = await _db
+        .from('submissions')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('status', 'verified');
+    final wallet = (walletRows as List).isEmpty
+        ? const {'withdrawable': 0, 'pending': 0}
+        : Map<String, dynamic>.from(walletRows.first);
     return {
       'display_name': profile['display_name'] ?? 'Unknown',
       'withdrawable': (wallet['withdrawable'] as num?)?.toInt() ?? 0,
       'pending': (wallet['pending'] as num?)?.toInt() ?? 0,
-      'verified_count': (results[2] as List).length,
+      'verified_count': (verified as List).length,
     };
   }
 
