@@ -45,7 +45,8 @@ class _MapScreenState extends State<MapScreen> {
   bool _loading = true;
   bool _isAdmin = false;
 
-  BitmapDescriptor? _pinYes, _pinNo, _pinUnknown, _pinUnscreened;
+  BitmapDescriptor? _pinYes, _pinNo, _pinUnknown, _pinUnscreened, _pinMe;
+  bool _hasRealLocation = false;
 
   @override
   void initState() {
@@ -85,6 +86,7 @@ class _MapScreenState extends State<MapScreen> {
     if (pos != null) {
       _userLat = pos.latitude;
       _userLng = pos.longitude;
+      _hasRealLocation = true;
       // If we started from cache with the fallback centre, fly to the user.
       _map?.animateCamera(CameraUpdate.newLatLngZoom(
           LatLng(pos.latitude, pos.longitude), 14));
@@ -109,6 +111,9 @@ class _MapScreenState extends State<MapScreen> {
         await BitmapDescriptor.asset(cfg, 'assets/pins/pin_unknown.png');
     _pinUnscreened = await BitmapDescriptor.asset(
         cfg, 'assets/pins/pin_unscreened.png');
+    _pinMe = await BitmapDescriptor.asset(
+        const ImageConfiguration(size: Size(32, 32)),
+        'assets/pins/my_location.png');
   }
 
   // ---------- discovery ("Search this area") ----------
@@ -210,6 +215,7 @@ class _MapScreenState extends State<MapScreen> {
     }
     _userLat = pos.latitude;
     _userLng = pos.longitude;
+    _hasRealLocation = true;
     _computeDistances();
     if (mounted) setState(() {});
     _map?.animateCamera(CameraUpdate.newLatLngZoom(
@@ -266,6 +272,15 @@ class _MapScreenState extends State<MapScreen> {
       };
 
   Set<Marker> get _markers => {
+        // "You are here" — blue dot, only when we truly know the location.
+        if (_hasRealLocation && _userLat != null)
+          Marker(
+            markerId: const MarkerId('me'),
+            position: LatLng(_userLat!, _userLng!),
+            icon: _pinMe ?? BitmapDescriptor.defaultMarkerWithHue(220),
+            anchor: const Offset(0.5, 0.5),
+            consumeTapEvents: false,
+          ),
         ..._visibleVenues.map((v) => Marker(
               markerId: MarkerId(v.id),
               position: LatLng(v.lat!, v.lng!),
