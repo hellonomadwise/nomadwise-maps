@@ -221,13 +221,14 @@ class SupabaseService {
   }
 
   /// Upload a new profile image and remember its URL.
-  Future<String?> uploadAvatar(Uint8List bytes) async {
+  Future<String?> uploadAvatar(Uint8List bytes,
+      {String ext = 'jpg', String contentType = 'image/jpeg'}) async {
     final uid = currentUser?.id;
     if (uid == null) return null;
     final path =
-        '$uid/avatar_${DateTime.now().millisecondsSinceEpoch}.jpg';
+        '$uid/avatar_${DateTime.now().millisecondsSinceEpoch}.$ext';
     await _db.storage.from('avatars').uploadBinary(path, bytes,
-        fileOptions: const FileOptions(contentType: 'image/jpeg'));
+        fileOptions: FileOptions(contentType: contentType));
     final url = _db.storage.from('avatars').getPublicUrl(path);
     await _db.from('profiles').update({'avatar_url': url}).eq('id', uid);
     return url;

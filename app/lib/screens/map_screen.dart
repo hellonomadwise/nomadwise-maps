@@ -89,18 +89,69 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Future<void> _changeAvatar() async {
-    final img = await ImagePicker().pickImage(
-        source: ImageSource.gallery, maxWidth: 512, imageQuality: 80);
-    if (img == null) return;
-    final bytes = await img.readAsBytes();
-    final url = await _supabase.uploadAvatar(bytes);
-    if (mounted && url != null) {
-      setState(() => _avatarUrl = url);
-      Analytics.capture('avatar_updated');
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          duration: Duration(seconds: 2),
-          content: Text('Looking good! Profile photo updated.')));
+    try {
+      XFile? img;
+      try {
+        img = await ImagePicker().pickImage(
+            source: ImageSource.gallery, maxWidth: 512, imageQuality: 80);
+      } catch (_) {
+        // Shrinking can fail on some browsers (odd formats, huge photos).
+        // Take the photo exactly as it is instead.
+        img = await ImagePicker().pickImage(source: ImageSource.gallery);
+      }
+      if (img == null) return;
+      final bytes = await img.readAsBytes();
+
+      // What format did the phone actually hand over?
+      final kind = _imageKind(bytes);
+      if (kind == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              duration: Duration(seconds: 5),
+              content: Text(
+                  'That photo is in a format other phones can\'t show '
+                  '(often iPhone HEIC). Try a different photo, or a '
+                  'screenshot of it.')));
+        }
+        return;
+      }
+
+      final url = await _supabase.uploadAvatar(bytes,
+          ext: kind.$1, contentType: kind.$2);
+      if (mounted && url != null) {
+        setState(() => _avatarUrl = url);
+        Analytics.capture('avatar_updated');
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            duration: Duration(seconds: 2),
+            content: Text('Looking good! Profile photo updated.')));
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text(
+                'Couldn\'t update the photo. Please try another one.')));
+      }
     }
+  }
+
+  /// (extension, mime type) read from the file's first bytes,
+  /// or null when it's a format browsers can't display (e.g. HEIC).
+  static (String, String)? _imageKind(Uint8List b) {
+    if (b.length > 2 && b[0] == 0xFF && b[1] == 0xD8) {
+      return ('jpg', 'image/jpeg');
+    }
+    if (b.length > 4 &&
+        b[0] == 0x89 && b[1] == 0x50 && b[2] == 0x4E && b[3] == 0x47) {
+      return ('png', 'image/png');
+    }
+    if (b.length > 12 &&
+        b[8] == 0x57 && b[9] == 0x45 && b[10] == 0x42 && b[11] == 0x50) {
+      return ('webp', 'image/webp');
+    }
+    if (b.length > 3 && b[0] == 0x47 && b[1] == 0x49 && b[2] == 0x46) {
+      return ('gif', 'image/gif');
+    }
+    return null;
   }
 
   @override
