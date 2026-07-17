@@ -461,10 +461,13 @@ class _MapScreenState extends State<MapScreen> {
               position: LatLng(v.lat!, v.lng!),
               icon: _iconFor(v),
               alpha: v.workFriendly == WorkFriendly.no ? 0.85 : 1.0,
-              onTap: () => setState(() {
-                _selected = v;
-                _selectedDiscovered = null;
-              }),
+              onTap: () {
+                setState(() {
+                  _selected = v;
+                  _selectedDiscovered = null;
+                });
+                _recenterOn(v.lat!, v.lng!);
+              },
             )),
         ..._visibleDiscovered.map((d) => Marker(
               markerId: MarkerId('disc-${d.placeId}'),
@@ -472,12 +475,32 @@ class _MapScreenState extends State<MapScreen> {
               icon: _pinUnscreened ??
                   BitmapDescriptor.defaultMarkerWithHue(200),
               alpha: 0.92,
-              onTap: () => setState(() {
-                _selectedDiscovered = d;
-                _selected = null;
-              }),
+              onTap: () {
+                setState(() {
+                  _selectedDiscovered = d;
+                  _selected = null;
+                });
+                _recenterOn(d.lat, d.lng);
+              },
             )),
       };
+
+  bool get _wideScreen => MediaQuery.of(context).size.width > 900;
+
+  /// Centre the map on the tapped pin. On wide screens the details
+  /// panel covers the right side, so aim slightly east: the pin then
+  /// sits centred in the visible left part.
+  void _recenterOn(double lat, double lng) {
+    var targetLng = lng;
+    final b = _mapBounds;
+    if (_wideScreen && b != null) {
+      final span =
+          b.northeast.longitude - b.southwest.longitude;
+      if (span > 0 && span < 90) targetLng = lng + span * .19;
+    }
+    _map?.animateCamera(
+        CameraUpdate.newLatLng(LatLng(lat, targetLng)));
+  }
 
   Future<void> _openAddVenue({Venue? confirming}) async {
     if (!_supabase.signedIn) {
@@ -1139,7 +1162,7 @@ class _MapScreenState extends State<MapScreen> {
                   ),
                 ),
 
-              if (_selected != null && !_showList)
+              if (_selected != null && !_showList && !_wideScreen)
                 Positioned(
                     left: 12,
                     right: 12,
@@ -1149,7 +1172,9 @@ class _MapScreenState extends State<MapScreen> {
                             venue: _selected!,
                             onDetails: () => _openDetail(_selected!)))),
 
-              if (_selectedDiscovered != null && !_showList)
+              if (_selectedDiscovered != null &&
+                  !_showList &&
+                  !_wideScreen)
                 Positioned(
                     left: 12,
                     right: 12,
@@ -1160,7 +1185,64 @@ class _MapScreenState extends State<MapScreen> {
                             places: _places,
                             onScreen: () =>
                                 _openScreening(_selectedDiscovered!)))),
+
+              // ---- desktop: details live in a right-side panel ----
+              if (_wideScreen &&
+                  !_showList &&
+                  (_selected != null || _selectedDiscovered != null))
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: PointerInterceptor(child: _sidePanel()),
+                ),
             ]),
+    );
+  }
+
+  /// Wide screens: the tapped pin's details in a panel on the right,
+  /// map stays visible on the left.
+  Widget _sidePanel() {
+    final w =
+        (MediaQuery.of(context).size.width * .38).clamp(340.0, 520.0);
+    return Container(
+      width: w,
+      decoration: const BoxDecoration(
+        color: Brand.surface,
+        border: Border(left: BorderSide(color: Brand.hairline)),
+        boxShadow: Brand.shadowSheet,
+      ),
+      child: SafeArea(
+        child: Column(children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 12, 4),
+            child: Row(children: [
+              const Spacer(),
+              IconSquareButton(
+                icon: Icons.close,
+                onTap: () => setState(() {
+                  _selected = null;
+                  _selectedDiscovered = null;
+                }),
+              ),
+            ]),
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+              child: _selected != null
+                  ? _VenueCard(
+                      venue: _selected!,
+                      onDetails: () => _openDetail(_selected!))
+                  : _DiscoveredCard(
+                      place: _selectedDiscovered!,
+                      places: _places,
+                      onScreen: () =>
+                          _openScreening(_selectedDiscovered!)),
+            ),
+          ),
+        ]),
+      ),
     );
   }
 
@@ -2138,48 +2220,111 @@ class _VenueCard extends StatelessWidget {
           Brand.gold
         ),
     };
-    return Container(
-      decoration: BoxDecoration(
-        color: Brand.surface,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
         borderRadius: BorderRadius.circular(22),
-        boxShadow: Brand.shadowSheet,
+        onTap: onDetails,
+        child: Container(
+          decoration: BoxDecoration(
+            color: Brand.surface,
+            borderRadius: BorderRadius.circular(22),
+            boxShadow: Brand.shadowSheet,
+          ),
+          padding: const EdgeInsets.all(18),
+          child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(children: [
+                  Expanded(
+                      child: Text(venue.name,
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 18))),
+                  if (venue.rating != null) ...[
+                    const Icon(Icons.star, color: Brand.gold, size: 17),
+                    Text(' ${venue.rating}',
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w700, fontSize: 14)),
+                    if (venue.reviewCount != null)
+                      Text(' (${venue.reviewCount})',
+                          style: const TextStyle(
+                              color: Brand.inkMuted, fontSize: 12)),
+                  ],
+                ]),
+                const SizedBox(height: 10),
+                StatusChip(statusText, dotColor: statusDot),
+                const SizedBox(height: 8),
+                Text(
+                  [
+                    venue.distanceLabel(),
+                    if (closing != null) closing,
+                  ].join(' · '),
+                  style: const TextStyle(
+                      fontSize: 13, color: Brand.inkSecondary),
+                ),
+                const SizedBox(height: 10),
+                _facts(),
+                const SizedBox(height: 10),
+                const Row(children: [
+                  Expanded(
+                    child: Text('Photos, wifi login & directions',
+                        style: TextStyle(
+                            fontSize: 12, color: Brand.inkMuted)),
+                  ),
+                  Text('More ›',
+                      style: TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w600,
+                          color: Brand.accent)),
+                ]),
+              ]),
+        ),
       ),
-      padding: const EdgeInsets.all(18),
-      child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(children: [
-              Expanded(
-                  child: Text(venue.name,
-                      style: const TextStyle(
-                          fontWeight: FontWeight.w700, fontSize: 18))),
-              if (venue.rating != null) ...[
-                const Icon(Icons.star, color: Brand.gold, size: 17),
-                Text(' ${venue.rating}',
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w700, fontSize: 14)),
-                if (venue.reviewCount != null)
-                  Text(' (${venue.reviewCount})',
-                      style: const TextStyle(
-                          color: Brand.inkMuted, fontSize: 12)),
-              ],
-            ]),
-            const SizedBox(height: 10),
-            StatusChip(statusText, dotColor: statusDot),
-            const SizedBox(height: 8),
-            Text(
-              [
-                venue.distanceLabel(),
-                if (closing != null) closing,
-              ].join(' · '),
-              style: const TextStyle(
-                  fontSize: 13, color: Brand.inkSecondary),
-            ),
-            const SizedBox(height: 14),
-            PrimaryCta(label: 'View details', onPressed: onDetails),
-          ]),
     );
   }
 
+  /// The facts nomads care about, visible without another tap.
+  Widget _facts() {
+    Widget pillFact(IconData? icon, Color iconColor, String label) =>
+        Container(
+          padding:
+              const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+              color: Brand.field,
+              borderRadius: BorderRadius.circular(10)),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            if (icon != null) ...[
+              Icon(icon, size: 13, color: iconColor),
+              const SizedBox(width: 4),
+            ],
+            Text(label,
+                style: const TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w600,
+                    color: Brand.ink)),
+          ]),
+        );
+
+    Widget fact(String label, bool? v) {
+      final (color, icon) = switch (v) {
+        true => (Brand.success, Icons.check),
+        false => (Brand.accent, Icons.close),
+        null => (Brand.inkMuted, Icons.help_outline),
+      };
+      return pillFact(icon, color, label);
+    }
+
+    return Wrap(spacing: 6, runSpacing: 6, children: [
+      if (venue.wifiSpeedMbps != null)
+        pillFact(Icons.wifi, Brand.ink, '${venue.wifiSpeedMbps} Mbps')
+      else
+        fact('Wifi', null),
+      fact('Laptops', venue.laptopsAllowed),
+      fact('Power', venue.powerOutlets),
+      fact('Aircon', venue.aircon),
+      fact('Quiet', venue.quietSpace),
+    ]);
+  }
 }
