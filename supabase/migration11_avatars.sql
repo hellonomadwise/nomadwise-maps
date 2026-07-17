@@ -23,7 +23,12 @@ create policy "avatars readable" on storage.objects
   for select using (bucket_id = 'avatars');
 
 -- 2. Avatars join the public leaderboard + live activity
-create or replace view public.leaderboard as
+-- (Views must be dropped first: Postgres won't reorder view columns
+--  in place. Views hold no data, so this is safe.)
+drop view if exists public.leaderboard;
+drop view if exists public.live_activity;
+
+create view public.leaderboard as
 select
   p.id as user_id,
   coalesce(nullif(p.display_name, ''), 'Nomad') as display_name,
@@ -50,7 +55,7 @@ from public.profiles p;
 
 grant select on public.leaderboard to anon, authenticated;
 
-create or replace view public.live_activity as
+create view public.live_activity as
 select
   coalesce(nullif(p.display_name, ''), 'Nomad') as display_name,
   p.avatar_url,
