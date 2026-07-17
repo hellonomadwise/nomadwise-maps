@@ -277,7 +277,8 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Future<void> _loadPinIcons() async {
-    const cfg = ImageConfiguration(size: Size(38, 48));
+    // Square size = no stretching; ~30 logical px reads like Google's own.
+    const cfg = ImageConfiguration(size: Size(30, 30));
     _pinYes = await BitmapDescriptor.asset(cfg, 'assets/pins/pin_yes.png');
     _pinNo = await BitmapDescriptor.asset(cfg, 'assets/pins/pin_no.png');
     _pinUnknown =
