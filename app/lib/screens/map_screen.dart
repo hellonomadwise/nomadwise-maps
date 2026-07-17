@@ -36,10 +36,31 @@ class _MapScreenState extends State<MapScreen> {
   List<Venue> _venues = [];
   final Set<VenueFilter> _filters = {};
   String? _typeFilter; // null = all, 'cafe', 'coworking'
-  // Which pin colours are visible (tap the legend to toggle).
-  final Set<WorkFriendly> _wfVisible = {...WorkFriendly.values};
-  bool _showUnscreened = true;
+  // Pin-colour selection: empty = show everything; tapping a legend row
+  // SELECTS that colour (shows only the selected ones).
+  final Set<String> _pinFilter = {};
   bool _legendOpen = false;
+  LatLngBounds? _mapBounds;
+
+  bool _catVisible(String cat) =>
+      _pinFilter.isEmpty || _pinFilter.contains(cat);
+
+  bool _inBounds(double lat, double lng) {
+    final b = _mapBounds;
+    if (b == null) return true;
+    final latOk =
+        lat >= b.southwest.latitude && lat <= b.northeast.latitude;
+    final lngOk = b.southwest.longitude <= b.northeast.longitude
+        ? (lng >= b.southwest.longitude && lng <= b.northeast.longitude)
+        : (lng >= b.southwest.longitude || lng <= b.northeast.longitude);
+    return latOk && lngOk;
+  }
+
+  static String _wfKey(WorkFriendly wf) => switch (wf) {
+        WorkFriendly.yes => 'yes',
+        WorkFriendly.no => 'no',
+        WorkFriendly.unknown => 'unknown',
+      };
   bool _showList = false;
   Venue? _selected;
   DiscoveredPlace? _selectedDiscovered;
@@ -233,7 +254,7 @@ class _MapScreenState extends State<MapScreen> {
 
   /// Discovered places not yet on our map as venues.
   List<DiscoveredPlace> get _visibleDiscovered {
-    if (!_showUnscreened) return [];
+    if (!_catVisible('unscreened')) return [];
     final venuePlaceIds =
         _venues.map((v) => v.googlePlaceId).whereType<String>().toSet();
     return _discovered
@@ -303,13 +324,11 @@ class _MapScreenState extends State<MapScreen> {
       };
 
   bool get _anyFilterOn =>
-      _filters.isNotEmpty ||
-      _typeFilter != null ||
-      _wfVisible.length < WorkFriendly.values.length;
+      _filters.isNotEmpty || _typeFilter != null || _pinFilter.isNotEmpty;
 
   List<Venue> get _visibleVenues => _venues.where((v) {
         if (v.lat == null || v.lng == null) return false;
-        if (!_wfVisible.contains(v.workFriendly)) return false;
+        if (!_catVisible(_wfKey(v.workFriendly))) return false;
         if (_typeFilter != null && v.type != _typeFilter) return false;
         if (_filters.contains(VenueFilter.workFriendly) &&
             v.workFriendly != WorkFriendly.yes) return false;
@@ -631,6 +650,12 @@ class _MapScreenState extends State<MapScreen> {
                 zoomControlsEnabled: false,
                 markers: _markers,
                 onMapCreated: (c) => _map = c,
+                onCameraIdle: () async {
+                  final b = await _map?.getVisibleRegion();
+                  if (mounted && b != null) {
+                    setState(() => _mapBounds = b);
+                  }
+                },
                 onTap: (_) => setState(() {
                   _selected = null;
                   _selectedDiscovered = null;
@@ -731,7 +756,7 @@ class _MapScreenState extends State<MapScreen> {
                           Padding(
                             padding:
                                 const EdgeInsets.only(left: 16, top: 2),
-                            child: _countBadge(visible.length),
+                            child: _countBadge(),
                           ),
                           // "Search this area" sits under the chips,
                           // centred — like Google Maps.
@@ -922,58 +947,47 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
-  Widget _unscreenedLegendRow() {
-    final on = _showUnscreened;
-    return InkWell(
-      borderRadius: BorderRadius.circular(8),
-      onTap: () => setState(() {
-        if (on && _wfVisible.isEmpty) return; // never hide everything
-        _showUnscreened = !_showUnscreened;
-        if (!_showUnscreened) _selectedDiscovered = null;
-      }),
-      onDoubleTap: () => setState(() {
-        // Solo: only unscreened places.
-        _wfVisible.clear();
-        _showUnscreened = true;
-        _selected = null;
-      }),
-      child: Opacity(
-        opacity: on ? 1 : .35,
-        child: Padding(
-          padding:
-              const EdgeInsets.symmetric(vertical: 3, horizontal: 2),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Icon(on ? Icons.location_on : Icons.location_off,
-                size: 16, color: const Color(0xFFC7CDD4)),
-            const SizedBox(width: 5),
-            Text('Unscreened · review & earn',
-                style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                    decoration: on
-                        ? TextDecoration.none
-                        : TextDecoration.lineThrough)),
-          ]),
-        ),
-      ),
-    );
-  }
-
-  Widget _countBadge(int shown) {
-    if (!_anyFilterOn && !_showList) return const SizedBox.shrink();
+  Widget _countBadge() {
+    String text;
+    if (_showList) {
+      // List mode covers everywhere, sorted by distance.
+      text = [
+        _anyFilterOn
+            ? '${_visibleVenues.length} of ${_venues.length} $_noun shown'
+            : '${_venues.length} $_noun',
+        if (_visibleDiscovered.isNotEmpty)
+          '${_visibleDiscovered.length} unscreened',
+      ].join(' · ');
+    } else {
+      // Map mode: count only what's inside the current view.
+      final totalHere = _venues
+          .where((v) =>
+              v.lat != null && v.lng != null && _inBounds(v.lat!, v.lng!))
+          .length;
+      final shownHere = _visibleVenues
+          .where((v) => _inBounds(v.lat!, v.lng!))
+          .length;
+      final unscreenedHere = _visibleDiscovered
+          .where((d) => _inBounds(d.lat, d.lng))
+          .length;
+      if (totalHere == 0 && unscreenedHere == 0) {
+        text = 'No $_noun here yet';
+      } else {
+        text = [
+          _anyFilterOn
+              ? '$shownHere of $totalHere $_noun here'
+              : '$totalHere $_noun here',
+          if (unscreenedHere > 0) '$unscreenedHere unscreened',
+        ].join(' · ');
+      }
+    }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
           color: Brand.charcoal.withValues(alpha: .85),
           borderRadius: BorderRadius.circular(12)),
       child: Text(
-        [
-          _anyFilterOn
-              ? '$shown of ${_venues.length} $_noun shown'
-              : '${_venues.length} $_noun',
-          if (_visibleDiscovered.isNotEmpty)
-            '${_visibleDiscovered.length} unscreened',
-        ].join(' · '),
+        text,
         style: const TextStyle(
             color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500),
       ),
@@ -981,60 +995,46 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Widget _legend() {
-    // Total categories currently visible (3 pin colours + unscreened).
-    int visibleCategories() =>
-        _wfVisible.length + (_showUnscreened ? 1 : 0);
-
-    Widget row(Color color, String label, WorkFriendly wf) {
-      final on = _wfVisible.contains(wf);
+    Widget row(Color color, String label, String cat) {
+      final selecting = _pinFilter.isNotEmpty;
+      final selected = _pinFilter.contains(cat);
+      final shown = !selecting || selected;
       return InkWell(
         borderRadius: BorderRadius.circular(8),
         onTap: () => setState(() {
-          if (on) {
-            // Never allow hiding everything.
-            if (visibleCategories() > 1) _wfVisible.remove(wf);
-          } else {
-            _wfVisible.add(wf);
-          }
+          // Tap = show only this colour; tap more to add; tap again to
+          // remove. Empty selection = show everything.
+          selected ? _pinFilter.remove(cat) : _pinFilter.add(cat);
           if (_selected != null && !_visibleVenues.contains(_selected)) {
             _selected = null;
           }
-        }),
-        onDoubleTap: () => setState(() {
-          // Solo: show only this category.
-          _wfVisible
-            ..clear()
-            ..add(wf);
-          _showUnscreened = false;
-          _selectedDiscovered = null;
-          if (_selected != null && !_visibleVenues.contains(_selected)) {
-            _selected = null;
-          }
+          if (!_catVisible('unscreened')) _selectedDiscovered = null;
         }),
         child: Opacity(
-          opacity: on ? 1 : .35,
+          opacity: shown ? 1 : .35,
           child: Padding(
             padding:
                 const EdgeInsets.symmetric(vertical: 3, horizontal: 2),
             child: Row(mainAxisSize: MainAxisSize.min, children: [
-              Icon(on ? Icons.location_on : Icons.location_off,
-                  size: 16, color: color),
+              Icon(Icons.location_on, size: 16, color: color),
               const SizedBox(width: 5),
               Text(label,
                   style: TextStyle(
                       fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                      decoration: on
-                          ? TextDecoration.none
-                          : TextDecoration.lineThrough)),
+                      fontWeight:
+                          selected ? FontWeight.w800 : FontWeight.w500)),
+              if (selected) ...[
+                const SizedBox(width: 4),
+                const Icon(Icons.check_circle,
+                    size: 12, color: Brand.red),
+              ],
             ]),
           ),
         ),
       );
     }
 
-    final pinsHidden = _wfVisible.length < WorkFriendly.values.length ||
-        !_showUnscreened;
+    final filtering = _pinFilter.isNotEmpty;
 
     // Collapsed: a small round button that opens the legend.
     if (!_legendOpen) {
@@ -1050,7 +1050,7 @@ class _MapScreenState extends State<MapScreen> {
             child: Stack(clipBehavior: Clip.none, children: [
               const Icon(Icons.layers_outlined,
                   color: Brand.charcoal, size: 22),
-              if (pinsHidden)
+              if (filtering)
                 Positioned(
                   right: -2,
                   top: -2,
@@ -1079,7 +1079,7 @@ class _MapScreenState extends State<MapScreen> {
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          Text('PINS · tap to filter',
+          Text('PINS',
               style: TextStyle(
                   fontSize: 9,
                   letterSpacing: .5,
@@ -1093,19 +1093,15 @@ class _MapScreenState extends State<MapScreen> {
           ),
         ]),
         const SizedBox(height: 3),
-        row(Brand.red, 'Work-friendly', WorkFriendly.yes),
-        row(const Color(0xFF4A5561), 'Not for laptops', WorkFriendly.no),
-        row(Brand.amber, 'Unknown · confirm & earn', WorkFriendly.unknown),
-        _unscreenedLegendRow(),
-        if (pinsHidden)
+        row(Brand.red, 'Work-friendly', 'yes'),
+        row(const Color(0xFF4A5561), 'Not for laptops', 'no'),
+        row(Brand.amber, 'Unknown · confirm & earn', 'unknown'),
+        row(const Color(0xFFC7CDD4), 'Unscreened · review & earn',
+            'unscreened'),
+        if (filtering)
           InkWell(
             borderRadius: BorderRadius.circular(8),
-            onTap: () => setState(() {
-              _wfVisible
-                ..clear()
-                ..addAll(WorkFriendly.values);
-              _showUnscreened = true;
-            }),
+            onTap: () => setState(() => _pinFilter.clear()),
             child: Padding(
               padding: const EdgeInsets.symmetric(
                   vertical: 5, horizontal: 2),
@@ -1122,7 +1118,7 @@ class _MapScreenState extends State<MapScreen> {
           ),
         Padding(
           padding: const EdgeInsets.only(top: 2, left: 2),
-          child: Text('double-tap a row to show only that type',
+          child: Text('tap a colour to show only those pins',
               style:
                   TextStyle(fontSize: 9, color: Colors.grey.shade500)),
         ),
