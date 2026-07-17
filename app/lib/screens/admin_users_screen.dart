@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../services/supabase_service.dart';
 import '../theme.dart';
 import '../widgets/ui.dart';
+import 'venue_detail.dart';
 
 /// Admin only: every account, searchable, tap one for the full story.
 class AdminUsersScreen extends StatefulWidget {
@@ -342,6 +343,173 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
         ]),
       );
 
+  /// What the payload's database names mean in plain words.
+  static const _fieldLabels = {
+    'name': 'Space name',
+    'type': 'Type',
+    'neighbourhood': 'Neighbourhood',
+    'wifi_speed_mbps': 'WiFi speed (Mbps)',
+    'connection_type': 'Connection during test',
+    'ssid': 'WiFi network',
+    'password': 'WiFi password',
+    'laptops_allowed': 'Laptops allowed',
+    'power_outlets': 'Power outlets',
+    'aircon': 'Aircon',
+    'comfortable_seating': 'Comfortable seating',
+    'cozy': 'Cozy',
+    'quiet_space': 'Quiet space',
+    'good_for_calls': 'Good for calls',
+    'call_room': 'Call/Skype room',
+    'monitor': 'Monitor available',
+    'office_chairs': 'Office chairs',
+    'access_24h': '24h access',
+  };
+
+  Future<void> _openListing(String venueId) async {
+    final v = await _supabase.venueById(venueId);
+    if (v == null || !mounted) return;
+    Navigator.push(
+        context,
+        MaterialPageRoute(
+            builder: (_) =>
+                VenueDetailScreen(venue: v, onConfirm: () {})));
+  }
+
+  void _openActivity(Map<String, dynamic> a) {
+    final status = a['status'] as String? ?? 'pending';
+    final (chipColor, chipText) = switch (status) {
+      'verified' => (Brand.success, 'verified'),
+      'rejected' => (Brand.accent, 'rejected'),
+      _ => (Brand.gold, 'pending'),
+    };
+    final payload = Map<String, dynamic>.from(a['payload'] ?? {});
+    final entries = _fieldLabels.entries
+        .where((e) =>
+            payload.containsKey(e.key) &&
+            payload[e.key] != null &&
+            '${payload[e.key]}'.trim().isNotEmpty)
+        .map((e) {
+      final v = payload[e.key];
+      final text = v == true
+          ? 'Yes'
+          : v == false
+              ? 'No'
+              : '$v';
+      return (e.value, text);
+    }).toList();
+    final dist = a['gps_distance_m'] as num?;
+    final photoPath = a['photo_path'] as String?;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Brand.surface,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(22))),
+      builder: (ctx) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: .65,
+        maxChildSize: .92,
+        builder: (ctx, scroll) => ListView(
+          controller: scroll,
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
+          children: [
+            Row(children: [
+              Icon(_kindIcon[a['kind']] ?? Icons.bolt,
+                  size: 20, color: Brand.ink),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(_kindLabel[a['kind']] ?? '${a['kind']}',
+                    style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: .5)),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 10, vertical: 3),
+                decoration: BoxDecoration(
+                    color: chipColor.withValues(alpha: .12),
+                    borderRadius: BorderRadius.circular(10)),
+                child: Text(chipText,
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: chipColor,
+                        fontWeight: FontWeight.w700)),
+              ),
+              if ((a['coins'] ?? 0) != 0) ...[
+                const SizedBox(width: 8),
+                CoinChip('+${a['coins']}', height: 22),
+              ],
+            ]),
+            const SizedBox(height: 6),
+            Text(
+                [
+                  if (a['venue_name'] != null) a['venue_name'],
+                  if (a['city'] != null) a['city'],
+                ].join(', '),
+                style: const TextStyle(
+                    fontSize: 17, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 2),
+            Text(
+                '${_fmt(a['created_at'])}'
+                '${dist != null ? ' · submitted ${dist < 1000 ? '${dist.round()} m' : '${(dist / 1000).toStringAsFixed(1)} km'} from the space' : ''}',
+                style: const TextStyle(
+                    fontSize: 12.5, color: Brand.inkMuted)),
+            const SizedBox(height: 16),
+            const SectionLabel('WHAT THEY SUBMITTED'),
+            const SizedBox(height: 8),
+            if (entries.isEmpty)
+              const Text('No field changes in this submission.',
+                  style: TextStyle(
+                      fontSize: 13.5, color: Brand.inkMuted))
+            else
+              ...entries.map((e) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 5),
+                    child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text(e.$1,
+                                style: const TextStyle(
+                                    fontSize: 13.5,
+                                    color: Brand.inkSecondary)),
+                          ),
+                          Text(e.$2,
+                              style: const TextStyle(
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w700)),
+                        ]),
+                  )),
+            if (photoPath != null) ...[
+              const SizedBox(height: 14),
+              const SectionLabel('THEIR PHOTO'),
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: Image.network(_supabase.photoUrl(photoPath),
+                    height: 180,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => const SizedBox()),
+              ),
+            ],
+            if (a['venue_id'] != null) ...[
+              const SizedBox(height: 18),
+              PrimaryCta(
+                label: 'View the listing',
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  _openListing(a['venue_id'] as String);
+                },
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _activityTile(Map<String, dynamic> a) {
     final status = a['status'] as String? ?? 'pending';
     final (chipColor, chipText) = switch (status) {
@@ -360,7 +528,10 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
           borderRadius: BorderRadius.circular(12),
           side: BorderSide(color: Colors.grey.shade200)),
       margin: const EdgeInsets.only(bottom: 6),
-      child: Padding(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => _openActivity(a),
+        child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: Row(children: [
           Icon(_kindIcon[a['kind']] ?? Icons.bolt,
@@ -406,6 +577,7 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
               ),
           ]),
         ]),
+        ),
       ),
     );
   }
