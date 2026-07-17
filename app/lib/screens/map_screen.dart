@@ -912,13 +912,15 @@ class _MapScreenState extends State<MapScreen> {
   Widget _topChrome() {
     return Container(
       decoration: BoxDecoration(
+        // Super subtle dark fade so the buttons read against any map,
+        // without a distracting white wash.
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            Brand.bg,
-            Brand.bg.withValues(alpha: .85),
-            Brand.bg.withValues(alpha: 0),
+            Colors.black.withValues(alpha: .10),
+            Colors.black.withValues(alpha: .04),
+            Colors.black.withValues(alpha: 0),
           ],
         ),
       ),
