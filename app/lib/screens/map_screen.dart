@@ -962,7 +962,12 @@ class _MapScreenState extends State<MapScreen> {
               icon: Icons.account_balance_wallet_outlined,
               bg: Brand.ink,
               floating: true,
-              child: const CoinDot(size: 14),
+              child: Stack(clipBehavior: Clip.none, children: [
+                const Icon(Icons.account_balance_wallet_outlined,
+                    size: 19, color: Colors.white),
+                const Positioned(
+                    right: -4, top: -4, child: CoinDot(size: 11)),
+              ]),
               onTap: () => _requireSignIn(() => Navigator.push(context,
                   MaterialPageRoute(
                       builder: (_) => const WalletScreen()))),
@@ -1229,37 +1234,37 @@ class _MapScreenState extends State<MapScreen> {
       icon: Icons.travel_explore, on: false, onTap: _openJumpToCity);
 
   Widget _searchAreaPill() {
-    return Material(
-      color: Brand.surface,
-      borderRadius: BorderRadius.circular(24),
-      elevation: 0,
-      child: InkWell(
+    return Container(
+      decoration: BoxDecoration(
+        color: Brand.surface,
         borderRadius: BorderRadius.circular(24),
-        onTap: _searchThisArea,
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Brand.border),
-            boxShadow: Brand.shadowFloating,
+        boxShadow: Brand.shadowFloating,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(24),
+          onTap: _searchThisArea,
+          child: Padding(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              _searchingArea
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Brand.accent))
+                  : const Icon(Icons.refresh,
+                      size: 16, color: Brand.accent),
+              const SizedBox(width: 6),
+              Text(_searchingArea ? 'Searching…' : 'Search this area',
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13.5,
+                      color: Brand.accent)),
+            ]),
           ),
-          padding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            _searchingArea
-                ? const SizedBox(
-                    width: 15,
-                    height: 15,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Brand.accent))
-                : const Icon(Icons.history_toggle_off,
-                    size: 16, color: Brand.accent),
-            const SizedBox(width: 7),
-            Text(_searchingArea ? 'Searching…' : 'Search this area',
-                style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
-                    color: Brand.accent)),
-          ]),
         ),
       ),
     );
