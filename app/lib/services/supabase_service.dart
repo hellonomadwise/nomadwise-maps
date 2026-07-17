@@ -37,6 +37,9 @@ class SupabaseService {
         redirectTo: kIsWeb
             ? '${Uri.base.origin}${Uri.base.path}'
             : AppConfig.authRedirect,
+        // Always show Google's account picker instead of silently
+        // reusing whichever account signed in last time.
+        queryParams: const {'prompt': 'select_account'},
       );
 
   Future<void> signOut() => _db.auth.signOut();
