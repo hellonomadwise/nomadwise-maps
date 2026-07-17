@@ -5,6 +5,7 @@ import '../config.dart';
 import '../services/analytics_service.dart';
 import '../services/supabase_service.dart';
 import '../theme.dart';
+import '../widgets/ui.dart';
 
 class WalletScreen extends StatefulWidget {
   const WalletScreen({super.key});
@@ -58,30 +59,29 @@ class _WalletScreenState extends State<WalletScreen> {
                     Container(
                       padding: const EdgeInsets.all(22),
                       decoration: BoxDecoration(
-                          gradient: Brand.gradient,
+                          color: Brand.goldTint,
                           borderRadius: BorderRadius.circular(22)),
                       child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Text('WITHDRAWABLE COINS',
                                 style: TextStyle(
-                                    color: Colors.white70,
+                                    color: Brand.goldTextDark,
                                     fontSize: 12,
                                     fontWeight: FontWeight.w700,
-                                    letterSpacing: 1)),
+                                    letterSpacing: 1.2)),
                             const SizedBox(height: 6),
                             Row(
                                 crossAxisAlignment:
                                     CrossAxisAlignment.end,
                                 children: [
-                                  const Icon(Icons.monetization_on,
-                                      color: Brand.amber, size: 34),
-                                  const SizedBox(width: 8),
+                                  const CoinDot(size: 30),
+                                  const SizedBox(width: 10),
                                   Text('${w.withdrawable}',
                                       style: const TextStyle(
-                                          color: Colors.white,
+                                          color: Brand.ink,
                                           fontSize: 40,
-                                          fontWeight: FontWeight.w900,
+                                          fontWeight: FontWeight.w700,
                                           height: 1)),
                                 ]),
                             if (w.pending > 0) ...[
@@ -89,7 +89,7 @@ class _WalletScreenState extends State<WalletScreen> {
                               Text(
                                   '+ ${w.pending} pending verification',
                                   style: const TextStyle(
-                                      color: Colors.white,
+                                      color: Brand.goldTextDark,
                                       fontWeight: FontWeight.w500)),
                             ],
                             const SizedBox(height: 18),
@@ -98,9 +98,8 @@ class _WalletScreenState extends State<WalletScreen> {
                               child: LinearProgressIndicator(
                                 value: progress,
                                 minHeight: 10,
-                                backgroundColor:
-                                    Colors.white.withValues(alpha: .25),
-                                color: Brand.amber,
+                                backgroundColor: Colors.white,
+                                color: Brand.gold,
                               ),
                             ),
                             const SizedBox(height: 8),
@@ -108,7 +107,7 @@ class _WalletScreenState extends State<WalletScreen> {
                               '${w.withdrawable} / ${AppConfig.cashOutThreshold} coins '
                               'to a €${AppConfig.cashOutValueEuro} cash-out',
                               style: const TextStyle(
-                                  color: Colors.white,
+                                  color: Brand.goldTextDark,
                                   fontWeight: FontWeight.w500,
                                   fontSize: 13),
                             ),

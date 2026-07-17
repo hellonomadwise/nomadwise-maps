@@ -81,6 +81,9 @@ class _MapScreenState extends State<MapScreen> {
   String? _displayName;
   String? _avatarUrl;
 
+  int? _walletTotal;
+  int _pendingCount = 0;
+
   Future<void> _loadProfileBits() async {
     final p = await _supabase.myProfile();
     if (mounted && p != null) {
@@ -89,6 +92,8 @@ class _MapScreenState extends State<MapScreen> {
         _avatarUrl = p['avatar_url'];
       });
     }
+    final w = await _supabase.wallet();
+    if (mounted) setState(() => _walletTotal = w.total);
   }
 
   Future<void> _changeAvatar() async {
@@ -188,6 +193,12 @@ class _MapScreenState extends State<MapScreen> {
     final admin = await _supabase.isAdmin();
     if (mounted && admin != _isAdmin) setState(() => _isAdmin = admin);
     if (_displayName == null || _avatarUrl == null) _loadProfileBits();
+    if (admin) {
+      try {
+        final pending = await _supabase.pendingSubmissions();
+        if (mounted) setState(() => _pendingCount = pending.length);
+      } catch (_) {}
+    }
     if (mounted) setState(() {}); // refresh signed-in state in the menu
   }
 
@@ -599,108 +610,129 @@ class _MapScreenState extends State<MapScreen> {
   Widget _buildMenu() {
     final user = _supabase.currentUser;
     return Drawer(
-      backgroundColor: Colors.white,
+      backgroundColor: Brand.surface,
+      width: MediaQuery.of(context).size.width * .82,
+      shape: const RoundedRectangleBorder(
+          borderRadius:
+              BorderRadius.only(topRight: Radius.circular(24), bottomRight: Radius.circular(24))),
       child: SafeArea(
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: const BoxDecoration(gradient: Brand.gradient),
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              if (user != null)
-                InkWell(
-                  onTap: _changeAvatar,
-                  child: Stack(clipBehavior: Clip.none, children: [
-                    CircleAvatar(
-                      radius: 28,
-                      backgroundColor:
-                          Colors.white.withValues(alpha: .25),
-                      backgroundImage: _avatarUrl != null
-                          ? NetworkImage(_avatarUrl!)
-                          : null,
-                      child: _avatarUrl == null
-                          ? Text(
-                              (_displayName ?? user.email ?? 'N')
-                                  .substring(0, 1)
-                                  .toUpperCase(),
-                              style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.w900))
-                          : null,
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (user != null) ...[
+                    InkWell(
+                      onTap: _changeAvatar,
+                      customBorder: const CircleBorder(),
+                      child: Stack(clipBehavior: Clip.none, children: [
+                        NomadAvatar(
+                            name: _displayName ?? user.email,
+                            photoUrl: _avatarUrl,
+                            radius: 32),
+                        Positioned(
+                          right: -2,
+                          bottom: -2,
+                          child: Container(
+                            padding: const EdgeInsets.all(5),
+                            decoration: BoxDecoration(
+                                color: Brand.ink,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                    color: Colors.white, width: 2)),
+                            child: const Icon(Icons.photo_camera,
+                                size: 12, color: Colors.white),
+                          ),
+                        ),
+                      ]),
                     ),
-                    Positioned(
-                      right: -4,
-                      bottom: -4,
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: const BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle),
-                        child: const Icon(Icons.photo_camera,
-                            size: 13, color: Brand.red),
+                    const SizedBox(height: 12),
+                    InkWell(
+                      onTap: () {
+                        Navigator.pop(context);
+                        _editNickname();
+                      },
+                      child: Row(children: [
+                        Flexible(
+                          child: Text(
+                            _displayName ?? 'Set your nickname',
+                            style: const TextStyle(
+                                color: Brand.ink,
+                                fontSize: 19,
+                                fontWeight: FontWeight.w700),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 7),
+                        const Icon(Icons.edit_outlined,
+                            size: 15, color: Brand.inkMuted),
+                      ]),
+                    ),
+                    Text(
+                      user.email ?? '',
+                      style: const TextStyle(
+                          color: Brand.inkMuted, fontSize: 13),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 14),
+                    Material(
+                      color: Brand.goldTint,
+                      borderRadius: BorderRadius.circular(14),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(14),
+                        onTap: () {
+                          Navigator.pop(context);
+                          _requireSignIn(() => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (_) =>
+                                      const WalletScreen())));
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 12),
+                          child: Row(children: [
+                            const CoinDot(size: 18),
+                            const SizedBox(width: 10),
+                            Text('${_walletTotal ?? '…'}',
+                                style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700)),
+                            const SizedBox(width: 5),
+                            const Text('coins',
+                                style: TextStyle(
+                                    fontSize: 13,
+                                    color: Brand.inkSecondary)),
+                            const Spacer(),
+                            const Text('Wallet ›',
+                                style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: Brand.goldLink)),
+                          ]),
+                        ),
                       ),
                     ),
-                  ]),
-                )
-              else
-                Image.asset('assets/brand/app_icon.png', height: 52),
-              const SizedBox(height: 12),
-              if (user != null) ...[
-                InkWell(
-                  onTap: () {
-                    Navigator.pop(context);
-                    _editNickname();
-                  },
-                  child: Row(children: [
-                    Flexible(
-                      child: Text(
-                        _displayName ?? 'Set your nickname',
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 17,
-                            fontWeight: FontWeight.w900),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    const Icon(Icons.edit, size: 15, color: Colors.white70),
-                  ]),
-                ),
-                Text(
-                  user.email ?? '',
-                  style: const TextStyle(
-                      color: Colors.white70, fontSize: 12),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ] else ...[
-                const Text('Not signed in',
-                    style: TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.w700)),
-                const Text('Sign in to earn coins',
-                    style: TextStyle(color: Colors.white70, fontSize: 13)),
-              ],
-            ]),
+                  ] else ...[
+                    Image.asset('assets/brand/app_icon.png', height: 52),
+                    const SizedBox(height: 12),
+                    const Text('Not signed in',
+                        style: TextStyle(
+                            fontSize: 17, fontWeight: FontWeight.w700)),
+                    const Text('Sign in to earn coins',
+                        style: TextStyle(
+                            color: Brand.inkMuted, fontSize: 13)),
+                  ],
+                ]),
           ),
+          const Divider(height: 1, color: Brand.hairline),
           const SizedBox(height: 8),
-          ListTile(
-            leading: const Icon(Icons.account_balance_wallet_outlined,
-                color: Brand.amber),
-            title: const Text('Wallet'),
-            onTap: () {
-              Navigator.pop(context);
-              _requireSignIn(() => Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => const WalletScreen())));
-            },
-          ),
-          ListTile(
-            leading:
-                const Icon(Icons.emoji_events_outlined, color: Brand.amber),
-            title: const Text('Leaderboard'),
-            subtitle: Text('Top nomads & live activity',
-                style:
-                    TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+          _menuRow(
+            icon: Icons.emoji_events_outlined,
+            label: 'Leaderboard',
+            sub: 'Top nomads & live activity',
             onTap: () {
               Navigator.pop(context);
               Navigator.push(
@@ -709,34 +741,57 @@ class _MapScreenState extends State<MapScreen> {
                       builder: (_) => const LeaderboardScreen()));
             },
           ),
-          ListTile(
-            leading:
-                const Icon(Icons.rate_review_outlined, color: Brand.red),
-            title: const Text('Review a space'),
-            subtitle: Text(
-                'Earn up to ${AppConfig.coinsNewVenue} coins',
-                style:
-                    TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+          _menuRow(
+            icon: Icons.rate_review_outlined,
+            label: 'Review a space',
+            sub: 'Earn up to ${AppConfig.coinsNewVenue} coins',
+            accent: true,
+            trailing: CoinChip('+${AppConfig.coinsNewVenue}', height: 22),
             onTap: () {
               Navigator.pop(context);
               _openAddVenue();
             },
           ),
           if (_isAdmin) ...[
-            ListTile(
-              leading: const Icon(Icons.fact_check_outlined,
-                  color: Brand.charcoal),
-              title: const Text('Review submissions'),
+            _menuRow(
+              icon: Icons.fact_check_outlined,
+              label: 'Review submissions',
+              trailing: _pendingCount > 0
+                  ? Container(
+                      width: 22,
+                      height: 22,
+                      alignment: Alignment.center,
+                      decoration: const BoxDecoration(
+                          color: Brand.accent, shape: BoxShape.circle),
+                      child: Text('$_pendingCount',
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700)),
+                    )
+                  : null,
               onTap: () {
                 Navigator.pop(context);
                 Navigator.push(context,
                     MaterialPageRoute(builder: (_) => const AdminScreen()));
               },
             ),
-            ListTile(
-              leading: const Icon(Icons.group_outlined,
-                  color: Brand.charcoal),
-              title: const Text('Users'),
+            _menuRow(
+              icon: Icons.group_outlined,
+              label: 'Users',
+              trailing: Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                    color: Brand.field,
+                    borderRadius: BorderRadius.circular(8)),
+                child: const Text('ADMIN',
+                    style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: .5,
+                        color: Brand.inkSecondary)),
+              ),
               onTap: () {
                 Navigator.pop(context);
                 Navigator.push(
@@ -746,22 +801,24 @@ class _MapScreenState extends State<MapScreen> {
               },
             ),
           ],
-          ListTile(
-            enabled: false,
-            leading: Icon(Icons.settings_outlined,
-                color: Colors.grey.shade400),
-            title: Text('Settings',
-                style: TextStyle(color: Colors.grey.shade400)),
-            subtitle: Text('Coming soon',
-                style:
-                    TextStyle(color: Colors.grey.shade400, fontSize: 12)),
+          Opacity(
+            opacity: .45,
+            child: _menuRow(
+              icon: Icons.settings_outlined,
+              label: 'Settings',
+              sub: 'Coming soon',
+              onTap: null,
+            ),
           ),
           const Spacer(),
-          const Divider(height: 1),
+          const Divider(height: 1, color: Brand.hairline),
           if (user != null)
             ListTile(
-              leading: const Icon(Icons.logout, color: Brand.red),
-              title: const Text('Sign out'),
+              leading: const Icon(Icons.logout, color: Brand.accent),
+              title: const Text('Sign out',
+                  style: TextStyle(
+                      color: Brand.accent,
+                      fontWeight: FontWeight.w600)),
               onTap: () async {
                 await _supabase.signOut();
                 if (mounted) {
@@ -772,8 +829,11 @@ class _MapScreenState extends State<MapScreen> {
             )
           else
             ListTile(
-              leading: const Icon(Icons.login, color: Brand.red),
-              title: const Text('Sign in'),
+              leading: const Icon(Icons.login, color: Brand.accent),
+              title: const Text('Sign in',
+                  style: TextStyle(
+                      color: Brand.accent,
+                      fontWeight: FontWeight.w600)),
               onTap: () {
                 Navigator.pop(context);
                 Navigator.push(context,
@@ -781,6 +841,48 @@ class _MapScreenState extends State<MapScreen> {
               },
             ),
           const SizedBox(height: 8),
+        ]),
+      ),
+    );
+  }
+
+  Widget _menuRow(
+      {required IconData icon,
+      required String label,
+      String? sub,
+      bool accent = false,
+      Widget? trailing,
+      VoidCallback? onTap}) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding:
+            const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        child: Row(children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+                color: accent ? Brand.accentTint : Brand.field,
+                borderRadius: BorderRadius.circular(10)),
+            child: Icon(icon,
+                size: 19, color: accent ? Brand.accent : Brand.ink),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label,
+                      style: const TextStyle(
+                          fontSize: 15, fontWeight: FontWeight.w600)),
+                  if (sub != null)
+                    Text(sub,
+                        style: const TextStyle(
+                            fontSize: 12, color: Brand.inkMuted)),
+                ]),
+          ),
+          if (trailing != null) trailing,
         ]),
       ),
     );

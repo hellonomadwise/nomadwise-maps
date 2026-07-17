@@ -43,11 +43,34 @@ class _AdminScreenState extends State<AdminScreen> {
                   child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                      const Icon(Icons.check_circle_outline,
-                          size: 56, color: Colors.green),
-                      const SizedBox(height: 12),
-                      Text('All caught up. Nothing to review.',
-                          style: TextStyle(color: Colors.grey.shade600)),
+                      Container(
+                        width: 76,
+                        height: 76,
+                        decoration: const BoxDecoration(
+                            color: Brand.successTint,
+                            shape: BoxShape.circle),
+                        child: const Icon(Icons.check_circle_outline,
+                            size: 36, color: Brand.success),
+                      ),
+                      const SizedBox(height: 16),
+                      const Text('All caught up',
+                          style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w600,
+                              color: Brand.ink)),
+                      const SizedBox(height: 6),
+                      const Padding(
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 40),
+                        child: Text(
+                            'New reviews from nomads will appear here '
+                            'for you to approve.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                                fontSize: 13.5,
+                                color: Brand.inkMuted,
+                                height: 1.5)),
+                      ),
                     ]))
               : RefreshIndicator(
                   onRefresh: _load,

@@ -11,6 +11,7 @@ import '../services/places_service.dart';
 import '../services/speed_test_service.dart';
 import '../services/supabase_service.dart';
 import '../theme.dart';
+import '../widgets/ui.dart';
 import 'auth_screen.dart';
 
 class VenueDetailScreen extends StatefulWidget {
@@ -308,15 +309,15 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
         },
         child: Container(
           height: 150,
-          decoration: const BoxDecoration(gradient: Brand.gradient),
+          color: Brand.goldTint,
           child: Center(
             child: Column(mainAxisSize: MainAxisSize.min, children: [
               const Icon(Icons.add_a_photo_outlined,
-                  size: 34, color: Colors.white),
+                  size: 34, color: Brand.goldLink),
               const SizedBox(height: 8),
               const Text('No photos yet. Tap to add one & earn coins',
                   style: TextStyle(
-                      color: Colors.white,
+                      color: Brand.goldTextDark,
                       fontSize: 13,
                       fontWeight: FontWeight.w600)),
             ]),
@@ -621,47 +622,14 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
         ]),
       );
     }
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton(
-        onPressed: _testWifi,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Brand.amber,
-          foregroundColor: Brand.charcoal,
-          elevation: 0,
-          padding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14)),
-        ),
-        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          const Icon(Icons.speed, size: 20),
-          const SizedBox(width: 8),
-          Flexible(
-            child: Text(
-              venue.wifiSpeedMbps == null
-                  ? 'Test the WiFi here'
-                  : 'Re-test the WiFi',
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                  fontWeight: FontWeight.w800, fontSize: 15),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(
-                horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: .55),
-                borderRadius: BorderRadius.circular(10)),
-            child: Text('+${AppConfig.coinsWifiTest}',
-                style: const TextStyle(
-                    fontWeight: FontWeight.w900,
-                    fontSize: 13,
-                    color: Brand.charcoal)),
-          ),
-        ]),
-      ),
+    return PrimaryCta(
+      label: venue.wifiSpeedMbps == null
+          ? 'Test the WiFi here'
+          : 'Re-test the WiFi',
+      coins: '+${AppConfig.coinsWifiTest}',
+      navy: true,
+      icon: Icons.speed,
+      onPressed: _testWifi,
     );
   }
 

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../config.dart';
 import '../services/analytics_service.dart';
 import '../services/supabase_service.dart';
 import '../theme.dart';
+import '../widgets/ui.dart';
 
 /// Leaderboard (top nomads by coins) + live activity feed.
 /// Tap any player to see their public stats.
@@ -17,6 +19,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
   final _supabase = SupabaseService();
   List<Map<String, dynamic>>? _top;
   List<Map<String, dynamic>>? _activity;
+  int _tab = 0;
 
   @override
   void initState() {
@@ -38,27 +41,69 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Leaderboard'),
-          bottom: TabBar(
-            labelColor: Brand.red,
-            unselectedLabelColor: Colors.grey.shade500,
-            indicatorColor: Brand.red,
-            labelStyle: const TextStyle(fontWeight: FontWeight.w800),
-            tabs: const [
-              Tab(text: 'TOP NOMADS'),
-              Tab(text: 'LIVE'),
-            ],
+    return Scaffold(
+      appBar: AppBar(title: const Text('Leaderboard')),
+      body: Column(children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+          child: _segmentedTabs(),
+        ),
+        Expanded(child: _tab == 0 ? _topList() : _liveFeed()),
+      ]),
+    );
+  }
+
+  /// Field-gray track, white active segment; Live carries a red dot.
+  Widget _segmentedTabs() {
+    Widget seg(int i, String label, {bool redDot = false}) {
+      final active = _tab == i;
+      return Expanded(
+        child: GestureDetector(
+          onTap: () => setState(() => _tab = i),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOut,
+            height: 38,
+            decoration: BoxDecoration(
+              color: active ? Brand.surface : Colors.transparent,
+              borderRadius: BorderRadius.circular(9),
+              boxShadow: active ? Brand.shadowResting : null,
+            ),
+            child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(label,
+                      style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: active
+                              ? FontWeight.w600
+                              : FontWeight.w500,
+                          color: active
+                              ? Brand.ink
+                              : Brand.inkSecondary)),
+                  if (redDot) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                        width: 6,
+                        height: 6,
+                        decoration: const BoxDecoration(
+                            color: Brand.accent,
+                            shape: BoxShape.circle)),
+                  ],
+                ]),
           ),
         ),
-        body: TabBarView(children: [
-          _topList(),
-          _liveFeed(),
-        ]),
-      ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+          color: Brand.field, borderRadius: BorderRadius.circular(12)),
+      child: Row(children: [
+        seg(0, 'Top nomads'),
+        seg(1, 'Live', redDot: true),
+      ]),
     );
   }
 
@@ -68,79 +113,155 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     final top = _top;
     if (top == null) {
       return const Center(
-          child: CircularProgressIndicator(color: Brand.red));
+          child: CircularProgressIndicator(color: Brand.accent));
     }
     if (top.isEmpty) {
       return _empty('No coins earned yet.\nBe the first on the board!');
     }
     final myId = _supabase.currentUser?.id;
+    final onBoard = top.any((r) => r['user_id'] == myId);
     return RefreshIndicator(
       onRefresh: _load,
-      child: ListView.builder(
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
-        itemCount: top.length,
-        itemBuilder: (_, i) {
-          final r = top[i];
-          final isMe = r['user_id'] == myId;
-          return Card(
-            elevation: isMe ? 3 : 0.5,
-            color: isMe ? Brand.red.withValues(alpha: .06) : Colors.white,
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-                side: BorderSide(
-                    color: isMe ? Brand.red : Colors.grey.shade200)),
-            margin: const EdgeInsets.only(bottom: 8),
-            child: ListTile(
-              onTap: () => _showProfile(r),
-              leading: _rankBadge(i + 1),
-              title: Row(children: [
-                _avatar(r, radius: 14),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    r['display_name'] + (isMe ? '  (you)' : ''),
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                ),
-              ]),
-              subtitle: Text(
-                  '${r['verified_count']} verified contribution'
-                  '${r['verified_count'] == 1 ? '' : 's'}',
-                  style: TextStyle(
-                      fontSize: 12, color: Colors.grey.shade600)),
-              trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                const Icon(Icons.monetization_on,
-                    color: Brand.amber, size: 18),
-                const SizedBox(width: 4),
-                Text('${r['coins']}',
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w900, fontSize: 16)),
-              ]),
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
+        children: [
+          ...top.asMap().entries.map((e) =>
+              _rankCard(e.value, e.key + 1, e.value['user_id'] == myId)),
+          if (!onBoard) ...[
+            const SizedBox(height: 10),
+            DashedBorderBox(
+              radius: 16,
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 18),
+                child: Column(children: [
+                  const Text('Your rank: not on the board yet',
+                      style: TextStyle(
+                          fontSize: 14.5, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 3),
+                  Text(
+                      'Review a space to earn your first '
+                      '${AppConfig.coinsNewVenue} coins',
+                      style: const TextStyle(
+                          fontSize: 13, color: Brand.inkMuted)),
+                ]),
+              ),
             ),
-          );
-        },
+          ],
+        ],
       ),
     );
   }
 
-  Widget _rankBadge(int rank) {
-    final (color, textColor) = switch (rank) {
-      1 => (Brand.amber, Colors.white),
-      2 => (const Color(0xFFB8C0CC), Colors.white),
-      3 => (const Color(0xFFCD8A55), Colors.white),
-      _ => (Brand.lightGrey, Brand.charcoal),
-    };
+  Widget _rankCard(Map<String, dynamic> r, int rank, bool isMe) {
+    final first = rank == 1;
     return Container(
-      width: 36,
-      height: 36,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-      child: Text('$rank',
-          style: TextStyle(
-              color: textColor,
-              fontWeight: FontWeight.w900,
-              fontSize: rank < 100 ? 15 : 12)),
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: Brand.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+            color: first
+                ? const Color(0x80F4B23E)
+                : isMe
+                    ? Brand.accent.withValues(alpha: .4)
+                    : Brand.border),
+        boxShadow: first
+            ? const [
+                BoxShadow(
+                    color: Color(0x24F4B23E),
+                    blurRadius: 12,
+                    offset: Offset(0, 3))
+              ]
+            : Brand.shadowResting,
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () => _showProfile(r),
+        child: Padding(
+          padding:
+              const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(children: [
+            _medalAvatar(r, rank),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                        (r['display_name'] ?? 'Nomad') +
+                            (isMe ? '  (you)' : ''),
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: 15.5,
+                            fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 2),
+                    Text(
+                        '${r['verified_count']} verified contribution'
+                        '${r['verified_count'] == 1 ? '' : 's'}',
+                        style: const TextStyle(
+                            fontSize: 12.5, color: Brand.inkMuted)),
+                  ]),
+            ),
+            const CoinDot(size: 14),
+            const SizedBox(width: 6),
+            Text('${r['coins']}',
+                style: const TextStyle(
+                    fontWeight: FontWeight.w700, fontSize: 16)),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  Widget _medalAvatar(Map<String, dynamic> r, int rank) {
+    final medal = switch (rank) {
+      1 => Brand.gold,
+      2 => const Color(0xFFC3CBD4),
+      3 => const Color(0xFFCD9A6B),
+      _ => null,
+    };
+    return SizedBox(
+      width: 54,
+      height: 54,
+      child: Stack(clipBehavior: Clip.none, children: [
+        Container(
+          width: 54,
+          height: 54,
+          decoration: rank == 1
+              ? BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Brand.gold, width: 2))
+              : null,
+          child: Center(
+            child: NomadAvatar(
+                name: r['display_name'],
+                photoUrl: r['avatar_url'],
+                radius: 24),
+          ),
+        ),
+        if (medal != null)
+          Positioned(
+            right: -2,
+            bottom: -2,
+            child: Container(
+              width: 20,
+              height: 20,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: medal,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 2),
+              ),
+              child: Text('$rank',
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700)),
+            ),
+          ),
+      ]),
     );
   }
 
@@ -153,11 +274,10 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     'wifi_login': 'shared the wifi for',
   };
 
-  static const _kindIcon = {
-    'new_venue': Icons.rate_review_outlined,
-    'confirm': Icons.verified_outlined,
-    'wifi_test': Icons.speed,
-    'wifi_login': Icons.key,
+  static const _kindCoins = {
+    'new_venue': AppConfig.coinsNewVenue,
+    'wifi_test': AppConfig.coinsWifiTest,
+    'wifi_login': AppConfig.coinsWifiLogin,
   };
 
   String _ago(String? iso) {
@@ -175,7 +295,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     final act = _activity;
     if (act == null) {
       return const Center(
-          child: CircularProgressIndicator(color: Brand.red));
+          child: CircularProgressIndicator(color: Brand.accent));
     }
     if (act.isEmpty) {
       return _empty('No activity yet.\nEvery verified contribution '
@@ -183,52 +303,78 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     }
     return RefreshIndicator(
       onRefresh: _load,
-      child: ListView.builder(
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
+      child: ListView.separated(
+        padding: const EdgeInsets.fromLTRB(16, 6, 16, 24),
         itemCount: act.length,
+        separatorBuilder: (_, __) =>
+            const Divider(height: 1, color: Brand.hairline),
         itemBuilder: (_, i) {
           final a = act[i];
           final verb = _kindVerb[a['kind']] ?? 'updated';
+          final coins = _kindCoins[a['kind']];
           final place = [
             if (a['venue_name'] != null) a['venue_name'],
             if (a['city'] != null) a['city'],
           ].join(', ');
-          return ListTile(
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            leading: a['avatar_url'] != null
-                ? _avatar(a, radius: 18)
-                : CircleAvatar(
-                    radius: 18,
-                    backgroundColor: Brand.amber.withValues(alpha: .18),
-                    child: Icon(_kindIcon[a['kind']] ?? Icons.bolt,
-                        size: 18, color: Brand.charcoal),
-                  ),
-            title: RichText(
-              text: TextSpan(
-                style: const TextStyle(
-                    color: Brand.charcoal, fontSize: 14),
-                children: [
-                  TextSpan(
-                      text: a['display_name'],
-                      style:
-                          const TextStyle(fontWeight: FontWeight.w800)),
-                  TextSpan(text: ' $verb '),
-                  TextSpan(
-                      text: place.isEmpty ? 'a space' : place,
-                      style:
-                          const TextStyle(fontWeight: FontWeight.w600)),
-                ],
-              ),
-            ),
-            subtitle: Text(_ago(a['verified_at']),
-                style: TextStyle(
-                    fontSize: 12, color: Colors.grey.shade500)),
+          return InkWell(
             onTap: () async {
-              final stats =
-                  await _supabase.publicStats(a['user_id']);
+              final stats = await _supabase.publicStats(a['user_id']);
               if (stats != null && mounted) _showProfile(stats);
             },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 13),
+              child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    NomadAvatar(
+                        name: a['display_name'],
+                        photoUrl: a['avatar_url'],
+                        radius: 20),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            RichText(
+                              text: TextSpan(
+                                style: const TextStyle(
+                                    fontFamily: 'InstrumentSans',
+                                    color: Brand.ink,
+                                    fontSize: 14,
+                                    height: 1.4),
+                                children: [
+                                  TextSpan(
+                                      text: a['display_name'],
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.w600)),
+                                  TextSpan(
+                                      text: ' $verb ',
+                                      style: const TextStyle(
+                                          color: Brand.inkSecondary)),
+                                  TextSpan(
+                                      text: place.isEmpty
+                                          ? 'a space'
+                                          : place,
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.w600)),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 5),
+                            Row(children: [
+                              Text(_ago(a['verified_at']),
+                                  style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Brand.inkMuted)),
+                              if (coins != null) ...[
+                                const SizedBox(width: 8),
+                                CoinChip('+$coins', height: 20),
+                              ],
+                            ]),
+                          ]),
+                    ),
+                  ]),
+            ),
           );
         },
       ),
@@ -240,7 +386,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           padding: const EdgeInsets.all(32),
           child: Text(text,
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey.shade600)),
+              style: const TextStyle(color: Brand.inkSecondary)),
         ),
       );
 
@@ -250,37 +396,39 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     final since = DateTime.tryParse(r['member_since'] ?? '');
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: Brand.surface,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(22))),
       builder: (ctx) => Padding(
         padding: const EdgeInsets.fromLTRB(24, 22, 24, 32),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          _avatar(r, radius: 30, fontSize: 26),
+          NomadAvatar(
+              name: r['display_name'],
+              photoUrl: r['avatar_url'],
+              radius: 30),
           const SizedBox(height: 10),
-          Text(r['display_name'],
+          Text(r['display_name'] ?? 'Nomad',
               style: const TextStyle(
-                  fontSize: 20, fontWeight: FontWeight.w900)),
+                  fontSize: 20, fontWeight: FontWeight.w700)),
           if (since != null)
             Text('Nomad since ${DateFormat('MMM yyyy').format(since)}',
-                style: TextStyle(
-                    fontSize: 12, color: Colors.grey.shade600)),
+                style: const TextStyle(
+                    fontSize: 12, color: Brand.inkMuted)),
           const SizedBox(height: 16),
           Container(
             padding: const EdgeInsets.symmetric(
                 horizontal: 22, vertical: 10),
             decoration: BoxDecoration(
-                gradient: Brand.gradient,
+                color: Brand.goldTint,
                 borderRadius: BorderRadius.circular(16)),
             child: Row(mainAxisSize: MainAxisSize.min, children: [
-              const Icon(Icons.monetization_on,
-                  color: Brand.amber, size: 24),
+              const CoinDot(size: 18),
               const SizedBox(width: 8),
               Text('${r['coins']} coins',
                   style: const TextStyle(
-                      color: Colors.white,
+                      color: Brand.ink,
                       fontSize: 20,
-                      fontWeight: FontWeight.w900)),
+                      fontWeight: FontWeight.w700)),
             ]),
           ),
           const SizedBox(height: 18),
@@ -295,37 +443,17 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     );
   }
 
-  Widget _avatar(Map<String, dynamic> r,
-      {double radius = 16, double fontSize = 14}) {
-    final url = r['avatar_url'] as String?;
-    return CircleAvatar(
-      radius: radius,
-      backgroundColor: Brand.red.withValues(alpha: .1),
-      backgroundImage: url != null ? NetworkImage(url) : null,
-      child: url == null
-          ? Text(
-              ((r['display_name'] ?? 'N') as String)
-                  .substring(0, 1)
-                  .toUpperCase(),
-              style: TextStyle(
-                  fontSize: fontSize,
-                  fontWeight: FontWeight.w900,
-                  color: Brand.red))
-          : null,
-    );
-  }
-
   Widget _stat(IconData icon, dynamic value, String label) => Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 20, color: Brand.charcoal),
+          Icon(icon, size: 20, color: Brand.ink),
           const SizedBox(height: 4),
           Text('${value ?? 0}',
               style: const TextStyle(
-                  fontWeight: FontWeight.w900, fontSize: 17)),
+                  fontWeight: FontWeight.w700, fontSize: 17)),
           Text(label,
-              style: TextStyle(
-                  fontSize: 11, color: Colors.grey.shade600)),
+              style: const TextStyle(
+                  fontSize: 11, color: Brand.inkMuted)),
         ],
       );
 }
