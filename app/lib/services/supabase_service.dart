@@ -21,7 +21,14 @@ class SupabaseService {
       _db.auth.signInWithPassword(email: email, password: password);
 
   Future<void> signUpWithEmail(String email, String password) =>
-      _db.auth.signUp(email: email, password: password);
+      _db.auth.signUp(
+        email: email,
+        password: password,
+        // The confirmation email's link lands back in the app.
+        emailRedirectTo: kIsWeb
+            ? '${Uri.base.origin}${Uri.base.path}'
+            : AppConfig.authRedirect,
+      );
 
   Future<void> signInWithGoogle() => _db.auth.signInWithOAuth(
         OAuthProvider.google,

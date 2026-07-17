@@ -46,6 +46,29 @@ class _AuthScreenState extends State<AuthScreen> {
       if (_signUp) {
         await _supabase.signUpWithEmail(
             _email.text.trim(), _password.text);
+        // Email confirmation is on: no session yet means Supabase has
+        // sent a confirmation link. Tell the user what to do next.
+        if (mounted && !_supabase.signedIn) {
+          await showDialog(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20)),
+                    title: const Text('Check your inbox'),
+                    content: Text(
+                        'We sent a confirmation link to '
+                        '${_email.text.trim()}. Tap it, then come back '
+                        'here and sign in. (Check spam if it\'s not '
+                        'there in a minute.)'),
+                    actions: [
+                      TextButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          child: const Text('Got it')),
+                    ],
+                  ));
+          if (mounted) setState(() => _signUp = false);
+          return;
+        }
       } else {
         await _supabase.signInWithEmail(
             _email.text.trim(), _password.text);
