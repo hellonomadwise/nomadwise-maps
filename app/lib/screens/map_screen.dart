@@ -416,19 +416,62 @@ class _MapScreenState extends State<MapScreen> {
           builder: (_) => VenueDetailScreen(
               venue: v, onConfirm: () => _openAddVenue(confirming: v))));
 
-  // ---------- venue name search ----------
+  // ---------- global space search ----------
 
   Future<void> _openSearch() async {
-    final v = await showSearch<Venue?>(
+    final result = await showSearch<Object?>(
         context: context,
-        delegate: _VenueSearchDelegate(_venues));
-    if (v != null && v.lat != null && mounted) {
+        delegate: _SpaceSearchDelegate(
+            _venues, _places, _userLat, _userLng));
+    if (result == null || !mounted) return;
+
+    if (result is Venue && result.lat != null) {
       setState(() {
         _showList = false;
-        _selected = v;
+        _selected = result;
+        _selectedDiscovered = null;
+      });
+      _map?.animateCamera(CameraUpdate.newLatLngZoom(
+          LatLng(result.lat!, result.lng!), 16));
+      return;
+    }
+
+    if (result is PlaceSuggestion) {
+      Analytics.capture('global_search_used', {'query': result.main});
+      // Already one of our Spaces?
+      final existing = _venues
+          .where((v) => v.googlePlaceId == result.placeId)
+          .firstOrNull;
+      if (existing != null && existing.lat != null) {
+        setState(() {
+          _showList = false;
+          _selected = existing;
+          _selectedDiscovered = null;
+        });
+        _map?.animateCamera(CameraUpdate.newLatLngZoom(
+            LatLng(existing.lat!, existing.lng!), 16));
+        return;
+      }
+      // A new place from Google: fly there, ready to screen.
+      final live = await _places.details(result.placeId);
+      if (live?.lat == null || !mounted) return;
+      final d = DiscoveredPlace(
+        placeId: result.placeId,
+        name: live?.displayName ?? result.main,
+        lat: live!.lat!,
+        lng: live.lng!,
+        rating: live.rating,
+        userRatingCount: live.userRatingCount,
+      );
+      _mergeDiscovered([d]);
+      _supabase.cacheDiscovered([d]);
+      setState(() {
+        _showList = false;
+        _selectedDiscovered = d;
+        _selected = null;
       });
       _map?.animateCamera(
-          CameraUpdate.newLatLngZoom(LatLng(v.lat!, v.lng!), 16));
+          CameraUpdate.newLatLngZoom(LatLng(d.lat, d.lng), 16));
     }
   }
 
@@ -627,7 +670,7 @@ class _MapScreenState extends State<MapScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.search, color: Brand.charcoal),
-            tooltip: 'Search venues',
+            tooltip: 'Search spaces',
             onPressed: _openSearch,
           ),
           IconButton(
@@ -1131,10 +1174,12 @@ class _MapScreenState extends State<MapScreen> {
 // Venue search (by name)
 // ============================================================
 
-class _VenueSearchDelegate extends SearchDelegate<Venue?> {
+class _SpaceSearchDelegate extends SearchDelegate<Object?> {
   final List<Venue> venues;
-  _VenueSearchDelegate(this.venues)
-      : super(searchFieldLabel: 'Search venues…');
+  final PlacesService places;
+  final double? nearLat, nearLng;
+  _SpaceSearchDelegate(this.venues, this.places, this.nearLat, this.nearLng)
+      : super(searchFieldLabel: 'Search any space, anywhere…');
 
   @override
   List<Widget> buildActions(BuildContext context) => [
@@ -1150,50 +1195,103 @@ class _VenueSearchDelegate extends SearchDelegate<Venue?> {
 
   Widget _resultList(BuildContext context) {
     final q = query.trim().toLowerCase();
-    final matches = venues
+    final local = venues
         .where((v) =>
             v.name.toLowerCase().contains(q) ||
             (v.neighbourhood ?? '').toLowerCase().contains(q))
+        .take(6)
         .toList();
-    if (matches.isEmpty) {
-      return Center(
-          child: Text('No venues found for "$query"',
-              style: TextStyle(color: Colors.grey.shade600)));
-    }
-    return ListView(
-      children: matches
-          .map((v) => ListTile(
-                leading: Icon(Icons.location_on,
-                    color: switch (v.workFriendly) {
-                      WorkFriendly.yes => Brand.red,
-                      WorkFriendly.no => const Color(0xFF9AA3AD),
-                      WorkFriendly.unknown => Brand.amber,
-                    }),
-                title: Text(v.name),
-                subtitle: Text([
-                  if (v.neighbourhood != null) v.neighbourhood!,
-                  if (v.distanceM != null) v.distanceLabel(),
-                ].join(' · ')),
-                trailing: v.rating != null
-                    ? Row(mainAxisSize: MainAxisSize.min, children: [
-                        const Icon(Icons.star,
-                            color: Brand.amber, size: 16),
-                        Text(' ${v.rating}')
-                      ])
-                    : null,
-                onTap: () => close(context, v),
-              ))
-          .toList(),
-    );
+    final localPlaceIds =
+        venues.map((v) => v.googlePlaceId).whereType<String>().toSet();
+
+    Widget header(String text) => Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
+          child: Text(text,
+              style: TextStyle(
+                  fontSize: 11,
+                  letterSpacing: .5,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.grey.shade500)),
+        );
+
+    return ListView(children: [
+      if (local.isNotEmpty) ...[
+        header('ON NOMAD MAPS'),
+        ...local.map((v) => ListTile(
+              leading: Icon(Icons.location_on,
+                  color: switch (v.workFriendly) {
+                    WorkFriendly.yes => Brand.red,
+                    WorkFriendly.no => const Color(0xFF4A5561),
+                    WorkFriendly.unknown => Brand.amber,
+                  }),
+              title: Text(v.name),
+              subtitle: Text([
+                if (v.neighbourhood != null) v.neighbourhood!,
+                if (v.distanceM != null) v.distanceLabel(),
+              ].join(' · ')),
+              trailing: v.rating != null
+                  ? Row(mainAxisSize: MainAxisSize.min, children: [
+                      const Icon(Icons.star,
+                          color: Brand.amber, size: 16),
+                      Text(' ${v.rating}')
+                    ])
+                  : null,
+              onTap: () => close(context, v),
+            )),
+      ],
+      header('FROM GOOGLE · ANYWHERE'),
+      FutureBuilder<List<PlaceSuggestion>>(
+        future: places.autocomplete(query,
+            nearLat: nearLat, nearLng: nearLng),
+        builder: (ctx, snap) {
+          if (!snap.hasData) {
+            return const Padding(
+              padding: EdgeInsets.all(20),
+              child: Center(
+                  child: SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Brand.red))),
+            );
+          }
+          final results = snap.data!
+              .where((s) => !localPlaceIds.contains(s.placeId))
+              .take(6)
+              .toList();
+          if (results.isEmpty) {
+            return Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text('Nothing found for "$query"',
+                  style: TextStyle(color: Colors.grey.shade600)),
+            );
+          }
+          return Column(
+              children: results
+                  .map((s) => ListTile(
+                        leading: const Icon(Icons.travel_explore,
+                            color: Brand.charcoal, size: 22),
+                        title: Text(s.main),
+                        subtitle: s.secondary.isEmpty
+                            ? null
+                            : Text(s.secondary,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis),
+                        onTap: () => close(context, s),
+                      ))
+                  .toList());
+        },
+      ),
+    ]);
   }
 
   @override
   Widget buildResults(BuildContext context) => _resultList(context);
 
   @override
-  Widget buildSuggestions(BuildContext context) => query.isEmpty
+  Widget buildSuggestions(BuildContext context) => query.trim().length < 3
       ? Center(
-          child: Text('Type a venue name…',
+          child: Text('Type at least 3 letters…',
               style: TextStyle(color: Colors.grey.shade500)))
       : _resultList(context);
 }

@@ -149,7 +149,7 @@ class _SubmissionCardState extends State<_SubmissionCard> {
     final saved = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-              title: const Text('Fix venue details'),
+              title: const Text('Fix space details'),
               content: Column(mainAxisSize: MainAxisSize.min, children: [
                 TextField(
                     controller: name,
@@ -279,7 +279,7 @@ class _SubmissionCardState extends State<_SubmissionCard> {
                   color: dist <= 150 ? Colors.green : Brand.red),
               const SizedBox(width: 5),
               Text(
-                  'Submitted ${dist < 1000 ? '$dist m' : '${NumberFormat("#,##0").format(dist / 1000)} km'} from the venue',
+                  'Submitted ${dist < 1000 ? '$dist m' : '${NumberFormat("#,##0").format(dist / 1000)} km'} from the space',
                   style: TextStyle(
                       fontSize: 12,
                       color: dist <= 150

@@ -218,7 +218,7 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
       return;
     }
     if (!isConfirm && _placeId == null) {
-      _snack('Please pick the venue from the search suggestions.');
+      _snack('Please pick the space from the search suggestions.');
       return;
     }
     setState(() => _saving = true);
@@ -296,7 +296,7 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
                 content: Text(isConfirm
                     ? 'Thanks! Your coins will be credited after '
                         'verification, usually within 5 minutes.'
-                    : 'Thanks! New venues get a quick once-over by the '
+                    : 'Thanks! New spaces get a quick once-over by the '
                         'Nomadwise team. Your coins are usually credited '
                         'within a day.'),
                 actions: [

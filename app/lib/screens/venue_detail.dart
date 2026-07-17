@@ -286,7 +286,7 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
                   },
                   icon: const Icon(Icons.verified_outlined),
                   label: Text(
-                      'Confirm / update this venue  ·  earn ${AppConfig.coinsConfirmVenue} coins'),
+                      'Confirm / update this space  ·  earn ${AppConfig.coinsConfirmVenue} coins'),
                 ),
                 const SizedBox(height: 30),
               ]),
@@ -570,7 +570,7 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
             content: Text(
-                'Location is needed to verify you\'re at the venue.')));
+                'Location is needed to verify you\'re at the space.')));
       }
       return;
     }
@@ -689,7 +689,7 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
     if (connType == 'cellular') {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text(
-              'You\'re on mobile data. Connect to the venue\'s WiFi first, then retest.')));
+              'You\'re on mobile data. Connect to the space\'s WiFi first, then retest.')));
       return;
     }
 
@@ -699,9 +699,9 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
         builder: (ctx) => AlertDialog(
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20)),
-              title: const Text('On the venue\'s WiFi?'),
+              title: const Text('On the space\'s WiFi?'),
               content: const Text(
-                  'Make sure you\'re connected to this venue\'s WiFi, not '
+                  'Make sure you\'re connected to this space\'s WiFi, not '
                   'mobile data. Tests on mobile data don\'t count and this '
                   'uses about 12 MB.'),
               actions: [
@@ -761,7 +761,7 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
             content: Text(
-                'Location is needed to verify you\'re at the venue.')));
+                'Location is needed to verify you\'re at the space.')));
       }
       return;
     }
