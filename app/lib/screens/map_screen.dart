@@ -480,7 +480,8 @@ class _MapScreenState extends State<MapScreen> {
 
   Future<void> _openJumpToCity() async {
     final citiesWithSpaces =
-        _venues.map((v) => v.city).toSet().toList()..sort();
+        _venues.map((v) => v.city).whereType<String>().toSet().toList()
+          ..sort();
     final placeId = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,

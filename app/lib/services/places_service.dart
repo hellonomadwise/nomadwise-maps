@@ -29,6 +29,7 @@ class PlacesService {
     'regularOpeningHours',
     'location',
     'shortFormattedAddress',
+    'addressComponents',
     'photos',
   ];
 

@@ -146,6 +146,7 @@ class _SubmissionCardState extends State<_SubmissionCard> {
     if (venue == null) return;
     final name = TextEditingController(text: venue.name);
     final hood = TextEditingController(text: venue.neighbourhood ?? '');
+    final city = TextEditingController(text: venue.city ?? '');
     final saved = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
@@ -160,6 +161,11 @@ class _SubmissionCardState extends State<_SubmissionCard> {
                     controller: hood,
                     decoration: const InputDecoration(
                         labelText: 'Neighbourhood')),
+                const SizedBox(height: 10),
+                TextField(
+                    controller: city,
+                    decoration:
+                        const InputDecoration(labelText: 'City')),
               ]),
               actions: [
                 TextButton(
@@ -174,6 +180,7 @@ class _SubmissionCardState extends State<_SubmissionCard> {
       await widget.supabase.updateVenueFields(venue.id, {
         'name': name.text.trim(),
         'neighbourhood': hood.text.trim(),
+        'city': city.text.trim().isEmpty ? null : city.text.trim(),
       });
       await _loadContext();
     }

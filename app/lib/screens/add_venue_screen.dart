@@ -49,6 +49,7 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
   // New venues must be picked from Google so they're real places.
   String? _placeId;
   double? _placeLat, _placeLng;
+  String? _placeCity;
   List<PlaceSuggestion> _suggestions = [];
   Timer? _debounce;
   Venue? _existing; // set when the picked place is already on the map
@@ -86,6 +87,7 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
             .map((n) => PlacesService.photoUrl(n, maxWidth: 500))
             .toList();
         _refRating = live.rating;
+        _placeCity ??= live.city;
       });
     }
   }
@@ -186,6 +188,7 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
       _placeId = s.placeId;
       _placeLat = live?.lat;
       _placeLng = live?.lng;
+      _placeCity = live?.city;
       if (live?.displayName != null) _name.text = live!.displayName!;
       if (live != null) {
         _refPhotos = live.photoNames
@@ -256,6 +259,7 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
           'type': _type,
           'neighbourhood': _neighbourhood.text.trim(),
           'google_place_id': _placeId,
+          'city': _placeCity,
           // Venue pin sits where Google says the place is.
           'lat': _placeLat ?? pos.latitude,
           'lng': _placeLng ?? pos.longitude,

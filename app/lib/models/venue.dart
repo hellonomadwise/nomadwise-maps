@@ -8,7 +8,7 @@ class Venue {
   final String name;
   final String type; // 'cafe' | 'coworking'
   final String? neighbourhood;
-  final String city;
+  final String? city;
   final String? googlePlaceId;
   double? lat;
   double? lng;
@@ -52,7 +52,7 @@ class Venue {
         name = j['name'] ?? '',
         type = j['type'] ?? 'cafe',
         neighbourhood = j['neighbourhood'],
-        city = j['city'] ?? 'Lisbon',
+        city = j['city'],
         googlePlaceId = j['google_place_id'],
         lat = (j['lat'] as num?)?.toDouble(),
         lng = (j['lng'] as num?)?.toDouble(),
@@ -260,6 +260,7 @@ class Venue {
 /// Live details fetched from Google Places API (New).
 class PlaceLive {
   final String? displayName;
+  final String? city;
   final num? rating;
   final int? userRatingCount;
   final bool? openNow;
@@ -279,6 +280,7 @@ class PlaceLive {
 
   PlaceLive.fromJson(Map<String, dynamic> j)
       : displayName = j['displayName']?['text'],
+        city = _cityFrom(j['addressComponents']),
         rating = j['rating'],
         userRatingCount = j['userRatingCount'],
         openNow = (j['currentOpeningHours'] ?? j['regularOpeningHours'])
@@ -295,6 +297,24 @@ class PlaceLive {
             ((j['currentOpeningHours'] ?? j['regularOpeningHours'])
                     ?['weekdayDescriptions'] as List?)
                 ?.cast<String>();
+
+  /// The place's city, from Google's address components.
+  static String? _cityFrom(dynamic components) {
+    if (components is! List) return null;
+    for (final wanted in [
+      'locality',
+      'postal_town',
+      'administrative_area_level_2',
+    ]) {
+      for (final c in components) {
+        final types = (c['types'] as List?)?.cast<String>() ?? [];
+        if (types.contains(wanted)) {
+          return c['longText'] ?? c['shortText'];
+        }
+      }
+    }
+    return null;
+  }
 
   /// The next time the venue closes, if it is open now.
   DateTime? nextCloseTime(DateTime now) {

@@ -40,8 +40,17 @@ def place_details(place_id):
         f'https://places.googleapis.com/v1/places/{place_id}',
         headers={
             'X-Goog-Api-Key': PLACES_KEY,
-            'X-Goog-FieldMask': 'location,displayName',
+            'X-Goog-FieldMask': 'location,displayName,addressComponents',
         })
+
+
+def city_from(details):
+    comps = (details or {}).get('addressComponents') or []
+    for wanted in ('locality', 'postal_town', 'administrative_area_level_2'):
+        for c in comps:
+            if wanted in (c.get('types') or []):
+                return c.get('longText') or c.get('shortText')
+    return None
 
 
 def text_search(query):
@@ -64,7 +73,9 @@ venues = req(
 
 updated, failed = 0, []
 for v in venues:
-    if v['lat'] is not None and v['google_place_id']:
+    needs_coords = v['lat'] is None or not v['google_place_id']
+    needs_city = not v.get('city')
+    if not needs_coords and not needs_city:
         continue
     patch = {}
     try:
@@ -78,11 +89,19 @@ for v in venues:
             pid = places[0]['id']
             patch['google_place_id'] = pid
             loc = places[0].get('location') or {}
+            details = None
         else:
-            loc = (place_details(pid) or {}).get('location') or {}
-        if loc:
+            details = place_details(pid)
+            loc = (details or {}).get('location') or {}
+        if needs_coords and loc:
             patch['lat'] = loc.get('latitude')
             patch['lng'] = loc.get('longitude')
+        if needs_city:
+            if details is None:
+                details = place_details(pid)
+            c = city_from(details)
+            if c:
+                patch['city'] = c
         if patch:
             req(f"{SUPABASE_URL}/rest/v1/venues?id=eq.{v['id']}",
                 method='PATCH',
