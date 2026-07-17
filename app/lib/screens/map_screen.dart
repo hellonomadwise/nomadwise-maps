@@ -16,6 +16,7 @@ import '../services/location_service.dart';
 import '../services/places_service.dart';
 import '../services/supabase_service.dart';
 import '../theme.dart';
+import '../widgets/ui.dart';
 import 'add_venue_screen.dart';
 import 'admin_screen.dart';
 import 'admin_users_screen.dart';
@@ -801,35 +802,103 @@ class _MapScreenState extends State<MapScreen> {
     return entries;
   }
 
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
+
+  /// Top chrome per the design: menu button, search field, wallet button,
+  /// over a white-to-transparent gradient.
+  Widget _topChrome() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Brand.bg,
+            Brand.bg.withValues(alpha: .85),
+            Brand.bg.withValues(alpha: 0),
+          ],
+        ),
+      ),
+      padding: const EdgeInsets.only(bottom: 26),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+          child: Row(children: [
+            IconSquareButton(
+              icon: Icons.menu,
+              floating: true,
+              onTap: () => _scaffoldKey.currentState?.openDrawer(),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: GestureDetector(
+                onTap: _openSearch,
+                child: Container(
+                  height: 38,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: Brand.surface,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Brand.border),
+                    boxShadow: Brand.shadowResting,
+                  ),
+                  child: const Row(children: [
+                    Icon(Icons.search, size: 18, color: Brand.inkMuted),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text('Search cafes, coworking…',
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                              color: Brand.inkMuted, fontSize: 14)),
+                    ),
+                  ]),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            IconSquareButton(
+              icon: Icons.account_balance_wallet_outlined,
+              bg: Brand.ink,
+              floating: true,
+              child: const CoinDot(size: 14),
+              onTap: () => _requireSignIn(() => Navigator.push(context,
+                  MaterialPageRoute(
+                      builder: (_) => const WalletScreen()))),
+            ),
+          ]),
+        ),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 2),
+          child: Row(children: [
+            _toggleListChip(),
+            _typeChip('Cafes', 'cafe'),
+            _typeChip('Coworking', 'coworking'),
+            _chip('Open now', VenueFilter.openNow),
+            _chip('Open late', VenueFilter.openLate),
+            _chip('24 hours', VenueFilter.open24h),
+            _chip('Work-friendly', VenueFilter.workFriendly),
+            _jumpChip(),
+          ]),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(left: 16, top: 8),
+          child: _countBadge(),
+        ),
+        if (!_showList)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Center(child: _searchAreaPill()),
+          ),
+      ]),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final visible = _visibleVenues;
     return Scaffold(
+      key: _scaffoldKey,
       drawer: _buildMenu(),
-      appBar: AppBar(
-        title: Row(children: [
-          Image.asset('assets/brand/logo_mark.png', height: 28),
-          const SizedBox(width: 8),
-          const Text('nomadwise',
-              style: TextStyle(color: Brand.charcoal)),
-          const SizedBox(width: 5),
-          const Text('maps', style: TextStyle(color: Brand.red)),
-        ]),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.search, color: Brand.charcoal),
-            tooltip: 'Search spaces',
-            onPressed: _openSearch,
-          ),
-          IconButton(
-            icon: const Icon(Icons.account_balance_wallet_outlined,
-                color: Brand.amber),
-            tooltip: 'Wallet',
-            onPressed: () => _requireSignIn(() => Navigator.push(context,
-                MaterialPageRoute(builder: (_) => const WalletScreen()))),
-          ),
-        ],
-      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: Brand.red))
           : Stack(children: [
@@ -858,9 +927,9 @@ class _MapScreenState extends State<MapScreen> {
                 Positioned.fill(
                   child: PointerInterceptor(
                     child: Container(
-                      color: Colors.white,
+                      color: Brand.bg,
                       padding: EdgeInsets.only(
-                          top: MediaQuery.of(context).padding.top + 96),
+                          top: MediaQuery.of(context).padding.top + 140),
                       child: _listEntries.isEmpty
                           ? Center(
                               child: Padding(
@@ -917,47 +986,14 @@ class _MapScreenState extends State<MapScreen> {
                   ),
                 ),
 
-              // ---- filter chips + count ----
+              // ---- top chrome: menu / search / wallet + chips ----
               Positioned(
                 top: 0,
                 left: 0,
                 right: 0,
                 child: SafeArea(
                   bottom: false,
-                  child: PointerInterceptor(
-                    child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            padding:
-                                const EdgeInsets.fromLTRB(12, 10, 12, 2),
-                            child: Row(children: [
-                              _toggleListChip(),
-                              _typeChip('Cafes', 'cafe'),
-                              _typeChip('Coworking', 'coworking'),
-                              _chip('Open now', VenueFilter.openNow),
-                              _chip('Open late', VenueFilter.openLate),
-                              _chip('24 hours', VenueFilter.open24h),
-                              _chip('Work-friendly',
-                                  VenueFilter.workFriendly),
-                              _jumpChip(),
-                            ]),
-                          ),
-                          Padding(
-                            padding:
-                                const EdgeInsets.only(left: 16, top: 2),
-                            child: _countBadge(),
-                          ),
-                          // "Search this area" sits under the chips,
-                          // centred — like Google Maps.
-                          if (!_showList)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 8),
-                              child: Center(child: _searchAreaPill()),
-                            ),
-                        ]),
-                  ),
+                  child: PointerInterceptor(child: _topChrome()),
                 ),
               ),
 
@@ -1020,101 +1056,90 @@ class _MapScreenState extends State<MapScreen> {
 
   // ---------- chips & badges ----------
 
-  Widget _toggleListChip() {
+  /// 32px filter pill: navy when active, white + border when not.
+  Widget _pill(String label,
+      {required bool on,
+      required VoidCallback onTap,
+      IconData? icon}) {
     return Padding(
       padding: const EdgeInsets.only(right: 8),
-      child: FilterChip(
-        avatar: Icon(_showList ? Icons.map_outlined : Icons.list,
-            size: 18, color: Colors.white),
-        label: Text(_showList ? 'Map' : 'List',
-            style: const TextStyle(
-                color: Colors.white, fontWeight: FontWeight.w700)),
-        selected: true,
-        showCheckmark: false,
-        selectedColor: Brand.charcoal,
-        elevation: 3,
-        onSelected: (_) => setState(() {
-          _showList = !_showList;
-          _selected = null;
-        }),
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          curve: Curves.ease,
+          height: 32,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          decoration: BoxDecoration(
+            color: on ? Brand.ink : Brand.surface,
+            borderRadius: BorderRadius.circular(16),
+            border: on ? null : Border.all(color: Brand.border),
+            boxShadow: Brand.shadowResting,
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            if (icon != null) ...[
+              Icon(icon, size: 15,
+                  color: on ? Colors.white : Brand.ink),
+              const SizedBox(width: 5),
+            ],
+            Text(label,
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: on ? Colors.white : Brand.ink)),
+          ]),
+        ),
       ),
     );
   }
 
+  Widget _toggleListChip() => _pill(
+        _showList ? 'Map' : 'List',
+        icon: _showList ? Icons.map_outlined : Icons.list,
+        on: true,
+        onTap: () => setState(() {
+          _showList = !_showList;
+          _selected = null;
+        }),
+      );
+
   Widget _typeChip(String label, String type) {
     final on = _typeFilter == type;
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: FilterChip(
-        label: Text(label,
-            style: TextStyle(
-                color: on ? Colors.white : Brand.charcoal,
-                fontWeight: FontWeight.w500)),
-        selected: on,
-        showCheckmark: false,
-        elevation: 3,
-        pressElevation: 1,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        onSelected: (_) => setState(() {
+    return _pill(label, on: on, onTap: () => setState(() {
           _typeFilter = on ? null : type;
           if (_selected != null && !_visibleVenues.contains(_selected)) {
             _selected = null;
           }
-        }),
-      ),
-    );
+        }));
   }
 
   Widget _chip(String label, VenueFilter f) {
     final on = _filters.contains(f);
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: FilterChip(
-        label: Text(label,
-            style: TextStyle(
-                color: on ? Colors.white : Brand.charcoal,
-                fontWeight: FontWeight.w500)),
-        selected: on,
-        showCheckmark: false,
-        elevation: 3,
-        pressElevation: 1,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        onSelected: (_) => setState(() {
+    return _pill(label, on: on, onTap: () => setState(() {
           on ? _filters.remove(f) : _filters.add(f);
           if (_selected != null && !_visibleVenues.contains(_selected)) {
             _selected = null;
           }
-        }),
-      ),
-    );
+        }));
   }
 
-  Widget _jumpChip() {
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: FilterChip(
-        avatar: const Icon(Icons.travel_explore,
-            size: 18, color: Brand.charcoal),
-        label: const Text('Jump to…',
-            style: TextStyle(
-                color: Brand.charcoal, fontWeight: FontWeight.w500)),
-        selected: false,
-        showCheckmark: false,
-        elevation: 3,
-        onSelected: (_) => _openJumpToCity(),
-      ),
-    );
-  }
+  Widget _jumpChip() => _pill('Jump to…',
+      icon: Icons.travel_explore, on: false, onTap: _openJumpToCity);
 
   Widget _searchAreaPill() {
     return Material(
-      color: Colors.white,
-      elevation: 4,
+      color: Brand.surface,
       borderRadius: BorderRadius.circular(24),
+      elevation: 0,
       child: InkWell(
         borderRadius: BorderRadius.circular(24),
         onTap: _searchThisArea,
-        child: Padding(
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: Brand.border),
+            boxShadow: Brand.shadowFloating,
+          ),
           padding:
               const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -1123,15 +1148,15 @@ class _MapScreenState extends State<MapScreen> {
                     width: 15,
                     height: 15,
                     child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Brand.red))
-                : const Icon(Icons.coffee_outlined,
-                    size: 16, color: Brand.red),
+                        strokeWidth: 2, color: Brand.accent))
+                : const Icon(Icons.history_toggle_off,
+                    size: 16, color: Brand.accent),
             const SizedBox(width: 7),
             Text(_searchingArea ? 'Searching…' : 'Search this area',
                 style: const TextStyle(
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w600,
                     fontSize: 13,
-                    color: Brand.charcoal)),
+                    color: Brand.accent)),
           ]),
         ),
       ),
@@ -1285,9 +1310,9 @@ class _MapScreenState extends State<MapScreen> {
         ]),
         const SizedBox(height: 3),
         row(Brand.red, 'Work-friendly', 'yes'),
-        row(const Color(0xFF4A5561), 'Not for laptops', 'no'),
+        row(Brand.ink, 'Not for laptops', 'no'),
         row(Brand.amber, 'Unknown · confirm & earn', 'unknown'),
-        row(const Color(0xFFC7CDD4), 'Unscreened · review & earn',
+        row(Brand.inkFaint, 'Unscreened · review & earn',
             'unscreened'),
         if (filtering)
           InkWell(
@@ -1369,7 +1394,7 @@ class _SpaceSearchDelegate extends SearchDelegate<Object?> {
               leading: Icon(Icons.location_on,
                   color: switch (v.workFriendly) {
                     WorkFriendly.yes => Brand.red,
-                    WorkFriendly.no => const Color(0xFF4A5561),
+                    WorkFriendly.no => Brand.ink,
                     WorkFriendly.unknown => Brand.amber,
                   }),
               title: Text(v.name),
@@ -1569,7 +1594,7 @@ class _VenueListCard extends StatelessWidget {
               size: 30,
               color: switch (venue.workFriendly) {
                 WorkFriendly.yes => Brand.red,
-                WorkFriendly.no => const Color(0xFF9AA3AD),
+                WorkFriendly.no => Brand.ink,
                 WorkFriendly.unknown => Brand.amber,
               }),
           title: Text(venue.name,
@@ -1754,7 +1779,7 @@ class _DiscoveredListCardState extends State<_DiscoveredListCard> {
               const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
           childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
           leading: const Icon(Icons.location_on,
-              size: 30, color: Color(0xFFC7CDD4)),
+              size: 30, color: Brand.inkFaint),
           title: Text(place.name,
               style: const TextStyle(fontWeight: FontWeight.w700)),
           subtitle: Padding(
@@ -1939,62 +1964,44 @@ class _DiscoveredCardState extends State<_DiscoveredCard> {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 6,
-      color: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Row(children: [
-            Expanded(
-                child: Text(place.name,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w700, fontSize: 17))),
-            if (place.rating != null) ...[
-              const Icon(Icons.star, color: Brand.amber, size: 18),
-              Text(' ${place.rating}',
-                  style: const TextStyle(fontWeight: FontWeight.w700)),
-              if (place.userRatingCount != null)
-                Text(' (${place.userRatingCount})',
-                    style: TextStyle(
-                        color: Colors.grey.shade600, fontSize: 12)),
-            ],
-          ]),
-          const SizedBox(height: 8),
-          Row(children: [
-            Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 10, vertical: 5),
-              decoration: BoxDecoration(
-                  color: Colors.blueGrey.withValues(alpha: .1),
-                  borderRadius: BorderRadius.circular(20)),
-              child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(Icons.help_outline, size: 15, color: Colors.blueGrey),
-                SizedBox(width: 5),
-                Text('Not screened by nomads yet',
-                    style: TextStyle(
-                        color: Colors.blueGrey,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 12)),
-              ]),
-            ),
-            const Spacer(),
-          ]),
-          const SizedBox(height: 8),
-          Align(alignment: Alignment.centerLeft, child: _signalsRow()),
-          const SizedBox(height: 10),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: widget.onScreen,
-              icon: const Icon(Icons.rate_review_outlined, size: 19),
-              label: Text(
-                  'Screen this space  ·  earn ${AppConfig.coinsNewVenue} coins'),
-            ),
-          ),
-        ]),
+    return Container(
+      decoration: BoxDecoration(
+        color: Brand.surface,
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: Brand.shadowSheet,
       ),
+      padding: const EdgeInsets.all(18),
+      child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              Expanded(
+                  child: Text(place.name,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w700, fontSize: 18))),
+              if (place.rating != null) ...[
+                const Icon(Icons.star, color: Brand.gold, size: 17),
+                Text(' ${place.rating}',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w700, fontSize: 14)),
+                if (place.userRatingCount != null)
+                  Text(' (${place.userRatingCount})',
+                      style: const TextStyle(
+                          color: Brand.inkMuted, fontSize: 12)),
+              ],
+            ]),
+            const SizedBox(height: 10),
+            const StatusChip('Not screened by nomads yet'),
+            const SizedBox(height: 10),
+            _signalsRow(),
+            const SizedBox(height: 14),
+            PrimaryCta(
+              label: 'Screen this space',
+              coins: '+${AppConfig.coinsNewVenue}',
+              onPressed: widget.onScreen,
+            ),
+          ]),
     );
   }
 }
@@ -2013,81 +2020,56 @@ class _VenueCard extends StatelessWidget {
     final wf = venue.workFriendly;
     final closing = venue.closingLabel(
         soonMinutes: AppConfig.closingSoonMinutes);
-    return Card(
-      elevation: 6,
-      color: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Row(children: [
-            Expanded(
-                child: Text(venue.name,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w700, fontSize: 17))),
-            Text(venue.distanceLabel(),
-                style: const TextStyle(
-                    color: Brand.charcoal, fontWeight: FontWeight.w500)),
-          ]),
-          const SizedBox(height: 6),
-          Row(children: [
-            if (venue.rating != null) ...[
-              const Icon(Icons.star, color: Brand.amber, size: 18),
-              Text(' ${venue.rating}  ',
-                  style: const TextStyle(fontWeight: FontWeight.w700)),
-              if (venue.reviewCount != null)
-                Text('(${venue.reviewCount})  ',
-                    style: TextStyle(color: Colors.grey.shade600)),
-            ],
-            if (closing != null)
-              Expanded(
-                child: Text(closing,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                        color: closing.startsWith('Closing') ||
-                                closing == 'Closed'
-                            ? Brand.red
-                            : Colors.green.shade700,
-                        fontWeight: FontWeight.w500)),
-              ),
-          ]),
-          const SizedBox(height: 8),
-          Row(children: [
-            _wfBadge(wf),
-            const Spacer(),
-            TextButton(onPressed: onDetails, child: const Text('Details')),
-          ]),
-        ]),
-      ),
-    );
-  }
-
-  Widget _wfBadge(WorkFriendly wf) {
-    final (label, color, icon) = switch (wf) {
-      WorkFriendly.yes => ('Work-friendly', Brand.red, Icons.laptop_mac),
-      WorkFriendly.no => (
-          'Not for laptops',
-          Colors.blueGrey,
-          Icons.laptop_chromebook
-        ),
+    final (statusText, statusDot) = switch (wf) {
+      WorkFriendly.yes => ('Work-friendly', Brand.accent),
+      WorkFriendly.no => ('Not for laptops', Brand.ink),
       WorkFriendly.unknown => (
           'Unknown · confirm & earn',
-          Brand.amber,
-          Icons.help_outline
+          Brand.gold
         ),
     };
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-          color: color.withValues(alpha: .12),
-          borderRadius: BorderRadius.circular(20)),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(icon, size: 15, color: color),
-        const SizedBox(width: 5),
-        Text(label,
-            style: TextStyle(
-                color: color, fontWeight: FontWeight.w700, fontSize: 12)),
-      ]),
+        color: Brand.surface,
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: Brand.shadowSheet,
+      ),
+      padding: const EdgeInsets.all(18),
+      child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              Expanded(
+                  child: Text(venue.name,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w700, fontSize: 18))),
+              if (venue.rating != null) ...[
+                const Icon(Icons.star, color: Brand.gold, size: 17),
+                Text(' ${venue.rating}',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w700, fontSize: 14)),
+                if (venue.reviewCount != null)
+                  Text(' (${venue.reviewCount})',
+                      style: const TextStyle(
+                          color: Brand.inkMuted, fontSize: 12)),
+              ],
+            ]),
+            const SizedBox(height: 10),
+            StatusChip(statusText, dotColor: statusDot),
+            const SizedBox(height: 8),
+            Text(
+              [
+                venue.distanceLabel(),
+                if (closing != null) closing,
+              ].join(' · '),
+              style: const TextStyle(
+                  fontSize: 13, color: Brand.inkSecondary),
+            ),
+            const SizedBox(height: 14),
+            PrimaryCta(label: 'View details', onPressed: onDetails),
+          ]),
     );
   }
+
 }

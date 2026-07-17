@@ -13,6 +13,7 @@ import '../services/places_service.dart';
 import '../services/speed_test_service.dart';
 import '../services/supabase_service.dart';
 import '../theme.dart';
+import '../widgets/ui.dart';
 
 /// One form, two jobs:
 ///  • confirming == null  -> "Add a new venue"     (100 coins)
@@ -82,6 +83,13 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
 
   Uint8List? _photo;
   bool _saving = false;
+  int? _coinBalance; // shown in the header
+
+  Future<void> _loadBalance() async {
+    if (!_supabase.signedIn) return;
+    final w = await _supabase.wallet();
+    if (mounted) setState(() => _coinBalance = w.total);
+  }
 
   /// Google's photos of the place, shown so the reviewer can see what
   /// they're assessing.
@@ -108,6 +116,7 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
   @override
   void initState() {
     super.initState();
+    _loadBalance();
     _prefillFrom(widget.confirming);
     final s = widget.screening;
     if (s != null) {
@@ -435,120 +444,83 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
   void _snack(String msg) => ScaffoldMessenger.of(context)
       .showSnackBar(SnackBar(content: Text(msg)));
 
+  bool get _spacePicked =>
+      isConfirm || widget.screening != null || _placeId != null;
+
+  int get _pendingCoins =>
+      (isConfirm
+          ? AppConfig.coinsConfirmVenue
+          : AppConfig.coinsNewVenue) +
+      (_measuredMbps != null ? AppConfig.coinsWifiTest : 0) +
+      (_wifiSsid.text.trim().isNotEmpty ? AppConfig.coinsWifiLogin : 0);
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Brand.bg,
       appBar: AppBar(
-          title: Text(isConfirm
-              ? 'Confirm this space'
-              : 'Review a space')),
+        title:
+            Text(isConfirm ? 'Confirm this space' : 'Review a space'),
+        actions: [
+          if (_coinBalance != null)
+            Padding(
+              padding: const EdgeInsets.only(right: 16),
+              child:
+                  Center(child: CoinChip('$_coinBalance', height: 28)),
+            ),
+        ],
+      ),
+      bottomNavigationBar: _stickyFooter(),
       body: Form(
         key: _formKey,
-        child: ListView(padding: const EdgeInsets.all(20), children: [
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-                gradient: Brand.gradient,
-                borderRadius: BorderRadius.circular(14)),
-            child: Text(
-              isConfirm
-                  ? 'Confirm what this place is really like and earn '
-                      '${AppConfig.coinsConfirmVenue} coins.'
-                  : 'Be the first to review this space for nomads and earn '
-                      '${AppConfig.coinsNewVenue} coins.',
-              style: const TextStyle(
-                  color: Colors.white, fontWeight: FontWeight.w700),
-            ),
-          ),
-          if (_refPhotos.isNotEmpty) ...[
-            const SizedBox(height: 14),
-            SizedBox(
-              height: 110,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: _refPhotos.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 8),
-                itemBuilder: (_, i) => ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.network(_refPhotos[i],
-                      width: 150,
-                      height: 110,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) =>
-                          const SizedBox(width: 150)),
-                ),
+        child: ListView(padding: const EdgeInsets.all(16), children: [
+          _rewardCard(),
+          const SizedBox(height: 14),
+          if (!_spacePicked) ...[
+            const FieldLabel('Space'),
+            TextFormField(
+              controller: _name,
+              onChanged: _onNameChanged,
+              decoration: const InputDecoration(
+                hintText: 'Search for the space…',
+                helperText:
+                    'Start typing and pick it from the list. Spaces '
+                    'must be real places on Google Maps.',
+                helperMaxLines: 2,
+                suffixIcon: Icon(Icons.search, color: Brand.inkMuted),
               ),
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'Required' : null,
             ),
-            const SizedBox(height: 4),
-            Row(children: [
-              Text('Photos from Google, for reference',
-                  style: TextStyle(
-                      fontSize: 11, color: Colors.grey.shade500)),
-              const Spacer(),
-              if (_refRating != null) ...[
-                const Icon(Icons.star, color: Brand.amber, size: 14),
-                Text(' $_refRating',
-                    style: const TextStyle(
-                        fontSize: 12, fontWeight: FontWeight.w700)),
-              ],
-            ]),
-          ],
-          const SizedBox(height: 20),
-          TextFormField(
-            controller: _name,
-            enabled: !isConfirm && widget.screening == null,
-            onChanged: _onNameChanged,
-            decoration: InputDecoration(
-              labelText: isConfirm || widget.screening != null
-                  ? 'Space name'
-                  : 'Search for the space…',
-              helperText: isConfirm || widget.screening != null
-                  ? null
-                  : 'Start typing and pick it from the list. Spaces must '
-                      'be real places on Google Maps.',
-              helperMaxLines: 2,
-              suffixIcon: isConfirm
-                  ? null
-                  : Icon(
-                      _placeId != null
-                          ? Icons.check_circle
-                          : Icons.search,
-                      color: _placeId != null
-                          ? Colors.green
-                          : Colors.grey.shade500),
-            ),
-            validator: (v) =>
-                (v == null || v.trim().isEmpty) ? 'Required' : null,
-          ),
-          if (_suggestions.isNotEmpty)
-            Container(
-              margin: const EdgeInsets.only(top: 4),
-              decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(14),
-                  boxShadow: [
-                    BoxShadow(
-                        color: Colors.black.withValues(alpha: .08),
-                        blurRadius: 12)
-                  ]),
-              child: Column(
-                  children: _suggestions
-                      .take(5)
-                      .map((s) => ListTile(
-                            dense: true,
-                            leading: const Icon(Icons.place_outlined,
-                                color: Brand.red, size: 20),
-                            title: Text(s.main),
-                            subtitle: s.secondary.isEmpty
-                                ? null
-                                : Text(s.secondary,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis),
-                            onTap: () => _pickSuggestion(s),
-                          ))
-                      .toList()),
-            ),
-          const SizedBox(height: 12),
+            if (_suggestions.isNotEmpty)
+              Container(
+                margin: const EdgeInsets.only(top: 4),
+                decoration: BoxDecoration(
+                    color: Brand.surface,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Brand.border),
+                    boxShadow: Brand.shadowFloating),
+                child: Column(
+                    children: _suggestions
+                        .take(5)
+                        .map((s) => ListTile(
+                              dense: true,
+                              leading: const Icon(Icons.place_outlined,
+                                  color: Brand.accent, size: 20),
+                              title: Text(s.main),
+                              subtitle: s.secondary.isEmpty
+                                  ? null
+                                  : Text(s.secondary,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis),
+                              onTap: () => _pickSuggestion(s),
+                            ))
+                        .toList()),
+              ),
+          ] else
+            _spaceCard(),
+          const SizedBox(height: 16),
+          const FieldLabel('Type'),
           DropdownButtonFormField<String>(
             value: _type,
             items: const [
@@ -558,118 +530,136 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
             ],
             onChanged:
                 isConfirm ? null : (v) => setState(() => _type = v!),
-            decoration: const InputDecoration(labelText: 'Type'),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
+          const FieldLabel('Neighbourhood', optional: true),
           TextFormField(
             controller: _neighbourhood,
             decoration:
-                const InputDecoration(labelText: 'Neighbourhood'),
+                const InputDecoration(hintText: 'e.g. Old town'),
           ),
-          const SizedBox(height: 20),
-          const Text('WIFI',
-              style: TextStyle(
-                  color: Brand.red,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 13,
-                  letterSpacing: 1)),
-          const SizedBox(height: 8),
+          const SizedBox(height: 24),
+          SectionLabel('WIFI',
+              trailing: Text(
+                  'up to +${AppConfig.coinsWifiTest + AppConfig.coinsWifiLogin}',
+                  style: const TextStyle(
+                      color: Brand.goldLink,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700))),
+          const SizedBox(height: 12),
           _wifiTestTile(),
           const SizedBox(height: 8),
+          const Text(
+            'Runs a 10-second speed test from your phone.\n'
+            'Only a measured test earns the bonus.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+                fontSize: 12.5, color: Brand.inkMuted, height: 1.45),
+          ),
+          const SizedBox(height: 14),
+          FieldLabel(
+              _measuredMbps != null
+                  ? 'WiFi speed (Mbps), measured ✓'
+                  : 'WiFi speed (Mbps)',
+              optional: _measuredMbps == null),
           TextFormField(
             controller: _wifi,
             keyboardType: TextInputType.number,
             onChanged: (_) {
-              // Typed over the measured number? Then it no longer counts
-              // as a real test (no bonus).
+              // Typed over the measured number? Then it no longer
+              // counts as a real test (no bonus).
               if (_measuredMbps != null &&
                   _wifi.text.trim() != _measuredMbps.toString()) {
                 setState(() => _measuredMbps = null);
               }
             },
             decoration: InputDecoration(
-                labelText: _measuredMbps != null
-                    ? 'WiFi speed (Mbps), measured ✓'
-                    : 'WiFi speed (Mbps), if you know it',
+                hintText: 'Type it if you know it',
                 helperText: _measuredMbps != null
                     ? 'Measured just now, the +${AppConfig.coinsWifiTest} '
                         'coin bonus is locked in.'
-                    : 'Typing a number is fine, but only a measured test '
-                        'earns the +${AppConfig.coinsWifiTest} coin bonus.',
-                helperMaxLines: 2),
+                    : null),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           Row(children: [
-            const Icon(Icons.key, size: 18, color: Brand.charcoal),
+            const Icon(Icons.key, size: 16, color: Brand.ink),
             const SizedBox(width: 6),
-            Expanded(
-              child: Text(
-                  'Know the WiFi login? Share it for '
-                  '+${AppConfig.coinsWifiLogin} coins.',
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w700, fontSize: 13)),
+            const Expanded(
+              child: Text('Know the WiFi login? Share it too.',
+                  style: TextStyle(
+                      fontWeight: FontWeight.w600, fontSize: 13.5)),
             ),
+            CoinChip('+${AppConfig.coinsWifiLogin}', height: 22),
           ]),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
+          const FieldLabel('WiFi network name', optional: true),
           TextFormField(
             controller: _wifiSsid,
-            // Rebuild so the submit button's coin total updates live.
+            // Rebuild so the footer's coin total updates live.
             onChanged: (_) => setState(() {}),
-            decoration: const InputDecoration(
-                labelText: 'WiFi network name (optional)'),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
+          const FieldLabel('WiFi password', optional: true),
           TextFormField(
             controller: _wifiPass,
             decoration: const InputDecoration(
-                labelText: 'WiFi password (optional)',
                 helperText:
                     'Only shared with signed-in nomads, never shown publicly.',
                 helperMaxLines: 2),
           ),
-          const SizedBox(height: 20),
-          const Text('WHAT\'S IT LIKE?',
-              style: TextStyle(
-                  color: Brand.red,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 13,
-                  letterSpacing: 1)),
-          const SizedBox(height: 4),
-          _triState('Laptops allowed  ⭐', 'laptops_allowed'),
-          _triState('Power outlets', 'power_outlets'),
-          _triState('Aircon', 'aircon'),
-          _triState('Comfortable seating', 'comfortable_seating'),
-          _triState('Cozy', 'cozy'),
-          _triState('Quiet space', 'quiet_space'),
+          const SizedBox(height: 24),
+          const SectionLabel("WHAT'S IT LIKE?"),
+          const SizedBox(height: 10),
+          _amenityRow('Laptops allowed', 'laptops_allowed', star: true),
+          _amenityRow('Power outlets', 'power_outlets'),
+          _amenityRow('Aircon', 'aircon'),
+          _amenityRow('Comfortable seating', 'comfortable_seating'),
+          _amenityRow('Cozy', 'cozy'),
+          _amenityRow('Quiet space', 'quiet_space'),
           if (_type == 'coworking') ...[
-            const SizedBox(height: 12),
-            const Text('COWORKING EXTRAS',
-                style: TextStyle(
-                    color: Brand.red,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 13,
-                    letterSpacing: 1)),
-            const SizedBox(height: 4),
-            _triState('Good for calls', 'good_for_calls'),
-            _triState('Call/Skype room', 'call_room'),
-            _triState('Monitor available', 'monitor'),
-            _triState('Office chairs', 'office_chairs'),
-            _triState('24h access', 'access_24h'),
+            const SizedBox(height: 16),
+            const SectionLabel('COWORKING EXTRAS'),
+            const SizedBox(height: 10),
+            _amenityRow('Good for calls', 'good_for_calls'),
+            _amenityRow('Call/Skype room', 'call_room'),
+            _amenityRow('Monitor available', 'monitor'),
+            _amenityRow('Office chairs', 'office_chairs'),
+            _amenityRow('24h access', 'access_24h'),
           ],
-          const SizedBox(height: 20),
-
-          // ---- photo ----
-          OutlinedButton.icon(
-            onPressed: _pickPhoto,
-            icon: Icon(
-                _photo == null ? Icons.photo_camera : Icons.check_circle,
-                color: _photo == null ? Brand.red : Colors.green),
-            label: Text(_photo == null
-                ? 'Add a photo (optional, helps other nomads)'
-                : 'Photo added ✓ · tap to retake'),
-            style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                side: const BorderSide(color: Brand.red)),
+          const SizedBox(height: 8),
+          DashedBorderBox(
+            child: InkWell(
+              onTap: _pickPhoto,
+              borderRadius: BorderRadius.circular(14),
+              child: Container(
+                height: 54,
+                alignment: Alignment.center,
+                child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                          _photo == null
+                              ? Icons.photo_camera_outlined
+                              : Icons.check_circle,
+                          size: 19,
+                          color: _photo == null
+                              ? Brand.ink
+                              : Brand.success),
+                      const SizedBox(width: 8),
+                      Text(_photo == null ? 'Add a photo' : 'Photo added',
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14)),
+                      const SizedBox(width: 6),
+                      Text(
+                          _photo == null
+                              ? 'optional · helps nomads'
+                              : 'tap to retake',
+                          style: const TextStyle(
+                              fontSize: 13, color: Brand.inkMuted)),
+                    ]),
+              ),
+            ),
           ),
           if (_photo != null) ...[
             const SizedBox(height: 10),
@@ -679,50 +669,223 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
                     width: double.infinity, fit: BoxFit.cover)),
           ],
           const SizedBox(height: 24),
-          ElevatedButton(
-            onPressed: _saving ? null : _submit,
-            child: _saving
-                ? const SizedBox(
-                    height: 22,
-                    width: 22,
-                    child: CircularProgressIndicator(
-                        color: Colors.white, strokeWidth: 2.5))
-                : Text(
-                    '${isConfirm ? 'Submit confirmation' : 'Submit review'}'
-                    '  ·  +${(isConfirm ? AppConfig.coinsConfirmVenue : AppConfig.coinsNewVenue) + (_measuredMbps != null ? AppConfig.coinsWifiTest : 0) + (_wifiSsid.text.trim().isNotEmpty ? AppConfig.coinsWifiLogin : 0)} coins'),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            isConfirm
-                ? 'Coins are credited after verification, usually within 5 minutes.'
-                : 'Coins are credited after a quick review, usually within a day.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
-          ),
-          const SizedBox(height: 30),
         ]),
       ),
     );
   }
 
+  Widget _rewardCard() {
+    final base = isConfirm
+        ? AppConfig.coinsConfirmVenue
+        : AppConfig.coinsNewVenue;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Brand.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0x80F4B23E)),
+      ),
+      child: Row(children: [
+        Container(
+          width: 42,
+          height: 42,
+          decoration: const BoxDecoration(
+              color: Brand.goldTint, shape: BoxShape.circle),
+          child: const Center(child: CoinDot(size: 20)),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                    isConfirm
+                        ? 'Confirm what this place is really like'
+                        : 'Be the first to review this space',
+                    style: const TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w500,
+                        color: Brand.ink)),
+                const SizedBox(height: 2),
+                Text(
+                    'Complete the ${isConfirm ? 'confirmation' : 'review'} '
+                    'to earn $base coins',
+                    style: const TextStyle(
+                        fontSize: 12.5, color: Brand.inkSecondary)),
+              ]),
+        ),
+        Text('+$base',
+            style: const TextStyle(
+                color: Brand.goldLink,
+                fontSize: 16,
+                fontWeight: FontWeight.w700)),
+      ]),
+    );
+  }
+
+  Widget _spaceCard() {
+    final canChange = !isConfirm && widget.screening == null;
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: Brand.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Brand.border),
+      ),
+      child:
+          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        if (_refPhotos.isNotEmpty)
+          SizedBox(
+            height: 120,
+            child: Row(
+                children: _refPhotos
+                    .take(3)
+                    .map((u) => Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.only(right: 3),
+                            child: Image.network(u,
+                                height: 120,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) =>
+                                    Container(color: Brand.field)),
+                          ),
+                        ))
+                    .toList()),
+          ),
+        Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(children: [
+            Expanded(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(children: [
+                      Flexible(
+                        child: Text(_name.text,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700)),
+                      ),
+                      const SizedBox(width: 6),
+                      const Icon(Icons.check_circle,
+                          size: 17, color: Brand.success),
+                    ]),
+                    const SizedBox(height: 2),
+                    Text(
+                        [
+                          if (_refRating != null) '★ $_refRating',
+                          if (_refPhotos.isNotEmpty)
+                            'photos from Google',
+                        ].join(' · '),
+                        style: const TextStyle(
+                            fontSize: 12.5, color: Brand.inkMuted)),
+                  ]),
+            ),
+            if (canChange)
+              TextButton(
+                onPressed: () => setState(() {
+                  _placeId = null;
+                  _placeLat = null;
+                  _placeLng = null;
+                  _placeCity = null;
+                  _refPhotos = [];
+                  _refRating = null;
+                  _existing = null;
+                  _name.clear();
+                }),
+                child: const Text('Change'),
+              ),
+          ]),
+        ),
+      ]),
+    );
+  }
+
+  Widget _stickyFooter() {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Brand.surface,
+        border: Border(top: BorderSide(color: Brand.hairline)),
+      ),
+      padding: EdgeInsets.fromLTRB(
+          16, 12, 16, MediaQuery.of(context).padding.bottom + 12),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        PrimaryCta(
+          label:
+              isConfirm ? 'Submit confirmation' : 'Submit review',
+          coins: '+$_pendingCoins',
+          onPressed: _saving ? null : _submit,
+          busyChild: _saving
+              ? const SizedBox(
+                  height: 22,
+                  width: 22,
+                  child: CircularProgressIndicator(
+                      color: Colors.white, strokeWidth: 2.5))
+              : null,
+        ),
+        const SizedBox(height: 7),
+        Text(
+          isConfirm
+              ? 'Coins are credited after verification, usually within 5 minutes.'
+              : 'Reviewed by another nomad before it goes live',
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: Brand.inkMuted, fontSize: 12),
+        ),
+      ]),
+    );
+  }
+
+  Widget _amenityRow(String label, String key, {bool star = false}) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      decoration: BoxDecoration(
+        color: Brand.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Brand.border),
+      ),
+      child: Row(children: [
+        Expanded(
+          child: Row(children: [
+            Flexible(
+              child: Text(label,
+                  style: const TextStyle(
+                      fontSize: 14.5, fontWeight: FontWeight.w600)),
+            ),
+            if (star) ...[
+              const SizedBox(width: 6),
+              const Icon(Icons.star, size: 15, color: Brand.gold),
+            ],
+          ]),
+        ),
+        YesNoToggle(
+          value: _features[key],
+          onChanged: (v) => setState(() => _features[key] = v),
+        ),
+      ]),
+    );
+  }
+
+
   Widget _wifiTestTile() {
     if (_testingWifi) {
       return Container(
+        height: 52,
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
-            color: Brand.amber.withValues(alpha: .18),
+            color: Brand.ink,
             borderRadius: BorderRadius.circular(14)),
         child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
           const SizedBox(
               width: 16,
               height: 16,
               child: CircularProgressIndicator(
-                  strokeWidth: 2, color: Brand.charcoal)),
+                  strokeWidth: 2, color: Colors.white)),
           const SizedBox(width: 10),
           Text(_testPhase,
               style: const TextStyle(
-                  fontWeight: FontWeight.w600, color: Brand.charcoal)),
+                  fontWeight: FontWeight.w600, color: Colors.white)),
         ]),
       );
     }
@@ -732,96 +895,26 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
         padding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-            color: Colors.green.withValues(alpha: .1),
+            color: Brand.successTint,
             borderRadius: BorderRadius.circular(14)),
         child: Row(children: [
-          const Icon(Icons.check_circle, color: Colors.green, size: 20),
+          const Icon(Icons.check_circle, color: Brand.success, size: 20),
           const SizedBox(width: 8),
           Expanded(
             child: Text('$_measuredMbps Mbps measured',
-                style: const TextStyle(fontWeight: FontWeight.w800)),
+                style: const TextStyle(fontWeight: FontWeight.w700)),
           ),
           TextButton(
               onPressed: _testWifiHere, child: const Text('Re-test')),
         ]),
       );
     }
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton(
-        onPressed: _testWifiHere,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Brand.amber,
-          foregroundColor: Brand.charcoal,
-          elevation: 0,
-          padding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14)),
-        ),
-        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          const Icon(Icons.speed, size: 20),
-          const SizedBox(width: 8),
-          const Flexible(
-            child: Text(
-              'Test the WiFi now',
-              overflow: TextOverflow.ellipsis,
-              style:
-                  TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(
-                horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: .55),
-                borderRadius: BorderRadius.circular(10)),
-            child: Text('+${AppConfig.coinsWifiTest}',
-                style: const TextStyle(
-                    fontWeight: FontWeight.w900,
-                    fontSize: 13,
-                    color: Brand.charcoal)),
-          ),
-        ]),
-      ),
-    );
-  }
-
-  Widget _triState(String label, String key) {
-    final val = _features[key];
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(children: [
-        Expanded(child: Text(label)),
-        SegmentedButton<bool?>(
-          segments: const [
-            ButtonSegment(
-                value: true,
-                label: SizedBox(
-                    width: 34, child: Center(child: Text('Yes')))),
-            ButtonSegment(
-                value: false,
-                label: SizedBox(
-                    width: 34, child: Center(child: Text('No')))),
-            ButtonSegment(
-                value: null,
-                label: SizedBox(
-                    width: 34, child: Center(child: Text('?')))),
-          ],
-          selected: {val},
-          showSelectedIcon: false, // no checkmark = no width jumping
-          onSelectionChanged: (s) =>
-              setState(() => _features[key] = s.first),
-          style: ButtonStyle(
-            visualDensity: VisualDensity.compact,
-            backgroundColor: WidgetStateProperty.resolveWith((states) =>
-                states.contains(WidgetState.selected)
-                    ? Brand.red.withValues(alpha: .12)
-                    : null),
-          ),
-        ),
-      ]),
+    return PrimaryCta(
+      label: 'Test the WiFi now',
+      coins: '+${AppConfig.coinsWifiTest}',
+      navy: true,
+      icon: Icons.speed,
+      onPressed: _testWifiHere,
     );
   }
 }
