@@ -194,6 +194,17 @@ class SupabaseService {
     });
   }
 
+  /// Anonymous fingerprint of the network this device is on right now.
+  /// Same cafe WiFi = same fingerprint. Null when unavailable.
+  Future<String?> networkFingerprint() async {
+    try {
+      final res = await _db.rpc('network_fingerprint');
+      return res as String?;
+    } catch (_) {
+      return null; // migration not run yet, or signed out
+    }
+  }
+
   // ---------- wallet ----------
 
   Future<({int withdrawable, int pending, int total})> wallet() async {

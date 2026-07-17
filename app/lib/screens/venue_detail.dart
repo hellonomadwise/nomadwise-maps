@@ -580,12 +580,14 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
       distance = Venue.haversineM(
           pos.latitude, pos.longitude, venue.lat!, venue.lng!);
     }
+    final netHash = await _supabase.networkFingerprint();
     await _supabase.submit(
       kind: 'wifi_login',
       venueId: venue.id,
       payload: {
         'ssid': ssid.text.trim(),
         'password': pass.text.trim(),
+        if (netHash != null) 'network_hash': netHash,
       },
       gpsLat: pos.latitude,
       gpsLng: pos.longitude,
@@ -738,6 +740,9 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
       distance = Venue.haversineM(
           pos.latitude, pos.longitude, venue.lat!, venue.lng!);
     }
+    // Which network was this measured on? Same cafe WiFi = same
+    // fingerprint, so later tests can be cross-checked automatically.
+    final netHash = await _supabase.networkFingerprint();
     await _supabase.submit(
       kind: 'wifi_test',
       venueId: venue.id,
@@ -745,6 +750,7 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
         'wifi_speed_mbps': mbps,
         // Audit trail: what the browser could tell about the connection.
         'connection_type': _wifiConnType,
+        if (netHash != null) 'network_hash': netHash,
       },
       gpsLat: pos.latitude,
       gpsLng: pos.longitude,

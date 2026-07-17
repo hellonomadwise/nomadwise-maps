@@ -53,6 +53,7 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
 
   // WiFi speed measured live in this form (counts as a real wifi test).
   num? _measuredMbps;
+  String? _measuredNetHash;
   String _measuredConnType = 'unknown';
   bool _testingWifi = false;
   String _testPhase = '';
@@ -292,8 +293,12 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
     }
     Analytics.capture('wifi_test_measured',
         {'in_form': true, 'mbps': mbps, 'connection': connType});
+    // Fingerprint the network while they're still on it.
+    final netHash = await _supabase.networkFingerprint();
+    if (!mounted) return;
     setState(() {
       _measuredMbps = mbps;
+      _measuredNetHash = netHash;
       _measuredConnType = connType;
       _wifi.text = mbps.toString();
     });
@@ -374,6 +379,9 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
           payload: {
             'wifi_speed_mbps': _measuredMbps,
             'connection_type': _measuredConnType,
+            // Fingerprint captured at the moment of the test.
+            if (_measuredNetHash != null)
+              'network_hash': _measuredNetHash,
           },
           gpsLat: pos.latitude,
           gpsLng: pos.longitude,
@@ -384,12 +392,15 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
       // Bonus 2: shared WiFi login rides along (+20).
       final sharedLogin = _wifiSsid.text.trim().isNotEmpty;
       if (sharedLogin && venueId != null) {
+        final netHash =
+            _measuredNetHash ?? await _supabase.networkFingerprint();
         await _supabase.submit(
           kind: 'wifi_login',
           venueId: venueId,
           payload: {
             'ssid': _wifiSsid.text.trim(),
             'password': _wifiPass.text.trim(),
+            if (netHash != null) 'network_hash': netHash,
           },
           gpsLat: pos.latitude,
           gpsLng: pos.longitude,

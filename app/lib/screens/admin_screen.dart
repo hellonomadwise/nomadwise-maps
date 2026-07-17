@@ -263,6 +263,29 @@ class _SubmissionCardState extends State<_SubmissionCard> {
           ]),
           const SizedBox(height: 10),
 
+          // ---- why a wifi test is waiting here ----
+          if (s['kind'] == 'wifi_test') ...[
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                  color: Brand.accentTint,
+                  borderRadius: BorderRadius.circular(10)),
+              child: const Row(children: [
+                Icon(Icons.wifi_off, size: 16, color: Brand.accent),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                      'Held back automatically: this test ran on a '
+                      'different network than earlier tests at this '
+                      'space (or the GPS check failed). Could be a new '
+                      'router, could be someone not actually there.',
+                      style: TextStyle(fontSize: 12, height: 1.4)),
+                ),
+              ]),
+            ),
+            const SizedBox(height: 10),
+          ],
+
           // ---- submitter credibility ----
           if (stats != null)
             Container(
