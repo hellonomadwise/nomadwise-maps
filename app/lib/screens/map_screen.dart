@@ -17,6 +17,7 @@ import '../theme.dart';
 import 'add_venue_screen.dart';
 import 'admin_screen.dart';
 import 'auth_screen.dart';
+import 'leaderboard_screen.dart';
 import 'venue_detail.dart';
 import 'wallet_screen.dart';
 
@@ -571,6 +572,21 @@ class _MapScreenState extends State<MapScreen> {
               Navigator.pop(context);
               _requireSignIn(() => Navigator.push(context,
                   MaterialPageRoute(builder: (_) => const WalletScreen())));
+            },
+          ),
+          ListTile(
+            leading:
+                const Icon(Icons.emoji_events_outlined, color: Brand.amber),
+            title: const Text('Leaderboard'),
+            subtitle: Text('Top nomads & live activity',
+                style:
+                    TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const LeaderboardScreen()));
             },
           ),
           ListTile(

@@ -227,6 +227,49 @@ class SupabaseService {
         .update({'display_name': name}).eq('id', uid);
   }
 
+  // ---------- leaderboard & live activity ----------
+
+  Future<List<Map<String, dynamic>>> leaderboard({int limit = 100}) async {
+    try {
+      final rows = await _db
+          .from('leaderboard')
+          .select()
+          .gt('coins', 0)
+          .order('coins', ascending: false)
+          .limit(limit);
+      return (rows as List)
+          .map((r) => Map<String, dynamic>.from(r))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> liveActivity() async {
+    try {
+      final rows = await _db.from('live_activity').select().limit(50);
+      return (rows as List)
+          .map((r) => Map<String, dynamic>.from(r))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>?> publicStats(String userId) async {
+    try {
+      final rows = await _db
+          .from('leaderboard')
+          .select()
+          .eq('user_id', userId)
+          .limit(1);
+      if ((rows as List).isEmpty) return null;
+      return Map<String, dynamic>.from(rows.first);
+    } catch (_) {
+      return null;
+    }
+  }
+
   // ---------- admin ----------
 
   Future<bool> isAdmin() async {
