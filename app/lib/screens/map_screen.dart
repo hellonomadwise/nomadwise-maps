@@ -17,6 +17,7 @@ import '../services/supabase_service.dart';
 import '../theme.dart';
 import 'add_venue_screen.dart';
 import 'admin_screen.dart';
+import 'admin_users_screen.dart';
 import 'auth_screen.dart';
 import 'leaderboard_screen.dart';
 import 'venue_detail.dart';
@@ -719,7 +720,7 @@ class _MapScreenState extends State<MapScreen> {
               _openAddVenue();
             },
           ),
-          if (_isAdmin)
+          if (_isAdmin) ...[
             ListTile(
               leading: const Icon(Icons.fact_check_outlined,
                   color: Brand.charcoal),
@@ -730,6 +731,19 @@ class _MapScreenState extends State<MapScreen> {
                     MaterialPageRoute(builder: (_) => const AdminScreen()));
               },
             ),
+            ListTile(
+              leading: const Icon(Icons.group_outlined,
+                  color: Brand.charcoal),
+              title: const Text('Users'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const AdminUsersScreen()));
+              },
+            ),
+          ],
           ListTile(
             enabled: false,
             leading: Icon(Icons.settings_outlined,

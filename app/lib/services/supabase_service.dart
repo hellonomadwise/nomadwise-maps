@@ -362,6 +362,24 @@ class SupabaseService {
     };
   }
 
+  /// Admin only: every account, with email + activity summary.
+  Future<List<Map<String, dynamic>>> adminUsers() async {
+    final rows = await _db.rpc('admin_users');
+    return (rows as List)
+        .map((r) => Map<String, dynamic>.from(r))
+        .toList();
+  }
+
+  /// Admin only: one user's submission history with venue names.
+  Future<List<Map<String, dynamic>>> adminUserActivity(
+      String userId) async {
+    final rows =
+        await _db.rpc('admin_user_activity', params: {'target': userId});
+    return (rows as List)
+        .map((r) => Map<String, dynamic>.from(r))
+        .toList();
+  }
+
   Future<Venue?> venueById(String id) async {
     final rows = await _db.from('venues').select().eq('id', id).limit(1);
     if ((rows as List).isEmpty) return null;
