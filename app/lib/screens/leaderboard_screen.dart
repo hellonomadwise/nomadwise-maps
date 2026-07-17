@@ -93,10 +93,17 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             child: ListTile(
               onTap: () => _showProfile(r),
               leading: _rankBadge(i + 1),
-              title: Text(
-                r['display_name'] + (isMe ? '  (you)' : ''),
-                style: const TextStyle(fontWeight: FontWeight.w700),
-              ),
+              title: Row(children: [
+                _avatar(r, radius: 14),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    r['display_name'] + (isMe ? '  (you)' : ''),
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ]),
               subtitle: Text(
                   '${r['verified_count']} verified contribution'
                   '${r['verified_count'] == 1 ? '' : 's'}',
@@ -189,12 +196,14 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           return ListTile(
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            leading: CircleAvatar(
-              radius: 18,
-              backgroundColor: Brand.amber.withValues(alpha: .18),
-              child: Icon(_kindIcon[a['kind']] ?? Icons.bolt,
-                  size: 18, color: Brand.charcoal),
-            ),
+            leading: a['avatar_url'] != null
+                ? _avatar(a, radius: 18)
+                : CircleAvatar(
+                    radius: 18,
+                    backgroundColor: Brand.amber.withValues(alpha: .18),
+                    child: Icon(_kindIcon[a['kind']] ?? Icons.bolt,
+                        size: 18, color: Brand.charcoal),
+                  ),
             title: RichText(
               text: TextSpan(
                 style: const TextStyle(
@@ -247,19 +256,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
       builder: (ctx) => Padding(
         padding: const EdgeInsets.fromLTRB(24, 22, 24, 32),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          CircleAvatar(
-            radius: 30,
-            backgroundColor: Brand.red.withValues(alpha: .1),
-            child: Text(
-              (r['display_name'] as String)
-                  .substring(0, 1)
-                  .toUpperCase(),
-              style: const TextStyle(
-                  fontSize: 26,
-                  fontWeight: FontWeight.w900,
-                  color: Brand.red),
-            ),
-          ),
+          _avatar(r, radius: 30, fontSize: 26),
           const SizedBox(height: 10),
           Text(r['display_name'],
               style: const TextStyle(
@@ -295,6 +292,26 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           ]),
         ]),
       ),
+    );
+  }
+
+  Widget _avatar(Map<String, dynamic> r,
+      {double radius = 16, double fontSize = 14}) {
+    final url = r['avatar_url'] as String?;
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: Brand.red.withValues(alpha: .1),
+      backgroundImage: url != null ? NetworkImage(url) : null,
+      child: url == null
+          ? Text(
+              ((r['display_name'] ?? 'N') as String)
+                  .substring(0, 1)
+                  .toUpperCase(),
+              style: TextStyle(
+                  fontSize: fontSize,
+                  fontWeight: FontWeight.w900,
+                  color: Brand.red))
+          : null,
     );
   }
 

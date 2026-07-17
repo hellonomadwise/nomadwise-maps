@@ -204,6 +204,35 @@ class SupabaseService {
 
   // ---------- profile ----------
 
+  /// My profile row: display_name + avatar_url.
+  Future<Map<String, dynamic>?> myProfile() async {
+    final uid = currentUser?.id;
+    if (uid == null) return null;
+    try {
+      final row = await _db
+          .from('profiles')
+          .select('display_name, avatar_url')
+          .eq('id', uid)
+          .single();
+      return Map<String, dynamic>.from(row);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Upload a new profile image and remember its URL.
+  Future<String?> uploadAvatar(Uint8List bytes) async {
+    final uid = currentUser?.id;
+    if (uid == null) return null;
+    final path =
+        '$uid/avatar_${DateTime.now().millisecondsSinceEpoch}.jpg';
+    await _db.storage.from('avatars').uploadBinary(path, bytes,
+        fileOptions: const FileOptions(contentType: 'image/jpeg'));
+    final url = _db.storage.from('avatars').getPublicUrl(path);
+    await _db.from('profiles').update({'avatar_url': url}).eq('id', uid);
+    return url;
+  }
+
   Future<String?> myDisplayName() async {
     final uid = currentUser?.id;
     if (uid == null) return null;

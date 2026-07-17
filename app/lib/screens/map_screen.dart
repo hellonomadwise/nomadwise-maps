@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:supabase_flutter/supabase_flutter.dart'
@@ -75,6 +76,32 @@ class _MapScreenState extends State<MapScreen> {
   bool _hasRealLocation = false;
 
   String? _displayName;
+  String? _avatarUrl;
+
+  Future<void> _loadProfileBits() async {
+    final p = await _supabase.myProfile();
+    if (mounted && p != null) {
+      setState(() {
+        _displayName ??= p['display_name'];
+        _avatarUrl = p['avatar_url'];
+      });
+    }
+  }
+
+  Future<void> _changeAvatar() async {
+    final img = await ImagePicker().pickImage(
+        source: ImageSource.gallery, maxWidth: 512, imageQuality: 80);
+    if (img == null) return;
+    final bytes = await img.readAsBytes();
+    final url = await _supabase.uploadAvatar(bytes);
+    if (mounted && url != null) {
+      setState(() => _avatarUrl = url);
+      Analytics.capture('avatar_updated');
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          duration: Duration(seconds: 2),
+          content: Text('Looking good! Profile photo updated.')));
+    }
+  }
 
   @override
   void initState() {
@@ -98,6 +125,7 @@ class _MapScreenState extends State<MapScreen> {
   Future<void> _onSignedIn(String userId, String? email) async {
     final name = await _supabase.myDisplayName();
     if (mounted) setState(() => _displayName = name);
+    _loadProfileBits();
     await Analytics.identify(userId, email: email, name: name);
     await Analytics.capture('signed_in');
   }
@@ -105,7 +133,7 @@ class _MapScreenState extends State<MapScreen> {
   Future<void> _checkAdmin() async {
     final admin = await _supabase.isAdmin();
     if (mounted && admin != _isAdmin) setState(() => _isAdmin = admin);
-    _displayName ??= await _supabase.myDisplayName();
+    if (_displayName == null || _avatarUrl == null) _loadProfileBits();
     if (mounted) setState(() {}); // refresh signed-in state in the menu
   }
 
@@ -526,7 +554,44 @@ class _MapScreenState extends State<MapScreen> {
             decoration: const BoxDecoration(gradient: Brand.gradient),
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Image.asset('assets/brand/app_icon.png', height: 52),
+              if (user != null)
+                InkWell(
+                  onTap: _changeAvatar,
+                  child: Stack(clipBehavior: Clip.none, children: [
+                    CircleAvatar(
+                      radius: 28,
+                      backgroundColor:
+                          Colors.white.withValues(alpha: .25),
+                      backgroundImage: _avatarUrl != null
+                          ? NetworkImage(_avatarUrl!)
+                          : null,
+                      child: _avatarUrl == null
+                          ? Text(
+                              (_displayName ?? user.email ?? 'N')
+                                  .substring(0, 1)
+                                  .toUpperCase(),
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w900))
+                          : null,
+                    ),
+                    Positioned(
+                      right: -4,
+                      bottom: -4,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle),
+                        child: const Icon(Icons.photo_camera,
+                            size: 13, color: Brand.red),
+                      ),
+                    ),
+                  ]),
+                )
+              else
+                Image.asset('assets/brand/app_icon.png', height: 52),
               const SizedBox(height: 12),
               if (user != null) ...[
                 InkWell(
