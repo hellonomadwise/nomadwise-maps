@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:typed_data';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -9,6 +10,7 @@ import '../models/venue.dart';
 import '../services/analytics_service.dart';
 import '../services/location_service.dart';
 import '../services/places_service.dart';
+import '../services/speed_test_service.dart';
 import '../services/supabase_service.dart';
 import '../theme.dart';
 
@@ -44,7 +46,15 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
   final _name = TextEditingController();
   final _neighbourhood = TextEditingController();
   final _wifi = TextEditingController();
+  final _wifiSsid = TextEditingController();
+  final _wifiPass = TextEditingController();
   String _type = 'cafe';
+
+  // WiFi speed measured live in this form (counts as a real wifi test).
+  num? _measuredMbps;
+  String _measuredConnType = 'unknown';
+  bool _testingWifi = false;
+  String _testPhase = '';
 
   // New venues must be picked from Google so they're real places.
   String? _placeId;
@@ -214,6 +224,72 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
     }
   }
 
+  /// Measure the WiFi for real, right inside the form.
+  /// Same protections as on the space page: mobile data is blocked when
+  /// the browser can detect it, and there's an honesty check either way.
+  Future<void> _testWifiHere() async {
+    // What connection is the phone on? (Not all platforms can tell:
+    // Android Chrome usually can, iPhone Safari can't.)
+    String connType = 'unknown';
+    try {
+      final results = await Connectivity().checkConnectivity();
+      if (results.contains(ConnectivityResult.mobile)) {
+        connType = 'cellular';
+      } else if (results.contains(ConnectivityResult.wifi)) {
+        connType = 'wifi';
+      }
+    } catch (_) {}
+    if (!mounted) return;
+
+    if (connType == 'cellular') {
+      _snack('You\'re on mobile data. Connect to the space\'s WiFi '
+          'first, then test.');
+      return;
+    }
+
+    // Honesty gate (and a data-cost warning) before anything downloads.
+    final ready = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20)),
+              title: const Text('On the space\'s WiFi?'),
+              content: const Text(
+                  'Make sure you\'re connected to this space\'s WiFi, not '
+                  'mobile data. Tests on mobile data don\'t count and this '
+                  'uses about 12 MB.'),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    child: const Text('Cancel')),
+                ElevatedButton(
+                    onPressed: () => Navigator.pop(ctx, true),
+                    child: const Text('I\'m on the WiFi')),
+              ],
+            ));
+    if (ready != true || !mounted) return;
+
+    setState(() {
+      _testingWifi = true;
+      _testPhase = 'Starting…';
+    });
+    final mbps = await SpeedTestService.measureMbps(
+        onPhase: (p) => mounted ? setState(() => _testPhase = p) : null);
+    if (!mounted) return;
+    setState(() => _testingWifi = false);
+    if (mbps == null) {
+      _snack('Could not measure. Check the connection and retry.');
+      return;
+    }
+    Analytics.capture('wifi_test_measured',
+        {'in_form': true, 'mbps': mbps, 'connection': connType});
+    setState(() {
+      _measuredMbps = mbps;
+      _measuredConnType = connType;
+      _wifi.text = mbps.toString();
+    });
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     if (_features['laptops_allowed'] == null) {
@@ -279,14 +355,51 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
         gpsDistanceM: distance,
       );
 
+      // Bonus 1: a real measured WiFi test rides along (+100).
+      final measuredNow = _measuredMbps != null &&
+          _wifi.text.trim() == _measuredMbps.toString();
+      if (measuredNow && venueId != null) {
+        await _supabase.submit(
+          kind: 'wifi_test',
+          venueId: venueId,
+          payload: {
+            'wifi_speed_mbps': _measuredMbps,
+            'connection_type': _measuredConnType,
+          },
+          gpsLat: pos.latitude,
+          gpsLng: pos.longitude,
+          gpsDistanceM: distance,
+        );
+      }
+
+      // Bonus 2: shared WiFi login rides along (+20).
+      final sharedLogin = _wifiSsid.text.trim().isNotEmpty;
+      if (sharedLogin && venueId != null) {
+        await _supabase.submit(
+          kind: 'wifi_login',
+          venueId: venueId,
+          payload: {
+            'ssid': _wifiSsid.text.trim(),
+            'password': _wifiPass.text.trim(),
+          },
+          gpsLat: pos.latitude,
+          gpsLng: pos.longitude,
+          gpsDistanceM: distance,
+        );
+      }
+
       if (!mounted) return;
       Analytics.capture('submission_sent', {
         'kind': isConfirm ? 'confirm' : 'new_venue',
         'has_photo': _photo != null,
+        'with_wifi_test': measuredNow,
+        'with_wifi_login': sharedLogin,
       });
-      final coins = isConfirm
-          ? AppConfig.coinsConfirmVenue
-          : AppConfig.coinsNewVenue;
+      final coins = (isConfirm
+              ? AppConfig.coinsConfirmVenue
+              : AppConfig.coinsNewVenue) +
+          (measuredNow ? AppConfig.coinsWifiTest : 0) +
+          (sharedLogin ? AppConfig.coinsWifiLogin : 0);
       showDialog(
           context: context,
           builder: (ctx) => AlertDialog(
@@ -453,14 +566,66 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
             decoration:
                 const InputDecoration(labelText: 'Neighbourhood'),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 20),
+          const Text('WIFI',
+              style: TextStyle(
+                  color: Brand.red,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 13,
+                  letterSpacing: 1)),
+          const SizedBox(height: 8),
+          _wifiTestTile(),
+          const SizedBox(height: 8),
           TextFormField(
             controller: _wifi,
             keyboardType: TextInputType.number,
+            onChanged: (_) {
+              // Typed over the measured number? Then it no longer counts
+              // as a real test (no bonus).
+              if (_measuredMbps != null &&
+                  _wifi.text.trim() != _measuredMbps.toString()) {
+                setState(() => _measuredMbps = null);
+              }
+            },
+            decoration: InputDecoration(
+                labelText: _measuredMbps != null
+                    ? 'WiFi speed (Mbps), measured ✓'
+                    : 'WiFi speed (Mbps), if you know it',
+                helperText: _measuredMbps != null
+                    ? 'Measured just now, the +${AppConfig.coinsWifiTest} '
+                        'coin bonus is locked in.'
+                    : 'Typing a number is fine, but only a measured test '
+                        'earns the +${AppConfig.coinsWifiTest} coin bonus.',
+                helperMaxLines: 2),
+          ),
+          const SizedBox(height: 16),
+          Row(children: [
+            const Icon(Icons.key, size: 18, color: Brand.charcoal),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                  'Know the WiFi login? Share it for '
+                  '+${AppConfig.coinsWifiLogin} coins.',
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w700, fontSize: 13)),
+            ),
+          ]),
+          const SizedBox(height: 6),
+          TextFormField(
+            controller: _wifiSsid,
+            // Rebuild so the submit button's coin total updates live.
+            onChanged: (_) => setState(() {}),
             decoration: const InputDecoration(
-                labelText: 'WiFi speed (Mbps), if you know it',
+                labelText: 'WiFi network name (optional)'),
+          ),
+          const SizedBox(height: 8),
+          TextFormField(
+            controller: _wifiPass,
+            decoration: const InputDecoration(
+                labelText: 'WiFi password (optional)',
                 helperText:
-                    'Soon the app will measure this for you automatically.'),
+                    'Only shared with signed-in nomads, never shown publicly.',
+                helperMaxLines: 2),
           ),
           const SizedBox(height: 20),
           const Text('WHAT\'S IT LIKE?',
@@ -522,9 +687,9 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
                     width: 22,
                     child: CircularProgressIndicator(
                         color: Colors.white, strokeWidth: 2.5))
-                : Text(isConfirm
-                    ? 'Submit confirmation  ·  +${AppConfig.coinsConfirmVenue} coins'
-                    : 'Submit review  ·  +${AppConfig.coinsNewVenue} coins'),
+                : Text(
+                    '${isConfirm ? 'Submit confirmation' : 'Submit review'}'
+                    '  ·  +${(isConfirm ? AppConfig.coinsConfirmVenue : AppConfig.coinsNewVenue) + (_measuredMbps != null ? AppConfig.coinsWifiTest : 0) + (_wifiSsid.text.trim().isNotEmpty ? AppConfig.coinsWifiLogin : 0)} coins'),
           ),
           const SizedBox(height: 10),
           Text(
@@ -535,6 +700,89 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
             style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
           ),
           const SizedBox(height: 30),
+        ]),
+      ),
+    );
+  }
+
+  Widget _wifiTestTile() {
+    if (_testingWifi) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        decoration: BoxDecoration(
+            color: Brand.amber.withValues(alpha: .18),
+            borderRadius: BorderRadius.circular(14)),
+        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                  strokeWidth: 2, color: Brand.charcoal)),
+          const SizedBox(width: 10),
+          Text(_testPhase,
+              style: const TextStyle(
+                  fontWeight: FontWeight.w600, color: Brand.charcoal)),
+        ]),
+      );
+    }
+    if (_measuredMbps != null) {
+      return Container(
+        width: double.infinity,
+        padding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+            color: Colors.green.withValues(alpha: .1),
+            borderRadius: BorderRadius.circular(14)),
+        child: Row(children: [
+          const Icon(Icons.check_circle, color: Colors.green, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text('$_measuredMbps Mbps measured',
+                style: const TextStyle(fontWeight: FontWeight.w800)),
+          ),
+          TextButton(
+              onPressed: _testWifiHere, child: const Text('Re-test')),
+        ]),
+      );
+    }
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: _testWifiHere,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Brand.amber,
+          foregroundColor: Brand.charcoal,
+          elevation: 0,
+          padding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14)),
+        ),
+        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          const Icon(Icons.speed, size: 20),
+          const SizedBox(width: 8),
+          const Flexible(
+            child: Text(
+              'Test the WiFi now',
+              overflow: TextOverflow.ellipsis,
+              style:
+                  TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(
+                horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: .55),
+                borderRadius: BorderRadius.circular(10)),
+            child: Text('+${AppConfig.coinsWifiTest}',
+                style: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 13,
+                    color: Brand.charcoal)),
+          ),
         ]),
       ),
     );
