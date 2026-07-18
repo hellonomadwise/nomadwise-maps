@@ -65,6 +65,28 @@
     #splash img { width:96px; height:96px; border-radius:22.3%; }
     #splash .t { font-weight:900; font-size:22px; letter-spacing:-0.5px; }
   </style>
+  <script>
+    // Some browsers report broken language settings, which crashes the
+    // app at startup ("Incorrect locale information provided").
+    // Keep only valid languages; fall back to English if none survive.
+    (function () {
+      function ok(tag) {
+        try { new Intl.Locale(tag); return true; } catch (e) { return false; }
+      }
+      try {
+        var langs = Array.from(navigator.languages || []).filter(ok);
+        if (!langs.length) {
+          langs = ok(navigator.language) ? [navigator.language] : ['en-US'];
+        }
+        Object.defineProperty(Navigator.prototype, 'languages',
+            { get: function () { return langs; } });
+        if (!ok(navigator.language)) {
+          Object.defineProperty(Navigator.prototype, 'language',
+              { get: function () { return langs[0]; } });
+        }
+      } catch (e) { /* never block startup */ }
+    })();
+  </script>
 </head>
 <body>
   <div id="splash">
