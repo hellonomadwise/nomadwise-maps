@@ -1137,29 +1137,16 @@ class _MapScreenState extends State<MapScreen> {
                 child: PointerInterceptor(child: _legend()),
               ),
 
-              // ---- locate me (map mode only) ----
+              // ---- map controls: locate (+ zoom on desktop) ----
               if (!_showList)
                 Positioned(
                   right: 14,
-                  bottom: _selected == null && _selectedDiscovered == null
+                  bottom: (_selected == null &&
+                              _selectedDiscovered == null) ||
+                          _wideScreen
                       ? 24
                       : 210,
-                  child: PointerInterceptor(
-                    child: Material(
-                      color: Colors.white,
-                      shape: const CircleBorder(),
-                      elevation: 4,
-                      child: InkWell(
-                        customBorder: const CircleBorder(),
-                        onTap: _goToMyLocation,
-                        child: const Padding(
-                          padding: EdgeInsets.all(12),
-                          child: Icon(Icons.my_location,
-                              color: Brand.red, size: 22),
-                        ),
-                      ),
-                    ),
-                  ),
+                  child: PointerInterceptor(child: _mapControls()),
                 ),
 
               if (_selected != null && !_showList && !_wideScreen)
@@ -1198,6 +1185,73 @@ class _MapScreenState extends State<MapScreen> {
                 ),
             ]),
     );
+  }
+
+  /// Bottom-right map controls: the locate button, and on desktop a
+  /// zoom pill underneath it. Phones get pinch-to-zoom, so no pill.
+  Widget _mapControls() {
+    Widget zoomBtn(IconData icon, VoidCallback onTap, {bool top = false}) {
+      return InkWell(
+        onTap: onTap,
+        child: SizedBox(
+          width: 44,
+          height: 40,
+          child: Icon(icon, size: 20, color: Brand.ink),
+        ),
+      );
+    }
+
+    return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: Brand.surface,
+              shape: BoxShape.circle,
+              boxShadow: Brand.shadowFloating,
+            ),
+            child: Material(
+              color: Colors.transparent,
+              shape: const CircleBorder(),
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: _goToMyLocation,
+                child: const Icon(Icons.my_location,
+                    color: Brand.accent, size: 21),
+              ),
+            ),
+          ),
+          if (_wideScreen) ...[
+            const SizedBox(height: 10),
+            Container(
+              decoration: BoxDecoration(
+                color: Brand.surface,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: Brand.shadowFloating,
+              ),
+              child: Material(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(12),
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  zoomBtn(
+                      Icons.add,
+                      () => _map?.animateCamera(
+                          CameraUpdate.zoomIn()),
+                      top: true),
+                  Container(
+                      width: 28, height: 1, color: Brand.hairline),
+                  zoomBtn(
+                      Icons.remove,
+                      () => _map?.animateCamera(
+                          CameraUpdate.zoomOut())),
+                ]),
+              ),
+            ),
+          ],
+        ]);
   }
 
   /// Wide screens: the tapped pin's details in a panel on the right,

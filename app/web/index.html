@@ -27,6 +27,32 @@
 
   <!-- Google Maps JS — __GOOGLE_MAPS_WEB_KEY__ is replaced by CI -->
   <script src="https://maps.googleapis.com/maps/api/js?key=__GOOGLE_MAPS_WEB_KEY__&loading=async"></script>
+  <script>
+    // Hide Google's own on-map buttons (camera/zoom/fullscreen etc).
+    // The app draws its own controls where the design wants them.
+    (function () {
+      function patch() {
+        if (!(window.google && google.maps && google.maps.Map)) {
+          return setTimeout(patch, 100);
+        }
+        var Orig = google.maps.Map;
+        google.maps.Map = function (el, opts) {
+          opts = Object.assign({}, opts, {
+            cameraControl: false,
+            zoomControl: false,
+            fullscreenControl: false,
+            streetViewControl: false,
+            mapTypeControl: false,
+            rotateControl: false
+          });
+          return new Orig(el, opts);
+        };
+        google.maps.Map.prototype = Orig.prototype;
+        Object.setPrototypeOf(google.maps.Map, Orig);
+      }
+      patch();
+    })();
+  </script>
 
   <style>
     html, body { margin:0; padding:0; height:100%; background:#ffffff; }
