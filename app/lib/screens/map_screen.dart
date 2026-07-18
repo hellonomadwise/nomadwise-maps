@@ -315,24 +315,36 @@ class _MapScreenState extends State<MapScreen> {
       _mergeDiscovered(cached);
 
       // 2. Ask Google only when this area is still thin.
+      var newFinds = 0;
       if (cached.length < 5) {
         final radius = Venue.haversineM(
                 cLat, cLng,
                 bounds.northeast.latitude, bounds.northeast.longitude)
             .clamp(300.0, 5000.0);
         final fresh = await _places.searchNearby(cLat, cLng, radius);
+        final known = _discovered.map((d) => d.placeId).toSet()
+          ..addAll(cached.map((d) => d.placeId));
+        newFinds =
+            fresh.where((d) => !known.contains(d.placeId)).length;
         await _supabase.cacheDiscovered(fresh);
         _mergeDiscovered(fresh);
       }
-      Analytics.capture(
-          'area_searched', {'found': _visibleDiscovered.length});
+      Analytics.capture('area_searched',
+          {'found': _visibleDiscovered.length, 'new': newFinds});
       if (mounted) {
         final n = _visibleDiscovered.length;
+        final claimed = newFinds > 0 && _supabase.signedIn;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            duration: const Duration(seconds: 2),
-            content: Text(n == 0
-                ? 'No unscreened cafes found here yet.'
-                : '$n unscreened cafes here. Screen one & earn ${AppConfig.coinsNewVenue} coins!')));
+            duration: Duration(seconds: claimed ? 4 : 2),
+            content: Text(claimed
+                ? 'You discovered $newFinds new '
+                    'space${newFinds == 1 ? '' : 's'}! '
+                    '+${AppConfig.coinsDiscovery} for each one once '
+                    'another nomad screens it.'
+                : n == 0
+                    ? 'No unscreened cafes found here yet.'
+                    : '$n unscreened cafes here. Screen one & earn '
+                        '${AppConfig.coinsNewVenue} coins!')));
       }
     } finally {
       if (mounted) setState(() => _searchingArea = false);

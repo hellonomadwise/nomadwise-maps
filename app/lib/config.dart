@@ -28,6 +28,7 @@ class AppConfig {
 
   /// Sharing a venue's wifi login (max once per space per month per user).
   static const coinsWifiLogin = 20;
+  static const coinsDiscovery = 10; // finder bonus when a space gets screened
   static const cashOutThreshold = 5000; // coins
   static const cashOutValueEuro = 50; // €
 

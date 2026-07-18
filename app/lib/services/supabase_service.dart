@@ -98,14 +98,30 @@ class SupabaseService {
     }
   }
 
-  /// Remember Google results so this area never needs a second Google call.
+  /// Remember Google results so this area never needs a second Google
+  /// call. The signed-in searcher is recorded as the discoverer; on
+  /// conflict nothing is overwritten, so the FIRST finder keeps the
+  /// claim forever.
   Future<void> cacheDiscovered(List<DiscoveredPlace> places) async {
     if (places.isEmpty) return;
+    final uid = currentUser?.id;
+    Future<void> save(bool withOwner) =>
+        _db.from('discovered_places').upsert(
+            places.map((p) {
+              final r = p.toRow();
+              if (withOwner && uid != null) r['discovered_by'] = uid;
+              return r;
+            }).toList(),
+            onConflict: 'google_place_id',
+            ignoreDuplicates: true);
     try {
-      await _db.from('discovered_places').upsert(
-          places.map((p) => p.toRow()).toList(),
-          onConflict: 'google_place_id');
-    } catch (_) {}
+      await save(true);
+    } catch (_) {
+      // Column not there yet (migration pending): save without it.
+      try {
+        await save(false);
+      } catch (_) {}
+    }
   }
 
   /// The venue's shared wifi login (signed-in users only; null if none).
