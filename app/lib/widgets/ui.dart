@@ -48,7 +48,7 @@ class CoinChip extends StatelessWidget {
   }
 }
 
-/// The gold coin: gold circle with a thin white ring.
+/// The gold coin: rimmed circle stamped with a dollar sign.
 class CoinDot extends StatelessWidget {
   final double size;
   const CoinDot({super.key, this.size = 12});
@@ -56,11 +56,19 @@ class CoinDot extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         width: size,
         height: size,
+        alignment: Alignment.center,
         decoration: BoxDecoration(
           color: Brand.gold,
           shape: BoxShape.circle,
-          border: Border.all(color: Colors.white, width: size * .12),
+          border: Border.all(
+              color: const Color(0xFFE39B1F), width: size * .09),
         ),
+        child: Text('\$',
+            style: TextStyle(
+                fontSize: size * .58,
+                fontWeight: FontWeight.w900,
+                color: const Color(0xFF8A5A10),
+                height: 1)),
       );
 }
 

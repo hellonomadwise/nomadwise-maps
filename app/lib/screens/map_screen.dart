@@ -984,20 +984,52 @@ class _MapScreenState extends State<MapScreen> {
               ),
             ),
             const SizedBox(width: 10),
-            IconSquareButton(
-              icon: Icons.account_balance_wallet_outlined,
-              bg: Brand.ink,
-              floating: true,
-              child: Stack(clipBehavior: Clip.none, children: [
-                const Icon(Icons.account_balance_wallet_outlined,
-                    size: 19, color: Colors.white),
-                const Positioned(
-                    right: -4, top: -4, child: CoinDot(size: 11)),
-              ]),
-              onTap: () => _requireSignIn(() => Navigator.push(context,
-                  MaterialPageRoute(
-                      builder: (_) => const WalletScreen()))),
-            ),
+            _walletTotal != null
+                // Signed in: your live balance IS the wallet button.
+                ? GestureDetector(
+                    onTap: () => _requireSignIn(() => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const WalletScreen()))),
+                    child: Container(
+                      height: 38,
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: Brand.surface,
+                        borderRadius: BorderRadius.circular(19),
+                        border: Border.all(color: Brand.border),
+                        boxShadow: Brand.shadowFloating,
+                      ),
+                      child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const CoinDot(size: 17),
+                            const SizedBox(width: 6),
+                            Text('$_walletTotal',
+                                style: const TextStyle(
+                                    fontSize: 14.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: Brand.ink)),
+                          ]),
+                    ),
+                  )
+                : IconSquareButton(
+                    icon: Icons.account_balance_wallet_outlined,
+                    floating: true,
+                    child: Stack(clipBehavior: Clip.none, children: [
+                      const Icon(
+                          Icons.account_balance_wallet_outlined,
+                          size: 19,
+                          color: Brand.ink),
+                      const Positioned(
+                          right: -5, top: -5, child: CoinDot(size: 12)),
+                    ]),
+                    onTap: () => _requireSignIn(() => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const WalletScreen()))),
+                  ),
           ]),
         ),
         SingleChildScrollView(
