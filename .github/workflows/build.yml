@@ -114,15 +114,20 @@ jobs:
           cd ../..
           cat > smoke.mjs <<'EOF'
           import { chromium } from 'playwright';
-          const browser = await chromium.launch();
-          const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
-          const logs = [];
-          page.on('console', m => logs.push(`[${m.type()}] ${m.text()}`));
-          page.on('pageerror', e => logs.push(`[pageerror] ${e.message}`));
-          await page.goto('http://localhost:8765/nomadwise-maps/', { waitUntil: 'networkidle' }).catch(e => logs.push(`[goto] ${e.message}`));
-          await page.waitForTimeout(12000);
-          await page.screenshot({ path: 'smoke.png' });
           const fs = await import('fs');
+          const browser = await chromium.launch();
+          const logs = [];
+          async function run(label, opts, shot) {
+            const page = await browser.newPage({ viewport: { width: 390, height: 844 }, ...opts });
+            page.on('console', m => logs.push(`[${label}][${m.type()}] ${m.text()}`));
+            page.on('pageerror', e => logs.push(`[${label}][pageerror] ${e.message}\n${e.stack || ''}`));
+            await page.goto('http://localhost:8765/nomadwise-maps/', { waitUntil: 'networkidle' }).catch(e => logs.push(`[${label}][goto] ${e.message}`));
+            await page.waitForTimeout(12000);
+            await page.screenshot({ path: shot });
+            await page.close();
+          }
+          await run('default', {}, 'smoke.png');
+          await run('enUS', { locale: 'en-US' }, 'smoke_enus.png');
           fs.writeFileSync('smoke_console.log', logs.join('\n'));
           await browser.close();
           EOF
@@ -135,14 +140,15 @@ jobs:
         continue-on-error: true
         run: |
           mkdir -p /tmp/smokekeep
-          cp smoke.png smoke_console.log /tmp/smokekeep/ 2>/dev/null || true
+          cp smoke.png smoke_enus.png smoke_console.log /tmp/smokekeep/ 2>/dev/null || true
           git config user.name "nomadwise-bot"
           git config user.email "actions@github.com"
           git checkout -B ci-debug
           mkdir -p ci-debug
           cp /tmp/smokekeep/smoke.png ci-debug/smoke.png 2>/dev/null || true
+          cp /tmp/smokekeep/smoke_enus.png ci-debug/smoke_enus.png 2>/dev/null || true
           cp /tmp/smokekeep/smoke_console.log ci-debug/smoke_console.log 2>/dev/null || true
-          git add -f ci-debug/smoke.png ci-debug/smoke_console.log 2>/dev/null || true
+          git add -f ci-debug/ 2>/dev/null || true
           git commit -m "ci: smoke render artifacts" || true
           git push -f origin ci-debug || true
 
