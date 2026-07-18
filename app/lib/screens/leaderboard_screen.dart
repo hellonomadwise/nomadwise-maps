@@ -433,27 +433,118 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           ),
           const SizedBox(height: 18),
           Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
-            _stat(Icons.rate_review_outlined, r['reviews'], 'Reviews'),
-            _stat(Icons.verified_outlined, r['confirms'], 'Confirms'),
-            _stat(Icons.speed, r['wifi_tests'], 'WiFi tests'),
-            _stat(Icons.key, r['wifi_logins'], 'WiFi logins'),
+            _stat(Icons.rate_review_outlined, r['reviews'], 'Reviews',
+                r, 'new_venue'),
+            _stat(Icons.verified_outlined, r['confirms'], 'Confirms',
+                r, 'confirm'),
+            _stat(Icons.speed, r['wifi_tests'], 'WiFi tests', r,
+                'wifi_test'),
+            _stat(Icons.key, r['wifi_logins'], 'WiFi logins', r,
+                'wifi_login'),
           ]),
+          const SizedBox(height: 6),
+          const Text('Tap a number to see the spaces',
+              style: TextStyle(fontSize: 11, color: Brand.inkFaint)),
         ]),
       ),
     );
   }
 
-  Widget _stat(IconData icon, dynamic value, String label) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 20, color: Brand.ink),
-          const SizedBox(height: 4),
-          Text('${value ?? 0}',
-              style: const TextStyle(
-                  fontWeight: FontWeight.w700, fontSize: 17)),
-          Text(label,
-              style: const TextStyle(
-                  fontSize: 11, color: Brand.inkMuted)),
-        ],
-      );
+  Widget _stat(IconData icon, dynamic value, String label,
+      Map<String, dynamic> r, String kind) {
+    final count = (value ?? 0) as num;
+    return InkWell(
+      borderRadius: BorderRadius.circular(10),
+      onTap: count > 0
+          ? () => _showKindActivity(
+              r['user_id'] as String, r['display_name'] ?? 'Nomad',
+              kind, label)
+          : null,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 20, color: Brand.ink),
+            const SizedBox(height: 4),
+            Text('$count',
+                style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 17,
+                    color: count > 0 ? Brand.ink : Brand.inkMuted)),
+            Text(label,
+                style: const TextStyle(
+                    fontSize: 11, color: Brand.inkMuted)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// The spaces behind a profile number ("which 3 wifi tests?").
+  Future<void> _showKindActivity(
+      String userId, String name, String kind, String label) async {
+    final all = await _supabase.publicUserActivity(userId);
+    final items = all.where((a) => a['kind'] == kind).toList();
+    if (!mounted) return;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Brand.surface,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(22))),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 30),
+        child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('$name · $label',
+                  style: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 10),
+              if (items.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: Text(
+                      'Older contributions are not in the recent feed.',
+                      style: TextStyle(
+                          fontSize: 13, color: Brand.inkMuted)),
+                )
+              else
+                ...items.take(8).map((a) {
+                  final place = [
+                    if (a['venue_name'] != null) a['venue_name'],
+                    if (a['city'] != null) a['city'],
+                  ].join(', ');
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 7),
+                    child: Row(children: [
+                      Icon(_kindIcon[kind] ?? Icons.bolt,
+                          size: 17, color: Brand.inkSecondary),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                            place.isEmpty ? 'a space' : place,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600)),
+                      ),
+                      Text(_ago(a['verified_at']),
+                          style: const TextStyle(
+                              fontSize: 12, color: Brand.inkMuted)),
+                    ]),
+                  );
+                }),
+            ]),
+      ),
+    );
+  }
+
+  static const _kindIcon = {
+    'new_venue': Icons.rate_review_outlined,
+    'confirm': Icons.verified_outlined,
+    'wifi_test': Icons.speed,
+    'wifi_login': Icons.key,
+  };
 }

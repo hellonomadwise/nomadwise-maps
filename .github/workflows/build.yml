@@ -100,6 +100,50 @@ jobs:
         working-directory: app
 
 
+      # Render the built app in a real phone-sized browser and keep a
+      # screenshot + console log, so display bugs on testers' phones can
+      # be diagnosed remotely.
+      - name: Smoke render check
+        continue-on-error: true
+        run: |
+          cd app/build/web
+          python3 -m http.server 8765 &
+          sleep 2
+          cd ../../..
+          cat > smoke.mjs <<'EOF'
+          import { chromium } from 'playwright';
+          const browser = await chromium.launch();
+          const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+          const logs = [];
+          page.on('console', m => logs.push(`[${m.type()}] ${m.text()}`));
+          page.on('pageerror', e => logs.push(`[pageerror] ${e.message}`));
+          await page.goto('http://localhost:8765/', { waitUntil: 'networkidle' }).catch(e => logs.push(`[goto] ${e.message}`));
+          await page.waitForTimeout(12000);
+          await page.screenshot({ path: 'smoke.png' });
+          const fs = await import('fs');
+          fs.writeFileSync('smoke_console.log', logs.join('\n'));
+          await browser.close();
+          EOF
+          npm i playwright@1.49.1 --no-save 2>&1 | tail -1
+          npx playwright install --with-deps chromium 2>&1 | tail -1
+          node smoke.mjs
+
+      - name: Publish smoke artifacts
+        if: always()
+        continue-on-error: true
+        run: |
+          mkdir -p /tmp/smokekeep
+          cp smoke.png smoke_console.log /tmp/smokekeep/ 2>/dev/null || true
+          git config user.name "nomadwise-bot"
+          git config user.email "actions@github.com"
+          git checkout -B ci-debug
+          mkdir -p ci-debug
+          cp /tmp/smokekeep/smoke.png ci-debug/smoke.png 2>/dev/null || true
+          cp /tmp/smokekeep/smoke_console.log ci-debug/smoke_console.log 2>/dev/null || true
+          git add -f ci-debug/smoke.png ci-debug/smoke_console.log 2>/dev/null || true
+          git commit -m "ci: smoke render artifacts" || true
+          git push -f origin ci-debug || true
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: app/build/web

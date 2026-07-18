@@ -307,6 +307,24 @@ class SupabaseService {
     }
   }
 
+  /// One nomad's recent verified contributions (public, same data as
+  /// the live feed).
+  Future<List<Map<String, dynamic>>> publicUserActivity(
+      String userId) async {
+    try {
+      final rows = await _db
+          .from('live_activity')
+          .select()
+          .eq('user_id', userId)
+          .limit(50);
+      return (rows as List)
+          .map((r) => Map<String, dynamic>.from(r))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
   Future<Map<String, dynamic>?> publicStats(String userId) async {
     try {
       final rows = await _db

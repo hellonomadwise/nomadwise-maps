@@ -92,6 +92,9 @@ ThemeData nomadwiseTheme() {
     textTheme: base.textTheme.apply(
       bodyColor: Brand.ink,
       displayColor: Brand.ink,
+      // If Instrument Sans ever fails on a device, fall back to
+      // Roboto instead of invisible text.
+      fontFamilyFallback: ['Roboto'],
     ),
     appBarTheme: const AppBarTheme(
       backgroundColor: Brand.surface,
