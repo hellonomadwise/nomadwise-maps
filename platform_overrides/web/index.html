@@ -87,6 +87,37 @@
       } catch (e) { /* never block startup */ }
     })();
   </script>
+  <script>
+    // Instagram's and Facebook's built-in browsers restrict web apps
+    // (and block Google sign-in). Show a friendly way out instead of
+    // letting the app misbehave mysteriously.
+    (function () {
+      var ua = navigator.userAgent || '';
+      if (!/Instagram|FBAN|FBAV|FB_IAB/i.test(ua)) return;
+      var isIOS = /iPhone|iPad|iPod/i.test(ua);
+      document.addEventListener('DOMContentLoaded', function () {
+        var d = document.createElement('div');
+        d.id = 'iab-overlay';
+        d.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#F7F8F9;' +
+          'display:flex;align-items:center;justify-content:center;padding:28px;' +
+          'font-family:-apple-system,Roboto,sans-serif;color:#142032;text-align:center;';
+        d.innerHTML =
+          '<div style="max-width:340px">' +
+          '<img src="icons/Icon-192.png" width="72" height="72" style="border-radius:18px" alt="">' +
+          '<h2 style="font-size:19px;margin:16px 0 8px">Almost there!</h2>' +
+          '<p style="font-size:14.5px;line-height:1.55;color:#5C6773;margin:0 0 16px">' +
+          "You're in Instagram's built-in browser, which limits what " +
+          'Nomad Maps can do (signing in with Google will not work here).</p>' +
+          '<p style="font-size:14.5px;line-height:1.55;margin:0 0 20px">' +
+          'Tap the <b>&#8942;</b> menu in the corner and choose ' +
+          '<b>' + (isIOS ? 'Open in external browser' : 'Open in Chrome') + '</b>.</p>' +
+          '<a href="#" onclick="document.getElementById(\'iab-overlay\').remove();return false" ' +
+          'style="font-size:13px;color:#96A0AC">Continue here anyway</a>' +
+          '</div>';
+        document.body.appendChild(d);
+      });
+    })();
+  </script>
 </head>
 <body>
   <div id="splash">
