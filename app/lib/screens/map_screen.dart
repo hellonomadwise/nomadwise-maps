@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -825,6 +826,16 @@ class _MapScreenState extends State<MapScreen> {
               },
             ),
           ],
+          if (kIsWeb)
+            _menuRow(
+              icon: Icons.add_to_home_screen,
+              label: 'Add to Home Screen',
+              sub: 'Use it like a real app',
+              onTap: () {
+                Navigator.pop(context);
+                _showAddToHome();
+              },
+            ),
           Opacity(
             opacity: .45,
             child: _menuRow(
@@ -866,6 +877,107 @@ class _MapScreenState extends State<MapScreen> {
             ),
           const SizedBox(height: 8),
         ]),
+      ),
+    );
+  }
+
+  /// Step-by-step guide for pinning the web app to the home screen.
+  void _showAddToHome() {
+    Analytics.capture('add_to_home_opened');
+    final isIOS = Theme.of(context).platform == TargetPlatform.iOS;
+    final isAndroid =
+        Theme.of(context).platform == TargetPlatform.android;
+
+    Widget step(int n, IconData icon, String text) => Padding(
+          padding: const EdgeInsets.symmetric(vertical: 9),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 26,
+                  height: 26,
+                  alignment: Alignment.center,
+                  decoration: const BoxDecoration(
+                      color: Brand.field, shape: BoxShape.circle),
+                  child: Text('$n',
+                      style: const TextStyle(
+                          fontSize: 13, fontWeight: FontWeight.w700)),
+                ),
+                const SizedBox(width: 12),
+                Icon(icon, size: 20, color: Brand.ink),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(text,
+                      style: const TextStyle(
+                          fontSize: 14, height: 1.45)),
+                ),
+              ]),
+        );
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Brand.surface,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(22))),
+      builder: (ctx) => PointerInterceptor(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 22, 24, 34),
+          child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Image.asset('assets/brand/app_icon.png',
+                        height: 42),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Add Nomad Maps to your Home Screen',
+                              style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700)),
+                          Text(
+                              'Opens full screen with one tap, like a real app.',
+                              style: TextStyle(
+                                  fontSize: 12.5,
+                                  color: Brand.inkSecondary)),
+                        ]),
+                  ),
+                ]),
+                const SizedBox(height: 14),
+                if (isIOS) ...[
+                  step(1, Icons.ios_share,
+                      'Tap the Share button at the bottom of Safari.'),
+                  step(2, Icons.add_box_outlined,
+                      'Scroll down and tap "Add to Home Screen".'),
+                  step(3, Icons.check_circle_outline,
+                      'Tap Add. Done, Nomad Maps now lives with your other apps.'),
+                  const SizedBox(height: 8),
+                  const Text(
+                      'Using Chrome or another browser? Open this page in '
+                      'Safari first, the option lives there.',
+                      style: TextStyle(
+                          fontSize: 12, color: Brand.inkMuted)),
+                ] else if (isAndroid) ...[
+                  step(1, Icons.more_vert,
+                      'Tap the three dots menu in the corner of your browser.'),
+                  step(2, Icons.add_box_outlined,
+                      'Tap "Add to Home screen" or "Install app".'),
+                  step(3, Icons.check_circle_outline,
+                      'Confirm. Done, Nomad Maps now lives with your other apps.'),
+                ] else ...[
+                  const Text(
+                      'Open hellonomadwise.github.io/nomadwise-maps on '
+                      'your phone, then come back to this menu item for '
+                      'the steps.',
+                      style: TextStyle(fontSize: 14, height: 1.5)),
+                ],
+              ]),
+        ),
       ),
     );
   }
