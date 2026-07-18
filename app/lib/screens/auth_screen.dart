@@ -3,8 +3,10 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../config.dart';
 import '../services/supabase_service.dart';
 import '../theme.dart';
+import '../widgets/ui.dart';
 
 /// Email + Google sign-in. (Apple sign-in slots in here later once the
 /// Apple Developer account exists — see docs/APPLE_SIGN_IN.md.)
@@ -108,13 +110,66 @@ class _AuthScreenState extends State<AuthScreen> {
             constraints: const BoxConstraints(maxWidth: 420),
             child:
                 Column(mainAxisSize: MainAxisSize.min, children: [
-              Image.asset('assets/brand/app_icon.png', height: 84),
+              Image.asset('assets/brand/app_icon.png', height: 76),
               const SizedBox(height: 14),
-              const Text('Earn coins for helping nomads\nfind places to work',
+              const Text('Review spaces. Earn coins.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.w500)),
+                      fontSize: 19, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 12),
+
+              // Why bother: the coins, up front.
+              Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  alignment: WrapAlignment.center,
+                  children: [
+                    CoinChip('+${AppConfig.coinsNewVenue} per review',
+                        height: 26),
+                    CoinChip(
+                        '+${AppConfig.coinsWifiTest} per wifi test',
+                        height: 26),
+                    CoinChip(
+                        '${AppConfig.cashOutThreshold} = '
+                        '${AppConfig.cashOutValueEuro} euro',
+                        height: 26),
+                  ]),
               const SizedBox(height: 26),
+
+              // Google first: one tap, no typing.
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: OutlinedButton.icon(
+                  onPressed: _busy ? null : _doGoogle,
+                  icon: const Icon(Icons.g_mobiledata,
+                      size: 30, color: Brand.ink),
+                  label: const Text('Continue with Google',
+                      style: TextStyle(
+                          fontSize: 15.5,
+                          fontWeight: FontWeight.w700)),
+                  style: OutlinedButton.styleFrom(
+                    backgroundColor: Brand.surface,
+                    side: const BorderSide(
+                        color: Brand.ink, width: 1.4),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Row(children: [
+                const Expanded(
+                    child: Divider(color: Brand.hairline)),
+                Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10),
+                    child: Text('or with email',
+                        style: TextStyle(
+                            fontSize: 12.5,
+                            color: Colors.grey.shade500))),
+                const Expanded(
+                    child: Divider(color: Brand.hairline)),
+              ]),
+              const SizedBox(height: 14),
               TextField(
                   controller: _email,
                   keyboardType: TextInputType.emailAddress,
@@ -146,26 +201,6 @@ class _AuthScreenState extends State<AuthScreen> {
                   child: Text(_signUp
                       ? 'Already have an account? Sign in'
                       : 'New here? Create an account')),
-              const SizedBox(height: 6),
-              Row(children: [
-                Expanded(child: Divider(color: Colors.grey.shade300)),
-                const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 10),
-                    child: Text('or')),
-                Expanded(child: Divider(color: Colors.grey.shade300)),
-              ]),
-              const SizedBox(height: 14),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: _busy ? null : _doGoogle,
-                  icon: const Icon(Icons.g_mobiledata, size: 28),
-                  label: const Text('Continue with Google'),
-                  style: OutlinedButton.styleFrom(
-                      padding:
-                          const EdgeInsets.symmetric(vertical: 13)),
-                ),
-              ),
               // Apple sign-in button will live here (post Apple Developer
               // enrolment). Keep structure ready:
               // SignInWithAppleButton(...)
