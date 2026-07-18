@@ -339,6 +339,28 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
+  bool _loadingDiscovered = false;
+
+  /// Quietly pull already-discovered spaces for the visible area, so
+  /// past searches stay on the map for every visitor (signed in or not).
+  Future<void> _loadDiscoveredHere(LatLngBounds b) async {
+    final latSpan =
+        b.northeast.latitude - b.southwest.latitude;
+    // Zoomed way out = too much world; wait until they zoom in.
+    if (latSpan > 1.0 || _loadingDiscovered) return;
+    _loadingDiscovered = true;
+    try {
+      final cached = await _supabase.discoveredInBounds(
+          b.southwest.latitude,
+          b.northeast.latitude,
+          b.southwest.longitude,
+          b.northeast.longitude);
+      if (cached.isNotEmpty) _mergeDiscovered(cached);
+    } finally {
+      _loadingDiscovered = false;
+    }
+  }
+
   void _mergeDiscovered(List<DiscoveredPlace> more) {
     final have = _discovered.map((d) => d.placeId).toSet();
     _discovered = [
@@ -1191,6 +1213,9 @@ class _MapScreenState extends State<MapScreen> {
                   final b = await _map?.getVisibleRegion();
                   if (mounted && b != null) {
                     setState(() => _mapBounds = b);
+                    // The world stays discovered: anything anyone ever
+                    // found here appears for everyone, automatically.
+                    _loadDiscoveredHere(b);
                   }
                 },
                 onTap: (_) => setState(() {
