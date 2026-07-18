@@ -106,10 +106,12 @@ jobs:
       - name: Smoke render check
         continue-on-error: true
         run: |
-          cd app/build/web
+          # Serve under the same /nomadwise-maps/ path the real site uses.
+          cd app/build
+          ln -sfn web nomadwise-maps
           python3 -m http.server 8765 &
           sleep 2
-          cd ../../..
+          cd ../..
           cat > smoke.mjs <<'EOF'
           import { chromium } from 'playwright';
           const browser = await chromium.launch();
@@ -117,7 +119,7 @@ jobs:
           const logs = [];
           page.on('console', m => logs.push(`[${m.type()}] ${m.text()}`));
           page.on('pageerror', e => logs.push(`[pageerror] ${e.message}`));
-          await page.goto('http://localhost:8765/', { waitUntil: 'networkidle' }).catch(e => logs.push(`[goto] ${e.message}`));
+          await page.goto('http://localhost:8765/nomadwise-maps/', { waitUntil: 'networkidle' }).catch(e => logs.push(`[goto] ${e.message}`));
           await page.waitForTimeout(12000);
           await page.screenshot({ path: 'smoke.png' });
           const fs = await import('fs');
