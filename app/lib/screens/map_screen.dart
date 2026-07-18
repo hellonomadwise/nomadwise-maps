@@ -188,6 +188,18 @@ class _MapScreenState extends State<MapScreen> {
     _loadProfileBits();
     await Analytics.identify(userId, email: email, name: name);
     await Analytics.capture('signed_in');
+    // Discoveries made before signing in become theirs now.
+    final claimed = await _supabase.claimAnonDiscoveries();
+    if (claimed > 0 && mounted) {
+      Analytics.capture('anon_finds_claimed', {'count': claimed});
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          duration: const Duration(seconds: 5),
+          content: Text(
+              'The $claimed space${claimed == 1 ? '' : 's'} you '
+              'discovered ${claimed == 1 ? 'is' : 'are'} now yours: '
+              '+${AppConfig.coinsDiscovery} each when they get '
+              'screened.')));
+    }
   }
 
   Future<void> _checkAdmin() async {
@@ -333,18 +345,37 @@ class _MapScreenState extends State<MapScreen> {
           {'found': _visibleDiscovered.length, 'new': newFinds});
       if (mounted) {
         final n = _visibleDiscovered.length;
-        final claimed = newFinds > 0 && _supabase.signedIn;
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            duration: Duration(seconds: claimed ? 4 : 2),
-            content: Text(claimed
-                ? 'You discovered $newFinds new '
-                    'space${newFinds == 1 ? '' : 's'}! '
-                    '+${AppConfig.coinsDiscovery} for each one once '
-                    'another nomad screens it.'
-                : n == 0
-                    ? 'No unscreened cafes found here yet.'
-                    : '$n unscreened cafes here. Screen one & earn '
-                        '${AppConfig.coinsNewVenue} coins!')));
+        if (newFinds > 0 && _supabase.signedIn) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              duration: const Duration(seconds: 4),
+              content: Text('You discovered $newFinds new '
+                  'space${newFinds == 1 ? '' : 's'}! '
+                  '+${AppConfig.coinsDiscovery} for each one once '
+                  'another nomad screens it.')));
+        } else if (newFinds > 0) {
+          // Anonymous explorer: their finds are saved on this device,
+          // signing in converts them into coins.
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              duration: const Duration(seconds: 6),
+              action: SnackBarAction(
+                  label: 'Sign in',
+                  textColor: Brand.gold,
+                  onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const AuthScreen()))),
+              content: Text('You discovered $newFinds new '
+                  'space${newFinds == 1 ? '' : 's'}! Sign in to '
+                  'claim +${AppConfig.coinsDiscovery} for each once '
+                  'they get screened.')));
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              duration: const Duration(seconds: 2),
+              content: Text(n == 0
+                  ? 'No unscreened cafes found here yet.'
+                  : '$n unscreened cafes here. Screen one & earn '
+                      '${AppConfig.coinsNewVenue} coins!')));
+        }
       }
     } finally {
       if (mounted) setState(() => _searchingArea = false);

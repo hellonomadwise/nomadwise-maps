@@ -122,6 +122,43 @@ class SupabaseService {
         await save(false);
       } catch (_) {}
     }
+    // Browsing without an account? Remember the finds on this device
+    // so they can be claimed after signing in.
+    if (uid == null) await _rememberAnonFinds(places);
+  }
+
+  static const _anonFindsKey = 'anon_finds_v1';
+
+  Future<void> _rememberAnonFinds(List<DiscoveredPlace> places) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cur = prefs.getStringList(_anonFindsKey) ?? [];
+      final merged = {...cur, ...places.map((p) => p.placeId)};
+      await prefs.setStringList(
+          _anonFindsKey, merged.take(300).toList());
+    } catch (_) {}
+  }
+
+  /// After signing in: unclaimed spaces this device discovered become
+  /// yours. Returns how many were claimed.
+  Future<int> claimAnonDiscoveries() async {
+    final uid = currentUser?.id;
+    if (uid == null) return 0;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final ids = prefs.getStringList(_anonFindsKey) ?? [];
+      if (ids.isEmpty) return 0;
+      final rows = await _db
+          .from('discovered_places')
+          .update({'discovered_by': uid})
+          .inFilter('google_place_id', ids)
+          .isFilter('discovered_by', null)
+          .select('google_place_id');
+      await prefs.remove(_anonFindsKey);
+      return (rows as List).length;
+    } catch (_) {
+      return 0;
+    }
   }
 
   /// The venue's shared wifi login (signed-in users only; null if none).
