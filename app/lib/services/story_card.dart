@@ -146,13 +146,58 @@ class StoryCard {
         FontWeight.w700,
         const Color(0xFF142032),
         y: _h - 300 + 31);
-    _text(
+    // Gold earn-coins tag: the recruitment pitch, impossible to miss.
+    final tagTp = TextPainter(
+      text: const TextSpan(
+          text: 'Earn coins for helping · 100 coins = €1',
+          style: TextStyle(
+              fontFamily: 'InstrumentSans',
+              fontSize: 32,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF142032),
+              height: 1.2)),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    const coinR = 24.0;
+    final tagW = 36 + coinR * 2 + 14 + tagTp.width + 36;
+    final tagH = 84.0;
+    final tagX = (_w - tagW) / 2;
+    final tagY = _h - 176;
+    c.drawRRect(
+        RRect.fromRectAndRadius(
+            Rect.fromLTWH(tagX, tagY, tagW, tagH),
+            Radius.circular(tagH / 2)),
+        Paint()..color = const Color(0xFFF4B23E));
+    // The coin, with a white ring so it stands out on gold.
+    final coinC = Offset(tagX + 36 + coinR, tagY + tagH / 2);
+    c.drawCircle(coinC, coinR + 4, Paint()..color = Colors.white);
+    c.drawCircle(coinC, coinR, Paint()..color = const Color(0xFFF4B23E));
+    c.drawCircle(
+        coinC,
+        coinR,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 4
+          ..color = const Color(0xFFE39B1F));
+    final dollarTp = TextPainter(
+      text: const TextSpan(
+          text: '\$',
+          style: TextStyle(
+              fontFamily: 'InstrumentSans',
+              fontSize: 30,
+              fontWeight: FontWeight.w900,
+              color: Color(0xFF8A5A10),
+              height: 1)),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    dollarTp.paint(
         c,
-        'Find work-friendly cafes worldwide. Earn coins for helping.',
-        30,
-        FontWeight.w500,
-        Colors.white.withValues(alpha: .9),
-        y: _h - 160);
+        Offset(coinC.dx - dollarTp.width / 2,
+            coinC.dy - dollarTp.height / 2));
+    tagTp.paint(
+        c,
+        Offset(tagX + 36 + coinR * 2 + 14,
+            tagY + (tagH - tagTp.height) / 2));
 
     final img =
         await rec.endRecording().toImage(_w.toInt(), _h.toInt());
