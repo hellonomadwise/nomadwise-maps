@@ -443,6 +443,17 @@ class SupabaseService {
     }
   }
 
+  /// Admin only: coin/euro totals across all users.
+  Future<Map<String, dynamic>?> adminEconomy() async {
+    try {
+      final res = await _db.rpc('admin_economy');
+      if (res == null) return null;
+      return Map<String, dynamic>.from(res);
+    } catch (_) {
+      return null;
+    }
+  }
+
   // ---------- feedback ----------
 
   Future<bool> sendFeedback(String message, {String? contact}) async {
