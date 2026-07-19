@@ -345,29 +345,9 @@ class _MapScreenState extends State<MapScreen> {
           {'found': _visibleDiscovered.length, 'new': newFinds});
       if (mounted) {
         final n = _visibleDiscovered.length;
-        if (newFinds > 0 && _supabase.signedIn) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-              duration: const Duration(seconds: 4),
-              content: Text('You discovered $newFinds new '
-                  'space${newFinds == 1 ? '' : 's'}! '
-                  '+${AppConfig.coinsDiscovery} for each one once '
-                  'another nomad screens it.')));
-        } else if (newFinds > 0) {
-          // Anonymous explorer: their finds are saved on this device,
-          // signing in converts them into coins.
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-              duration: const Duration(seconds: 6),
-              action: SnackBarAction(
-                  label: 'Sign in',
-                  textColor: Brand.gold,
-                  onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (_) => const AuthScreen()))),
-              content: Text('You discovered $newFinds new '
-                  'space${newFinds == 1 ? '' : 's'}! Sign in to '
-                  'claim +${AppConfig.coinsDiscovery} for each once '
-                  'they get screened.')));
+        if (newFinds > 0) {
+          _showDiscoveryPopup(
+              count: newFinds, signedIn: _supabase.signedIn);
         } else {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
               duration: const Duration(seconds: 2),
@@ -402,6 +382,110 @@ class _MapScreenState extends State<MapScreen> {
     } finally {
       _loadingDiscovered = false;
     }
+  }
+
+  /// Centre-screen celebration when a search reveals new spaces.
+  /// Closes on the X, on a tap anywhere outside, or by itself after 5s.
+  void _showDiscoveryPopup(
+      {required int count, required bool signedIn}) {
+    var closed = false;
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: .35),
+      builder: (ctx) {
+        void close() {
+          if (!closed) {
+            closed = true;
+            Navigator.of(ctx).pop();
+          }
+        }
+
+        Timer(const Duration(seconds: 5), () {
+          if (!closed && ctx.mounted) close();
+        });
+
+        return Stack(children: [
+          // Full-screen catcher so tapping anywhere (even over the
+          // map) dismisses it.
+          Positioned.fill(
+            child: PointerInterceptor(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: close,
+                child: const SizedBox.expand(),
+              ),
+            ),
+          ),
+          Center(
+            child: PointerInterceptor(
+              child: Material(
+                color: Colors.transparent,
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 32),
+                  constraints: const BoxConstraints(maxWidth: 340),
+                  padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+                  decoration: BoxDecoration(
+                    color: Brand.surface,
+                    borderRadius: BorderRadius.circular(22),
+                    boxShadow: Brand.shadowSheet,
+                  ),
+                  child: Stack(clipBehavior: Clip.none, children: [
+                    Column(mainAxisSize: MainAxisSize.min, children: [
+                      const SizedBox(height: 6),
+                      const CoinDot(size: 46),
+                      const SizedBox(height: 14),
+                      Text(
+                          'You discovered $count new '
+                          'space${count == 1 ? '' : 's'}!',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700)),
+                      const SizedBox(height: 6),
+                      Text(
+                          signedIn
+                              ? '+${AppConfig.coinsDiscovery} coins for '
+                                  'each one once another nomad screens it.'
+                              : 'Sign in to claim '
+                                  '+${AppConfig.coinsDiscovery} coins for '
+                                  'each once they get screened.',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                              fontSize: 13.5,
+                              height: 1.5,
+                              color: Brand.inkSecondary)),
+                      if (!signedIn) ...[
+                        const SizedBox(height: 16),
+                        PrimaryCta(
+                          label: 'Sign in to claim',
+                          onPressed: () {
+                            close();
+                            Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (_) =>
+                                        const AuthScreen()));
+                          },
+                        ),
+                      ],
+                    ]),
+                    Positioned(
+                      right: -10,
+                      top: -8,
+                      child: IconButton(
+                        icon: const Icon(Icons.close,
+                            size: 20, color: Brand.inkMuted),
+                        onPressed: close,
+                      ),
+                    ),
+                  ]),
+                ),
+              ),
+            ),
+          ),
+        ]);
+      },
+    ).then((_) => closed = true);
   }
 
   void _mergeDiscovered(List<DiscoveredPlace> more) {
