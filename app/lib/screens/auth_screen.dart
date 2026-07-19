@@ -137,21 +137,32 @@ class _AuthScreenState extends State<AuthScreen> {
               const SizedBox(height: 26),
 
               // Google first: one tap, no typing.
-              SizedBox(
+              Container(
                 width: double.infinity,
                 height: 50,
-                child: OutlinedButton.icon(
-                  onPressed: _busy ? null : _doGoogle,
-                  icon: const Icon(Icons.g_mobiledata,
-                      size: 30, color: Brand.ink),
-                  label: const Text('Continue with Google',
-                      style: TextStyle(
-                          fontSize: 15.5,
-                          fontWeight: FontWeight.w700)),
-                  style: OutlinedButton.styleFrom(
-                    backgroundColor: Brand.surface,
-                    side: const BorderSide(
-                        color: Brand.ink, width: 1.4),
+                decoration: BoxDecoration(
+                  color: Brand.surface,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: Brand.border),
+                  boxShadow: Brand.shadowResting,
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(14),
+                    onTap: _busy ? null : _doGoogle,
+                    child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Image.asset('assets/brand/google_g.png',
+                              height: 20, width: 20),
+                          const SizedBox(width: 12),
+                          const Text('Continue with Google',
+                              style: TextStyle(
+                                  fontSize: 15.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: Brand.ink)),
+                        ]),
                   ),
                 ),
               ),
