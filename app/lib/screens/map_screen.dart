@@ -22,6 +22,7 @@ import '../widgets/ui.dart';
 import 'add_venue_screen.dart';
 import 'admin_screen.dart';
 import 'admin_users_screen.dart';
+import 'intro_overlay.dart';
 import 'auth_screen.dart';
 import 'leaderboard_screen.dart';
 import 'venue_detail.dart';
@@ -170,6 +171,10 @@ class _MapScreenState extends State<MapScreen> {
     _boot();
     _checkAdmin();
     Analytics.capture('app_opened');
+    // First visit ever? Explain the game before anything else.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) showIntroIfNeeded(context);
+    });
     _supabase.authChanges.listen((state) {
       _checkAdmin();
       final user = _supabase.currentUser;
