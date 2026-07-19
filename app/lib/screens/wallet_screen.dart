@@ -87,6 +87,25 @@ class _WalletScreenState extends State<WalletScreen> {
     }
   }
 
+  void _cashOut() {
+    final minCents = AppConfig.minCashOutEuro * 100;
+    if (_euroCents < minCents) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          duration: const Duration(seconds: 4),
+          content: Text(
+              '€${_eur(minCents - _euroCents)} to go until the '
+              '€${AppConfig.minCashOutEuro} minimum cash-out. '
+              'Keep reviewing!')));
+      return;
+    }
+    Analytics.capture('cashout_requested', {'cents': _euroCents});
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        duration: Duration(seconds: 5),
+        content: Text(
+            'You reached the minimum! The Nomadwise team will be in '
+            'touch to pay you out.')));
+  }
+
   @override
   Widget build(BuildContext context) {
     final w = _wallet;
@@ -240,24 +259,16 @@ class _WalletScreenState extends State<WalletScreen> {
                                   fontWeight: FontWeight.w600,
                                   fontSize: 13),
                             ),
-                            if (progress >= 1) ...[
-                              const SizedBox(height: 12),
-                              SizedBox(
-                                width: double.infinity,
-                                child: ElevatedButton.icon(
-                                    style: ElevatedButton.styleFrom(
-                                        backgroundColor:
-                                            Brand.success),
-                                    onPressed: () =>
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(const SnackBar(
-                                                content: Text(
-                                                    'Cash-out requests open soon. Your euros are safe!'))),
-                                    icon: const Icon(Icons.euro),
-                                    label: const Text(
-                                        'Request cash-out')),
-                              ),
-                            ],
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                      backgroundColor: Brand.success),
+                                  onPressed: _cashOut,
+                                  icon: const Icon(Icons.euro),
+                                  label: const Text('Cash out')),
+                            ),
                           ]),
                     ),
                     const SizedBox(height: 16),
