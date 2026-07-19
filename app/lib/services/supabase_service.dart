@@ -276,6 +276,36 @@ class SupabaseService {
     );
   }
 
+  /// Euro balance in cents (converted coins live here).
+  Future<int> euroCents() async {
+    final uid = currentUser?.id;
+    if (uid == null) return 0;
+    try {
+      final rows =
+          await _db.from('euro_ledger').select('cents').eq('user_id', uid);
+      return (rows as List)
+          .fold<int>(0, (a, r) => a + (r['cents'] as num).toInt());
+    } catch (_) {
+      return 0; // migration not run yet
+    }
+  }
+
+  /// Convert the whole withdrawable coin balance into euros.
+  /// Returns (coins converted, cents credited), or null on failure.
+  Future<({int coins, int cents})?> convertCoins() async {
+    try {
+      final res = await _db.rpc('convert_coins_to_euros');
+      final m = Map<String, dynamic>.from(res);
+      if (m['error'] != null) return null;
+      return (
+        coins: (m['coins'] as num).toInt(),
+        cents: (m['cents'] as num).toInt()
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
   // ---------- profile ----------
 
   /// My profile row: display_name + avatar_url.

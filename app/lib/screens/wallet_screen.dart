@@ -16,6 +16,8 @@ class WalletScreen extends StatefulWidget {
 class _WalletScreenState extends State<WalletScreen> {
   final _supabase = SupabaseService();
   ({int withdrawable, int pending, int total})? _wallet;
+  int _euroCents = 0;
+  bool _converting = false;
   List<Map<String, dynamic>> _ledger = [];
 
   @override
@@ -27,16 +29,70 @@ class _WalletScreenState extends State<WalletScreen> {
 
   Future<void> _load() async {
     final w = await _supabase.wallet();
+    final e = await _supabase.euroCents();
     final l = await _supabase.ledger();
-    if (mounted) setState(() { _wallet = w; _ledger = l; });
+    if (mounted) {
+      setState(() {
+        _wallet = w;
+        _euroCents = e;
+        _ledger = l;
+      });
+    }
+  }
+
+  String _eur(int cents) => (cents / 100).toStringAsFixed(2);
+
+  Future<void> _convert() async {
+    final w = _wallet;
+    if (w == null || w.withdrawable <= 0 || _converting) return;
+    final euros = _eur(w.withdrawable); // 1 coin = 1 cent
+    final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20)),
+              title: const Text('Convert to euros?'),
+              content: Text(
+                  '${w.withdrawable} coins become €$euros in your euro '
+                  'balance. Your leaderboard score keeps every coin you '
+                  'have ever earned, so your rank stays exactly where '
+                  'it is.'),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    child: const Text('Cancel')),
+                ElevatedButton(
+                    onPressed: () => Navigator.pop(ctx, true),
+                    child: Text('Convert to €$euros')),
+              ],
+            ));
+    if (ok != true || !mounted) return;
+    setState(() => _converting = true);
+    final res = await _supabase.convertCoins();
+    if (mounted) setState(() => _converting = false);
+    if (res == null || res.coins == 0) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text(
+                'Could not convert right now. Please try again.')));
+      }
+      return;
+    }
+    Analytics.capture('coins_converted', {'coins': res.coins});
+    await _load();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(
+              '€${_eur(res.cents)} added to your euro balance.')));
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final w = _wallet;
-    final progress = w == null
-        ? 0.0
-        : (w.withdrawable / AppConfig.cashOutThreshold).clamp(0.0, 1.0);
+    final progress = (_euroCents /
+            (AppConfig.minCashOutEuro * 100))
+        .clamp(0.0, 1.0);
     return Scaffold(
       appBar: AppBar(title: const Text('Wallet'), actions: [
         IconButton(
@@ -104,30 +160,36 @@ class _WalletScreenState extends State<WalletScreen> {
                                       color: Brand.goldTextDark,
                                       fontWeight: FontWeight.w500)),
                             ],
-                            const SizedBox(height: 18),
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: LinearProgressIndicator(
-                                value: progress,
-                                minHeight: 10,
-                                backgroundColor: Colors.white,
-                                color: Brand.gold,
+                            const SizedBox(height: 14),
+                            SizedBox(
+                              width: double.infinity,
+                              height: 44,
+                              child: ElevatedButton.icon(
+                                onPressed:
+                                    w.withdrawable > 0 && !_converting
+                                        ? _convert
+                                        : null,
+                                icon: _converting
+                                    ? const SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child:
+                                            CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                color: Colors.white))
+                                    : const Icon(
+                                        Icons.currency_exchange,
+                                        size: 18),
+                                label: Text(w.withdrawable > 0
+                                    ? 'Convert to €${_eur(w.withdrawable)}'
+                                    : 'Nothing to convert yet'),
                               ),
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              '€${(w.withdrawable / AppConfig.coinsPerEuro).toStringAsFixed(2)} of the '
-                              '€${AppConfig.minCashOutEuro} minimum cash-out',
-                              style: const TextStyle(
-                                  color: Brand.goldTextDark,
-                                  fontWeight: FontWeight.w500,
-                                  fontSize: 13),
-                            ),
-                            const SizedBox(height: 3),
-                            Text(
                               '${AppConfig.coinsPerEuro} coins = €1. '
-                              'Convert any time, cash out from '
-                              '€${AppConfig.minCashOutEuro}.',
+                              'Converting never lowers your '
+                              'leaderboard score.',
                               style: const TextStyle(
                                   color: Brand.goldTextDark,
                                   fontSize: 11.5),
@@ -135,14 +197,69 @@ class _WalletScreenState extends State<WalletScreen> {
                           ]),
                     ),
                     const SizedBox(height: 12),
-                    if (progress >= 1)
-                      ElevatedButton.icon(
-                          onPressed: () => ScaffoldMessenger.of(context)
-                              .showSnackBar(const SnackBar(
-                                  content: Text(
-                                      'Cash-out requests open soon. Your coins are safe!'))),
-                          icon: const Icon(Icons.euro),
-                          label: const Text('Request cash-out')),
+
+                    // ---- euro balance card ----
+                    Container(
+                      padding: const EdgeInsets.all(22),
+                      decoration: BoxDecoration(
+                          color: Brand.successTint,
+                          borderRadius: BorderRadius.circular(22)),
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('EURO BALANCE',
+                                style: TextStyle(
+                                    color: Brand.success,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 1.2)),
+                            const SizedBox(height: 6),
+                            Text('€${_eur(_euroCents)}',
+                                style: const TextStyle(
+                                    color: Brand.ink,
+                                    fontSize: 40,
+                                    fontWeight: FontWeight.w700,
+                                    height: 1)),
+                            const SizedBox(height: 16),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: LinearProgressIndicator(
+                                value: progress,
+                                minHeight: 10,
+                                backgroundColor: Colors.white,
+                                color: Brand.success,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              progress >= 1
+                                  ? 'You reached the €${AppConfig.minCashOutEuro} minimum!'
+                                  : '€${_eur(_euroCents)} of the €${AppConfig.minCashOutEuro} minimum cash-out',
+                              style: const TextStyle(
+                                  color: Brand.success,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13),
+                            ),
+                            if (progress >= 1) ...[
+                              const SizedBox(height: 12),
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton.icon(
+                                    style: ElevatedButton.styleFrom(
+                                        backgroundColor:
+                                            Brand.success),
+                                    onPressed: () =>
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(const SnackBar(
+                                                content: Text(
+                                                    'Cash-out requests open soon. Your euros are safe!'))),
+                                    icon: const Icon(Icons.euro),
+                                    label: const Text(
+                                        'Request cash-out')),
+                              ),
+                            ],
+                          ]),
+                    ),
                     const SizedBox(height: 16),
                     const Text('HISTORY',
                         style: TextStyle(
@@ -175,10 +292,12 @@ class _WalletScreenState extends State<WalletScreen> {
     final pending = status == 'pending';
     return ListTile(
       contentPadding: EdgeInsets.zero,
-      leading: Icon(
-        pending ? Icons.hourglass_top : Icons.monetization_on,
-        color: pending ? Colors.grey.shade400 : Brand.amber,
-      ),
+      leading: amount < 0
+          ? const Icon(Icons.currency_exchange, color: Brand.success)
+          : Icon(
+              pending ? Icons.hourglass_top : Icons.monetization_on,
+              color: pending ? Colors.grey.shade400 : Brand.amber,
+            ),
       title: Text(r['note'] ?? 'Coins'),
       subtitle: Text(
         [
