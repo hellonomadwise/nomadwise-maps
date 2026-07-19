@@ -193,19 +193,23 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
                   ),
                   if (venue.website != null) ...[
                     const SizedBox(width: 10),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                          onPressed: () => launchUrl(
-                              Uri.parse(venue.website!),
-                              mode: LaunchMode.externalApplication),
-                          icon: const Icon(Icons.language, size: 20),
-                          label: const Text('Website')),
+                    SizedBox(
+                      width: 52,
+                      height: 48,
+                      child: OutlinedButton(
+                        onPressed: () => launchUrl(
+                            Uri.parse(venue.website!),
+                            mode: LaunchMode.externalApplication),
+                        style: OutlinedButton.styleFrom(
+                            padding: EdgeInsets.zero),
+                        child: const Icon(Icons.language, size: 20),
+                      ),
                     ),
                   ],
                   const SizedBox(width: 10),
                   SizedBox(
                     width: 52,
-                    height: 44,
+                    height: 48,
                     child: OutlinedButton(
                       onPressed: _sharing ? null : _share,
                       style: OutlinedButton.styleFrom(
