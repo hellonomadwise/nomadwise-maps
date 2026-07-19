@@ -992,10 +992,18 @@ class _MapScreenState extends State<MapScreen> {
                               fontWeight: FontWeight.w700)),
                     )
                   : null,
-              onTap: () {
+              onTap: () async {
                 Navigator.pop(context);
-                Navigator.push(context,
+                await Navigator.push(context,
                     MaterialPageRoute(builder: (_) => const AdminScreen()));
+                // Back from reviewing: refresh the badge count.
+                try {
+                  final pending =
+                      await _supabase.pendingSubmissions();
+                  if (mounted) {
+                    setState(() => _pendingCount = pending.length);
+                  }
+                } catch (_) {}
               },
             ),
             _menuRow(
