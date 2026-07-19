@@ -1,7 +1,9 @@
-name: Enrich venues (coordinates from Google)
+name: Enrich venues (coordinates + Google snapshot)
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '23 4 * * *' # daily, keeps the cached Google details fresh
 
 jobs:
   enrich:

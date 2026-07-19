@@ -76,7 +76,14 @@ class Venue {
         lastConfirmedAt = j['last_confirmed_at'] != null
             ? DateTime.tryParse(j['last_confirmed_at'])
             : null,
-        raw = j;
+        raw = j {
+    // The daily build job caches each venue's Google details in the
+    // database (g_details). Loading that copy here means the app does
+    // not need to call Google on every map open.
+    if (j['g_details'] is Map) {
+      live = PlaceLive.fromJson(Map<String, dynamic>.from(j['g_details']));
+    }
+  }
 
   /// How many of the core questions are still unanswered — each one is
   /// a coin-earning opportunity for contributors.
@@ -123,11 +130,13 @@ class Venue {
   num? get rating => live?.rating ?? ratingSnapshot;
   int? get reviewCount => live?.userRatingCount ?? reviewsSnapshot;
 
-  /// Is the venue open right now? Prefers live Google hours,
-  /// falls back to the seeded spreadsheet hours.
+  /// Is the venue open right now? Computed from Google's weekly
+  /// hours (works from the cached copy, so it stays correct without
+  /// asking Google), falling back to the seeded spreadsheet hours.
   bool? get openNow {
     if (access24h == true) return true;
-    if (live?.openNow != null) return live!.openNow;
+    final computed = live?.openNowAt(DateTime.now());
+    if (computed != null) return computed;
     return _fallbackOpenNow(DateTime.now());
   }
 
@@ -316,28 +325,42 @@ class PlaceLive {
     return null;
   }
 
-  /// The next time the venue closes, if it is open now.
-  DateTime? nextCloseTime(DateTime now) {
-    if (periods == null || openNow != true) return null;
-    final googleToday = now.weekday % 7; // Dart Mon=1..Sun=7 -> Google Sun=0
+  /// Walks the weekly periods and reports (isOpen, closesAt) at [now].
+  /// closesAt is null when the place never closes (24/7) or is closed.
+  /// Returns null when Google listed no hours at all.
+  (bool, DateTime?)? _statusAt(DateTime now) {
+    if (periods == null || periods!.isEmpty) return null;
     for (final p in periods!) {
       final open = p['open'], close = p['close'];
       if (open == null) continue;
-      if (close == null) return null; // open 24/7
+      if (close == null) return (true, null); // open 24/7
       // Consider periods opening today or yesterday (overnight).
       for (final dayOffset in [0, -1]) {
         final d = now.add(Duration(days: dayOffset));
         if (open['day'] != (d.weekday % 7)) continue;
-        var openT = DateTime(d.year, d.month, d.day,
+        final openT = DateTime(d.year, d.month, d.day,
             open['hour'] ?? 0, open['minute'] ?? 0);
         var closeDayShift = (close['day'] - open['day']) % 7;
         if (closeDayShift < 0) closeDayShift += 7;
-        var closeT = DateTime(d.year, d.month, d.day,
+        final closeT = DateTime(d.year, d.month, d.day,
                 close['hour'] ?? 0, close['minute'] ?? 0)
             .add(Duration(days: closeDayShift));
-        if (now.isAfter(openT) && now.isBefore(closeT)) return closeT;
+        if (now.isAfter(openT) && now.isBefore(closeT)) {
+          return (true, closeT);
+        }
       }
     }
-    return null;
+    return (false, null);
+  }
+
+  /// Open right now? Computed live from the weekly hours, so a
+  /// cached copy of this data stays accurate. Null when unknown.
+  bool? openNowAt(DateTime now) => _statusAt(now)?.$1;
+
+  /// The next time the venue closes, if it is open now.
+  DateTime? nextCloseTime(DateTime now) {
+    final s = _statusAt(now);
+    if (s == null || !s.$1) return null;
+    return s.$2;
   }
 }

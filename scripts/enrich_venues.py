@@ -8,6 +8,7 @@ Runs in GitHub Actions (workflow: enrich.yml). Needs env vars:
 import json
 import os
 import urllib.request
+from datetime import datetime, timedelta, timezone
 
 SUPABASE_URL = os.environ['SUPABASE_URL'].rstrip('/')
 SERVICE_KEY = os.environ['SUPABASE_SERVICE_ROLE_KEY']
@@ -115,3 +116,83 @@ for v in venues:
 print(f"\nDone. {updated} venues updated.")
 if failed:
     print("Needs a human look:", *failed, sep='\n  - ')
+
+
+# ============================================================
+# Phase 2: weekly Google snapshot per venue (rating, hours,
+# photo list). The app reads this cached copy instead of calling
+# Google itself, keeping Places API usage inside the free tier.
+# ============================================================
+
+SNAPSHOT_FIELDS = ','.join([
+    'displayName', 'rating', 'userRatingCount',
+    'currentOpeningHours', 'regularOpeningHours',
+    'location', 'shortFormattedAddress', 'addressComponents',
+    'photos',
+])
+MAX_AGE_DAYS = 7      # refresh each venue at most once a week
+MAX_PER_RUN = 300     # hard cap per run, bounds worst-case API spend
+
+
+def snapshot_details(place_id):
+    return req(
+        f'https://places.googleapis.com/v1/places/{place_id}',
+        headers={
+            'X-Goog-Api-Key': PLACES_KEY,
+            'X-Goog-FieldMask': SNAPSHOT_FIELDS,
+        })
+
+
+try:
+    rows = req(
+        f'{SUPABASE_URL}/rest/v1/venues'
+        '?select=id,name,google_place_id,g_synced_at'
+        '&google_place_id=not.is.null',
+        headers=sb_headers())
+except Exception as e:  # noqa: BLE001
+    rows = []
+    print(f'Snapshot phase skipped (migration 24 not run yet?): {e}')
+
+cutoff = datetime.now(timezone.utc) - timedelta(days=MAX_AGE_DAYS)
+stale = []
+for v in rows:
+    ts = v.get('g_synced_at')
+    if ts is None:
+        stale.append(v)
+        continue
+    try:
+        synced = datetime.fromisoformat(ts.replace('Z', '+00:00'))
+    except ValueError:
+        stale.append(v)
+        continue
+    if synced < cutoff:
+        stale.append(v)
+
+snapped, snap_failed = 0, []
+for v in stale[:MAX_PER_RUN]:
+    try:
+        details = snapshot_details(v['google_place_id'])
+        if not details:
+            snap_failed.append(v['name'])
+            continue
+        patch = {
+            'g_details': details,
+            'g_synced_at': datetime.now(timezone.utc).isoformat(),
+        }
+        if details.get('rating') is not None:
+            patch['google_rating_snapshot'] = details['rating']
+        if details.get('userRatingCount') is not None:
+            patch['google_reviews_snapshot'] = details['userRatingCount']
+        req(f"{SUPABASE_URL}/rest/v1/venues?id=eq.{v['id']}",
+            method='PATCH',
+            headers=sb_headers({'Prefer': 'return=minimal'}),
+            body=patch)
+        snapped += 1
+    except Exception as e:  # noqa: BLE001
+        snap_failed.append(f"{v['name']} ({e})")
+
+skipped = max(0, len(stale) - MAX_PER_RUN)
+print(f'Snapshots: {snapped} refreshed, {len(rows) - len(stale)} fresh, '
+      f'{skipped} deferred to next run.')
+if snap_failed:
+    print('Snapshot failures:', *snap_failed, sep='\n  - ')

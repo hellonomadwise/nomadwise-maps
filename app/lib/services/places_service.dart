@@ -289,9 +289,12 @@ class PlacesService {
   }
 
   /// Load live details for a batch of venues (used when the map loads).
+  /// Venues that already carry the database's cached Google copy are
+  /// skipped — only brand-new venues (not yet snapshotted by the daily
+  /// build job) trigger a real Google call.
   Future<void> enrich(Iterable<Venue> venues) async {
     await Future.wait(venues
-        .where((v) => v.googlePlaceId != null)
+        .where((v) => v.googlePlaceId != null && v.live == null)
         .map((v) async {
       final live = await details(v.googlePlaceId!);
       if (live != null) {
