@@ -422,6 +422,62 @@ class SupabaseService {
     }
   }
 
+  // ---------- feedback ----------
+
+  Future<bool> sendFeedback(String message, {String? contact}) async {
+    try {
+      await _db.from('feedback').insert({
+        'message': message,
+        if (contact != null && contact.trim().isNotEmpty)
+          'contact': contact.trim(),
+        if (currentUser != null) 'user_id': currentUser!.id,
+      });
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Admin only: all feedback, newest first.
+  Future<List<Map<String, dynamic>>> feedbackInbox() async {
+    try {
+      final rows = await _db
+          .from('feedback')
+          .select()
+          .order('created_at', ascending: false)
+          .limit(200);
+      return (rows as List)
+          .map((r) => Map<String, dynamic>.from(r))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> setFeedbackStatus(String id, String status) async {
+    try {
+      await _db.from('feedback').update({'status': status}).eq('id', id);
+    } catch (_) {}
+  }
+
+  /// Admin only: names for a set of user ids.
+  Future<Map<String, String>> displayNamesFor(
+      List<String> userIds) async {
+    if (userIds.isEmpty) return {};
+    try {
+      final rows = await _db
+          .from('profiles')
+          .select('id, display_name')
+          .inFilter('id', userIds);
+      return {
+        for (final r in rows as List)
+          r['id'] as String: (r['display_name'] ?? 'Nomad') as String
+      };
+    } catch (_) {
+      return {};
+    }
+  }
+
   // ---------- admin ----------
 
   Future<bool> isAdmin() async {

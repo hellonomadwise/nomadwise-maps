@@ -14,16 +14,21 @@ Future<void> showIntroIfNeeded(BuildContext context) async {
     final prefs = await SharedPreferences.getInstance();
     if (prefs.getBool('intro_seen_v1') == true) return;
     if (!context.mounted) return;
-    Analytics.capture('intro_shown');
-    await showGeneralDialog(
-      context: context,
-      barrierDismissible: false,
-      barrierColor: Colors.transparent,
-      pageBuilder: (_, __, ___) =>
-          PointerInterceptor(child: const _IntroOverlay()),
-    );
+    await showIntro(context);
     await prefs.setBool('intro_seen_v1', true);
   } catch (_) {}
+}
+
+/// Show the intro right now (also used by "How it works" in the menu).
+Future<void> showIntro(BuildContext context) async {
+  Analytics.capture('intro_shown');
+  await showGeneralDialog(
+    context: context,
+    barrierDismissible: false,
+    barrierColor: Colors.transparent,
+    pageBuilder: (_, __, ___) =>
+        PointerInterceptor(child: const _IntroOverlay()),
+  );
 }
 
 class _IntroOverlay extends StatefulWidget {

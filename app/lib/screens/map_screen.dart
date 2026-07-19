@@ -22,6 +22,7 @@ import '../widgets/ui.dart';
 import 'add_venue_screen.dart';
 import 'admin_screen.dart';
 import 'admin_users_screen.dart';
+import 'feedback_inbox_screen.dart';
 import 'intro_overlay.dart';
 import 'auth_screen.dart';
 import 'leaderboard_screen.dart';
@@ -1007,6 +1008,18 @@ class _MapScreenState extends State<MapScreen> {
               },
             ),
             _menuRow(
+              icon: Icons.inbox_outlined,
+              label: 'Feedback inbox',
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) =>
+                            const FeedbackInboxScreen()));
+              },
+            ),
+            _menuRow(
               icon: Icons.group_outlined,
               label: 'Users',
               trailing: Container(
@@ -1041,14 +1054,22 @@ class _MapScreenState extends State<MapScreen> {
                 _showAddToHome();
               },
             ),
-          Opacity(
-            opacity: .45,
-            child: _menuRow(
-              icon: Icons.settings_outlined,
-              label: 'Settings',
-              sub: 'Coming soon',
-              onTap: null,
-            ),
+          _menuRow(
+            icon: Icons.chat_bubble_outline,
+            label: 'Send feedback',
+            sub: 'Ideas, bugs, anything',
+            onTap: () {
+              Navigator.pop(context);
+              _openFeedback();
+            },
+          ),
+          _menuRow(
+            icon: Icons.help_outline,
+            label: 'How it works',
+            onTap: () {
+              Navigator.pop(context);
+              showIntro(context);
+            },
           ),
           const Spacer(),
           const Divider(height: 1, color: Brand.hairline),
@@ -1185,6 +1206,72 @@ class _MapScreenState extends State<MapScreen> {
         ),
       ),
     );
+  }
+
+  /// Anyone can send a thought; it lands in the admin's inbox.
+  Future<void> _openFeedback() async {
+    final msg = TextEditingController();
+    final contact = TextEditingController();
+    final signedIn = _supabase.signedIn;
+    final sent = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Brand.surface,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(22))),
+      builder: (ctx) => PointerInterceptor(
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(
+              24, 22, 24, MediaQuery.of(ctx).viewInsets.bottom + 28),
+          child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Send feedback',
+                    style: TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 4),
+                const Text(
+                    'Ideas, bugs, missing features, anything at all. '
+                    'It goes straight to the Nomadwise team.',
+                    style: TextStyle(
+                        fontSize: 13, color: Brand.inkSecondary)),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: msg,
+                  autofocus: true,
+                  maxLines: 4,
+                  decoration: const InputDecoration(
+                      hintText: 'What is on your mind?'),
+                ),
+                if (!signedIn) ...[
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: contact,
+                    decoration: const InputDecoration(
+                        hintText:
+                            'Email or WhatsApp, optional, for replies'),
+                  ),
+                ],
+                const SizedBox(height: 16),
+                PrimaryCta(
+                  label: 'Send',
+                  onPressed: () => Navigator.pop(ctx, true),
+                ),
+              ]),
+        ),
+      ),
+    );
+    if (sent != true || msg.text.trim().isEmpty) return;
+    final ok = await _supabase.sendFeedback(msg.text.trim(),
+        contact: contact.text);
+    Analytics.capture('feedback_sent', {'ok': ok});
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(ok
+              ? 'Thank you! Your feedback is on its way.'
+              : 'Could not send right now. Please try again.')));
+    }
   }
 
   Widget _menuRow(
