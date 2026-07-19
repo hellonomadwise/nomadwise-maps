@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart'
     show AuthChangeEvent;
 import 'package:url_launcher/url_launcher.dart';
@@ -248,17 +249,49 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
+  double _initZoom = 14;
+
   Future<void> _boot() async {
     await _loadPinIcons();
+
+    // Where should the map open? Priority: where they last left it,
+    // then a rough guess from their internet connection, then a
+    // neutral world view. Never a hardcoded city.
+    var haveStart = false;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getString('last_cam');
+      if (saved != null) {
+        final p = saved.split(',');
+        _userLat = double.tryParse(p[0]);
+        _userLng = double.tryParse(p[1]);
+        _initZoom = double.tryParse(p[2]) ?? 13;
+        haveStart = _userLat != null && _userLng != null;
+      }
+    } catch (_) {}
+    if (!haveStart) {
+      // World view while the guesses come in.
+      _userLat = 20;
+      _userLng = 0;
+      _initZoom = 2.5;
+      // City-level guess from the connection, no permission needed.
+      LocationService.ipLocate().then((ip) {
+        if (ip != null && !_hasRealLocation && mounted) {
+          _userLat = ip.$1;
+          _userLng = ip.$2;
+          _computeDistances();
+          setState(() {});
+          _map?.animateCamera(CameraUpdate.newLatLngZoom(
+              LatLng(ip.$1, ip.$2), 11));
+        }
+      });
+    }
 
     // Instant start: show venues remembered from the last visit while the
     // fresh data and the user's location load in the background.
     final cached = await _supabase.cachedVenues();
     if (cached.isNotEmpty && mounted && _loading) {
       _venues = cached;
-      final (la, ln) = LocationService.fallback();
-      _userLat ??= la;
-      _userLng ??= ln;
       _computeDistances();
       setState(() => _loading = false);
     }
@@ -273,13 +306,9 @@ class _MapScreenState extends State<MapScreen> {
       _userLat = pos.latitude;
       _userLng = pos.longitude;
       _hasRealLocation = true;
-      // If we started from cache with the fallback centre, fly to the user.
+      // Fly to the person, wherever the map was pointing before.
       _map?.animateCamera(CameraUpdate.newLatLngZoom(
           LatLng(pos.latitude, pos.longitude), 14));
-    } else {
-      final (la, ln) = LocationService.fallback();
-      _userLat ??= la;
-      _userLng ??= ln;
     }
     _computeDistances();
     if (mounted) setState(() => _loading = false);
@@ -287,6 +316,20 @@ class _MapScreenState extends State<MapScreen> {
     await _places.enrich(_venues);
     _computeDistances();
     if (mounted) setState(() {});
+  }
+
+  /// Remember where the map is pointing so next open starts there.
+  Future<void> _saveCamera(LatLngBounds b) async {
+    try {
+      final z = await _map?.getZoomLevel();
+      final lat =
+          (b.southwest.latitude + b.northeast.latitude) / 2;
+      final lng =
+          (b.southwest.longitude + b.northeast.longitude) / 2;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('last_cam',
+          '$lat,$lng,${(z ?? 13).toStringAsFixed(1)}');
+    } catch (_) {}
   }
 
   Future<void> _loadPinIcons() async {
@@ -1330,7 +1373,8 @@ class _MapScreenState extends State<MapScreen> {
           : Stack(children: [
               GoogleMap(
                 initialCameraPosition: CameraPosition(
-                    target: LatLng(_userLat!, _userLng!), zoom: 14),
+                    target: LatLng(_userLat ?? 20, _userLng ?? 0),
+                    zoom: _initZoom),
                 myLocationEnabled: true,
                 myLocationButtonEnabled: false,
                 zoomControlsEnabled: false,
@@ -1343,6 +1387,7 @@ class _MapScreenState extends State<MapScreen> {
                     // The world stays discovered: anything anyone ever
                     // found here appears for everyone, automatically.
                     _loadDiscoveredHere(b);
+                    _saveCamera(b);
                   }
                 },
                 onTap: (_) => setState(() {
