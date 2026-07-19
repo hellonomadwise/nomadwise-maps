@@ -36,10 +36,22 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
   String _testPhase = '';
   String _wifiConnType = 'unknown';
   Map<String, dynamic>? _wifiLogin;
+  String? _discoveredBy;
+  String? _screenedBy;
 
   Future<void> _loadWifiLogin() async {
     final w = await _supabase.venueWifi(venue.id);
     if (mounted) setState(() => _wifiLogin = w);
+  }
+
+  Future<void> _loadCredits() async {
+    final c = await _supabase.venueCredits(venue.id);
+    if (mounted && c != null) {
+      setState(() {
+        _discoveredBy = c['discovered_by'] as String?;
+        _screenedBy = c['screened_by'] as String?;
+      });
+    }
   }
   int _photoIndex = 0;
 
@@ -50,6 +62,7 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
     super.initState();
     _loadPhotos();
     _loadWifiLogin();
+    _loadCredits();
     Analytics.capture('venue_viewed',
         {'venue': venue.name, 'type': venue.type});
   }
@@ -368,6 +381,19 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
                   label: Text(
                       'Confirm / update this space  ·  earn ${AppConfig.coinsConfirmVenue} coins'),
                 ),
+                if (_creditsLine() != null) ...[
+                  const SizedBox(height: 18),
+                  Row(children: [
+                    const Icon(Icons.explore_outlined,
+                        size: 14, color: Brand.inkFaint),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(_creditsLine()!,
+                          style: const TextStyle(
+                              fontSize: 12, color: Brand.inkFaint)),
+                    ),
+                  ]),
+                ],
                 const SizedBox(height: 30),
               ]),
         ),
@@ -375,6 +401,19 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
         ),
       ),
     );
+  }
+
+  /// "Discovered by Anna · First screened by Lucas" (or the
+  /// shorter variants when only one is known / both are the same).
+  String? _creditsLine() {
+    final d = _discoveredBy, s = _screenedBy;
+    if (d == null && s == null) return null;
+    if (d != null && s != null) {
+      if (d == s) return 'Discovered and first screened by $d';
+      return 'Discovered by $d · First screened by $s';
+    }
+    if (d != null) return 'Discovered by $d';
+    return 'First screened by $s';
   }
 
   // ---------- widgets ----------

@@ -470,6 +470,19 @@ class SupabaseService {
   }
 
   /// Admin only: coin/euro totals across all users.
+  /// Who put this space on the map: the discoverer (area search)
+  /// and the first verified screener. Public display names only.
+  Future<Map<String, dynamic>?> venueCredits(String venueId) async {
+    try {
+      final res =
+          await _db.rpc('venue_credits', params: {'p_venue_id': venueId});
+      if (res == null) return null;
+      return Map<String, dynamic>.from(res);
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<Map<String, dynamic>?> adminEconomy() async {
     try {
       final res = await _db.rpc('admin_economy');
