@@ -116,7 +116,7 @@ class _IntroOverlayState extends State<_IntroOverlay> {
                   body:
                       'Convert your coins to euros whenever you like '
                       'and cash out from €${AppConfig.minCashOutEuro}. '
-                      'Your leaderboard glory stays forever.',
+                      'Converting never lowers your leaderboard score.',
                   extra: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
