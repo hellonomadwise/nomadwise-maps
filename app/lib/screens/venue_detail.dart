@@ -1,6 +1,9 @@
+import 'dart:ui' as ui;
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
+import 'package:http/http.dart' as http;
+import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../config.dart';
@@ -9,6 +12,7 @@ import '../services/analytics_service.dart';
 import '../services/location_service.dart';
 import '../services/places_service.dart';
 import '../services/speed_test_service.dart';
+import '../services/story_card.dart';
 import '../services/supabase_service.dart';
 import '../theme.dart';
 import '../widgets/ui.dart';
@@ -66,6 +70,60 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
         .toList();
     final community = await _supabase.venuePhotoUrls(venue.id);
     if (mounted) setState(() => _photos = [...google, ...community]);
+  }
+
+  bool _sharing = false;
+
+  /// Build the story card and hand it to the phone's share sheet
+  /// (Instagram Stories, WhatsApp, wherever they like).
+  Future<void> _share() async {
+    setState(() => _sharing = true);
+    try {
+      // Best backdrop: the space's first Google photo.
+      ui.Image? photo;
+      try {
+        final names = venue.live?.photoNames ?? [];
+        if (names.isNotEmpty) {
+          final res = await http
+              .get(Uri.parse(
+                  PlacesService.photoUrl(names.first, maxWidth: 1200)))
+              .timeout(const Duration(seconds: 6));
+          if (res.statusCode == 200) {
+            final codec =
+                await ui.instantiateImageCodec(res.bodyBytes);
+            photo = (await codec.getNextFrame()).image;
+          }
+        }
+      } catch (_) {} // no photo = brand gradient background
+
+      final bytes = await StoryCard.build(venue, photo: photo);
+      if (bytes == null) throw Exception('render failed');
+      Analytics.capture('space_shared', {'venue': venue.name});
+      await Share.shareXFiles(
+        [
+          XFile.fromData(bytes,
+              mimeType: 'image/png', name: 'nomadwise_maps.png')
+        ],
+        text: '${venue.name} on Nomadwise Maps: '
+            'https://hellonomadwise.github.io/nomadwise-maps/',
+      );
+    } catch (_) {
+      // Device cannot share images (e.g. desktop): share the link.
+      try {
+        await Share.share('${venue.name} on Nomadwise Maps: '
+            'https://hellonomadwise.github.io/nomadwise-maps/');
+      } catch (_) {
+        await Clipboard.setData(const ClipboardData(
+            text:
+                'https://hellonomadwise.github.io/nomadwise-maps/'));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text('Link copied to clipboard.')));
+        }
+      }
+    } finally {
+      if (mounted) setState(() => _sharing = false);
+    }
   }
 
   Future<void> _openDirections() async {
@@ -144,6 +202,23 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
                           label: const Text('Website')),
                     ),
                   ],
+                  const SizedBox(width: 10),
+                  SizedBox(
+                    width: 52,
+                    height: 44,
+                    child: OutlinedButton(
+                      onPressed: _sharing ? null : _share,
+                      style: OutlinedButton.styleFrom(
+                          padding: EdgeInsets.zero),
+                      child: _sharing
+                          ? const SizedBox(
+                              width: 17,
+                              height: 17,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: Brand.ink))
+                          : const Icon(Icons.ios_share, size: 20),
+                    ),
+                  ),
                 ]),
                 const SizedBox(height: 16),
 
