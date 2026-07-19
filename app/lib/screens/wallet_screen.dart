@@ -83,6 +83,18 @@ class _WalletScreenState extends State<WalletScreen> {
                                           fontSize: 40,
                                           fontWeight: FontWeight.w700,
                                           height: 1)),
+                                  const SizedBox(width: 10),
+                                  Padding(
+                                    padding: const EdgeInsets.only(
+                                        bottom: 3),
+                                    child: Text(
+                                        '= €${(w.withdrawable / AppConfig.coinsPerEuro).toStringAsFixed(2)}',
+                                        style: const TextStyle(
+                                            color: Brand.goldTextDark,
+                                            fontSize: 17,
+                                            fontWeight:
+                                                FontWeight.w700)),
+                                  ),
                                 ]),
                             if (w.pending > 0) ...[
                               const SizedBox(height: 8),
@@ -104,12 +116,21 @@ class _WalletScreenState extends State<WalletScreen> {
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              '${w.withdrawable} / ${AppConfig.cashOutThreshold} coins '
-                              'to a €${AppConfig.cashOutValueEuro} cash-out',
+                              '€${(w.withdrawable / AppConfig.coinsPerEuro).toStringAsFixed(2)} of the '
+                              '€${AppConfig.minCashOutEuro} minimum cash-out',
                               style: const TextStyle(
                                   color: Brand.goldTextDark,
                                   fontWeight: FontWeight.w500,
                                   fontSize: 13),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              '${AppConfig.coinsPerEuro} coins = €1. '
+                              'Convert any time, cash out from '
+                              '€${AppConfig.minCashOutEuro}.',
+                              style: const TextStyle(
+                                  color: Brand.goldTextDark,
+                                  fontSize: 11.5),
                             ),
                           ]),
                     ),

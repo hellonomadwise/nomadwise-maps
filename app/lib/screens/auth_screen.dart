@@ -99,6 +99,18 @@ class _AuthScreenState extends State<AuthScreen> {
     }
   }
 
+  Widget _authStat(String num, String label) => Expanded(
+        child: Column(children: [
+          Text(num,
+              style: const TextStyle(
+                  fontSize: 17, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 2),
+          Text(label,
+              style: const TextStyle(
+                  fontSize: 11, color: Brand.inkMuted)),
+        ]),
+      );
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -118,23 +130,73 @@ class _AuthScreenState extends State<AuthScreen> {
                       fontSize: 19, fontWeight: FontWeight.w700)),
               const SizedBox(height: 12),
 
-              // Why bother: the coins, up front.
-              Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  alignment: WrapAlignment.center,
-                  children: [
-                    CoinChip('+${AppConfig.coinsNewVenue} per review',
-                        height: 26),
-                    CoinChip(
-                        '+${AppConfig.coinsWifiTest} per wifi test',
-                        height: 26),
-                    CoinChip(
-                        '${AppConfig.cashOutThreshold} = '
-                        '${AppConfig.cashOutValueEuro} euro',
-                        height: 26),
-                  ]),
-              const SizedBox(height: 26),
+              // Why bother: what you earn, up front.
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 13),
+                decoration: BoxDecoration(
+                  color: Brand.surface,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Brand.border),
+                  boxShadow: Brand.shadowResting,
+                ),
+                child: Row(children: [
+                  _authStat('+${AppConfig.coinsNewVenue}',
+                      'per review'),
+                  Container(
+                      width: 1, height: 30, color: Brand.hairline),
+                  _authStat('+${AppConfig.coinsWifiTest}',
+                      'per wifi test'),
+                ]),
+              ),
+              const SizedBox(height: 10),
+
+              // And the point of it all: coins become real money.
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: Brand.goldTint,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Column(children: [
+                  Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const CoinDot(size: 18),
+                        const SizedBox(width: 6),
+                        Text('${AppConfig.coinsPerEuro} coins',
+                            style: const TextStyle(
+                                fontSize: 14.5,
+                                fontWeight: FontWeight.w700)),
+                        const SizedBox(width: 10),
+                        const Icon(Icons.arrow_forward,
+                            size: 16, color: Brand.goldLink),
+                        const SizedBox(width: 10),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 3),
+                          decoration: BoxDecoration(
+                              color: Brand.success,
+                              borderRadius:
+                                  BorderRadius.circular(9)),
+                          child: const Text('€1',
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w800)),
+                        ),
+                      ]),
+                  const SizedBox(height: 6),
+                  Text(
+                      'Convert to euros any time. Cash out from '
+                      '€${AppConfig.minCashOutEuro}.',
+                      style: const TextStyle(
+                          fontSize: 12, color: Brand.goldTextDark)),
+                ]),
+              ),
+              const SizedBox(height: 24),
 
               // Google first: one tap, no typing.
               Container(

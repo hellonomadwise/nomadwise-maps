@@ -29,8 +29,11 @@ class AppConfig {
   /// Sharing a venue's wifi login (max once per space per month per user).
   static const coinsWifiLogin = 20;
   static const coinsDiscovery = 10; // finder bonus when a space gets screened
-  static const cashOutThreshold = 5000; // coins
-  static const cashOutValueEuro = 50; // €
+  // Coins convert to euros at any time; payout from €50.
+  static const coinsPerEuro = 100; // 100 coins = €1
+  static const minCashOutEuro = 50; // minimum payout
+  static const cashOutThreshold = coinsPerEuro * minCashOutEuro; // coins
+  static const cashOutValueEuro = minCashOutEuro; // legacy alias
 
   /// Max distance (metres) from a venue for a submission's GPS check to pass.
   static const gpsVerifyRadiusM = 150.0;
