@@ -1318,7 +1318,9 @@ class _MapScreenState extends State<MapScreen> {
 
   // ---------- build ----------
 
-  /// Venues + unscreened places merged, nearest first (for the list view).
+  /// Venues + unscreened places merged, nearest first (for the list
+  /// view). Scoped to roughly where the map is looking: within ~25 km
+  /// of the view centre, or the whole viewport when zoomed out wider.
   List<Object> get _listEntries {
     double distOf(Object e) {
       if (e is Venue) return e.distanceM ?? double.infinity;
@@ -1327,7 +1329,31 @@ class _MapScreenState extends State<MapScreen> {
       return Venue.haversineM(_userLat!, _userLng!, d.lat, d.lng);
     }
 
-    final entries = <Object>[..._visibleVenues, ..._visibleDiscovered];
+    double? cLat = _userLat, cLng = _userLng;
+    var radiusM = 25000.0;
+    final b = _mapBounds;
+    if (b != null) {
+      cLat = (b.southwest.latitude + b.northeast.latitude) / 2;
+      cLng = (b.southwest.longitude + b.northeast.longitude) / 2;
+      final halfDiag = Venue.haversineM(
+              b.southwest.latitude,
+              b.southwest.longitude,
+              b.northeast.latitude,
+              b.northeast.longitude) /
+          2;
+      if (halfDiag > radiusM) radiusM = halfDiag;
+    }
+    bool inScope(double? lat, double? lng) {
+      if (cLat == null || cLng == null || lat == null || lng == null) {
+        return true;
+      }
+      return Venue.haversineM(cLat!, cLng!, lat, lng) <= radiusM;
+    }
+
+    final entries = <Object>[
+      ..._visibleVenues.where((v) => inScope(v.lat, v.lng)),
+      ..._visibleDiscovered.where((d) => inScope(d.lat, d.lng)),
+    ];
     entries.sort((a, b) => distOf(a).compareTo(distOf(b)));
     return entries;
   }
@@ -1511,7 +1537,10 @@ class _MapScreenState extends State<MapScreen> {
                                 child: Column(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Text('No $_noun match these filters.',
+                                      Text(
+                                          'No $_noun around here yet. '
+                                          'Be the first to put this '
+                                          'area on the map!',
                                           textAlign: TextAlign.center,
                                           style: TextStyle(
                                               color:
