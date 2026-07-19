@@ -20,6 +20,16 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
   Map<String, String> _names = {};
   Map<String, dynamic>? _economy;
   List<Map<String, dynamic>> _activity = [];
+  Set<String> _internalUserIds = {};
+  int _excludedVisitors = 0;
+
+  /// Team and test accounts, kept out of the numbers.
+  static const _excludedEmails = {
+    'hellonomadwise@gmail.com',
+    'leonie.poelking@googlemail.com',
+    'jonnythebackpacker@gmail.com',
+    'corneliousbeck@gmail.com',
+  };
 
   static const _friendly = {
     'app_opened': 'Opened the app',
@@ -63,12 +73,19 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
     final names = await _supabase.displayNamesFor(ids);
     final economy = await _supabase.adminEconomy();
     final activity = await _supabase.liveActivity();
+    final allUsers = await _supabase.adminUsers();
+    final internal = allUsers
+        .where((u) => _excludedEmails
+            .contains((u['email'] ?? '').toString().toLowerCase()))
+        .map((u) => u['id'] as String)
+        .toSet();
     if (mounted) {
       setState(() {
         _events = events;
         _names = names;
         _economy = economy;
         _activity = activity;
+        _internalUserIds = internal;
       });
     }
   }
@@ -113,8 +130,19 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
     );
   }
 
-  Widget _body(List<Map<String, dynamic>> events) {
+  Widget _body(List<Map<String, dynamic>> allEvents) {
     final now = DateTime.now().toUtc();
+
+    // Devices used by team accounts drop out of all the numbers.
+    final internalAnon = allEvents
+        .where((e) => _internalUserIds.contains(e['user_id']))
+        .map((e) => e['anon_id'] as String)
+        .toSet();
+    _excludedVisitors = internalAnon.length;
+    final events = allEvents
+        .where((e) => !internalAnon.contains(e['anon_id']))
+        .toList();
+
     final visitors = <String, List<Map<String, dynamic>>>{};
     for (final e in events) {
       visitors.putIfAbsent(e['anon_id'] as String, () => []).add(e);
@@ -391,7 +419,26 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
           const SizedBox(height: 22),
           const SectionLabel('VISITORS'),
           const SizedBox(height: 6),
-          ...visitorList.map((v) => _visitorRow(v.key, v.value)),
+          if (visitorList.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Text(
+                  'No outside visitors yet. Share the link and watch '
+                  'this fill up.',
+                  style: TextStyle(
+                      fontSize: 13, color: Brand.inkMuted)),
+            )
+          else
+            ...visitorList.map((v) => _visitorRow(v.key, v.value)),
+          if (_excludedVisitors > 0) ...[
+            const SizedBox(height: 14),
+            Text(
+                'Excluding $_excludedVisitors team '
+                'device${_excludedVisitors == 1 ? '' : 's'} '
+                '(your own accounts) from all numbers above.',
+                style: const TextStyle(
+                    fontSize: 11.5, color: Brand.inkFaint)),
+          ],
         ]);
   }
 
