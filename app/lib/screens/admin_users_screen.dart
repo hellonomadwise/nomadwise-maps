@@ -16,6 +16,7 @@ class AdminUsersScreen extends StatefulWidget {
 class _AdminUsersScreenState extends State<AdminUsersScreen> {
   final _supabase = SupabaseService();
   List<Map<String, dynamic>>? _users;
+  Map<String, String> _cohorts = {};
   String _query = '';
 
   @override
@@ -26,7 +27,13 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
 
   Future<void> _load() async {
     final users = await _supabase.adminUsers();
-    if (mounted) setState(() => _users = users);
+    final cohorts = await _supabase.profileCohorts();
+    if (mounted) {
+      setState(() {
+        _users = users;
+        _cohorts = cohorts;
+      });
+    }
   }
 
   List<Map<String, dynamic>> get _filtered {
@@ -119,13 +126,36 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     );
   }
 
+  /// Small pill saying which group the account belongs to.
+  Widget _groupTag(String? cohort) {
+    final (label, bg, fg) = switch (cohort) {
+      'team' => ('Team', Brand.ink, Colors.white),
+      'friend' => ('Friend', Brand.goldTint, Brand.goldTextDark),
+      _ => ('Customer', Brand.field, Brand.inkSecondary),
+    };
+    return Container(
+      padding:
+          const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+          color: bg, borderRadius: BorderRadius.circular(20)),
+      child: Text(label,
+          style: TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w700,
+              color: fg)),
+    );
+  }
+
   Widget _userRow(Map<String, dynamic> u) {
     final coins = (u['coins_confirmed'] ?? 0) + (u['coins_pending'] ?? 0);
     return InkWell(
-      onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(
-              builder: (_) => AdminUserDetailScreen(user: u))),
+      onTap: () async {
+        await Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (_) => AdminUserDetailScreen(user: u)));
+        _load(); // the group may have been changed in the detail
+      },
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 13),
         child: Row(children: [
@@ -162,6 +192,8 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                                 fontWeight: FontWeight.w700)),
                       ),
                     ],
+                    const SizedBox(width: 7),
+                    _groupTag(_cohorts[u['id']]),
                   ]),
                   const SizedBox(height: 1),
                   Text(u['email'] ?? '',
