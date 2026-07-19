@@ -141,7 +141,7 @@ class StoryCard {
     c.drawRRect(pill, Paint()..color = Colors.white);
     _text(
         c,
-        'hellonomadwise.github.io/nomadwise-maps',
+        'nomadmaps.io',
         37,
         FontWeight.w700,
         const Color(0xFF142032),

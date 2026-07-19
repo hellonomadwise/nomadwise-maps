@@ -92,7 +92,7 @@ jobs:
       - name: Build web
         run: |
           flutter build web --release \
-            --base-href "/${{ github.event.repository.name }}/" \
+            --base-href "/" \
             --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }} \
             --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }} \
             --dart-define=GOOGLE_PLACES_KEY=${{ secrets.GOOGLE_PLACES_KEY }} \
@@ -106,12 +106,11 @@ jobs:
       - name: Smoke render check
         continue-on-error: true
         run: |
-          # Serve under the same /nomadwise-maps/ path the real site uses.
-          cd app/build
-          ln -sfn web nomadwise-maps
+          # The site now lives at the domain root (nomadmaps.io).
+          cd app/build/web
           python3 -m http.server 8765 &
           sleep 2
-          cd ../..
+          cd ../../..
           cat > smoke.mjs <<'EOF'
           import { chromium } from 'playwright';
           const fs = await import('fs');
@@ -121,7 +120,7 @@ jobs:
             const page = await browser.newPage({ viewport: { width: 390, height: 844 }, ...opts });
             page.on('console', m => logs.push(`[${label}][${m.type()}] ${m.text()}`));
             page.on('pageerror', e => logs.push(`[${label}][pageerror] ${e.message}\n${e.stack || ''}`));
-            await page.goto('http://localhost:8765/nomadwise-maps/', { waitUntil: 'networkidle' }).catch(e => logs.push(`[${label}][goto] ${e.message}`));
+            await page.goto('http://localhost:8765/', { waitUntil: 'networkidle' }).catch(e => logs.push(`[${label}][goto] ${e.message}`));
             await page.waitForTimeout(12000);
             await page.screenshot({ path: shot });
             await page.close();

@@ -1210,7 +1210,7 @@ class _MapScreenState extends State<MapScreen> {
                       'Confirm. Done, Nomad Maps now lives with your other apps.'),
                 ] else ...[
                   const Text(
-                      'Open hellonomadwise.github.io/nomadwise-maps on '
+                      'Open nomadmaps.io on '
                       'your phone, then come back to this menu item for '
                       'the steps.',
                       style: TextStyle(fontSize: 14, height: 1.5)),

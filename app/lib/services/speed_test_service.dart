@@ -11,7 +11,7 @@ class SpeedTestService {
       return Uri.base.resolve('speedtest.bin?cb=$cacheBust');
     }
     return Uri.parse(
-        'https://hellonomadwise.github.io/nomadwise-maps/speedtest.bin?cb=$cacheBust');
+        'https://nomadmaps.io/speedtest.bin?cb=$cacheBust');
   }
 
   static Future<double> _timedDownload(int cacheBust) async {

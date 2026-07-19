@@ -118,17 +118,17 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
               mimeType: 'image/png', name: 'nomadwise_maps.png')
         ],
         text: '${venue.name} on Nomadwise Maps: '
-            'https://hellonomadwise.github.io/nomadwise-maps/',
+            'https://nomadmaps.io/',
       );
     } catch (_) {
       // Device cannot share images (e.g. desktop): share the link.
       try {
         await Share.share('${venue.name} on Nomadwise Maps: '
-            'https://hellonomadwise.github.io/nomadwise-maps/');
+            'https://nomadmaps.io/');
       } catch (_) {
         await Clipboard.setData(const ClipboardData(
             text:
-                'https://hellonomadwise.github.io/nomadwise-maps/'));
+                'https://nomadmaps.io/'));
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
               content: Text('Link copied to clipboard.')));
