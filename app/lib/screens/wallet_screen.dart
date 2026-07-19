@@ -182,7 +182,6 @@ class _WalletScreenState extends State<WalletScreen> {
                             const SizedBox(height: 14),
                             SizedBox(
                               width: double.infinity,
-                              height: 44,
                               child: ElevatedButton.icon(
                                 onPressed:
                                     w.withdrawable > 0 && !_converting

@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
@@ -68,13 +69,31 @@ class StoryCard {
     y = _text(c, v.name, 76, FontWeight.w700, Colors.white,
         y: y + 16, maxLines: 2);
     if (v.rating != null) {
-      y = _text(
+      // Star drawn by hand: the bundled font has no star glyph.
+      final ratingText =
+          '${v.rating}${v.reviewCount != null ? ' (${v.reviewCount})' : ''}';
+      final tp = TextPainter(
+        text: TextSpan(
+            text: ratingText,
+            style: const TextStyle(
+                fontFamily: 'InstrumentSans',
+                fontSize: 38,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFFF4B23E),
+                height: 1.25)),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      const starR = 20.0;
+      final total = starR * 2 + 14 + tp.width;
+      final x0 = (_w - total) / 2;
+      final rowY = y + 14;
+      _star(
           c,
-          '★ ${v.rating}${v.reviewCount != null ? ' (${v.reviewCount})' : ''}',
-          38,
-          FontWeight.w600,
-          const Color(0xFFF4B23E),
-          y: y + 14);
+          Offset(x0 + starR, rowY + tp.height / 2),
+          starR,
+          const Color(0xFFF4B23E));
+      tp.paint(c, Offset(x0 + starR * 2 + 14, rowY));
+      y = rowY + tp.height;
     }
 
     // ---- glassy fact rows ----
@@ -140,6 +159,20 @@ class StoryCard {
     final bytes =
         await img.toByteData(format: ui.ImageByteFormat.png);
     return bytes?.buffer.asUint8List();
+  }
+
+  /// A five-point star, filled.
+  static void _star(Canvas c, Offset center, double r, Color color) {
+    final path = Path();
+    for (var i = 0; i < 10; i++) {
+      final rad = i.isEven ? r : r * .45;
+      final a = -math.pi / 2 + i * math.pi / 5;
+      final p = Offset(center.dx + rad * math.cos(a),
+          center.dy + rad * math.sin(a));
+      i == 0 ? path.moveTo(p.dx, p.dy) : path.lineTo(p.dx, p.dy);
+    }
+    path.close();
+    c.drawPath(path, Paint()..color = color);
   }
 
   /// Draws a line (or two) of text; returns the y just below it.
