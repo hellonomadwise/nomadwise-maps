@@ -208,6 +208,7 @@ class AdminUserDetailScreen extends StatefulWidget {
 class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
   final _supabase = SupabaseService();
   List<Map<String, dynamic>>? _activity;
+  String? _cohort; // 'team' | 'friend' | null = customer
 
   static const _kindLabel = {
     'new_venue': 'NEW SPACE',
@@ -232,7 +233,18 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
   Future<void> _load() async {
     final act =
         await _supabase.adminUserActivity(widget.user['id'] as String);
-    if (mounted) setState(() => _activity = act);
+    final cohorts = await _supabase.profileCohorts();
+    if (mounted) {
+      setState(() {
+        _activity = act;
+        _cohort = cohorts[widget.user['id']];
+      });
+    }
+  }
+
+  Future<void> _setCohort(String? value) async {
+    await _supabase.setCohort(widget.user['id'] as String, value);
+    if (mounted) setState(() => _cohort = value);
   }
 
   String _fmt(String? iso) {
@@ -287,7 +299,39 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
             _fmt(u['joined_at'])),
         _infoRow(Icons.login, 'Last sign-in',
             _fmt(u['last_sign_in_at'])),
-        const SizedBox(height: 18),
+        const SizedBox(height: 14),
+
+        // ---- analytics group ----
+        Row(children: [
+          const Icon(Icons.group_work_outlined,
+              size: 16, color: Brand.inkSecondary),
+          const SizedBox(width: 8),
+          const Text('Group:  ',
+              style: TextStyle(
+                  color: Brand.inkSecondary, fontSize: 13)),
+          Wrap(spacing: 6, children: [
+            for (final (label, value) in [
+              ('Customer', null),
+              ('Friend', 'friend'),
+              ('Team', 'team'),
+            ])
+              ChoiceChip(
+                label: Text(label,
+                    style: const TextStyle(fontSize: 12)),
+                selected: _cohort == value,
+                showCheckmark: false,
+                selectedColor: Brand.ink,
+                labelStyle: TextStyle(
+                    fontSize: 12,
+                    color: _cohort == value
+                        ? Colors.white
+                        : Brand.ink),
+                visualDensity: VisualDensity.compact,
+                onSelected: (_) => _setCohort(value),
+              ),
+          ]),
+        ]),
+        const SizedBox(height: 14),
         const Text('ACTIVITY',
             style: TextStyle(
                 color: Brand.red,

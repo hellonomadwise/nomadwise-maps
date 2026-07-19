@@ -21,9 +21,13 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
   Map<String, dynamic>? _economy;
   List<Map<String, dynamic>> _activity = [];
   Set<String> _internalUserIds = {};
+  Set<String> _friendUserIds = {};
+  Set<String> _friendAnonView = {};
   int _excludedVisitors = 0;
+  int _segment = 0; // 0 everyone · 1 friends · 2 customers
 
-  /// Team and test accounts, kept out of the numbers.
+  /// Fallback team list (the Group setting on each account is the
+  /// living source; these emails are always team regardless).
   static const _excludedEmails = {
     'hellonomadwise@gmail.com',
     'leonie.poelking@googlemail.com',
@@ -74,10 +78,18 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
     final economy = await _supabase.adminEconomy();
     final activity = await _supabase.liveActivity();
     final allUsers = await _supabase.adminUsers();
+    final cohorts = await _supabase.profileCohorts();
     final internal = allUsers
         .where((u) => _excludedEmails
             .contains((u['email'] ?? '').toString().toLowerCase()))
         .map((u) => u['id'] as String)
+        .toSet();
+    cohorts.forEach((id, c) {
+      if (c == 'team') internal.add(id);
+    });
+    final friends = cohorts.entries
+        .where((e) => e.value == 'friend')
+        .map((e) => e.key)
         .toSet();
     if (mounted) {
       setState(() {
@@ -86,6 +98,7 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
         _economy = economy;
         _activity = activity;
         _internalUserIds = internal;
+        _friendUserIds = friends;
       });
     }
   }
@@ -139,9 +152,20 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
         .map((e) => e['anon_id'] as String)
         .toSet();
     _excludedVisitors = internalAnon.length;
-    final events = allEvents
-        .where((e) => !internalAnon.contains(e['anon_id']))
-        .toList();
+    // Devices used by accounts marked as friends.
+    final friendAnon = allEvents
+        .where((e) => _friendUserIds.contains(e['user_id']))
+        .map((e) => e['anon_id'] as String)
+        .toSet()
+      ..removeAll(internalAnon);
+    _friendAnonView = friendAnon;
+    final events = allEvents.where((e) {
+      final anon = e['anon_id'] as String;
+      if (internalAnon.contains(anon)) return false;
+      if (_segment == 1) return friendAnon.contains(anon);
+      if (_segment == 2) return !friendAnon.contains(anon);
+      return true;
+    }).toList();
 
     final visitors = <String, List<Map<String, dynamic>>>{};
     for (final e in events) {
@@ -245,6 +269,8 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
     return ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: [
+          _audienceTabs(),
+          const SizedBox(height: 14),
           Row(children: [
             _tile('${visitors.length}', 'Visitors · 14d'),
             const SizedBox(width: 10),
@@ -430,16 +456,72 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
             )
           else
             ...visitorList.map((v) => _visitorRow(v.key, v.value)),
-          if (_excludedVisitors > 0) ...[
+          if (_excludedVisitors > 0 || _segment != 0) ...[
             const SizedBox(height: 14),
             Text(
-                'Excluding $_excludedVisitors team '
-                'device${_excludedVisitors == 1 ? '' : 's'} '
-                '(your own accounts) from all numbers above.',
+                [
+                  if (_excludedVisitors > 0)
+                    'Excluding $_excludedVisitors team '
+                        'device${_excludedVisitors == 1 ? '' : 's'} '
+                        '(your own accounts).',
+                  if (_segment == 1)
+                    'Showing friends only. Mark accounts as '
+                        'friends in Users.',
+                  if (_segment == 2)
+                    'Showing customers only (friend devices '
+                        'hidden).',
+                ].join(' '),
                 style: const TextStyle(
                     fontSize: 11.5, color: Brand.inkFaint)),
           ],
         ]);
+  }
+
+  Widget _audienceTabs() {
+    Widget seg(int index, String label) {
+      final active = _segment == index;
+      return Expanded(
+        child: GestureDetector(
+          onTap: () => setState(() => _segment = index),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            padding: const EdgeInsets.symmetric(vertical: 9),
+            decoration: BoxDecoration(
+              color: active ? Brand.surface : Colors.transparent,
+              borderRadius: BorderRadius.circular(9),
+              boxShadow: active
+                  ? [
+                      BoxShadow(
+                          color: Colors.black.withOpacity(.06),
+                          blurRadius: 6,
+                          offset: const Offset(0, 1))
+                    ]
+                  : null,
+            ),
+            child: Text(label,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight:
+                        active ? FontWeight.w700 : FontWeight.w600,
+                    color: active ? Brand.ink : Brand.inkMuted)),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: Brand.field,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(children: [
+        seg(0, 'Everyone'),
+        seg(1, 'Friends'),
+        seg(2, 'Customers'),
+      ]),
+    );
   }
 
   Widget _funnelRow(String label, int value, int base) {
@@ -511,6 +593,7 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
   Widget _visitorRow(
       String anonId, List<Map<String, dynamic>> trail) {
     final (name, signedIn) = _who(trail);
+    final isFriend = _friendAnonView.contains(anonId);
     return InkWell(
       onTap: () => _showTrail(name, trail),
       child: Padding(
@@ -522,10 +605,31 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
             child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(name,
-                      style: const TextStyle(
-                          fontSize: 14.5,
-                          fontWeight: FontWeight.w600)),
+                  Row(children: [
+                    Flexible(
+                      child: Text(name,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              fontSize: 14.5,
+                              fontWeight: FontWeight.w600)),
+                    ),
+                    if (isFriend) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 7, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Brand.goldTint,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Text('Friend',
+                            style: TextStyle(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w700,
+                                color: Brand.goldTextDark)),
+                      ),
+                    ],
+                  ]),
                   Text(
                       '${trail.length} action'
                       '${trail.length == 1 ? '' : 's'} · '

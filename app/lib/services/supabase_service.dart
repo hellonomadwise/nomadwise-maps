@@ -443,6 +443,32 @@ class SupabaseService {
     }
   }
 
+  /// Admin only: which accounts belong to which group
+  /// ('team' | 'friend'; absent = genuine customer).
+  Future<Map<String, String>> profileCohorts() async {
+    try {
+      final rows = await _db
+          .from('profiles')
+          .select('id, cohort')
+          .not('cohort', 'is', null);
+      return {
+        for (final r in rows as List)
+          r['id'] as String: r['cohort'] as String
+      };
+    } catch (_) {
+      return {}; // column not there yet
+    }
+  }
+
+  /// Admin only: put an account in a group (null = customer).
+  Future<void> setCohort(String userId, String? cohort) async {
+    try {
+      await _db
+          .from('profiles')
+          .update({'cohort': cohort}).eq('id', userId);
+    } catch (_) {}
+  }
+
   /// Admin only: coin/euro totals across all users.
   Future<Map<String, dynamic>?> adminEconomy() async {
     try {
