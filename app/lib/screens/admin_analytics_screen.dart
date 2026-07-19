@@ -250,8 +250,14 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
       ..sort((a, b) => b.value.compareTo(a.value));
 
     // ---- active cities (verified contributions) ----
+    // Team contributions never count; friends follow the switcher.
     final cityCounts = <String, int>{};
     for (final a in _activity) {
+      final uid = a['user_id'] as String?;
+      if (_internalUserIds.contains(uid)) continue;
+      final isFriend = _friendUserIds.contains(uid);
+      if (_segment == 1 && !isFriend) continue;
+      if (_segment == 2 && isFriend) continue;
       final city = a['city'] as String?;
       if (city != null) {
         cityCounts[city] = (cityCounts[city] ?? 0) + 1;
@@ -260,7 +266,21 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
     final topCities = cityCounts.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
 
-    final eco = _economy;
+    // The economy comes per group (migration 22). Before that
+    // migration runs the old flat shape arrives; use it as-is.
+    final ecoRaw = _economy;
+    final segKey = _segment == 1
+        ? 'friend'
+        : _segment == 2
+            ? 'customer'
+            : 'all';
+    final eco = ecoRaw == null
+        ? null
+        : ecoRaw.containsKey('all')
+            ? (ecoRaw[segKey] is Map
+                ? Map<String, dynamic>.from(ecoRaw[segKey])
+                : null)
+            : ecoRaw;
     final liabilityCents = eco == null
         ? 0
         : ((eco['coins_withdrawable'] as num? ?? 0).toInt() +
