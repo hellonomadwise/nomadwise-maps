@@ -21,6 +21,7 @@ import '../theme.dart';
 import '../widgets/ui.dart';
 import 'add_venue_screen.dart';
 import 'admin_screen.dart';
+import 'admin_analytics_screen.dart';
 import 'admin_users_screen.dart';
 import 'feedback_inbox_screen.dart';
 import 'intro_overlay.dart';
@@ -1005,6 +1006,18 @@ class _MapScreenState extends State<MapScreen> {
                     setState(() => _pendingCount = pending.length);
                   }
                 } catch (_) {}
+              },
+            ),
+            _menuRow(
+              icon: Icons.insights_outlined,
+              label: 'Analytics',
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) =>
+                            const AdminAnalyticsScreen()));
               },
             ),
             _menuRow(

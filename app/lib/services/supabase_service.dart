@@ -422,6 +422,27 @@ class SupabaseService {
     }
   }
 
+  /// Admin only: recent app activity for the analytics screen.
+  Future<List<Map<String, dynamic>>> adminEvents({int days = 7}) async {
+    try {
+      final since = DateTime.now()
+          .toUtc()
+          .subtract(Duration(days: days))
+          .toIso8601String();
+      final rows = await _db
+          .from('app_events')
+          .select()
+          .gte('created_at', since)
+          .order('created_at', ascending: false)
+          .limit(2000);
+      return (rows as List)
+          .map((r) => Map<String, dynamic>.from(r))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
   // ---------- feedback ----------
 
   Future<bool> sendFeedback(String message, {String? contact}) async {

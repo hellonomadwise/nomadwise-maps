@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Sends product analytics events to PostHog (EU cloud).
 ///
@@ -46,6 +47,7 @@ class Analytics {
   static Future<void> capture(String event,
       [Map<String, dynamic>? props]) async {
     final id = await _id();
+    _mirror(event, id, props); // in-app admin analytics, best effort
     await _post({
       'api_key': _apiKey,
       'event': event,
@@ -53,6 +55,22 @@ class Analytics {
       'properties': {'app': 'nomadwise-maps', ...?props},
       'timestamp': DateTime.now().toUtc().toIso8601String(),
     });
+  }
+
+  /// Mirror the event into Supabase so the admin can browse activity
+  /// inside the app. Never blocks, never throws.
+  static void _mirror(
+      String event, String anonId, Map<String, dynamic>? props) {
+    try {
+      final db = Supabase.instance.client;
+      db.from('app_events').insert({
+        'anon_id': anonId,
+        if (db.auth.currentUser != null)
+          'user_id': db.auth.currentUser!.id,
+        'name': event,
+        if (props != null && props.isNotEmpty) 'props': props,
+      }).then((_) {}, onError: (_) {});
+    } catch (_) {}
   }
 
   /// Tie this device's activity to a signed-in account.
