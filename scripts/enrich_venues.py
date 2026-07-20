@@ -143,6 +143,25 @@ def snapshot_details(place_id):
         })
 
 
+def slim(details):
+    """Keep only the fields the app actually reads. The raw response
+    carries heavy extras (address breakdowns, photo author credits)
+    that would otherwise be downloaded on every single app open."""
+    if not details:
+        return details
+    out = {}
+    for k in ('displayName', 'rating', 'userRatingCount',
+              'currentOpeningHours', 'regularOpeningHours',
+              'location', 'shortFormattedAddress'):
+        if details.get(k) is not None:
+            out[k] = details[k]
+    photos = details.get('photos') or []
+    if photos:
+        out['photos'] = [{'name': p['name']}
+                         for p in photos[:6] if p.get('name')]
+    return out
+
+
 try:
     rows = req(
         f'{SUPABASE_URL}/rest/v1/venues'
@@ -176,7 +195,7 @@ for v in stale[:MAX_PER_RUN]:
             snap_failed.append(v['name'])
             continue
         patch = {
-            'g_details': details,
+            'g_details': slim(details),
             'g_synced_at': datetime.now(timezone.utc).isoformat(),
         }
         if details.get('rating') is not None:
@@ -196,3 +215,35 @@ print(f'Snapshots: {snapped} refreshed, {len(rows) - len(stale)} fresh, '
       f'{skipped} deferred to next run.')
 if snap_failed:
     print('Snapshot failures:', *snap_failed, sep='\n  - ')
+
+
+# ------------------------------------------------------------
+# Cleanup: slim any already-stored snapshots that still carry
+# the heavy extras. Pure JSON rework — zero Google calls.
+# ------------------------------------------------------------
+try:
+    full = req(
+        f'{SUPABASE_URL}/rest/v1/venues'
+        '?select=id,g_details&g_details=not.is.null',
+        headers=sb_headers())
+except Exception:  # noqa: BLE001
+    full = []
+
+slimmed = 0
+for v in full:
+    d = v.get('g_details') or {}
+    bloated = ('addressComponents' in d
+               or any(set(p.keys()) - {'name'}
+                      for p in (d.get('photos') or [])))
+    if not bloated:
+        continue
+    try:
+        req(f"{SUPABASE_URL}/rest/v1/venues?id=eq.{v['id']}",
+            method='PATCH',
+            headers=sb_headers({'Prefer': 'return=minimal'}),
+            body={'g_details': slim(d)})
+        slimmed += 1
+    except Exception:  # noqa: BLE001
+        pass
+if slimmed:
+    print(f'Slimmed {slimmed} stored snapshots.')
