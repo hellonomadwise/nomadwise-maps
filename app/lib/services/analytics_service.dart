@@ -5,6 +5,8 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'ua_stub.dart' if (dart.library.html) 'ua_web.dart' as ua;
+
 /// Sends product analytics events to PostHog (EU cloud).
 ///
 /// Uses PostHog's public capture API directly: no SDK dependency, works on
@@ -23,8 +25,26 @@ class Analytics {
   /// browser as an internal device and analytics go fully silent on it
   /// (no PostHog, no in-app analytics, no phone pings). The mark
   /// persists for this browser; nomadmaps.io/#public lifts it again.
+  static final _botPattern = RegExp(
+      r'bot|crawl|spider|slurp|headless|lighthouse|phantom|selenium|'
+      r'puppeteer|playwright|bingpreview|facebookexternalhit|'
+      r'whatsapp|telegram|discord|skype|preview|python|curl|wget|'
+      r'monitor|pingdom|uptime',
+      caseSensitive: false);
+
+  /// Automated browsers (crawlers, link-preview fetchers, uptime
+  /// checkers) are not visitors: keep them out of all analytics.
+  static bool get _isBot {
+    try {
+      return ua.isWebdriver() || _botPattern.hasMatch(ua.userAgent());
+    } catch (_) {
+      return false;
+    }
+  }
+
   static Future<bool> _isInternal() async {
     if (_internal != null) return _internal!;
+    if (_isBot) return _internal = true;
     var flag = false;
     try {
       final prefs = await SharedPreferences.getInstance();
