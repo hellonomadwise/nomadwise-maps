@@ -548,13 +548,15 @@ class _MapScreenState extends State<MapScreen> {
     if (mounted) setState(() {});
   }
 
-  /// Discovered places not yet on our map as venues.
+  /// Discovered places not yet on our map as venues. Promising ones
+  /// (reviews mention wifi/laptops) filter as their own category.
   List<DiscoveredPlace> get _visibleDiscovered {
-    if (!_catVisible('unscreened')) return [];
     final venuePlaceIds =
         _venues.map((v) => v.googlePlaceId).whereType<String>().toSet();
     return _discovered
-        .where((d) => !venuePlaceIds.contains(d.placeId))
+        .where((d) =>
+            !venuePlaceIds.contains(d.placeId) &&
+            _catVisible(d.promising ? 'promising' : 'unscreened'))
         .toList();
   }
 
@@ -1954,7 +1956,8 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Widget _legend() {
-    Widget row(Color color, String label, String cat) {
+    Widget row(Color color, String label, String cat,
+        {bool outline = false}) {
       final selecting = _pinFilter.isNotEmpty;
       final selected = _pinFilter.contains(cat);
       final shown = !selecting || selected;
@@ -1967,7 +1970,11 @@ class _MapScreenState extends State<MapScreen> {
           if (_selected != null && !_visibleVenues.contains(_selected)) {
             _selected = null;
           }
-          if (!_catVisible('unscreened')) _selectedDiscovered = null;
+          final sel = _selectedDiscovered;
+          if (sel != null &&
+              !_catVisible(sel.promising ? 'promising' : 'unscreened')) {
+            _selectedDiscovered = null;
+          }
         }),
         child: Opacity(
           opacity: shown ? 1 : .35,
@@ -1975,7 +1982,12 @@ class _MapScreenState extends State<MapScreen> {
             padding:
                 const EdgeInsets.symmetric(vertical: 3, horizontal: 2),
             child: Row(mainAxisSize: MainAxisSize.min, children: [
-              Icon(Icons.location_on, size: 16, color: color),
+              Icon(
+                  outline
+                      ? Icons.location_on_outlined
+                      : Icons.location_on,
+                  size: 16,
+                  color: color),
               const SizedBox(width: 5),
               Text(label,
                   style: TextStyle(
@@ -2055,8 +2067,10 @@ class _MapScreenState extends State<MapScreen> {
         row(Brand.red, 'Work-friendly', 'yes'),
         row(Brand.ink, 'Not for laptops', 'no'),
         row(Brand.amber, 'Unknown · confirm & earn', 'unknown'),
-        row(Brand.inkFaint, 'Unscreened · review & earn',
-            'unscreened'),
+        row(Brand.violet, 'Promising · wifi/laptops in reviews',
+            'promising'),
+        row(Brand.violet, 'Unscreened · review & earn', 'unscreened',
+            outline: true),
         if (filtering)
           InkWell(
             borderRadius: BorderRadius.circular(8),

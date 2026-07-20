@@ -19,6 +19,7 @@ class Brand {
   static const gold = Color(0xFFF4B23E);
   static const goldTint = Color(0xFFFDF3DF);
   static const goldTextDark = Color(0xFF8A6A1F); // on goldTint chips
+  static const violet = Color(0xFF7B5BD6); // unscreened/discovered pins
   static const goldLink = Color(0xFFB8860B); // gold links/labels
 
   // ---- feedback ----
