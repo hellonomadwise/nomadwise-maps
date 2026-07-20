@@ -81,6 +81,7 @@ class _MapScreenState extends State<MapScreen> {
   bool _isAdmin = false;
 
   BitmapDescriptor? _pinYes, _pinNo, _pinUnknown, _pinUnscreened, _pinMe;
+  BitmapDescriptor? _pinPromising;
   bool _hasRealLocation = false;
 
   String? _displayName;
@@ -346,6 +347,8 @@ class _MapScreenState extends State<MapScreen> {
         await BitmapDescriptor.asset(cfg, 'assets/pins/pin_unknown.png');
     _pinUnscreened = await BitmapDescriptor.asset(
         cfg, 'assets/pins/pin_unscreened.png');
+    _pinPromising = await BitmapDescriptor.asset(
+        cfg, 'assets/pins/pin_unscreened_promising.png');
     _pinMe = await BitmapDescriptor.asset(
         const ImageConfiguration(size: Size(32, 32)),
         'assets/pins/my_location.png');
@@ -670,7 +673,9 @@ class _MapScreenState extends State<MapScreen> {
         ..._visibleDiscovered.map((d) => Marker(
               markerId: MarkerId('disc-${d.placeId}'),
               position: LatLng(d.lat, d.lng),
-              icon: _pinUnscreened ??
+              // Solid violet = reviews mention wifi/plugs/laptops;
+              // outline violet = nothing known yet.
+              icon: (d.promising ? _pinPromising : _pinUnscreened) ??
                   BitmapDescriptor.defaultMarkerWithHue(200),
               alpha: 0.92,
               onTap: () {

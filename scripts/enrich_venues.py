@@ -247,3 +247,73 @@ for v in full:
         pass
 if slimmed:
     print(f'Slimmed {slimmed} stored snapshots.')
+
+
+# ============================================================
+# Phase 3: nomad signals for discovered (unscreened) places.
+# Reads each place's Google reviews ONCE and stores how often
+# they mention wifi / plugs / laptops, so the map can highlight
+# promising pins without any per-user Google calls.
+# ============================================================
+
+SIGNAL_WORDS = {
+    'wifi': ['wifi', 'wi-fi', 'wlan', 'internet'],
+    'power': ['plug', 'socket', 'outlet', 'steckdose', 'tomada',
+              'enchufe'],
+    'laptop': ['laptop', 'notebook', 'digital nomad', 'remote work',
+               'work from', 'working from', 'arbeiten', 'trabalhar',
+               'trabajar', 'study', 'studying'],
+}
+SIGNALS_PER_RUN = 150
+
+try:
+    unchecked = req(
+        f'{SUPABASE_URL}/rest/v1/discovered_places'
+        '?select=google_place_id,name'
+        '&signals_checked_at=is.null'
+        f'&limit={SIGNALS_PER_RUN}',
+        headers=sb_headers())
+except Exception as e:  # noqa: BLE001
+    unchecked = []
+    print(f'Signals phase skipped (migration 29 not run yet?): {e}')
+
+import urllib.error  # noqa: E402
+
+checked, promising = 0, 0
+for p in unchecked:
+    counts = {'wifi': 0, 'power': 0, 'laptop': 0}
+    try:
+        details = req(
+            f"https://places.googleapis.com/v1/places/{p['google_place_id']}",
+            headers={
+                'X-Goog-Api-Key': PLACES_KEY,
+                'X-Goog-FieldMask': 'reviews',
+            })
+        for rv in (details or {}).get('reviews') or []:
+            text = ((rv.get('text') or {}).get('text') or '').lower()
+            for signal, words in SIGNAL_WORDS.items():
+                if any(w in text for w in words):
+                    counts[signal] += 1
+    except urllib.error.HTTPError:
+        pass  # place gone or no access: store zeros, do not retry
+    except Exception:  # noqa: BLE001
+        continue  # transient problem: leave unchecked for next run
+    try:
+        req(f"{SUPABASE_URL}/rest/v1/discovered_places"
+            f"?google_place_id=eq.{p['google_place_id']}",
+            method='PATCH',
+            headers=sb_headers({'Prefer': 'return=minimal'}),
+            body={
+                'signal_wifi': counts['wifi'],
+                'signal_power': counts['power'],
+                'signal_laptop': counts['laptop'],
+                'signals_checked_at':
+                    datetime.now(timezone.utc).isoformat(),
+            })
+        checked += 1
+        if any(counts.values()):
+            promising += 1
+    except Exception:  # noqa: BLE001
+        pass
+
+print(f'Signals: {checked} places checked, {promising} promising.')

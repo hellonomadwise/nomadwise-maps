@@ -10,6 +10,19 @@ class DiscoveredPlace {
   final num? rating;
   final int? userRatingCount;
 
+  /// Review mention counts stored by the nightly job (null = not
+  /// checked yet).
+  final int? signalWifi;
+  final int? signalPower;
+  final int? signalLaptop;
+
+  /// True when this place's Google reviews mention wifi, plugs or
+  /// laptops — worth a solid pin on the map.
+  bool get promising =>
+      (signalWifi ?? 0) > 0 ||
+      (signalPower ?? 0) > 0 ||
+      (signalLaptop ?? 0) > 0;
+
   DiscoveredPlace({
     required this.placeId,
     required this.name,
@@ -18,6 +31,9 @@ class DiscoveredPlace {
     this.primaryType,
     this.rating,
     this.userRatingCount,
+    this.signalWifi,
+    this.signalPower,
+    this.signalLaptop,
   });
 
   /// From a Google Places searchNearby result.
@@ -42,6 +58,9 @@ class DiscoveredPlace {
         primaryType: r['primary_type'],
         rating: r['rating'],
         userRatingCount: r['user_rating_count'],
+        signalWifi: r['signal_wifi'],
+        signalPower: r['signal_power'],
+        signalLaptop: r['signal_laptop'],
       );
 
   Map<String, dynamic> toRow() => {
