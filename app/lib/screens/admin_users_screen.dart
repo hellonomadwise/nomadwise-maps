@@ -240,7 +240,34 @@ class AdminUserDetailScreen extends StatefulWidget {
 class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
   final _supabase = SupabaseService();
   List<Map<String, dynamic>>? _activity;
+  List<Map<String, dynamic>>? _appEvents;
   String? _cohort; // 'team' | 'friend' | null = customer
+
+  static const _eventNames = {
+    'app_opened': 'Opened the app',
+    'venue_viewed': 'Viewed a space',
+    'area_searched': 'Searched an area',
+    'screening_opened': 'Started screening a space',
+    'global_search_used': 'Used global search',
+    'directions_clicked': 'Opened directions',
+    'signed_in': 'Signed in',
+    'signed_out': 'Signed out',
+    'submission_sent': 'Sent a submission',
+    'wifi_test_measured': 'Measured wifi',
+    'wallet_viewed': 'Opened the wallet',
+    'leaderboard_viewed': 'Opened the leaderboard',
+    'space_shared': 'Shared a space',
+    'intro_shown': 'Saw the intro',
+    'intro_completed': 'Finished the intro',
+    'intro_skipped': 'Skipped the intro',
+    'feedback_sent': 'Sent feedback',
+    'coins_converted': 'Converted coins to euros',
+    'cashout_requested': 'Tapped cash out',
+    'avatar_updated': 'Changed profile photo',
+    'nickname_set': 'Set a nickname',
+    'anon_finds_claimed': 'Claimed their discoveries',
+    'add_to_home_opened': 'Opened Add to Home Screen',
+  };
 
   static const _kindLabel = {
     'new_venue': 'NEW SPACE',
@@ -266,10 +293,26 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
     final act =
         await _supabase.adminUserActivity(widget.user['id'] as String);
     final cohorts = await _supabase.profileCohorts();
+    // Everything this person did in the app (taps, views, searches):
+    // their signed-in events plus everything else from the same
+    // devices, so pre-sign-in browsing shows too.
+    final all = await _supabase.adminEvents(days: 14);
+    final id = widget.user['id'];
+    final devices = all
+        .where((e) => e['user_id'] == id)
+        .map((e) => e['anon_id'] as String)
+        .toSet();
+    final events = all
+        .where((e) =>
+            e['user_id'] == id || devices.contains(e['anon_id']))
+        .toList()
+      ..sort((a, b) => (b['created_at'] as String)
+          .compareTo(a['created_at'] as String));
     if (mounted) {
       setState(() {
         _activity = act;
         _cohort = cohorts[widget.user['id']];
+        _appEvents = events;
       });
     }
   }
@@ -364,7 +407,29 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
           ]),
         ]),
         const SizedBox(height: 14),
-        const Text('ACTIVITY',
+        const Text('APP ACTIVITY · 14 DAYS',
+            style: TextStyle(
+                color: Brand.red,
+                fontWeight: FontWeight.w900,
+                fontSize: 13,
+                letterSpacing: 1)),
+        const SizedBox(height: 6),
+        if (_appEvents == null)
+          const Padding(
+            padding: EdgeInsets.all(16),
+            child: Center(
+                child: CircularProgressIndicator(color: Brand.red)),
+          )
+        else if (_appEvents!.isEmpty)
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text('Nothing recorded in the last two weeks.',
+                style: TextStyle(color: Colors.grey.shade600)),
+          )
+        else
+          ..._appEvents!.take(40).map(_eventRow),
+        const SizedBox(height: 18),
+        const Text('CONTRIBUTIONS',
             style: TextStyle(
                 color: Brand.red,
                 fontWeight: FontWeight.w900,
@@ -381,12 +446,58 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
           Padding(
             padding: const EdgeInsets.all(24),
             child: Center(
-                child: Text('No activity yet.',
+                child: Text('No reviews or submissions yet.',
                     style: TextStyle(color: Colors.grey.shade600))),
           )
         else
           ...act.map(_activityTile),
         const SizedBox(height: 24),
+      ]),
+    );
+  }
+
+  String _agoShort(String? iso) {
+    final t = DateTime.tryParse(iso ?? '');
+    if (t == null) return '';
+    final d = DateTime.now().toUtc().difference(t.toUtc());
+    if (d.inMinutes < 1) return 'just now';
+    if (d.inMinutes < 60) return '${d.inMinutes}m ago';
+    if (d.inHours < 24) return '${d.inHours}h ago';
+    return '${d.inDays}d ago';
+  }
+
+  Widget _eventRow(Map<String, dynamic> e) {
+    final props = (e['props'] is Map)
+        ? Map<String, dynamic>.from(e['props'])
+        : <String, dynamic>{};
+    final detail = [
+      if (props['venue'] != null) props['venue'],
+      if (props['place'] != null) props['place'],
+      if (props['query'] != null) '"${props['query']}"',
+      if (props['mbps'] != null) '${props['mbps']} Mbps',
+    ].join(' · ');
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Expanded(
+          child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                    _eventNames[e['name']] ?? e['name'] as String,
+                    style: const TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w600)),
+                if (detail.isNotEmpty)
+                  Text(detail,
+                      style: const TextStyle(
+                          fontSize: 12,
+                          color: Brand.inkSecondary)),
+              ]),
+        ),
+        Text(_agoShort(e['created_at']),
+            style: const TextStyle(
+                fontSize: 11.5, color: Brand.inkFaint)),
       ]),
     );
   }
