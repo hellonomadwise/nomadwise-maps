@@ -91,12 +91,21 @@ class Analytics {
       [Map<String, dynamic>? props]) async {
     if (await _isInternal()) return;
     final id = await _id();
-    _mirror(event, id, props); // in-app admin analytics, best effort
+    // Record the browser identity with each arrival, so disguised
+    // bots can be recognised and filtered after the fact.
+    final merged = <String, dynamic>{
+      if (event == 'app_opened' && ua.userAgent().isNotEmpty)
+        'ua': ua.userAgent().length > 160
+            ? ua.userAgent().substring(0, 160)
+            : ua.userAgent(),
+      ...?props,
+    };
+    _mirror(event, id, merged); // in-app admin analytics, best effort
     await _post({
       'api_key': _apiKey,
       'event': event,
       'distinct_id': id,
-      'properties': {'app': 'nomadwise-maps', ...?props},
+      'properties': {'app': 'nomadwise-maps', ...merged},
       'timestamp': DateTime.now().toUtc().toIso8601String(),
     });
   }

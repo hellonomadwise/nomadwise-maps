@@ -36,6 +36,14 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
     'corneliousbeck@gmail.com',
   };
 
+  /// Browser identities that mean "not a human visitor".
+  static final _botUa = RegExp(
+      r'bot|crawl|spider|slurp|headless|lighthouse|phantom|selenium|'
+      r'puppeteer|playwright|bingpreview|facebookexternalhit|'
+      r'whatsapp|telegram|discord|skype|preview|python|curl|wget|'
+      r'monitor|pingdom|uptime|inspection|google-read|feedfetcher',
+      caseSensitive: false);
+
   static const _friendly = {
     'app_opened': 'Opened the app',
     'venue_viewed': 'Viewed a space',
@@ -152,11 +160,18 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
     // Devices used by team accounts drop out of all the numbers —
     // including devices remembered from earlier team sign-ins, so
     // browsing signed out on the same phone stays excluded too.
+    // Visitors whose recorded browser identity looks automated
+    // (crawlers, link-preview fetchers) drop out as well.
     final internalAnon = allEvents
         .where((e) => _internalUserIds.contains(e['user_id']))
         .map((e) => e['anon_id'] as String)
         .toSet()
-      ..addAll(_teamDevices);
+      ..addAll(_teamDevices)
+      ..addAll(allEvents.where((e) {
+        final p = e['props'];
+        final u = p is Map ? p['ua'] as String? : null;
+        return u != null && _botUa.hasMatch(u);
+      }).map((e) => e['anon_id'] as String));
     final presentAnon =
         allEvents.map((e) => e['anon_id'] as String).toSet();
     _excludedVisitors =
