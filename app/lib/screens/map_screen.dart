@@ -740,10 +740,21 @@ class _MapScreenState extends State<MapScreen> {
   // ---------- global space search ----------
 
   Future<void> _openSearch() async {
-    final result = await showSearch<Object?>(
-        context: context,
-        delegate: _SpaceSearchDelegate(
-            _venues, _places, _userLat, _userLng));
+    // Instant (no-animation) route: the phone keyboard only opens
+    // automatically when focus lands during the tap itself, and a
+    // page transition breaks that timing on iOS.
+    final result = await Navigator.push<Object?>(
+      context,
+      PageRouteBuilder(
+        transitionDuration: Duration.zero,
+        reverseTransitionDuration: Duration.zero,
+        pageBuilder: (_, __, ___) => _SpaceSearchScreen(
+            venues: _venues,
+            places: _places,
+            nearLat: _userLat,
+            nearLng: _userLng),
+      ),
+    );
     if (result == null || !mounted) return;
 
     if (result is Venue && result.lat != null) {
@@ -2079,24 +2090,68 @@ class _MapScreenState extends State<MapScreen> {
 // Venue search (by name)
 // ============================================================
 
-class _SpaceSearchDelegate extends SearchDelegate<Object?> {
+class _SpaceSearchScreen extends StatefulWidget {
   final List<Venue> venues;
   final PlacesService places;
   final double? nearLat, nearLng;
-  _SpaceSearchDelegate(this.venues, this.places, this.nearLat, this.nearLng)
-      : super(searchFieldLabel: 'Search any space, anywhere…');
+  const _SpaceSearchScreen(
+      {required this.venues,
+      required this.places,
+      this.nearLat,
+      this.nearLng});
 
   @override
-  List<Widget> buildActions(BuildContext context) => [
-        if (query.isNotEmpty)
-          IconButton(
-              icon: const Icon(Icons.clear), onPressed: () => query = '')
-      ];
+  State<_SpaceSearchScreen> createState() => _SpaceSearchScreenState();
+}
+
+class _SpaceSearchScreenState extends State<_SpaceSearchScreen> {
+  final _ctrl = TextEditingController();
+
+  List<Venue> get venues => widget.venues;
+  PlacesService get places => widget.places;
+  String get query => _ctrl.text;
 
   @override
-  Widget buildLeading(BuildContext context) => IconButton(
-      icon: const Icon(Icons.arrow_back),
-      onPressed: () => close(context, null));
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  void close(BuildContext context, Object? result) =>
+      Navigator.pop(context, result);
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => close(context, null)),
+        title: TextField(
+          controller: _ctrl,
+          autofocus: true,
+          textInputAction: TextInputAction.search,
+          decoration: const InputDecoration(
+            hintText: 'Search any space, anywhere…',
+            border: InputBorder.none,
+          ),
+          style: const TextStyle(fontSize: 17),
+          onChanged: (_) => setState(() {}),
+        ),
+        actions: [
+          if (query.isNotEmpty)
+            IconButton(
+                icon: const Icon(Icons.clear),
+                onPressed: () => setState(() => _ctrl.clear()))
+        ],
+      ),
+      body: query.trim().length < 3
+          ? Center(
+              child: Text('Type at least 3 letters…',
+                  style: TextStyle(color: Colors.grey.shade500)))
+          : _resultList(context),
+    );
+  }
 
   Widget _resultList(BuildContext context) {
     final q = query.trim().toLowerCase();
@@ -2147,7 +2202,7 @@ class _SpaceSearchDelegate extends SearchDelegate<Object?> {
       header('FROM GOOGLE · ANYWHERE'),
       FutureBuilder<List<PlaceSuggestion>>(
         future: places.autocomplete(query,
-            nearLat: nearLat, nearLng: nearLng),
+            nearLat: widget.nearLat, nearLng: widget.nearLng),
         builder: (ctx, snap) {
           if (!snap.hasData) {
             return const Padding(
@@ -2189,16 +2244,6 @@ class _SpaceSearchDelegate extends SearchDelegate<Object?> {
       ),
     ]);
   }
-
-  @override
-  Widget buildResults(BuildContext context) => _resultList(context);
-
-  @override
-  Widget buildSuggestions(BuildContext context) => query.trim().length < 3
-      ? Center(
-          child: Text('Type at least 3 letters…',
-              style: TextStyle(color: Colors.grey.shade500)))
-      : _resultList(context);
 }
 
 // ============================================================
