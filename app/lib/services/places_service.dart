@@ -161,6 +161,32 @@ class PlacesService {
     }
   }
 
+  final Map<String, List<String>> _photoNameCache = {};
+
+  /// Just the photo list for a place — a lean, cheap lookup used by
+  /// the map's tap cards (cached for the session).
+  Future<List<String>> photoNames(String placeId) async {
+    final hit = _photoNameCache[placeId];
+    if (hit != null) return hit;
+    try {
+      final resp = await http.get(
+        Uri.parse('https://places.googleapis.com/v1/places/$placeId'),
+        headers: {
+          'X-Goog-Api-Key': AppConfig.googlePlacesKey,
+          'X-Goog-FieldMask': 'photos',
+        },
+      );
+      if (resp.statusCode != 200) return [];
+      final photos = (jsonDecode(resp.body)['photos'] as List?) ?? [];
+      final names =
+          photos.map((p) => p['name'] as String).take(5).toList();
+      _photoNameCache[placeId] = names;
+      return names;
+    } catch (_) {
+      return [];
+    }
+  }
+
   // ---------- nomad-signal pre-screening ----------
 
   static const _signalWords = {

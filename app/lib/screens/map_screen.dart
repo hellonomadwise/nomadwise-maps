@@ -2618,6 +2618,7 @@ class _DiscoveredCard extends StatefulWidget {
 
 class _DiscoveredCardState extends State<_DiscoveredCard> {
   Map<String, int>? _signals;
+  List<String> _photos = [];
 
   DiscoveredPlace get place => widget.place;
 
@@ -2625,6 +2626,7 @@ class _DiscoveredCardState extends State<_DiscoveredCard> {
   void initState() {
     super.initState();
     _loadSignals();
+    _loadPhotos();
   }
 
   @override
@@ -2632,13 +2634,20 @@ class _DiscoveredCardState extends State<_DiscoveredCard> {
     super.didUpdateWidget(old);
     if (old.place.placeId != place.placeId) {
       _signals = null;
+      _photos = [];
       _loadSignals();
+      _loadPhotos();
     }
   }
 
   Future<void> _loadSignals() async {
     final s = await widget.places.nomadSignals(place.placeId);
     if (mounted) setState(() => _signals = s);
+  }
+
+  Future<void> _loadPhotos() async {
+    final p = await widget.places.photoNames(place.placeId);
+    if (mounted) setState(() => _photos = p);
   }
 
   Widget _signalsRow() {
@@ -2702,6 +2711,7 @@ class _DiscoveredCardState extends State<_DiscoveredCard> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            _cardPhotoStrip(_photos),
             Row(children: [
               Expanded(
                   child: Text(place.name,
@@ -2737,6 +2747,33 @@ class _DiscoveredCardState extends State<_DiscoveredCard> {
 // Compact card shown when a pin is tapped (map mode)
 // ============================================================
 
+/// Small scrollable photo strip for the pin tap cards — people are
+/// visual, a picture sells the place faster than any fact row.
+Widget _cardPhotoStrip(List<String> names) {
+  if (names.isEmpty) return const SizedBox.shrink();
+  return Padding(
+    padding: const EdgeInsets.only(bottom: 12),
+    child: SizedBox(
+      height: 96,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: names.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (_, i) => ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Image.network(
+            PlacesService.photoUrl(names[i], maxWidth: 400),
+            height: 96,
+            width: 132,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
 class _VenueCard extends StatelessWidget {
   final Venue venue;
   final VoidCallback onDetails;
@@ -2771,6 +2808,8 @@ class _VenueCard extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                _cardPhotoStrip(
+                    (venue.live?.photoNames ?? []).take(5).toList()),
                 Row(children: [
                   Expanded(
                       child: Text(venue.name,
