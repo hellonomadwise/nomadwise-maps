@@ -173,10 +173,8 @@ class _MapScreenState extends State<MapScreen> {
     _boot();
     _checkAdmin();
     Analytics.capture('app_opened');
-    // First visit ever? Explain the game before anything else.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) showIntroIfNeeded(context);
-    });
+    // The intro cards no longer auto-show on first visit (too much
+    // friction) — they live under "How it works" in the menu instead.
     _supabase.authChanges.listen((state) {
       _checkAdmin();
       final user = _supabase.currentUser;
