@@ -445,6 +445,17 @@ class SupabaseService {
 
   /// Admin only: which accounts belong to which group
   /// ('team' | 'friend'; absent = genuine customer).
+  /// Devices (anonymous ids) that have ever signed into a team
+  /// account — excluded from analytics even when browsing signed out.
+  Future<Set<String>> teamDevices() async {
+    try {
+      final rows = await _db.from('team_devices').select('anon_id');
+      return {for (final r in rows as List) r['anon_id'] as String};
+    } catch (_) {
+      return {};
+    }
+  }
+
   Future<Map<String, String>> profileCohorts() async {
     try {
       final rows = await _db

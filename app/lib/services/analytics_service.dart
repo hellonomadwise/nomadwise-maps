@@ -17,6 +17,29 @@ class Analytics {
   static const _host = 'https://eu.i.posthog.com';
 
   static String? _distinctId;
+  static bool? _internal;
+
+  /// Ghost mode: opening the app at nomadmaps.io/#internal marks this
+  /// browser as an internal device and analytics go fully silent on it
+  /// (no PostHog, no in-app analytics, no phone pings). The mark
+  /// persists for this browser; nomadmaps.io/#public lifts it again.
+  static Future<bool> _isInternal() async {
+    if (_internal != null) return _internal!;
+    var flag = false;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      flag = prefs.getBool('internal_device') ?? false;
+      final frag = Uri.base.fragment;
+      if (frag.contains('internal')) {
+        flag = true;
+        await prefs.setBool('internal_device', true);
+      } else if (frag.contains('public')) {
+        flag = false;
+        await prefs.setBool('internal_device', false);
+      }
+    } catch (_) {}
+    return _internal = flag;
+  }
 
   static Future<String> _id() async {
     if (_distinctId != null) return _distinctId!;
@@ -46,6 +69,7 @@ class Analytics {
   /// Record an event, e.g. Analytics.capture('venue_viewed', {'venue': name})
   static Future<void> capture(String event,
       [Map<String, dynamic>? props]) async {
+    if (await _isInternal()) return;
     final id = await _id();
     _mirror(event, id, props); // in-app admin analytics, best effort
     await _post({
@@ -76,6 +100,7 @@ class Analytics {
   /// Tie this device's activity to a signed-in account.
   static Future<void> identify(String userId,
       {String? email, String? name}) async {
+    if (await _isInternal()) return;
     final anon = await _id();
     _distinctId = userId;
     try {

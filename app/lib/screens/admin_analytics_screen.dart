@@ -22,6 +22,7 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
   List<Map<String, dynamic>> _activity = [];
   Set<String> _internalUserIds = {};
   Set<String> _friendUserIds = {};
+  Set<String> _teamDevices = {};
   Set<String> _friendAnonView = {};
   int _excludedVisitors = 0;
   int _segment = 0; // 0 everyone · 1 friends · 2 customers
@@ -79,6 +80,7 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
     final activity = await _supabase.liveActivity();
     final allUsers = await _supabase.adminUsers();
     final cohorts = await _supabase.profileCohorts();
+    final teamDevices = await _supabase.teamDevices();
     final internal = allUsers
         .where((u) => _excludedEmails
             .contains((u['email'] ?? '').toString().toLowerCase()))
@@ -99,6 +101,7 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
         _activity = activity;
         _internalUserIds = internal;
         _friendUserIds = friends;
+        _teamDevices = teamDevices;
       });
     }
   }
@@ -146,12 +149,18 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
   Widget _body(List<Map<String, dynamic>> allEvents) {
     final now = DateTime.now().toUtc();
 
-    // Devices used by team accounts drop out of all the numbers.
+    // Devices used by team accounts drop out of all the numbers —
+    // including devices remembered from earlier team sign-ins, so
+    // browsing signed out on the same phone stays excluded too.
     final internalAnon = allEvents
         .where((e) => _internalUserIds.contains(e['user_id']))
         .map((e) => e['anon_id'] as String)
-        .toSet();
-    _excludedVisitors = internalAnon.length;
+        .toSet()
+      ..addAll(_teamDevices);
+    final presentAnon =
+        allEvents.map((e) => e['anon_id'] as String).toSet();
+    _excludedVisitors =
+        internalAnon.where(presentAnon.contains).length;
     // Devices used by accounts marked as friends.
     final friendAnon = allEvents
         .where((e) => _friendUserIds.contains(e['user_id']))
