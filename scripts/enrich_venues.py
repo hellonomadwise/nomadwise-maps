@@ -278,10 +278,13 @@ NEGATIVE_PHRASES = [
 SIGNALS_PER_RUN = 250
 
 try:
+    cutoff_30d = (datetime.now(timezone.utc)
+                  - timedelta(days=30)).isoformat()
     unchecked = req(
         f'{SUPABASE_URL}/rest/v1/discovered_places'
         '?select=google_place_id,name'
-        '&signals_checked_at=is.null'
+        f'&or=(signals_checked_at.is.null,signals_checked_at.lt.{cutoff_30d})'
+        '&order=signals_checked_at.asc.nullsfirst'
         f'&limit={SIGNALS_PER_RUN}',
         headers=sb_headers())
 except Exception as e:  # noqa: BLE001
@@ -299,8 +302,16 @@ for p in unchecked:
             f"https://places.googleapis.com/v1/places/{p['google_place_id']}",
             headers={
                 'X-Goog-Api-Key': PLACES_KEY,
-                'X-Goog-FieldMask': 'reviews',
+                'X-Goog-FieldMask': 'reviews,businessStatus',
             })
+        if (details or {}).get('businessStatus') not in (None, 'OPERATIONAL'):
+            # Permanently/temporarily closed: off the map entirely.
+            req(f"{SUPABASE_URL}/rest/v1/discovered_places"
+                f"?google_place_id=eq.{p['google_place_id']}",
+                method='DELETE',
+                headers=sb_headers({'Prefer': 'return=minimal'}))
+            print(f"Signals: removed closed place {p['name']}.")
+            continue
         for rv in (details or {}).get('reviews') or []:
             text = ((rv.get('text') or {}).get('text') or '').lower()
             text = text.replace('’', "'")
@@ -352,7 +363,24 @@ COWORK_CELL_M = 2600      # coworking is sparser, coarser grid is fine
 MAX_SWEEP_CALLS = 260     # hard cap per run, bounds API spend
 
 SEARCH_MASK = ('places.id,places.displayName,places.location,'
-               'places.primaryType,places.rating,places.userRatingCount')
+               'places.primaryType,places.rating,'
+               'places.userRatingCount,places.businessStatus')
+
+import re  # noqa: E402
+COWORK_NAME = re.compile(
+    r'cowork|co-work|co work|workspace|work ?space|work ?hub|wework',
+    re.I)
+
+
+def _open_for_business(pl):
+    return pl.get('businessStatus') in (None, 'OPERATIONAL')
+
+
+def _looks_like_coworking(pl):
+    if pl.get('primaryType') == 'coworking_space':
+        return True
+    name = (pl.get('displayName') or {}).get('text') or ''
+    return bool(COWORK_NAME.search(name))
 
 
 def _search_nearby_cafes(lat, lng, radius):
@@ -444,6 +472,8 @@ def _sweep_city(city):
         try:
             res = _search_nearby_cafes(la, ln, 800)
             for pl in (res or {}).get('places') or []:
+                if not _open_for_business(pl):
+                    continue
                 row = _row_from_place(pl)
                 if row:
                     places[row['google_place_id']] = row
@@ -456,6 +486,10 @@ def _sweep_city(city):
         try:
             res = _search_coworking(la, ln, 1800)
             for pl in (res or {}).get('places') or []:
+                if not _open_for_business(pl):
+                    continue
+                if not _looks_like_coworking(pl):
+                    continue  # Google pads with restaurants etc.
                 row = _row_from_place(pl, cowork=True)
                 if row:
                     places.setdefault(row['google_place_id'], row)

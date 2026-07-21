@@ -66,7 +66,27 @@ class PlacesService {
   /// same area never costs a second Google call.
   static const _searchFieldMask =
       'places.id,places.displayName,places.location,'
-      'places.primaryType,places.rating,places.userRatingCount';
+      'places.primaryType,places.rating,places.userRatingCount,'
+      'places.businessStatus';
+
+  /// Permanently or temporarily closed places never reach the map.
+  static bool _isOpenForBusiness(Map<String, dynamic> p) {
+    final s = p['businessStatus'] as String?;
+    return s == null || s == 'OPERATIONAL';
+  }
+
+  /// Google pads sparse "coworking" searches with loosely related
+  /// venues (fancy restaurants, department stores). Only accept a
+  /// result as coworking when Google types it so, or the name says so.
+  static final _coworkName = RegExp(
+      r'cowork|co-work|co work|workspace|work ?space|work ?hub|wework',
+      caseSensitive: false);
+
+  static bool _looksLikeCoworking(Map<String, dynamic> p) {
+    if (p['primaryType'] == 'coworking_space') return true;
+    final name = (p['displayName']?['text'] ?? '').toString();
+    return _coworkName.hasMatch(name);
+  }
 
   Future<List<DiscoveredPlace>> searchNearby(
       double lat, double lng, double radiusM) async {
@@ -111,8 +131,9 @@ class PlacesService {
       if (resp.statusCode != 200) return [];
       final places = (jsonDecode(resp.body)['places'] as List?) ?? [];
       return places
-          .map((p) =>
-              DiscoveredPlace.fromGoogle(Map<String, dynamic>.from(p)))
+          .map((p) => Map<String, dynamic>.from(p))
+          .where(_isOpenForBusiness)
+          .map(DiscoveredPlace.fromGoogle)
           .toList();
     } catch (_) {
       return [];
@@ -142,10 +163,12 @@ class PlacesService {
       );
       if (resp.statusCode != 200) return [];
       final places = (jsonDecode(resp.body)['places'] as List?) ?? [];
-      return places.map((p) {
-        final d = DiscoveredPlace.fromGoogle(Map<String, dynamic>.from(p));
-        // Text search may not set a primary type — mark these as coworking
-        // so the review form prefills correctly.
+      return places
+          .map((p) => Map<String, dynamic>.from(p))
+          .where(_isOpenForBusiness)
+          .where(_looksLikeCoworking)
+          .map((p) {
+        final d = DiscoveredPlace.fromGoogle(p);
         return DiscoveredPlace(
           placeId: d.placeId,
           name: d.name,
