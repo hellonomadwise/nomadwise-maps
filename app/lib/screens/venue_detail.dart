@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui' as ui;
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
@@ -34,6 +35,31 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
   List<String> _photos = [];
   bool _testingWifi = false;
   String _testPhase = '';
+  // Real progress from the test (0..1) plus a gently animated shown
+  // value, so the bar always visibly moves even between updates.
+  double _testTarget = 0;
+  double _testShown = 0;
+  Timer? _testTicker;
+
+  void _startTestTicker() {
+    _testTicker?.cancel();
+    _testTicker = Timer.periodic(const Duration(milliseconds: 120), (_) {
+      if (!mounted) return;
+      setState(() {
+        final bound =
+            (_testTarget + 0.30).clamp(_testTarget, 0.97).toDouble();
+        var next = _testShown + (bound - _testShown) * 0.05;
+        if (_testTarget >= 0.999) next = 1.0;
+        if (next > _testShown) _testShown = next;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _testTicker?.cancel();
+    super.dispose();
+  }
   String _wifiConnType = 'unknown';
   Map<String, dynamic>? _wifiLogin;
   String? _discoveredBy;
@@ -723,22 +749,37 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
 
   Widget _wifiTestButton() {
     if (_testingWifi) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        decoration: BoxDecoration(
-            color: Brand.amber.withValues(alpha: .18),
-            borderRadius: BorderRadius.circular(14)),
-        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          const SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(
-                  strokeWidth: 2, color: Brand.charcoal)),
-          const SizedBox(width: 10),
-          Text(_testPhase,
-              style: const TextStyle(
-                  fontWeight: FontWeight.w600, color: Brand.charcoal)),
+      // The button itself becomes the progress bar: gold fill grows
+      // left to right behind the label while the test runs.
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: Stack(children: [
+          Container(
+              width: double.infinity, height: 50, color: Brand.goldTint),
+          Positioned.fill(
+            child: FractionallySizedBox(
+              alignment: Alignment.centerLeft,
+              widthFactor: _testShown.clamp(0.03, 1.0),
+              child: Container(
+                  color: Brand.gold.withValues(alpha: .55)),
+            ),
+          ),
+          SizedBox(
+            height: 50,
+            child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.speed,
+                      size: 18, color: Brand.charcoal),
+                  const SizedBox(width: 8),
+                  Text(
+                      '$_testPhase  ${(_testShown * 100).round()}%',
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13.5,
+                          color: Brand.charcoal)),
+                ]),
+          ),
         ]),
       );
     }
@@ -807,9 +848,14 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
     setState(() {
       _testingWifi = true;
       _testPhase = 'Starting…';
+      _testTarget = 0;
+      _testShown = 0;
     });
+    _startTestTicker();
     final mbps = await SpeedTestService.measureMbps(
-        onPhase: (p) => mounted ? setState(() => _testPhase = p) : null);
+        onPhase: (p) => mounted ? setState(() => _testPhase = p) : null,
+        onProgress: (p) => _testTarget = p);
+    _testTicker?.cancel();
     if (!mounted) return;
     setState(() => _testingWifi = false);
     if (mbps == null) {
