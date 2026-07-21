@@ -169,8 +169,9 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
       ..addAll(_teamDevices)
       ..addAll(allEvents.where((e) {
         final p = e['props'];
-        final u = p is Map ? p['ua'] as String? : null;
-        return u != null && _botUa.hasMatch(u);
+        if (p is! Map) return false;
+        final u = p['ua'] as String?;
+        return (u != null && _botUa.hasMatch(u)) || p['dc'] == true;
       }).map((e) => e['anon_id'] as String));
     final presentAnon =
         allEvents.map((e) => e['anon_id'] as String).toSet();

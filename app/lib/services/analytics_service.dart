@@ -25,6 +25,35 @@ class Analytics {
   /// browser as an internal device and analytics go fully silent on it
   /// (no PostHog, no in-app analytics, no phone pings). The mark
   /// persists for this browser; nomadmaps.io/#public lifts it again.
+  /// Does this visit come from a data-centre address (Amazon, Google
+  /// Cloud, hosting providers)? Real homes and cafes never do — but
+  /// VPNs can, so this is recorded as a tag rather than a hard block.
+  /// Checked once per session, never persisted (VPNs come and go).
+  static bool? _dc;
+  static final _dcPattern = RegExp(
+      r'amazon|aws|google cloud|azure|microsoft corp|digitalocean|'
+      r'hetzner|ovh|linode|vultr|oracle cloud|alibaba|tencent|'
+      r'cloudflare|akamai|fastly|leaseweb|contabo|m247|choopa|'
+      r'hosting|datacenter|data center|server',
+      caseSensitive: false);
+
+  static Future<bool> _isDatacenter() async {
+    if (_dc != null) return _dc!;
+    try {
+      final resp = await http
+          .get(Uri.parse('https://get.geojs.io/v1/ip/geo.json'))
+          .timeout(const Duration(seconds: 4));
+      final j = jsonDecode(resp.body) as Map<String, dynamic>;
+      final org = ('${j['organization_name'] ?? ''} '
+              '${j['organization'] ?? ''}')
+          .toLowerCase()
+          .replaceAll('-', ' ');
+      return _dc = _dcPattern.hasMatch(org);
+    } catch (_) {
+      return _dc = false;
+    }
+  }
+
   static final _botPattern = RegExp(
       r'bot|crawl|spider|slurp|headless|lighthouse|phantom|selenium|'
       r'puppeteer|playwright|bingpreview|facebookexternalhit|'
@@ -91,13 +120,14 @@ class Analytics {
       [Map<String, dynamic>? props]) async {
     if (await _isInternal()) return;
     final id = await _id();
-    // Record the browser identity with each arrival, so disguised
-    // bots can be recognised and filtered after the fact.
+    // Record the browser identity and network type with each arrival,
+    // so disguised bots can be recognised and filtered.
     final merged = <String, dynamic>{
       if (event == 'app_opened' && ua.userAgent().isNotEmpty)
         'ua': ua.userAgent().length > 160
             ? ua.userAgent().substring(0, 160)
             : ua.userAgent(),
+      if (event == 'app_opened' && await _isDatacenter()) 'dc': true,
       ...?props,
     };
     _mirror(event, id, merged); // in-app admin analytics, best effort
