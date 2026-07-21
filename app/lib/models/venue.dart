@@ -127,6 +127,13 @@ class Venue {
     return WorkFriendly.unknown;
   }
 
+  /// Wifi speed formatted to one decimal place, e.g. "24.5".
+  String? get wifiSpeedLabel {
+    final s = wifiSpeedMbps;
+    if (s == null) return null;
+    return s.toDouble().toStringAsFixed(1);
+  }
+
   num? get rating => live?.rating ?? ratingSnapshot;
   int? get reviewCount => live?.userRatingCount ?? reviewsSnapshot;
 

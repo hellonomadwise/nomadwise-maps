@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show TextInputFormatter, TextEditingValue;
 import 'package:image_picker/image_picker.dart';
 
 import '../config.dart';
@@ -50,6 +51,25 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
   final _wifiSsid = TextEditingController();
   final _wifiPass = TextEditingController();
   String _type = 'cafe';
+
+  /// The typed wifi speed, cleaned up: comma accepted as the decimal
+  /// separator, rounded to one decimal place.
+  num? _typedMbps() {
+    final t = _wifi.text.trim().replaceAll(',', '.');
+    final v = num.tryParse(t);
+    if (v == null) return null;
+    return double.parse(v.toDouble().toStringAsFixed(1));
+  }
+
+  /// Keeps the wifi field to numbers with at most one decimal place.
+  static final _mbpsFormatter =
+      TextInputFormatter.withFunction((oldValue, newValue) {
+    final t = newValue.text;
+    if (t.isEmpty) return newValue;
+    return RegExp(r'^\d{0,4}([.,]\d?)?$').hasMatch(t)
+        ? newValue
+        : oldValue;
+  });
 
   // WiFi speed measured live in this form (counts as a real wifi test).
   num? _measuredMbps;
@@ -203,7 +223,7 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
       _name.text = v.name;
       _neighbourhood.text = v.neighbourhood ?? '';
       _type = v.type;
-      if (v.wifiSpeedMbps != null) _wifi.text = v.wifiSpeedMbps.toString();
+      if (v.wifiSpeedMbps != null) _wifi.text = v.wifiSpeedLabel ?? '';
       _features['laptops_allowed'] = v.laptopsAllowed;
       _features['power_outlets'] = v.powerOutlets;
       _features['aircon'] = v.aircon;
@@ -400,7 +420,7 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
         'type': _type,
         'neighbourhood': _neighbourhood.text.trim(),
         if (_wifi.text.trim().isNotEmpty)
-          'wifi_speed_mbps': num.tryParse(_wifi.text.trim()),
+          'wifi_speed_mbps': _typedMbps(),
         ..._features,
       };
 
@@ -416,7 +436,7 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
           'lat': _placeLat ?? pos.latitude,
           'lng': _placeLng ?? pos.longitude,
           if (_wifi.text.trim().isNotEmpty)
-            'wifi_speed_mbps': num.tryParse(_wifi.text.trim()),
+            'wifi_speed_mbps': _typedMbps(),
           ..._features,
         });
       }
@@ -637,7 +657,9 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
               optional: _measuredMbps == null),
           TextFormField(
             controller: _wifi,
-            keyboardType: TextInputType.number,
+            keyboardType:
+                const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: [_mbpsFormatter],
             onChanged: (_) {
               // Typed over the measured number? Then it no longer
               // counts as a real test (no bonus).

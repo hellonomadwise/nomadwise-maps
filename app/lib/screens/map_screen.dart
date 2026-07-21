@@ -2481,7 +2481,7 @@ class _VenueListCard extends StatelessWidget {
       chip('Laptops', venue.laptopsAllowed),
       chip(
           venue.wifiSpeedMbps != null
-              ? 'Wifi ${venue.wifiSpeedMbps} Mbps'
+              ? 'Wifi ${venue.wifiSpeedLabel} Mbps'
               : 'Wifi ?',
           venue.wifiSpeedMbps != null ? true : null),
       chip('Power', venue.powerOutlets),
@@ -2956,7 +2956,7 @@ class _VenueCard extends StatelessWidget {
 
     return Wrap(spacing: 6, runSpacing: 6, children: [
       if (venue.wifiSpeedMbps != null)
-        pillFact(Icons.wifi, Brand.ink, '${venue.wifiSpeedMbps} Mbps')
+        pillFact(Icons.wifi, Brand.ink, '${venue.wifiSpeedLabel} Mbps')
       else
         fact('Wifi', null),
       fact('Laptops', venue.laptopsAllowed),

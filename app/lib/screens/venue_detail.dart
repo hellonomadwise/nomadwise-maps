@@ -535,7 +535,7 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
             size: 34, color: speed != null ? Brand.red : Colors.grey),
         const SizedBox(width: 14),
         if (speed != null) ...[
-          Text('$speed',
+          Text(venue.wifiSpeedLabel!,
               style: const TextStyle(
                   fontSize: 34,
                   fontWeight: FontWeight.w900,

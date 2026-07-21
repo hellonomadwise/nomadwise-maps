@@ -107,7 +107,7 @@ class StoryCard {
       (
         'WiFi',
         v.wifiSpeedMbps != null
-            ? '${v.wifiSpeedMbps} Mbps'
+            ? '${v.wifiSpeedLabel} Mbps'
             : 'Not tested yet'
       ),
       (
