@@ -1049,6 +1049,15 @@ class _MapScreenState extends State<MapScreen> {
               },
             ),
             _menuRow(
+              icon: Icons.travel_explore_outlined,
+              label: 'Sweep a city',
+              sub: 'Pre-discover every cafe in a city',
+              onTap: () {
+                Navigator.pop(context);
+                _openCitySweep();
+              },
+            ),
+            _menuRow(
               icon: Icons.group_outlined,
               label: 'Users',
               trailing: Container(
@@ -1238,6 +1247,86 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   /// Anyone can send a thought; it lands in the admin's inbox.
+  /// Admin: queue a city for the overnight sweep that pre-discovers
+  /// every cafe and coworking space in it.
+  Future<void> _openCitySweep() async {
+    final cityCtrl = TextEditingController();
+    final swept = await _supabase.citySweeps();
+    final queued = await _supabase.sweepQueue();
+    if (!mounted) return;
+    final sweptNames = swept
+        .map((s) => '${s['city']} (${s['places_found'] ?? '?'} places)')
+        .toList();
+    final pending = queued
+        .where((q) =>
+            !swept.any((s) => (s['city'] as String).toLowerCase() ==
+                q.toLowerCase()))
+        .toList();
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Brand.surface,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(22))),
+      builder: (ctx) => PointerInterceptor(
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(
+              24, 22, 24, MediaQuery.of(ctx).viewInsets.bottom + 28),
+          child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Sweep a city',
+                    style: TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 4),
+                const Text(
+                    'The overnight job discovers every cafe and '
+                    'coworking space there and reads their reviews '
+                    'for laptop/wifi signals. One city per night.',
+                    style: TextStyle(
+                        fontSize: 13, color: Brand.inkSecondary)),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: cityCtrl,
+                  autofocus: true,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: const InputDecoration(
+                      hintText: 'City name, e.g. Copenhagen'),
+                ),
+                const SizedBox(height: 12),
+                PrimaryCta(
+                  label: 'Queue the sweep',
+                  onPressed: () async {
+                    final city = cityCtrl.text.trim();
+                    if (city.length < 2) return;
+                    final ok = await _supabase.queueCitySweep(city);
+                    if (!ctx.mounted) return;
+                    Navigator.pop(ctx);
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text(ok
+                            ? '$city queued. The map fills in overnight.'
+                            : 'Could not queue $city. Is migration 34 in?')));
+                  },
+                ),
+                if (pending.isNotEmpty || sweptNames.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                      [
+                        if (pending.isNotEmpty)
+                          'Queued: ${pending.join(', ')}',
+                        if (sweptNames.isNotEmpty)
+                          'Swept: ${sweptNames.join(', ')}',
+                      ].join('\n'),
+                      style: const TextStyle(
+                          fontSize: 12, color: Brand.inkMuted)),
+                ],
+              ]),
+        ),
+      ),
+    );
+  }
+
   Future<void> _openFeedback() async {
     final msg = TextEditingController();
     final contact = TextEditingController();

@@ -264,7 +264,18 @@ SIGNAL_WORDS = {
                'work from', 'working from', 'arbeiten', 'trabalhar',
                'trabajar', 'study', 'studying'],
 }
-SIGNALS_PER_RUN = 150
+# Reviews that argue AGAINST working there. One of these disqualifies
+# a place from "promising", whatever else its reviews mention.
+NEGATIVE_PHRASES = [
+    'no laptop', 'laptops not allowed', 'laptop not allowed',
+    'laptops are not allowed', 'laptop free', 'laptop-free',
+    'no computers', 'computers not allowed', 'no wifi', 'no wi-fi',
+    'wifi doesn’t work', "wifi doesn't work", 'wifi does not work',
+    'no working on laptop', 'not laptop friendly',
+    'not a place to work', 'keine laptops', 'kein laptop',
+    'kein wlan', 'sin wifi', 'sem wifi', 'pas de wifi',
+]
+SIGNALS_PER_RUN = 250
 
 try:
     unchecked = req(
@@ -282,6 +293,7 @@ import urllib.error  # noqa: E402
 checked, promising = 0, 0
 for p in unchecked:
     counts = {'wifi': 0, 'power': 0, 'laptop': 0}
+    negatives = 0
     try:
         details = req(
             f"https://places.googleapis.com/v1/places/{p['google_place_id']}",
@@ -291,6 +303,10 @@ for p in unchecked:
             })
         for rv in (details or {}).get('reviews') or []:
             text = ((rv.get('text') or {}).get('text') or '').lower()
+            text = text.replace('’', "'")
+            if any(ph in text for ph in NEGATIVE_PHRASES):
+                negatives += 1
+                continue  # a warning review is not a positive signal
             for signal, words in SIGNAL_WORDS.items():
                 if any(w in text for w in words):
                     counts[signal] += 1
@@ -307,13 +323,181 @@ for p in unchecked:
                 'signal_wifi': counts['wifi'],
                 'signal_power': counts['power'],
                 'signal_laptop': counts['laptop'],
+                'signal_negative': negatives,
                 'signals_checked_at':
                     datetime.now(timezone.utc).isoformat(),
             })
         checked += 1
-        if any(counts.values()):
+        if any(counts.values()) and negatives == 0:
             promising += 1
     except Exception:  # noqa: BLE001
         pass
 
 print(f'Signals: {checked} places checked, {promising} promising.')
+
+
+# ============================================================
+# Phase 4: city sweeps. Proactively discovers every cafe and
+# coworking space in queued cities (scripts/sweep_queue.txt),
+# one city per run, so a city's map is alive before its first
+# user ever searches. The signal scan classifies the finds on
+# the following nights.
+# ============================================================
+
+import math  # noqa: E402
+
+SWEEP_RADIUS_M = 6000     # covers a city centre + inner neighbourhoods
+CAFE_CELL_M = 1100        # cafe search every ~1.1 km (800 m circles)
+COWORK_CELL_M = 2600      # coworking is sparser, coarser grid is fine
+MAX_SWEEP_CALLS = 260     # hard cap per run, bounds API spend
+
+SEARCH_MASK = ('places.id,places.displayName,places.location,'
+               'places.primaryType,places.rating,places.userRatingCount')
+
+
+def _search_nearby_cafes(lat, lng, radius):
+    return req(
+        'https://places.googleapis.com/v1/places:searchNearby',
+        method='POST',
+        headers={
+            'X-Goog-Api-Key': PLACES_KEY,
+            'X-Goog-FieldMask': SEARCH_MASK,
+            'Content-Type': 'application/json',
+        },
+        body={
+            'includedTypes': ['cafe', 'coffee_shop'],
+            'maxResultCount': 20,
+            'locationRestriction': {'circle': {
+                'center': {'latitude': lat, 'longitude': lng},
+                'radius': radius,
+            }},
+        })
+
+
+def _search_coworking(lat, lng, radius):
+    return req(
+        'https://places.googleapis.com/v1/places:searchText',
+        method='POST',
+        headers={
+            'X-Goog-Api-Key': PLACES_KEY,
+            'X-Goog-FieldMask': SEARCH_MASK,
+            'Content-Type': 'application/json',
+        },
+        body={
+            'textQuery': 'coworking space',
+            'maxResultCount': 20,
+            'locationBias': {'circle': {
+                'center': {'latitude': lat, 'longitude': lng},
+                'radius': radius,
+            }},
+        })
+
+
+def _grid(center_lat, center_lng, cell_m):
+    """Points covering a SWEEP_RADIUS_M circle, cell_m apart."""
+    pts = []
+    lat_step = cell_m / 111320.0
+    lng_step = cell_m / (111320.0 * math.cos(math.radians(center_lat)))
+    steps = int(SWEEP_RADIUS_M / cell_m) + 1
+    for iy in range(-steps, steps + 1):
+        for ix in range(-steps, steps + 1):
+            if math.hypot(ix * cell_m, iy * cell_m) > SWEEP_RADIUS_M:
+                continue
+            pts.append((center_lat + iy * lat_step,
+                        center_lng + ix * lng_step))
+    return pts
+
+
+def _row_from_place(pl, cowork=False):
+    loc = pl.get('location') or {}
+    if not pl.get('id') or loc.get('latitude') is None:
+        return None
+    return {
+        'google_place_id': pl['id'],
+        'name': (pl.get('displayName') or {}).get('text') or 'Unnamed',
+        'lat': loc['latitude'],
+        'lng': loc['longitude'],
+        'primary_type':
+            pl.get('primaryType') or ('coworking_space' if cowork else None),
+        'rating': pl.get('rating'),
+        'user_rating_count': pl.get('userRatingCount'),
+    }
+
+
+def _sweep_city(city):
+    center = None
+    hit = text_search(city)
+    for pl in (hit or {}).get('places') or []:
+        loc = pl.get('location') or {}
+        if loc.get('latitude') is not None:
+            center = (loc['latitude'], loc['longitude'])
+            break
+    if center is None:
+        print(f'Sweep: could not locate "{city}", skipping.')
+        return
+    calls = 0
+    places = {}
+    for (la, ln) in _grid(center[0], center[1], CAFE_CELL_M):
+        if calls >= MAX_SWEEP_CALLS:
+            break
+        calls += 1
+        try:
+            res = _search_nearby_cafes(la, ln, 800)
+            for pl in (res or {}).get('places') or []:
+                row = _row_from_place(pl)
+                if row:
+                    places[row['google_place_id']] = row
+        except Exception:  # noqa: BLE001
+            pass
+    for (la, ln) in _grid(center[0], center[1], COWORK_CELL_M):
+        if calls >= MAX_SWEEP_CALLS:
+            break
+        calls += 1
+        try:
+            res = _search_coworking(la, ln, 1800)
+            for pl in (res or {}).get('places') or []:
+                row = _row_from_place(pl, cowork=True)
+                if row:
+                    places.setdefault(row['google_place_id'], row)
+        except Exception:  # noqa: BLE001
+            pass
+    rows = list(places.values())
+    for i in range(0, len(rows), 100):
+        try:
+            req(f'{SUPABASE_URL}/rest/v1/discovered_places'
+                '?on_conflict=google_place_id',
+                method='POST',
+                headers=sb_headers({
+                    'Prefer': 'resolution=ignore-duplicates,return=minimal'}),
+                body=rows[i:i + 100])
+        except Exception as e:  # noqa: BLE001
+            print(f'Sweep upsert issue: {e}')
+    req(f'{SUPABASE_URL}/rest/v1/city_sweeps',
+        method='POST',
+        headers=sb_headers({'Prefer': 'return=minimal'}),
+        body={
+            'city': city,
+            'center_lat': center[0],
+            'center_lng': center[1],
+            'places_found': len(rows),
+        })
+    print(f'Sweep: {city} done. {len(rows)} places from {calls} searches.')
+
+
+try:
+    queued_rows = req(
+        f'{SUPABASE_URL}/rest/v1/sweep_queue'
+        '?select=city&order=requested_at.asc',
+        headers=sb_headers())
+    done_rows = req(
+        f'{SUPABASE_URL}/rest/v1/city_sweeps?select=city',
+        headers=sb_headers())
+    done = {r['city'].lower() for r in done_rows}
+    pending = [r['city'] for r in queued_rows
+               if r['city'].lower() not in done]
+    if pending:
+        _sweep_city(pending[0])  # one city per run, bounds cost
+    else:
+        print('Sweep: queue fully swept.')
+except Exception as e:  # noqa: BLE001
+    print(f'Sweep phase skipped (migration 34 not run yet?): {e}')

@@ -11,17 +11,20 @@ class DiscoveredPlace {
   final int? userRatingCount;
 
   /// Review mention counts stored by the nightly job (null = not
-  /// checked yet).
+  /// checked yet). signalNegative counts reviews arguing AGAINST
+  /// working there ("no laptops allowed").
   final int? signalWifi;
   final int? signalPower;
   final int? signalLaptop;
+  final int? signalNegative;
 
   /// True when this place's Google reviews mention wifi, plugs or
-  /// laptops — worth a solid pin on the map.
+  /// laptops positively, with no warnings against working there.
   bool get promising =>
-      (signalWifi ?? 0) > 0 ||
-      (signalPower ?? 0) > 0 ||
-      (signalLaptop ?? 0) > 0;
+      (signalNegative ?? 0) == 0 &&
+      ((signalWifi ?? 0) > 0 ||
+          (signalPower ?? 0) > 0 ||
+          (signalLaptop ?? 0) > 0);
 
   DiscoveredPlace({
     required this.placeId,
@@ -34,6 +37,7 @@ class DiscoveredPlace {
     this.signalWifi,
     this.signalPower,
     this.signalLaptop,
+    this.signalNegative,
   });
 
   /// From a Google Places searchNearby result.
@@ -61,6 +65,7 @@ class DiscoveredPlace {
         signalWifi: r['signal_wifi'],
         signalPower: r['signal_power'],
         signalLaptop: r['signal_laptop'],
+        signalNegative: r['signal_negative'],
       );
 
   Map<String, dynamic> toRow() => {

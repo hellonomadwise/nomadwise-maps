@@ -494,6 +494,43 @@ class SupabaseService {
     }
   }
 
+  // ---------- city sweeps (admin) ----------
+
+  Future<List<Map<String, dynamic>>> citySweeps() async {
+    try {
+      final rows = await _db
+          .from('city_sweeps')
+          .select()
+          .order('swept_at', ascending: false);
+      return (rows as List)
+          .map((r) => Map<String, dynamic>.from(r))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<List<String>> sweepQueue() async {
+    try {
+      final rows = await _db.from('sweep_queue').select('city');
+      return [for (final r in rows as List) r['city'] as String];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<bool> queueCitySweep(String city) async {
+    try {
+      await _db.from('sweep_queue').upsert({
+        'city': city,
+        if (currentUser != null) 'requested_by': currentUser!.id,
+      }, onConflict: 'city');
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<Map<String, dynamic>?> adminEconomy() async {
     try {
       final res = await _db.rpc('admin_economy');
