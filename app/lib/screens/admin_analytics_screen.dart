@@ -44,6 +44,43 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
       r'monitor|pingdom|uptime|inspection|google-read|feedfetcher',
       caseSensitive: false);
 
+  /// Actions bots do not perform. A data-centre visitor (possibly a
+  /// human on a VPN) who does any of these counts as human.
+  static const _humanActs = {
+    'venue_viewed',
+    'area_searched',
+    'global_search_used',
+    'signed_in',
+    'submission_sent',
+    'wifi_test_measured',
+    'space_shared',
+    'feedback_sent',
+    'coins_converted',
+    'wallet_viewed',
+    'leaderboard_viewed',
+  };
+
+  /// Visitors classified as machines: bot browser identities always;
+  /// data-centre addresses only when they never act like a human
+  /// (VPN users prove themselves through their actions).
+  Set<String> _machineAnon(List<Map<String, dynamic>> events) {
+    final botAnon = <String>{};
+    final dcAnon = <String>{};
+    final humanAnon = <String>{};
+    for (final e in events) {
+      final anon = e['anon_id'] as String;
+      if (e['user_id'] != null || _humanActs.contains(e['name'])) {
+        humanAnon.add(anon);
+      }
+      final p = e['props'];
+      if (p is! Map) continue;
+      final u = p['ua'] as String?;
+      if (u != null && _botUa.hasMatch(u)) botAnon.add(anon);
+      if (p['dc'] == true) dcAnon.add(anon);
+    }
+    return {...botAnon, ...dcAnon.difference(humanAnon)};
+  }
+
   static const _friendly = {
     'app_opened': 'Opened the app',
     'venue_viewed': 'Viewed a space',
@@ -167,12 +204,7 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
         .map((e) => e['anon_id'] as String)
         .toSet()
       ..addAll(_teamDevices)
-      ..addAll(allEvents.where((e) {
-        final p = e['props'];
-        if (p is! Map) return false;
-        final u = p['ua'] as String?;
-        return (u != null && _botUa.hasMatch(u)) || p['dc'] == true;
-      }).map((e) => e['anon_id'] as String));
+      ..addAll(_machineAnon(allEvents));
     final presentAnon =
         allEvents.map((e) => e['anon_id'] as String).toSet();
     _excludedVisitors =
