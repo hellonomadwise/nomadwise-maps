@@ -1304,8 +1304,15 @@ class _MapScreenState extends State<MapScreen> {
                       debounce?.cancel();
                       debounce =
                           Timer(const Duration(milliseconds: 350), () async {
+                        // Cities, but also regions and districts:
+                        // "Bali" is a province, "Canggu" a village.
                         final res = await _places.autocomplete(text.trim(),
-                            types: ['locality']);
+                            types: [
+                              'locality',
+                              'sublocality_level_1',
+                              'administrative_area_level_1',
+                              'administrative_area_level_2',
+                            ]);
                         if (ctx.mounted) {
                           setSheet(() => sugg = res.take(5).toList());
                         }
