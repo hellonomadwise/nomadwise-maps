@@ -117,6 +117,29 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
   String? _knownSsid;
   String? _knownPass;
 
+  /// Cafes usually name their wifi after themselves. Offer tappable
+  /// guesses built from the space's name; the field stays editable so
+  /// a near-miss is fixed in a keystroke or two.
+  List<String> _ssidGuesses() {
+    final name = _name.text.trim();
+    if (name.length < 3) return [];
+    final words =
+        name.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+    final first = words.first;
+    final guesses = <String>{};
+    if (first.length >= 3) {
+      guesses.add(first);
+      guesses.add('$first Guest');
+    }
+    if (words.length >= 2) guesses.add(words.take(2).join());
+    guesses.add(name);
+    final current = _wifiSsid.text.trim().toLowerCase();
+    return guesses
+        .where((s) => s.length >= 3 && s.toLowerCase() != current)
+        .take(4)
+        .toList();
+  }
+
   /// The wifi login a previous nomad recorded for this venue, offered
   /// as a one-tap fill (browsers cannot list nearby networks).
   Future<void> _loadKnownWifi() async {
@@ -661,6 +684,44 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
                   ),
                 ]),
               ),
+            ),
+          ],
+          if ((_knownSsid ?? '').isEmpty &&
+              _ssidGuesses().isNotEmpty) ...[
+            const SizedBox(height: 6),
+            if (_wifiSsid.text.trim().isEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text(
+                    'Often the wifi is named after the place — tap a '
+                    'guess, then fix it if needed:',
+                    style: TextStyle(
+                        fontSize: 11.5, color: Colors.grey.shade600)),
+              ),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final g in _ssidGuesses())
+                  InkWell(
+                    borderRadius: BorderRadius.circular(20),
+                    onTap: () =>
+                        setState(() => _wifiSsid.text = g),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: Brand.field,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(g,
+                          style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Brand.ink)),
+                    ),
+                  ),
+              ],
             ),
           ],
           const SizedBox(height: 10),
