@@ -113,16 +113,19 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
   }
 
   /// Google's photos of the place, shown so the reviewer can see what
-  /// they're assessing.
+  /// they're assessing. Reviewers tap photos that don't show the
+  /// space well; verified reviews hide them for everyone.
   List<String> _refPhotos = [];
+  List<String> _refNames = [];
+  final Set<String> _badPhotos = {};
   num? _refRating;
 
   Future<void> _loadReference(String placeId) async {
     final live = await _places.details(placeId);
     if (mounted && live != null) {
       setState(() {
-        _refPhotos = live.photoNames
-            .take(6)
+        _refNames = live.photoNames.take(6).toList();
+        _refPhotos = _refNames
             .map((n) => PlacesService.photoUrl(n, maxWidth: 500))
             .toList();
         _refRating = live.rating;
@@ -292,8 +295,8 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
       _placeCity = live?.city;
       if (live?.displayName != null) _name.text = live!.displayName!;
       if (live != null) {
-        _refPhotos = live.photoNames
-            .take(6)
+        _refNames = live.photoNames.take(6).toList();
+        _refPhotos = _refNames
             .map((n) => PlacesService.photoUrl(n, maxWidth: 500))
             .toList();
         _refRating = live.rating;
@@ -421,6 +424,8 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
         'neighbourhood': _neighbourhood.text.trim(),
         if (_wifi.text.trim().isNotEmpty)
           'wifi_speed_mbps': _typedMbps(),
+          if (_badPhotos.isNotEmpty)
+            'hidden_photos': _badPhotos.toList(),
         ..._features,
       };
 
@@ -437,6 +442,8 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
           'lng': _placeLng ?? pos.longitude,
           if (_wifi.text.trim().isNotEmpty)
             'wifi_speed_mbps': _typedMbps(),
+            if (_badPhotos.isNotEmpty)
+              'hidden_photos': _badPhotos.toList(),
           ..._features,
         });
       }
@@ -911,24 +918,55 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
       ),
       child:
           Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        if (_refPhotos.isNotEmpty)
+        if (_refPhotos.isNotEmpty) ...[
           SizedBox(
             height: 120,
-            child: Row(
-                children: _refPhotos
-                    .take(3)
-                    .map((u) => Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.only(right: 3),
-                            child: Image.network(u,
-                                height: 120,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) =>
-                                    Container(color: Brand.field)),
-                          ),
-                        ))
-                    .toList()),
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: _refPhotos.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 3),
+              itemBuilder: (_, i) {
+                final name =
+                    i < _refNames.length ? _refNames[i] : null;
+                final bad =
+                    name != null && _badPhotos.contains(name);
+                return GestureDetector(
+                  onTap: name == null
+                      ? null
+                      : () => setState(() => bad
+                          ? _badPhotos.remove(name)
+                          : _badPhotos.add(name)),
+                  child: Stack(children: [
+                    Opacity(
+                      opacity: bad ? .3 : 1,
+                      child: Image.network(_refPhotos[i],
+                          height: 120,
+                          width: 150,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                              width: 150, color: Brand.field)),
+                    ),
+                    if (bad)
+                      const Positioned(
+                        top: 6,
+                        right: 6,
+                        child: Icon(Icons.visibility_off,
+                            size: 18, color: Brand.ink),
+                      ),
+                  ]),
+                );
+              },
+            ),
           ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 6, 14, 0),
+            child: Text(
+                'Tap any photo that doesn\'t show the space well '
+                '(food close-ups etc). Verified reviews hide them.',
+                style: TextStyle(
+                    fontSize: 11, color: Colors.grey.shade600)),
+          ),
+        ],
         Padding(
           padding: const EdgeInsets.all(14),
           child: Row(children: [

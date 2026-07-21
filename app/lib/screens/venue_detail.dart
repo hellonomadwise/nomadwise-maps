@@ -89,9 +89,18 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
     _loadPhotos();
     _loadWifiLogin();
     _loadCredits();
+    _loadAdmin();
     Analytics.capture('venue_viewed',
         {'venue': venue.name, 'type': venue.type});
   }
+
+  // Photo curation: google photo name per carousel page (null =
+  // community photo), the venue's hidden set, and admin powers.
+  List<String?> _photoKeys = [];
+  late final Set<String> _hidden = {...venue.hiddenPhotos};
+  bool _isAdmin = false;
+  List<String> _googleNames = [];
+  List<String> _communityUrls = [];
 
   Future<void> _loadPhotos() async {
     // Google's listing photos first (curated), community photos after.
@@ -103,12 +112,46 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
       live = await _places.details(venue.googlePlaceId!);
       if (live != null) venue.live = live;
     }
-    final google = (live?.photoNames ?? [])
-        .take(6)
-        .map((n) => PlacesService.photoUrl(n))
-        .toList();
-    final community = await _supabase.venuePhotoUrls(venue.id);
-    if (mounted) setState(() => _photos = [...google, ...community]);
+    _googleNames = (live?.photoNames ?? []).take(6).toList();
+    _communityUrls = await _supabase.venuePhotoUrls(venue.id);
+    if (mounted) setState(_rebuildPhotos);
+  }
+
+  void _rebuildPhotos() {
+    // Admins see every photo (hidden ones dimmed, to un-hide);
+    // everyone else sees the curated set only.
+    final names = _isAdmin
+        ? _googleNames
+        : _googleNames.where((n) => !_hidden.contains(n)).toList();
+    _photos = [
+      ...names.map((n) => PlacesService.photoUrl(n)),
+      ..._communityUrls,
+    ];
+    _photoKeys = [
+      ...names,
+      ..._communityUrls.map((_) => null),
+    ];
+    if (_photoIndex >= _photos.length && _photos.isNotEmpty) {
+      _photoIndex = _photos.length - 1;
+    }
+  }
+
+  Future<void> _loadAdmin() async {
+    final admin = await _supabase.isAdmin();
+    if (mounted && admin) {
+      setState(() {
+        _isAdmin = true;
+        _rebuildPhotos();
+      });
+    }
+  }
+
+  void _toggleHidden(String name) {
+    setState(() {
+      _hidden.contains(name) ? _hidden.remove(name) : _hidden.add(name);
+      _rebuildPhotos();
+    });
+    _supabase.setHiddenPhotos(venue.id, _hidden.toList());
   }
 
   bool _sharing = false;
@@ -121,7 +164,7 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
       // Best backdrop: the space's first Google photo.
       ui.Image? photo;
       try {
-        final names = venue.live?.photoNames ?? [];
+        final names = venue.visiblePhotoNames;
         if (names.isNotEmpty) {
           final res = await http
               .get(Uri.parse(
@@ -475,24 +518,53 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
         PageView.builder(
           itemCount: _photos.length,
           onPageChanged: (i) => setState(() => _photoIndex = i),
-          itemBuilder: (_, i) => Image.network(
-            _photos[i],
-            fit: BoxFit.cover,
-            width: double.infinity,
-            errorBuilder: (_, __, ___) => Container(
-                color: Brand.lightGrey,
-                child: const Center(
-                    child: Icon(Icons.broken_image_outlined,
-                        color: Colors.grey))),
-            loadingBuilder: (_, child, progress) => progress == null
-                ? child
-                : Container(
-                    color: Brand.lightGrey,
-                    child: const Center(
-                        child: CircularProgressIndicator(
-                            color: Brand.red, strokeWidth: 2))),
-          ),
+          itemBuilder: (_, i) {
+            final img = Image.network(
+              _photos[i],
+              fit: BoxFit.cover,
+              width: double.infinity,
+              errorBuilder: (_, __, ___) => Container(
+                  color: Brand.lightGrey,
+                  child: const Center(
+                      child: Icon(Icons.broken_image_outlined,
+                          color: Colors.grey))),
+              loadingBuilder: (_, child, progress) => progress == null
+                  ? child
+                  : Container(
+                      color: Brand.lightGrey,
+                      child: const Center(
+                          child: CircularProgressIndicator(
+                              color: Brand.red, strokeWidth: 2))),
+            );
+            final key = i < _photoKeys.length ? _photoKeys[i] : null;
+            final isHidden = key != null && _hidden.contains(key);
+            return isHidden ? Opacity(opacity: .3, child: img) : img;
+          },
         ),
+        // Admin curation: hide/unhide the current Google photo.
+        if (_isAdmin &&
+            _photoIndex < _photoKeys.length &&
+            _photoKeys[_photoIndex] != null)
+          Positioned(
+            top: 10,
+            right: 10,
+            child: Material(
+              color: Colors.black.withValues(alpha: .45),
+              shape: const CircleBorder(),
+              child: IconButton(
+                iconSize: 20,
+                color: Colors.white,
+                tooltip: _hidden.contains(_photoKeys[_photoIndex])
+                    ? 'Show this photo again'
+                    : 'Hide this photo for everyone',
+                icon: Icon(_hidden.contains(_photoKeys[_photoIndex])
+                    ? Icons.visibility_outlined
+                    : Icons.visibility_off_outlined),
+                onPressed: () =>
+                    _toggleHidden(_photoKeys[_photoIndex]!),
+              ),
+            ),
+          ),
         // dots
         Positioned(
           bottom: 10,

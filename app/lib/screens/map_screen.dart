@@ -3015,7 +3015,7 @@ class _VenueCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _cardPhotoStrip(
-                    (venue.live?.photoNames ?? []).take(5).toList()),
+                    venue.visiblePhotoNames.take(5).toList()),
                 Row(children: [
                   Expanded(
                       child: Text(venue.name,

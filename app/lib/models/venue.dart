@@ -38,6 +38,14 @@ class Venue {
   /// When the community last confirmed this venue's info.
   final DateTime? lastConfirmedAt;
 
+  /// Google photos curated away (food close-ups etc).
+  final List<String> hiddenPhotos;
+
+  /// Google photo names with the curated-away ones removed.
+  List<String> get visiblePhotoNames => (live?.photoNames ?? [])
+      .where((n) => !hiddenPhotos.contains(n))
+      .toList();
+
   /// Raw database row (kept for offline caching).
   final Map<String, dynamic> raw;
 
@@ -76,6 +84,8 @@ class Venue {
         lastConfirmedAt = j['last_confirmed_at'] != null
             ? DateTime.tryParse(j['last_confirmed_at'])
             : null,
+        hiddenPhotos =
+            (j['hidden_photos'] as List?)?.cast<String>() ?? const [],
         raw = j {
     // The daily build job caches each venue's Google details in the
     // database (g_details). Loading that copy here means the app does

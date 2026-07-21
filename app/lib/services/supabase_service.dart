@@ -494,6 +494,18 @@ class SupabaseService {
     }
   }
 
+  /// Admin: replace a venue's list of curated-away Google photos.
+  Future<bool> setHiddenPhotos(String venueId, List<String> hidden) async {
+    try {
+      await _db
+          .from('venues')
+          .update({'hidden_photos': hidden}).eq('id', venueId);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   // ---------- city sweeps (admin) ----------
 
   Future<List<Map<String, dynamic>>> citySweeps() async {

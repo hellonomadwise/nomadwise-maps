@@ -536,6 +536,7 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
     'type': 'Type',
     'neighbourhood': 'Neighbourhood',
     'wifi_speed_mbps': 'WiFi speed (Mbps)',
+    'hidden_photos': 'Photos flagged as bad',
     'connection_type': 'Connection during test',
     'ssid': 'WiFi network',
     'password': 'WiFi password',
