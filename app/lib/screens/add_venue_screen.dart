@@ -116,6 +116,19 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
 
   String? _knownSsid;
   String? _knownPass;
+  bool _ssidIsGuess = false;
+
+  /// Pre-fill the wifi name with our best guess from the space's
+  /// name (marked clearly as a guess, freely editable).
+  void _prefillSsidGuess() {
+    if (_wifiSsid.text.trim().isNotEmpty) return;
+    if ((_knownSsid ?? '').isNotEmpty) return;
+    final guesses = _ssidGuesses();
+    if (guesses.isEmpty) return;
+    final name = _name.text.trim();
+    _wifiSsid.text = name.length <= 14 ? name : guesses.first;
+    _ssidIsGuess = true;
+  }
 
   /// Cafes usually name their wifi after themselves. Offer tappable
   /// guesses built from the space's name; the field stays editable so
@@ -142,14 +155,19 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
 
   /// The wifi login a previous nomad recorded for this venue, offered
   /// as a one-tap fill (browsers cannot list nearby networks).
-  Future<void> _loadKnownWifi() async {
-    final v = widget.confirming;
+  Future<void> _loadKnownWifi([Venue? venue]) async {
+    final v = venue ?? widget.confirming;
     if (v == null) return;
     final w = await _supabase.venueWifi(v.id);
     if (mounted && w != null) {
       setState(() {
         _knownSsid = (w['ssid'] as String?)?.trim();
         _knownPass = (w['password'] as String?)?.trim();
+        // A recorded name beats our guess.
+        if (_ssidIsGuess && (_knownSsid ?? '').isNotEmpty) {
+          _wifiSsid.text = _knownSsid!;
+          _ssidIsGuess = false;
+        }
       });
     }
   }
@@ -171,6 +189,7 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
     } else if (widget.confirming?.googlePlaceId != null) {
       _loadReference(widget.confirming!.googlePlaceId!);
     }
+    _prefillSsidGuess();
   }
 
   @override
@@ -225,6 +244,7 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
         _existing = existing;
         _prefillFrom(existing);
       });
+      _loadKnownWifi(existing);
       showDialog(
           context: context,
           builder: (ctx) => AlertDialog(
@@ -258,6 +278,7 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
             .toList();
         _refRating = live.rating;
       }
+      _prefillSsidGuess();
     });
   }
 
@@ -647,8 +668,16 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
           const FieldLabel('WiFi network name', optional: true),
           TextFormField(
             controller: _wifiSsid,
-            // Rebuild so the footer's coin total updates live.
-            onChanged: (_) => setState(() {}),
+            decoration: InputDecoration(
+              helperText: _ssidIsGuess
+                  ? 'Our guess from the place name. Please check it '
+                      'against the real wifi and correct it.'
+                  : null,
+              helperMaxLines: 2,
+            ),
+            // Rebuild so the footer's coin total updates live; once
+            // edited, the value is theirs, not our guess.
+            onChanged: (_) => setState(() => _ssidIsGuess = false),
           ),
           if (_knownSsid != null &&
               _knownSsid!.isNotEmpty &&
