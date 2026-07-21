@@ -1248,7 +1248,9 @@ class _MapScreenState extends State<MapScreen> {
 
   /// Anyone can send a thought; it lands in the admin's inbox.
   /// Admin: queue a city for the overnight sweep that pre-discovers
-  /// every cafe and coworking space in it.
+  /// every cafe and coworking space in it. The city field offers live
+  /// Google suggestions so the right city in the right country is
+  /// picked explicitly.
   Future<void> _openCitySweep() async {
     final cityCtrl = TextEditingController();
     final swept = await _supabase.citySweeps();
@@ -1262,111 +1264,113 @@ class _MapScreenState extends State<MapScreen> {
             !swept.any((s) => (s['city'] as String).toLowerCase() ==
                 q.toLowerCase()))
         .toList();
+    List<PlaceSuggestion> sugg = [];
+    String? picked; // qualified "City, Country" chosen from suggestions
+    Timer? debounce;
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Brand.surface,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(22))),
-      builder: (ctx) => PointerInterceptor(
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(
-              24, 22, 24, MediaQuery.of(ctx).viewInsets.bottom + 28),
-          child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Sweep a city',
-                    style: TextStyle(
-                        fontSize: 18, fontWeight: FontWeight.w700)),
-                const SizedBox(height: 4),
-                const Text(
-                    'The overnight job discovers every cafe and '
-                    'coworking space there and reads their reviews '
-                    'for laptop/wifi signals. One city per night.',
-                    style: TextStyle(
-                        fontSize: 13, color: Brand.inkSecondary)),
-                const SizedBox(height: 14),
-                TextField(
-                  controller: cityCtrl,
-                  autofocus: true,
-                  textCapitalization: TextCapitalization.words,
-                  decoration: const InputDecoration(
-                      hintText: 'City name, e.g. Copenhagen'),
-                ),
-                const SizedBox(height: 12),
-                PrimaryCta(
-                  label: 'Queue the sweep',
-                  onPressed: () async {
-                    final city = cityCtrl.text.trim();
-                    if (city.length < 3) return;
-                    // Belt and braces: show which city in the world
-                    // Google matched before anything is queued.
-                    final matches = await _places
-                        .autocomplete(city, types: ['locality']);
-                    if (!ctx.mounted) return;
-                    if (matches.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                              content: Text(
-                                  'Could not find that city. Try adding '
-                                  'the country, e.g. "Lisbon, Portugal".')));
-                      return;
-                    }
-                    final m = matches.first;
-                    final qualified = m.secondary.isEmpty
-                        ? m.main
-                        : '${m.main}, ${m.secondary}';
-                    final sure = await showDialog<bool>(
-                      context: ctx,
-                      builder: (dctx) => PointerInterceptor(
-                        child: AlertDialog(
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20)),
-                          title: const Text('Sweep this city?'),
-                          content: Text('Matched: $qualified'),
-                          actions: [
-                            TextButton(
-                                onPressed: () =>
-                                    Navigator.pop(dctx, false),
-                                child: const Text('No, retype')),
-                            ElevatedButton(
-                                onPressed: () =>
-                                    Navigator.pop(dctx, true),
-                                child: const Text('Yes, sweep it')),
-                          ],
-                        ),
-                      ),
-                    );
-                    if (sure != true || !ctx.mounted) return;
-                    final ok =
-                        await _supabase.queueCitySweep(qualified);
-                    if (!ctx.mounted) return;
-                    Navigator.pop(ctx);
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                        content: Text(ok
-                            ? '$qualified queued. The map fills in '
-                                'overnight.'
-                            : 'Could not queue $qualified. '
-                                'Is migration 34 in?')));
-                  },
-                ),
-                if (pending.isNotEmpty || sweptNames.isNotEmpty) ...[
-                  const SizedBox(height: 16),
-                  Text(
-                      [
-                        if (pending.isNotEmpty)
-                          'Queued: ${pending.join(', ')}',
-                        if (sweptNames.isNotEmpty)
-                          'Swept: ${sweptNames.join(', ')}',
-                      ].join('\n'),
-                      style: const TextStyle(
-                          fontSize: 12, color: Brand.inkMuted)),
-                ],
-              ]),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheet) => PointerInterceptor(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+                24, 22, 24, MediaQuery.of(ctx).viewInsets.bottom + 28),
+            child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Sweep a city',
+                      style: TextStyle(
+                          fontSize: 18, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 4),
+                  const Text(
+                      'The overnight job discovers every cafe and '
+                      'coworking space there and reads their reviews '
+                      'for laptop/wifi signals. One city per night.',
+                      style: TextStyle(
+                          fontSize: 13, color: Brand.inkSecondary)),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: cityCtrl,
+                    autofocus: true,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: const InputDecoration(
+                        hintText: 'City name, e.g. Copenhagen'),
+                    onChanged: (text) {
+                      picked = null;
+                      debounce?.cancel();
+                      debounce =
+                          Timer(const Duration(milliseconds: 350), () async {
+                        final res = await _places.autocomplete(text.trim(),
+                            types: ['locality']);
+                        if (ctx.mounted) {
+                          setSheet(() => sugg = res.take(5).toList());
+                        }
+                      });
+                    },
+                  ),
+                  ...sugg.map((m) => ListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.location_city,
+                            size: 20, color: Brand.inkSecondary),
+                        title: Text(m.main),
+                        subtitle: m.secondary.isEmpty
+                            ? null
+                            : Text(m.secondary,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis),
+                        onTap: () => setSheet(() {
+                          picked = m.secondary.isEmpty
+                              ? m.main
+                              : '${m.main}, ${m.secondary}';
+                          cityCtrl.text = picked!;
+                          sugg = [];
+                        }),
+                      )),
+                  const SizedBox(height: 12),
+                  PrimaryCta(
+                    label: picked == null
+                        ? 'Pick a city above'
+                        : 'Sweep $picked',
+                    onPressed: picked == null
+                        ? null
+                        : () async {
+                            final city = picked!;
+                            final ok =
+                                await _supabase.queueCitySweep(city);
+                            if (!ctx.mounted) return;
+                            Navigator.pop(ctx);
+                            ScaffoldMessenger.of(context)
+                                .showSnackBar(SnackBar(
+                                    content: Text(ok
+                                        ? '$city queued. The map fills '
+                                            'in overnight.'
+                                        : 'Could not queue $city. '
+                                            'Is migration 34 in?')));
+                          },
+                  ),
+                  if (pending.isNotEmpty || sweptNames.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    Text(
+                        [
+                          if (pending.isNotEmpty)
+                            'Queued: ${pending.join(', ')}',
+                          if (sweptNames.isNotEmpty)
+                            'Swept: ${sweptNames.join(', ')}',
+                        ].join('\n'),
+                        style: const TextStyle(
+                            fontSize: 12, color: Brand.inkMuted)),
+                  ],
+                ]),
+          ),
         ),
       ),
     );
+    debounce?.cancel();
   }
 
   Future<void> _openFeedback() async {
