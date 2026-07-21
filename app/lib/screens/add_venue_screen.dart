@@ -114,11 +114,29 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
   bool get isConfirm => _confirmTarget != null;
   Venue? get _confirmTarget => widget.confirming ?? _existing;
 
+  String? _knownSsid;
+  String? _knownPass;
+
+  /// The wifi login a previous nomad recorded for this venue, offered
+  /// as a one-tap fill (browsers cannot list nearby networks).
+  Future<void> _loadKnownWifi() async {
+    final v = widget.confirming;
+    if (v == null) return;
+    final w = await _supabase.venueWifi(v.id);
+    if (mounted && w != null) {
+      setState(() {
+        _knownSsid = (w['ssid'] as String?)?.trim();
+        _knownPass = (w['password'] as String?)?.trim();
+      });
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     _loadBalance();
     _prefillFrom(widget.confirming);
+    _loadKnownWifi();
     final s = widget.screening;
     if (s != null) {
       _name.text = s.name;
@@ -609,6 +627,42 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
             // Rebuild so the footer's coin total updates live.
             onChanged: (_) => setState(() {}),
           ),
+          if (_knownSsid != null &&
+              _knownSsid!.isNotEmpty &&
+              _wifiSsid.text.trim() != _knownSsid) ...[
+            const SizedBox(height: 6),
+            InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: () => setState(() {
+                _wifiSsid.text = _knownSsid!;
+                if ((_knownPass ?? '').isNotEmpty &&
+                    _wifiPass.text.trim().isEmpty) {
+                  _wifiPass.text = _knownPass!;
+                }
+              }),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Brand.goldTint,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  const Icon(Icons.wifi,
+                      size: 14, color: Brand.goldTextDark),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text('Tap to use recorded: $_knownSsid',
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: Brand.goldTextDark)),
+                  ),
+                ]),
+              ),
+            ),
+          ],
           const SizedBox(height: 10),
           const FieldLabel('WiFi password', optional: true),
           TextFormField(
