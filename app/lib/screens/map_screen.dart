@@ -1299,14 +1299,56 @@ class _MapScreenState extends State<MapScreen> {
                   label: 'Queue the sweep',
                   onPressed: () async {
                     final city = cityCtrl.text.trim();
-                    if (city.length < 2) return;
-                    final ok = await _supabase.queueCitySweep(city);
+                    if (city.length < 3) return;
+                    // Belt and braces: show which city in the world
+                    // Google matched before anything is queued.
+                    final matches = await _places
+                        .autocomplete(city, types: ['locality']);
+                    if (!ctx.mounted) return;
+                    if (matches.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                              content: Text(
+                                  'Could not find that city. Try adding '
+                                  'the country, e.g. "Lisbon, Portugal".')));
+                      return;
+                    }
+                    final m = matches.first;
+                    final qualified = m.secondary.isEmpty
+                        ? m.main
+                        : '${m.main}, ${m.secondary}';
+                    final sure = await showDialog<bool>(
+                      context: ctx,
+                      builder: (dctx) => PointerInterceptor(
+                        child: AlertDialog(
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20)),
+                          title: const Text('Sweep this city?'),
+                          content: Text('Matched: $qualified'),
+                          actions: [
+                            TextButton(
+                                onPressed: () =>
+                                    Navigator.pop(dctx, false),
+                                child: const Text('No, retype')),
+                            ElevatedButton(
+                                onPressed: () =>
+                                    Navigator.pop(dctx, true),
+                                child: const Text('Yes, sweep it')),
+                          ],
+                        ),
+                      ),
+                    );
+                    if (sure != true || !ctx.mounted) return;
+                    final ok =
+                        await _supabase.queueCitySweep(qualified);
                     if (!ctx.mounted) return;
                     Navigator.pop(ctx);
                     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                         content: Text(ok
-                            ? '$city queued. The map fills in overnight.'
-                            : 'Could not queue $city. Is migration 34 in?')));
+                            ? '$qualified queued. The map fills in '
+                                'overnight.'
+                            : 'Could not queue $qualified. '
+                                'Is migration 34 in?')));
                   },
                 ),
                 if (pending.isNotEmpty || sweptNames.isNotEmpty) ...[
