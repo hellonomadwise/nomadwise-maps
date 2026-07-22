@@ -475,6 +475,7 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
       if (props['place'] != null) props['place'],
       if (props['query'] != null) '"${props['query']}"',
       if (props['mbps'] != null) '${props['mbps']} Mbps',
+      if (props['utm_source'] != null) 'from ${props['utm_source']}',
     ].join(' · ');
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 5),

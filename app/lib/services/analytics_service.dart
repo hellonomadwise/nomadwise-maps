@@ -54,6 +54,25 @@ class Analytics {
     }
   }
 
+  /// Traffic-source tags from the arrival URL (utm_source etc.),
+  /// so placements on nomadwise.io and elsewhere can be measured.
+  static Map<String, String> _sourceParams() {
+    try {
+      final qp = Uri.base.queryParameters;
+      return {
+        for (final k in const [
+          'utm_source',
+          'utm_medium',
+          'utm_campaign',
+          'ref'
+        ])
+          if ((qp[k] ?? '').isNotEmpty) k: qp[k]!,
+      };
+    } catch (_) {
+      return {};
+    }
+  }
+
   static final _botPattern = RegExp(
       r'bot|crawl|spider|slurp|headless|lighthouse|phantom|selenium|'
       r'puppeteer|playwright|bingpreview|facebookexternalhit|'
@@ -120,14 +139,16 @@ class Analytics {
       [Map<String, dynamic>? props]) async {
     if (await _isInternal()) return;
     final id = await _id();
-    // Record the browser identity and network type with each arrival,
-    // so disguised bots can be recognised and filtered.
+    // Record the browser identity, network type, and traffic source
+    // with each arrival, so disguised bots can be filtered and the
+    // nomadwise.io placements can be measured.
     final merged = <String, dynamic>{
       if (event == 'app_opened' && ua.userAgent().isNotEmpty)
         'ua': ua.userAgent().length > 160
             ? ua.userAgent().substring(0, 160)
             : ua.userAgent(),
       if (event == 'app_opened' && await _isDatacenter()) 'dc': true,
+      if (event == 'app_opened') ..._sourceParams(),
       ...?props,
     };
     _mirror(event, id, merged); // in-app admin analytics, best effort

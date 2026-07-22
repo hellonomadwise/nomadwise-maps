@@ -260,21 +260,47 @@ class _MapScreenState extends State<MapScreen> {
   Future<void> _boot() async {
     await _loadPinIcons();
 
-    // Where should the map open? Priority: where they last left it,
-    // then a rough guess from their internet connection, then a
-    // neutral world view. Never a hardcoded city.
+    // Where should the map open? Priority: a deep link in the URL
+    // (nomadwise.io placements link straight to a city or space),
+    // then where they last left it, then a rough guess from their
+    // internet connection, then a neutral world view.
     var haveStart = false;
+    var deepLinked = false;
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final saved = prefs.getString('last_cam');
-      if (saved != null) {
-        final p = saved.split(',');
-        _userLat = double.tryParse(p[0]);
-        _userLng = double.tryParse(p[1]);
-        _initZoom = double.tryParse(p[2]) ?? 13;
-        haveStart = _userLat != null && _userLng != null;
+      final qp = Uri.base.queryParameters;
+      final at = qp['at'];
+      if (at != null) {
+        final p = at.split(',');
+        final la = p.isNotEmpty ? double.tryParse(p[0]) : null;
+        final ln = p.length > 1 ? double.tryParse(p[1]) : null;
+        if (la != null && ln != null) {
+          _userLat = la;
+          _userLng = ln;
+          _initZoom =
+              (p.length > 2 ? double.tryParse(p[2]) : null) ?? 13;
+          haveStart = true;
+          deepLinked = true;
+        }
+      }
+      final place = qp['place'];
+      if (place != null && place.isNotEmpty) {
+        _deepLinkPlaceId = place;
+        deepLinked = true;
       }
     } catch (_) {}
+    if (!haveStart && !deepLinked) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final saved = prefs.getString('last_cam');
+        if (saved != null) {
+          final p = saved.split(',');
+          _userLat = double.tryParse(p[0]);
+          _userLng = double.tryParse(p[1]);
+          _initZoom = double.tryParse(p[2]) ?? 13;
+          haveStart = _userLat != null && _userLng != null;
+        }
+      } catch (_) {}
+    }
     if (!haveStart) {
       // World view while the guesses come in.
       _userLat = 20;
@@ -282,6 +308,7 @@ class _MapScreenState extends State<MapScreen> {
       _initZoom = 2.5;
       // City-level guess from the connection, no permission needed.
       LocationService.ipLocate().then((ip) {
+        if (deepLinked) return; // the link decides where we look
         if (ip != null && !_hasRealLocation && mounted) {
           _userLat = ip.$1;
           _userLng = ip.$2;
@@ -313,15 +340,59 @@ class _MapScreenState extends State<MapScreen> {
       _userLng = pos.longitude;
       _hasRealLocation = true;
       // Fly to the person, wherever the map was pointing before.
-      _map?.animateCamera(CameraUpdate.newLatLngZoom(
-          LatLng(pos.latitude, pos.longitude), 14));
+      // Unless a deep link brought them somewhere specific: then
+      // that place wins over their own position.
+      if (!deepLinked) {
+        _map?.animateCamera(CameraUpdate.newLatLngZoom(
+            LatLng(pos.latitude, pos.longitude), 14));
+      }
     }
     _computeDistances();
     if (mounted) setState(() => _loading = false);
 
+    if (_deepLinkPlaceId != null) _openDeepLinkPlace(_deepLinkPlaceId!);
+
     await _places.enrich(_venues);
     _computeDistances();
     if (mounted) setState(() {});
+  }
+
+  /// A ?place=GOOGLE_PLACE_ID link: open that exact space, whether
+  /// it is a screened venue, a known discovery, or brand new to us.
+  String? _deepLinkPlaceId;
+
+  Future<void> _openDeepLinkPlace(String pid) async {
+    final v =
+        _venues.where((v) => v.googlePlaceId == pid).firstOrNull;
+    if (v != null && v.lat != null) {
+      setState(() {
+        _showList = false;
+        _selected = v;
+        _selectedDiscovered = null;
+      });
+      _map?.animateCamera(
+          CameraUpdate.newLatLngZoom(LatLng(v.lat!, v.lng!), 16));
+      return;
+    }
+    final live = await _places.details(pid);
+    if (live?.lat == null || !mounted) return;
+    final d = DiscoveredPlace(
+      placeId: pid,
+      name: live?.displayName ?? 'Space',
+      lat: live!.lat!,
+      lng: live.lng!,
+      rating: live.rating,
+      userRatingCount: live.userRatingCount,
+    );
+    _mergeDiscovered([d]);
+    _supabase.cacheDiscovered([d]);
+    setState(() {
+      _showList = false;
+      _selectedDiscovered = d;
+      _selected = null;
+    });
+    _map?.animateCamera(
+        CameraUpdate.newLatLngZoom(LatLng(d.lat, d.lng), 16));
   }
 
   /// Remember where the map is pointing so next open starts there.

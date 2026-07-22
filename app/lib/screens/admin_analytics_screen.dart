@@ -751,6 +751,8 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
                 if (props['query'] != null) '"${props['query']}"',
                 if (props['kind'] != null) props['kind'],
                 if (props['mbps'] != null) '${props['mbps']} Mbps',
+                if (props['utm_source'] != null)
+                  'from ${props['utm_source']}',
               ].join(' · ');
               final t =
                   DateTime.tryParse(e['created_at'] ?? '');
