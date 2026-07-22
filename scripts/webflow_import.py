@@ -148,6 +148,7 @@ while True:
 # ---- pick the newcomers ----
 rows, skipped_existing, skipped_no_pid = [], 0, 0
 resolved, unresolved, searches = 0, [], 0
+unresolved_rows = []
 for l in listings:
     pid = l.get('place_id')
     if not pid:
@@ -171,6 +172,11 @@ for l in listings:
                 print(f"resolved: {l['name']} -> {gname} ({dist} m)")
             else:
                 unresolved.append(l['name'] + note)
+                unresolved_rows.append({
+                    'name': l['name'], 'slug': l['slug'],
+                    'lat': l.get('lat'), 'lng': l.get('lng'),
+                    'note': note.strip() or 'no confident Google match',
+                })
         if not pid:
             skipped_no_pid += 1
             continue
@@ -241,6 +247,8 @@ report = {
 os.makedirs('ci-debug', exist_ok=True)
 with open('ci-debug/webflow_import_report.json', 'w') as fh:
     json.dump(report, fh, indent=2)
+with open('ci-debug/webflow_unresolved.json', 'w') as fh:
+    json.dump(unresolved_rows, fh, indent=2)
 print(json.dumps(report, indent=2))
 if error:
     sys.exit(0)  # never fail the build over the import

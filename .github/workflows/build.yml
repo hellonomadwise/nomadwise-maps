@@ -170,6 +170,7 @@ jobs:
           cp smoke.png smoke_enus.png smoke_console.log /tmp/smokekeep/ 2>/dev/null || true
           cp ci-debug/webflow_match_report.json /tmp/smokekeep/ 2>/dev/null || true
           cp ci-debug/webflow_import_report.json /tmp/smokekeep/ 2>/dev/null || true
+          cp ci-debug/webflow_unresolved.json /tmp/smokekeep/ 2>/dev/null || true
           git config user.name "nomadwise-bot"
           git config user.email "actions@github.com"
           git checkout -B ci-debug
@@ -179,6 +180,7 @@ jobs:
           cp /tmp/smokekeep/smoke_console.log ci-debug/smoke_console.log 2>/dev/null || true
           cp /tmp/smokekeep/webflow_match_report.json ci-debug/webflow_match_report.json 2>/dev/null || true
           cp /tmp/smokekeep/webflow_import_report.json ci-debug/webflow_import_report.json 2>/dev/null || true
+          cp /tmp/smokekeep/webflow_unresolved.json ci-debug/webflow_unresolved.json 2>/dev/null || true
           git add -f ci-debug/ 2>/dev/null || true
           git commit -m "ci: smoke render artifacts" || true
           git push -f origin ci-debug || true
