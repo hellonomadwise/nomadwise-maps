@@ -16,15 +16,83 @@ Safety properties:
 Output: ci-debug/webflow_import_report.json
 """
 import json
+import math
 import os
+import re
 import sys
 import urllib.error
 import urllib.request
 
 SUPABASE_URL = os.environ['SUPABASE_URL'].rstrip('/')
 SERVICE_KEY = os.environ['SUPABASE_SERVICE_ROLE_KEY']
+PLACES_KEY = os.environ.get('GOOGLE_PLACES_KEY', '')
 
 SOURCE_TAG = 'nomadwise-webflow'
+
+# Listings whose Webflow map links carry no Google Place ID are resolved
+# by searching Google for the name near the listing's own coordinates.
+# A match is only accepted when it is BOTH nearby and similarly named.
+MAX_MATCH_DISTANCE_M = 400
+RESOLVE_PER_RUN = 350
+
+
+def _norm(s):
+    return re.sub(r'[^a-z0-9 ]', '', (s or '').lower()).strip()
+
+
+def _names_agree(a, b):
+    na, nb = _norm(a), _norm(b)
+    if not na or not nb:
+        return False
+    if na in nb or nb in na:
+        return True
+    ta, tb = set(na.split()), set(nb.split())
+    common = ta & tb
+    return len(common) >= max(1, min(len(ta), len(tb)) // 2 + 1)
+
+
+def _dist_m(lat1, lng1, lat2, lng2):
+    rad = math.pi / 180
+    dlat = (lat2 - lat1) * rad
+    dlng = (lng2 - lng1) * rad
+    a = (math.sin(dlat / 2) ** 2 +
+         math.cos(lat1 * rad) * math.cos(lat2 * rad) *
+         math.sin(dlng / 2) ** 2)
+    return 6371000 * 2 * math.asin(math.sqrt(a))
+
+
+def find_place(name, lat, lng):
+    """Text-search Google for `name` near (lat, lng); return
+    (place_id, distance_m, google_name) or None."""
+    body = {
+        'textQuery': name,
+        'locationBias': {'circle': {
+            'center': {'latitude': lat, 'longitude': lng},
+            'radius': 1000.0,
+        }},
+        'maxResultCount': 3,
+    }
+    data = json.dumps(body).encode()
+    r = urllib.request.Request(
+        'https://places.googleapis.com/v1/places:searchText',
+        data=data, method='POST',
+        headers={
+            'X-Goog-Api-Key': PLACES_KEY,
+            'X-Goog-FieldMask':
+                'places.id,places.location,places.displayName',
+            'Content-Type': 'application/json',
+        })
+    with urllib.request.urlopen(r) as resp:
+        found = json.loads(resp.read().decode())
+    for p in found.get('places') or []:
+        loc = p.get('location') or {}
+        if loc.get('latitude') is None:
+            continue
+        d = _dist_m(lat, lng, loc['latitude'], loc['longitude'])
+        gname = ((p.get('displayName') or {}).get('text')) or ''
+        if d <= MAX_MATCH_DISTANCE_M and _names_agree(name, gname):
+            return p['id'], round(d), gname
+    return None
 
 
 def req(url, method='GET', body=None, prefer=None):
@@ -59,8 +127,11 @@ except urllib.error.HTTPError:
     sys.exit(0)
 
 # ---- what does Nomadmaps already know? ----
-venues = req(f'{SUPABASE_URL}/rest/v1/venues?select=google_place_id,source')
+venues = req(f'{SUPABASE_URL}/rest/v1/venues'
+             '?select=google_place_id,source,webflow_cms_id')
 known = {v['google_place_id'] for v in venues if v.get('google_place_id')}
+imported_wf_ids = {v['webflow_cms_id'] for v in venues
+                   if v.get('webflow_cms_id')}
 already_imported = sum(1 for v in venues
                        if v.get('source') == SOURCE_TAG)
 
@@ -76,11 +147,33 @@ while True:
 
 # ---- pick the newcomers ----
 rows, skipped_existing, skipped_no_pid = [], 0, 0
+resolved, unresolved, searches = 0, [], 0
 for l in listings:
     pid = l.get('place_id')
     if not pid:
-        skipped_no_pid += 1
-        continue
+        # Already imported on an earlier run via Google resolution?
+        if l['webflow_id'] in imported_wf_ids:
+            skipped_existing += 1
+            continue
+        # Try to identify the place on Google by name + coordinates.
+        if (PLACES_KEY and l.get('lat') is not None
+                and searches < RESOLVE_PER_RUN):
+            searches += 1
+            note = ''
+            try:
+                hit = find_place(l['name'], l['lat'], l['lng'])
+            except Exception as e:  # noqa: BLE001
+                hit = None
+                note = f' (search error: {e})'
+            if hit:
+                pid, dist, gname = hit
+                resolved += 1
+                print(f"resolved: {l['name']} -> {gname} ({dist} m)")
+            else:
+                unresolved.append(l['name'] + note)
+        if not pid:
+            skipped_no_pid += 1
+            continue
     if pid in known or pid in discovered:
         skipped_existing += 1
         continue
@@ -139,6 +232,10 @@ report = {
     'inserted_this_run': inserted,
     'skipped_already_in_nomadmaps': skipped_existing,
     'skipped_no_place_id': skipped_no_pid,
+    'google_searches_this_run': searches,
+    'resolved_via_google': resolved,
+    'no_confident_match_count': len(unresolved),
+    'no_confident_match_sample': unresolved[:40],
     'error': error,
 }
 os.makedirs('ci-debug', exist_ok=True)

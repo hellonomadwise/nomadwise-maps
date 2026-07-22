@@ -80,6 +80,8 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          # Used to resolve listings whose map links carry no Place ID
+          GOOGLE_PLACES_KEY: ${{ secrets.GOOGLE_PLACES_SERVER_KEY || secrets.GOOGLE_PLACES_KEY }}
         run: |
           if [ -n "$SUPABASE_SERVICE_ROLE_KEY" ] && [ -f scripts/webflow_import_data.json ]; then
             python3 scripts/webflow_import.py
