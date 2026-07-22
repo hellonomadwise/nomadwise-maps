@@ -1393,15 +1393,13 @@ class _MapScreenState extends State<MapScreen> {
                       debounce?.cancel();
                       debounce =
                           Timer(const Duration(milliseconds: 350), () async {
-                        // Cities, but also regions and districts:
-                        // "Bali" is a province, "Canggu" a village.
+                        // Google's "(regions)" collection covers every
+                        // area type at once: cities, provinces, districts
+                        // AND neighbourhoods ("Canggu" and "Uluwatu" are
+                        // neighbourhoods, which the old city-level type
+                        // list silently excluded).
                         final res = await _places.autocomplete(text.trim(),
-                            types: [
-                              'locality',
-                              'sublocality_level_1',
-                              'administrative_area_level_1',
-                              'administrative_area_level_2',
-                            ]);
+                            types: ['(regions)']);
                         if (ctx.mounted) {
                           setSheet(() => sugg = res.take(5).toList());
                         }
