@@ -51,6 +51,13 @@ class _MapScreenState extends State<MapScreen> {
   // SELECTS that colour (shows only the selected ones).
   final Set<String> _pinFilter = {};
   bool _legendOpen = false;
+
+  /// Plain unscreened pins are hidden by default so a swept city does
+  /// not overwhelm the map: what shows carries evidence (screened pins
+  /// and "promising" violet ones). The counter chip and the legend both
+  /// toggle the full unscreened layer back on; the choice is remembered.
+  bool _showUnscreened = false;
+  static const _showUnscreenedPref = 'show_unscreened_pins';
   LatLngBounds? _mapBounds;
 
   bool _catVisible(String cat) =>
@@ -261,6 +268,13 @@ class _MapScreenState extends State<MapScreen> {
   Future<void> _boot() async {
     await _loadPinIcons();
 
+    // Remembered choice: does this person want the full unscreened
+    // layer visible? Default is off (calm map).
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _showUnscreened = prefs.getBool(_showUnscreenedPref) ?? false;
+    } catch (_) {}
+
     // Where should the map open? Priority: a deep link in the URL
     // (nomadwise.io placements link straight to a city or space),
     // then where they last left it, then a rough guess from their
@@ -391,6 +405,8 @@ class _MapScreenState extends State<MapScreen> {
       _showList = false;
       _selectedDiscovered = d;
       _selected = null;
+      // Make sure the pin they were linked to is actually visible.
+      if (!d.promising) _showUnscreened = true;
     });
     _map?.animateCamera(
         CameraUpdate.newLatLngZoom(LatLng(d.lat, d.lng), 16));
@@ -463,6 +479,13 @@ class _MapScreenState extends State<MapScreen> {
             fresh.where((d) => !known.contains(d.placeId)).length;
         await _supabase.cacheDiscovered(fresh);
         _mergeDiscovered(fresh);
+      }
+      // Tapping "Search this area" is an explicit hunt for unscreened
+      // spaces, so make sure the layer they asked for is visible.
+      if (!_showUnscreened) {
+        _showUnscreened = true;
+        SharedPreferences.getInstance()
+            .then((p) => p.setBool(_showUnscreenedPref, true));
       }
       Analytics.capture('area_searched',
           {'found': _visibleDiscovered.length, 'new': newFinds});
@@ -628,8 +651,39 @@ class _MapScreenState extends State<MapScreen> {
     return _discovered
         .where((d) =>
             !venuePlaceIds.contains(d.placeId) &&
-            _catVisible(d.promising ? 'promising' : 'unscreened'))
+            _catVisible(d.promising ? 'promising' : 'unscreened') &&
+            (d.promising || _showUnscreened))
         .toList();
+  }
+
+  /// Plain (non-promising) unscreened places currently hidden or shown
+  /// by the toggle, ignoring the toggle itself — used for the counter.
+  List<DiscoveredPlace> get _plainUnscreened {
+    final venuePlaceIds =
+        _venues.map((v) => v.googlePlaceId).whereType<String>().toSet();
+    return _discovered
+        .where((d) =>
+            !venuePlaceIds.contains(d.placeId) &&
+            !d.promising &&
+            _catVisible('unscreened'))
+        .toList();
+  }
+
+  void _toggleUnscreened() {
+    setState(() => _showUnscreened = !_showUnscreened);
+    Analytics.capture(
+        _showUnscreened ? 'unscreened_shown' : 'unscreened_hidden');
+    SharedPreferences.getInstance()
+        .then((p) => p.setBool(_showUnscreenedPref, _showUnscreened));
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(SnackBar(
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 3),
+        content: Text(_showUnscreened
+            ? 'Unscreened spaces shown — review one to earn coins'
+            : 'Unscreened spaces hidden — showing screened & promising'),
+      ));
   }
 
   Future<void> _openScreening(DiscoveredPlace p) async {
@@ -875,6 +929,8 @@ class _MapScreenState extends State<MapScreen> {
         _showList = false;
         _selectedDiscovered = d;
         _selected = null;
+        // They picked this place deliberately; show its pin.
+        if (!d.promising) _showUnscreened = true;
       });
       _map?.animateCamera(
           CameraUpdate.newLatLngZoom(LatLng(d.lat, d.lng), 16));
@@ -2139,14 +2195,16 @@ class _MapScreenState extends State<MapScreen> {
 
   Widget _countBadge() {
     String text;
+    int unscreenedCount;
     if (_showList) {
       // List mode covers everywhere, sorted by distance.
+      unscreenedCount = _plainUnscreened.length;
       text = [
         _anyFilterOn
             ? '${_visibleVenues.length} of ${_venues.length} $_noun shown'
             : '${_venues.length} $_noun',
-        if (_visibleDiscovered.isNotEmpty)
-          '${_visibleDiscovered.length} unscreened',
+        if (unscreenedCount > 0)
+          '$unscreenedCount unscreened${_showUnscreened ? '' : ' hidden'}',
       ].join(' · ');
     } else {
       // Map mode: count only what's inside the current view.
@@ -2157,29 +2215,48 @@ class _MapScreenState extends State<MapScreen> {
       final shownHere = _visibleVenues
           .where((v) => _inBounds(v.lat!, v.lng!))
           .length;
-      final unscreenedHere = _visibleDiscovered
+      unscreenedCount = _plainUnscreened
           .where((d) => _inBounds(d.lat, d.lng))
           .length;
-      if (totalHere == 0 && unscreenedHere == 0) {
+      if (totalHere == 0 && unscreenedCount == 0) {
         text = 'No $_noun here yet';
       } else {
         text = [
           _anyFilterOn
               ? '$shownHere of $totalHere $_noun here'
               : '$totalHere $_noun here',
-          if (unscreenedHere > 0) '$unscreenedHere unscreened',
+          if (unscreenedCount > 0)
+            '$unscreenedCount unscreened${_showUnscreened ? '' : ' hidden'}',
         ].join(' · ');
       }
     }
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-          color: Brand.charcoal.withValues(alpha: .85),
-          borderRadius: BorderRadius.circular(12)),
-      child: Text(
-        text,
-        style: const TextStyle(
-            color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500),
+    // The chip doubles as the doorway into the unscreened layer.
+    final tappable = unscreenedCount > 0;
+    return GestureDetector(
+      onTap: tappable ? _toggleUnscreened : null,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+            color: Brand.charcoal.withValues(alpha: .85),
+            borderRadius: BorderRadius.circular(12)),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Text(
+            text,
+            style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w500),
+          ),
+          if (tappable) ...[
+            const SizedBox(width: 5),
+            Icon(
+                _showUnscreened
+                    ? Icons.visibility_off_outlined
+                    : Icons.visibility_outlined,
+                size: 13,
+                color: Colors.white70),
+          ],
+        ]),
       ),
     );
   }
@@ -2201,7 +2278,8 @@ class _MapScreenState extends State<MapScreen> {
           }
           final sel = _selectedDiscovered;
           if (sel != null &&
-              !_catVisible(sel.promising ? 'promising' : 'unscreened')) {
+              (!_catVisible(sel.promising ? 'promising' : 'unscreened') ||
+                  (!sel.promising && !_showUnscreened))) {
             _selectedDiscovered = null;
           }
         }),
@@ -2300,6 +2378,28 @@ class _MapScreenState extends State<MapScreen> {
             'promising'),
         row(Brand.violet, 'Unscreened · review & earn', 'unscreened',
             outline: true),
+        InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: _toggleUnscreened,
+          child: Padding(
+            padding:
+                const EdgeInsets.symmetric(vertical: 5, horizontal: 2),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(
+                  _showUnscreened
+                      ? Icons.check_box
+                      : Icons.check_box_outline_blank,
+                  size: 15,
+                  color: Brand.violet),
+              const SizedBox(width: 5),
+              const Text('Show unscreened pins',
+                  style: TextStyle(
+                      fontSize: 11,
+                      color: Brand.inkSecondary,
+                      fontWeight: FontWeight.w600)),
+            ]),
+          ),
+        ),
         if (filtering)
           InkWell(
             borderRadius: BorderRadius.circular(8),
