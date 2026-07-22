@@ -100,19 +100,32 @@ class TermsScreen extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           Container(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
             decoration: BoxDecoration(
-              color: Brand.goldTint,
-              borderRadius: BorderRadius.circular(12),
+              color: Brand.ink,
+              borderRadius: BorderRadius.circular(14),
             ),
-            child: const Text(
-              'The short version: contribute honestly, and coins turn '
-              'into real thanks. Try to game it, and they turn into '
-              'nothing.',
-              style: TextStyle(
-                  color: Brand.goldTextDark,
-                  fontWeight: FontWeight.w600,
-                  height: 1.4),
+            child: const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('IN SHORT',
+                    style: TextStyle(
+                        color: Brand.gold,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.6)),
+                SizedBox(height: 8),
+                Text(
+                  'Genuine contributions are always rewarded. '
+                  'Fraudulent activity forfeits both the coins and '
+                  'the account.',
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w500,
+                      height: 1.55),
+                ),
+              ],
             ),
           ),
         ],
