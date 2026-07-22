@@ -72,12 +72,19 @@ venues = req(
     '?select=id,name,city,google_place_id,lat,lng',
     headers=sb_headers())
 
+# Bound Google spend per run: after a bulk import hundreds of venues
+# can need coordinates at once; fill them over a few builds instead.
+FILL_PER_RUN = 250
+
 updated, failed = 0, []
 for v in venues:
     needs_coords = v['lat'] is None or not v['google_place_id']
     needs_city = not v.get('city')
     if not needs_coords and not needs_city:
         continue
+    if updated >= FILL_PER_RUN:
+        print(f"Fill cap {FILL_PER_RUN} reached — the rest next build.")
+        break
     patch = {}
     try:
         pid = v['google_place_id']
@@ -130,7 +137,9 @@ SNAPSHOT_FIELDS = ','.join([
     'location', 'shortFormattedAddress', 'addressComponents',
     'photos',
 ])
-MAX_AGE_DAYS = 7      # refresh each venue at most once a week
+MAX_AGE_DAYS = 30     # refresh each venue at most once a month — with
+                      # ~660 venues after the Webflow import this keeps
+                      # snapshot calls inside Google's free monthly tier
 MAX_PER_RUN = 300     # hard cap per run, bounds worst-case API spend
 
 
