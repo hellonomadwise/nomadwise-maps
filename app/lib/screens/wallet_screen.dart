@@ -6,6 +6,7 @@ import '../services/analytics_service.dart';
 import '../services/supabase_service.dart';
 import '../theme.dart';
 import '../widgets/ui.dart';
+import 'terms_screen.dart';
 
 class WalletScreen extends StatefulWidget {
   const WalletScreen({super.key});
@@ -267,6 +268,26 @@ class _WalletScreenState extends State<WalletScreen> {
                                   onPressed: _cashOut,
                                   icon: const Icon(Icons.euro),
                                   label: const Text('Cash out')),
+                            ),
+                            const SizedBox(height: 8),
+                            Center(
+                              child: TextButton(
+                                onPressed: () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (_) =>
+                                            const TermsScreen())),
+                                child: const Text(
+                                  'Cash-outs are reviewed and approved '
+                                  'by us · see the terms',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                      fontSize: 11.5,
+                                      color: Brand.inkSecondary,
+                                      decoration:
+                                          TextDecoration.underline),
+                                ),
+                              ),
                             ),
                           ]),
                     ),

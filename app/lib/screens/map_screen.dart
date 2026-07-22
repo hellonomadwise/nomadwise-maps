@@ -20,6 +20,7 @@ import '../services/supabase_service.dart';
 import '../theme.dart';
 import '../widgets/ui.dart';
 import 'add_venue_screen.dart';
+import 'terms_screen.dart';
 import 'admin_screen.dart';
 import 'admin_analytics_screen.dart';
 import 'admin_users_screen.dart';
@@ -1178,6 +1179,18 @@ class _MapScreenState extends State<MapScreen> {
             onTap: () {
               Navigator.pop(context);
               showIntro(context);
+            },
+          ),
+          _menuRow(
+            icon: Icons.description_outlined,
+            label: 'Terms of service',
+            sub: 'Coins, fair play, your data',
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const TermsScreen()));
             },
           ),
           const Spacer(),
