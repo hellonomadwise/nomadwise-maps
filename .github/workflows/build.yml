@@ -88,6 +88,18 @@ jobs:
             echo "Skipping enrichment — secrets not set yet."
           fi
 
+      # One-off + repeatable: match the nomadwise.io Webflow listings
+      # against the Nomadmaps database; report lands on ci-debug.
+      - name: Webflow match audit
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          if [ -n "$SUPABASE_SERVICE_ROLE_KEY" ] && [ -f scripts/webflow_listings.json ]; then
+            python3 scripts/webflow_audit.py
+          fi
+
       # ---------- web build -> GitHub Pages ----------
       - name: Build web
         run: |
@@ -140,6 +152,7 @@ jobs:
         run: |
           mkdir -p /tmp/smokekeep
           cp smoke.png smoke_enus.png smoke_console.log /tmp/smokekeep/ 2>/dev/null || true
+          cp ci-debug/webflow_match_report.json /tmp/smokekeep/ 2>/dev/null || true
           git config user.name "nomadwise-bot"
           git config user.email "actions@github.com"
           git checkout -B ci-debug
@@ -147,6 +160,7 @@ jobs:
           cp /tmp/smokekeep/smoke.png ci-debug/smoke.png 2>/dev/null || true
           cp /tmp/smokekeep/smoke_enus.png ci-debug/smoke_enus.png 2>/dev/null || true
           cp /tmp/smokekeep/smoke_console.log ci-debug/smoke_console.log 2>/dev/null || true
+          cp /tmp/smokekeep/webflow_match_report.json ci-debug/webflow_match_report.json 2>/dev/null || true
           git add -f ci-debug/ 2>/dev/null || true
           git commit -m "ci: smoke render artifacts" || true
           git push -f origin ci-debug || true
