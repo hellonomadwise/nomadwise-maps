@@ -1040,7 +1040,12 @@ class _MapScreenState extends State<MapScreen> {
                 ]),
           ),
           const Divider(height: 1, color: Brand.hairline),
-          const SizedBox(height: 8),
+          // The row list scrolls when it is taller than the screen
+          // (small phones, or simply as the menu keeps growing).
+          Expanded(
+              child: ListView(
+                  padding: const EdgeInsets.only(top: 8),
+                  children: [
           _menuRow(
             icon: Icons.emoji_events_outlined,
             label: 'Leaderboard',
@@ -1193,7 +1198,7 @@ class _MapScreenState extends State<MapScreen> {
                       builder: (_) => const TermsScreen()));
             },
           ),
-          const Spacer(),
+          ])),
           const Divider(height: 1, color: Brand.hairline),
           if (user != null)
             ListTile(
