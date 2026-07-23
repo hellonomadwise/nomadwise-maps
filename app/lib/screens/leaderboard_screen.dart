@@ -312,10 +312,14 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           final a = act[i];
           final verb = _kindVerb[a['kind']] ?? 'updated';
           final coins = _kindCoins[a['kind']];
-          final place = [
-            if (a['venue_name'] != null) a['venue_name'],
-            if (a['city'] != null) a['city'],
-          ].join(', ');
+          // Privacy: fresh activity carries no venue name (see
+          // migration 39) — show the city only, phrased naturally.
+          final place = a['venue_name'] != null
+              ? [
+                  a['venue_name'],
+                  if (a['city'] != null) a['city'],
+                ].join(', ')
+              : (a['city'] != null ? 'a space in ${a['city']}' : '');
           return InkWell(
             onTap: () async {
               final stats = await _supabase.publicStats(a['user_id']);
@@ -512,10 +516,14 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                 )
               else
                 ...items.take(8).map((a) {
-                  final place = [
-                    if (a['venue_name'] != null) a['venue_name'],
-                    if (a['city'] != null) a['city'],
-                  ].join(', ');
+                  final place = a['venue_name'] != null
+                      ? [
+                          a['venue_name'],
+                          if (a['city'] != null) a['city'],
+                        ].join(', ')
+                      : (a['city'] != null
+                          ? 'a space in ${a['city']}'
+                          : '');
                   return Padding(
                     padding: const EdgeInsets.symmetric(vertical: 7),
                     child: Row(children: [
