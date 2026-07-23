@@ -2373,8 +2373,12 @@ class _MapScreenState extends State<MapScreen> {
         const SizedBox(height: 3),
         row(Brand.red, 'Work-friendly', 'yes'),
         row(Brand.ink, 'Not for laptops', 'no'),
-        row(Brand.amber, 'Listed · laptop question open · earn',
-            'unknown'),
+        // The gold "question open" category retired itself when the
+        // seed venues were marked laptop-friendly; only show its legend
+        // row if a gold pin actually exists on the map.
+        if (_venues.any((v) => v.workFriendly == WorkFriendly.unknown))
+          row(Brand.amber, 'Listed · laptop question open · earn',
+              'unknown'),
         row(Brand.violet, 'Promising · wifi/laptops in reviews',
             'promising'),
         row(Brand.violet, 'Not yet reviewed · be first & earn',
