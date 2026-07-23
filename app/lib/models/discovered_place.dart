@@ -18,6 +18,26 @@ class DiscoveredPlace {
   final int? signalLaptop;
   final int? signalNegative;
 
+  /// Reviews mentioning real food (lunch, brunch, salads...).
+  final int? signalFood;
+
+  /// Should this place match the "Food" filter? Review mentions or a
+  /// restaurant-style Google type both count.
+  bool get foodLikely =>
+      (signalFood ?? 0) > 0 ||
+      (primaryType != null &&
+          (primaryType == 'restaurant' ||
+              primaryType!.endsWith('_restaurant') ||
+              const {
+                'sandwich_shop',
+                'deli',
+                'meal_takeaway',
+                'meal_delivery',
+                'food_court',
+                'diner',
+                'bistro',
+              }.contains(primaryType)));
+
   /// True when this place's Google reviews mention wifi, plugs or
   /// laptops positively, with no warnings against working there.
   bool get promising =>
@@ -38,6 +58,7 @@ class DiscoveredPlace {
     this.signalPower,
     this.signalLaptop,
     this.signalNegative,
+    this.signalFood,
   });
 
   /// From a Google Places searchNearby result.
@@ -66,6 +87,7 @@ class DiscoveredPlace {
         signalPower: r['signal_power'],
         signalLaptop: r['signal_laptop'],
         signalNegative: r['signal_negative'],
+        signalFood: r['signal_food'],
       );
 
   Map<String, dynamic> toRow() => {

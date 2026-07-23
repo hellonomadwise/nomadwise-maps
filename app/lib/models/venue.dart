@@ -26,6 +26,10 @@ class Venue {
   final bool? officeChairs;
   final bool? access24h;
 
+  /// Real food (lunch etc.), not just coffee and pastries.
+  /// null = the community has not answered yet.
+  final bool? servesFood;
+
   final String? website;
   final String? instagram;
   final num? ratingSnapshot;
@@ -76,6 +80,7 @@ class Venue {
         monitorAvailable = j['monitor'],
         officeChairs = j['office_chairs'],
         access24h = j['access_24h'],
+        servesFood = j['serves_food'],
         website = j['website'],
         instagram = j['instagram'],
         ratingSnapshot = j['google_rating_snapshot'],
@@ -128,6 +133,29 @@ class Venue {
   bool get infoIsStale =>
       lastConfirmedAt == null ||
       DateTime.now().difference(lastConfirmedAt!).inDays > 180;
+
+  /// Should this venue match the "Food" filter? Community answer wins;
+  /// with no answer yet, Google's place types decide (a restaurant or
+  /// sandwich shop very likely does real food, a plain cafe may not).
+  bool get matchesFood {
+    if (servesFood != null) return servesFood!;
+    final types = <String>{
+      ...?live?.types,
+      if (live?.primaryType != null) live!.primaryType!,
+    };
+    return types.any((t) =>
+        t == 'restaurant' ||
+        t.endsWith('_restaurant') ||
+        const {
+          'sandwich_shop',
+          'deli',
+          'meal_takeaway',
+          'meal_delivery',
+          'food_court',
+          'diner',
+          'bistro',
+        }.contains(t));
+  }
 
   WorkFriendly get workFriendly {
     if (laptopsAllowed == true) return WorkFriendly.yes;
@@ -297,6 +325,11 @@ class PlaceLive {
   /// Google photo resource names (turn into URLs via PlacesService.photoUrl).
   final List<String> photoNames;
 
+  /// Google's classification, e.g. 'cafe', 'restaurant',
+  /// 'brunch_restaurant'. Powers the "Food" filter fallback.
+  final String? primaryType;
+  final List<String>? types;
+
   /// regularOpeningHours.periods — [{open:{day,hour,minute}, close:{day,hour,minute}}]
   /// Google day: 0 = Sunday … 6 = Saturday.
   final List<dynamic>? periods;
@@ -317,6 +350,8 @@ class PlaceLive {
         photoNames = ((j['photos'] as List?) ?? [])
             .map((p) => p['name'] as String)
             .toList(),
+        primaryType = j['primaryType'],
+        types = (j['types'] as List?)?.cast<String>(),
         periods = (j['currentOpeningHours'] ?? j['regularOpeningHours'])
             ?['periods'],
         weekdayDescriptions =

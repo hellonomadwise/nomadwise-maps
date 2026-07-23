@@ -94,6 +94,7 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
     'comfortable_seating': null,
     'cozy': null,
     'quiet_space': null,
+    'serves_food': null,
     // coworking-only questions (shown when type == coworking)
     'good_for_calls': null,
     'call_room': null,
@@ -233,6 +234,7 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
       _features['comfortable_seating'] = v.comfortableSeating;
       _features['cozy'] = v.cozy;
       _features['quiet_space'] = v.quietSpace;
+      _features['serves_food'] = v.servesFood;
       _features['good_for_calls'] = v.goodForCalls;
       _features['call_room'] = v.callRoom;
       _features['monitor'] = v.monitorAvailable;
@@ -800,6 +802,8 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
           _amenityRow('Comfortable seating', 'comfortable_seating'),
           _amenityRow('Cozy', 'cozy'),
           _amenityRow('Quiet space', 'quiet_space'),
+          _amenityRow('Real food (lunch, not just pastries)',
+              'serves_food'),
           if (_type == 'coworking') ...[
             const SizedBox(height: 16),
             const SectionLabel('COWORKING EXTRAS'),

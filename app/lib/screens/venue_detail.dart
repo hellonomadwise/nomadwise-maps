@@ -396,6 +396,7 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
                 _feature('Comfortable seating', venue.comfortableSeating),
                 _feature('Cozy', venue.cozy),
                 _feature('Quiet space', venue.quietSpace),
+                _feature('Real food (lunch)', venue.servesFood),
                 if (venue.type == 'coworking') ...[
                   _feature('Good for calls', venue.goodForCalls),
                   _feature('Call/Skype room', venue.callRoom),

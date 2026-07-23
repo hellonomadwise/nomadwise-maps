@@ -136,6 +136,10 @@ SNAPSHOT_FIELDS = ','.join([
     'currentOpeningHours', 'regularOpeningHours',
     'location', 'shortFormattedAddress', 'addressComponents',
     'photos',
+    # Place types power the "Food" filter (restaurant vs plain cafe).
+    # These are cheap-tier fields; the mask already bills at the
+    # opening-hours tier, so adding them costs nothing extra.
+    'primaryType', 'types',
 ])
 MAX_AGE_DAYS = 30     # refresh each venue at most once a month — with
                       # ~660 venues after the Webflow import this keeps
@@ -161,9 +165,12 @@ def slim(details):
     out = {}
     for k in ('displayName', 'rating', 'userRatingCount',
               'currentOpeningHours', 'regularOpeningHours',
-              'location', 'shortFormattedAddress'):
+              'location', 'shortFormattedAddress', 'types'):
         if details.get(k) is not None:
             out[k] = details[k]
+    # Always present after a refresh, so the "does this snapshot
+    # predate the types field?" staleness check terminates.
+    out['primaryType'] = details.get('primaryType') or 'unknown'
     photos = details.get('photos') or []
     if photos:
         out['photos'] = [{'name': p['name']}
@@ -174,7 +181,8 @@ def slim(details):
 try:
     rows = req(
         f'{SUPABASE_URL}/rest/v1/venues'
-        '?select=id,name,google_place_id,g_synced_at'
+        '?select=id,name,google_place_id,g_synced_at,'
+        'ptype:g_details->>primaryType'
         '&google_place_id=not.is.null',
         headers=sb_headers())
 except Exception as e:  # noqa: BLE001
@@ -194,6 +202,11 @@ for v in rows:
         stale.append(v)
         continue
     if synced < cutoff:
+        stale.append(v)
+        continue
+    # Snapshot predates the place-types upgrade: refresh early so the
+    # Food filter has data. One-time migration, bounded by MAX_PER_RUN.
+    if v.get('ptype') is None:
         stale.append(v)
 
 snapped, snap_failed = 0, []
@@ -272,6 +285,11 @@ SIGNAL_WORDS = {
     'laptop': ['laptop', 'notebook', 'digital nomad', 'remote work',
                'work from', 'working from', 'arbeiten', 'trabalhar',
                'trabajar', 'study', 'studying'],
+    # Real food, not just coffee and pastries.
+    'food': ['lunch', 'brunch', 'breakfast', 'sandwich', 'salad',
+             'burger', 'pasta', 'avocado toast', 'eggs', 'frokost',
+             'mittagessen', 'almoço', 'almoco', 'almuerzo',
+             'déjeuner', 'dejeuner'],
 }
 # Reviews that argue AGAINST working there. One of these disqualifies
 # a place from "promising", whatever else its reviews mention.
@@ -302,9 +320,19 @@ except Exception as e:  # noqa: BLE001
 
 import urllib.error  # noqa: E402
 
+# Does the database have the food column yet (migration 38)?
+try:
+    req(f'{SUPABASE_URL}/rest/v1/discovered_places'
+        '?select=signal_food&limit=1', headers=sb_headers())
+    has_food_col = True
+except Exception:  # noqa: BLE001
+    has_food_col = False
+    print('signal_food column missing (migration 38 not run yet) — '
+          'food signals skipped this run.')
+
 checked, promising = 0, 0
 for p in unchecked:
-    counts = {'wifi': 0, 'power': 0, 'laptop': 0}
+    counts = {'wifi': 0, 'power': 0, 'laptop': 0, 'food': 0}
     negatives = 0
     try:
         details = req(
@@ -346,6 +374,8 @@ for p in unchecked:
                 'signal_negative': negatives,
                 'signals_checked_at':
                     datetime.now(timezone.utc).isoformat(),
+                **({'signal_food': counts['food']}
+                   if has_food_col else {}),
             })
         checked += 1
         if any(counts.values()) and negatives == 0:

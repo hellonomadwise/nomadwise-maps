@@ -31,7 +31,7 @@ import 'leaderboard_screen.dart';
 import 'venue_detail.dart';
 import 'wallet_screen.dart';
 
-enum VenueFilter { openNow, openLate, open24h, workFriendly }
+enum VenueFilter { openNow, openLate, open24h, workFriendly, food }
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -652,7 +652,8 @@ class _MapScreenState extends State<MapScreen> {
         .where((d) =>
             !venuePlaceIds.contains(d.placeId) &&
             _catVisible(d.promising ? 'promising' : 'unscreened') &&
-            (d.promising || _showUnscreened))
+            (d.promising || _showUnscreened) &&
+            (!_filters.contains(VenueFilter.food) || d.foodLikely))
         .toList();
   }
 
@@ -763,6 +764,9 @@ class _MapScreenState extends State<MapScreen> {
           return false;
         }
         if (_filters.contains(VenueFilter.open24h) && !v.is24h) return false;
+        if (_filters.contains(VenueFilter.food) && !v.matchesFood) {
+          return false;
+        }
         return true;
       }).toList();
 
@@ -1787,6 +1791,7 @@ class _MapScreenState extends State<MapScreen> {
             _chip('Open late', VenueFilter.openLate),
             _chip('24 hours', VenueFilter.open24h),
             _chip('Work-friendly', VenueFilter.workFriendly),
+            _chip('Food', VenueFilter.food),
             _jumpChip(),
           ]),
         ),
