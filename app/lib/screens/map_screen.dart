@@ -802,11 +802,7 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Future<void> _openScreening(DiscoveredPlace p) async {
-    if (!_supabase.signedIn) {
-      final ok = await Navigator.push<bool>(context,
-          MaterialPageRoute(builder: (_) => const AuthScreen()));
-      if (ok != true) return;
-    }
+    if (!await _signInGate()) return;
     if (!mounted) return;
     Analytics.capture('screening_opened', {'place': p.name});
     await Navigator.push(
@@ -952,11 +948,7 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Future<void> _openAddVenue({Venue? confirming}) async {
-    if (!_supabase.signedIn) {
-      final ok = await Navigator.push<bool>(context,
-          MaterialPageRoute(builder: (_) => const AuthScreen()));
-      if (ok != true) return;
-    }
+    if (!await _signInGate()) return;
     if (!mounted) return;
     await Navigator.push(
         context,
@@ -967,14 +959,74 @@ class _MapScreenState extends State<MapScreen> {
                 userLng: _userLng)));
   }
 
-  Future<void> _requireSignIn(VoidCallback then) async {
-    if (_supabase.signedIn) {
-      then();
-      return;
-    }
+  /// One explainer before any login prompt: what signing in unlocks
+  /// and why we ask. Returns true when the user ends up signed in.
+  Future<bool> _signInGate() async {
+    if (_supabase.signedIn) return true;
+    final go = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(22))),
+      builder: (ctx) => PointerInterceptor(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 22, 24, 28),
+          child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Earn coins for helping',
+                    style: TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 8),
+                Text(
+                  'Reviewing a space earns ${AppConfig.coinsNewVenue} '
+                  'coins, confirming one earns '
+                  '${AppConfig.coinsConfirmVenue}. 100 coins are worth 1 '
+                  'euro, and you can cash out from '
+                  '${AppConfig.minCashOutEuro} euro.\n\n'
+                  'Signing in with Google simply gives your coins an '
+                  'owner. Free, no card details, no spam.',
+                  style: const TextStyle(
+                      fontSize: 13.5,
+                      height: 1.5,
+                      color: Brand.inkSecondary),
+                ),
+                const SizedBox(height: 18),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor: Brand.accent,
+                        foregroundColor: Colors.white,
+                        padding:
+                            const EdgeInsets.symmetric(vertical: 13),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12))),
+                    onPressed: () => Navigator.pop(ctx, true),
+                    child: const Text('Continue with Google',
+                        style: TextStyle(fontWeight: FontWeight.w700)),
+                  ),
+                ),
+                Center(
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    child: const Text('Not now',
+                        style: TextStyle(color: Brand.inkSecondary)),
+                  ),
+                ),
+              ]),
+        ),
+      ),
+    );
+    if (go != true || !mounted) return false;
     final ok = await Navigator.push<bool>(
         context, MaterialPageRoute(builder: (_) => const AuthScreen()));
-    if (ok == true && mounted) then();
+    return ok == true && mounted && _supabase.signedIn;
+  }
+
+  Future<void> _requireSignIn(VoidCallback then) async {
+    if (await _signInGate()) then();
   }
 
   void _openDetail(Venue v) => Navigator.push(
@@ -1057,10 +1109,23 @@ class _MapScreenState extends State<MapScreen> {
 
   // ---------- jump to city ----------
 
+  /// Merge import variants of one city ("Bratislava 1", "Bratislava
+  /// II") into a single clean entry, and drop blank names entirely
+  /// (venues whose city is still being filled in by enrichment).
+  static String _cleanCity(String c) => c
+      .trim()
+      .replaceAll(RegExp(r'\s+(?:\d{1,2}|[IVXivx]{1,4})$'), '')
+      .trim();
+
   Future<void> _openJumpToCity() async {
-    final citiesWithSpaces =
-        _venues.map((v) => v.city).whereType<String>().toSet().toList()
-          ..sort();
+    final citiesWithSpaces = _venues
+        .map((v) => v.city)
+        .whereType<String>()
+        .map(_cleanCity)
+        .where((c) => c.length > 1)
+        .toSet()
+        .toList()
+      ..sort();
     final placeId = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
@@ -1072,15 +1137,21 @@ class _MapScreenState extends State<MapScreen> {
               places: _places, citiesWithSpaces: citiesWithSpaces)),
     );
     if (placeId == null || !mounted) return;
+    // Remember where they were, so the jump has a way back.
+    final beforeJump = await _map?.getVisibleRegion();
     if (placeId.startsWith('venue-city:')) {
       // A city we already have venues in, fly to its first venue.
       final city = placeId.substring('venue-city:'.length);
       final v = _venues
-          .where((v) => v.city == city && v.lat != null)
+          .where((v) =>
+              v.city != null &&
+              _cleanCity(v.city!) == city &&
+              v.lat != null)
           .firstOrNull;
       if (v != null) {
         _map?.animateCamera(
             CameraUpdate.newLatLngZoom(LatLng(v.lat!, v.lng!), 13));
+        _offerJumpBack(beforeJump);
       }
       return;
     }
@@ -1088,7 +1159,26 @@ class _MapScreenState extends State<MapScreen> {
     if (live?.lat != null && mounted) {
       _map?.animateCamera(
           CameraUpdate.newLatLngZoom(LatLng(live!.lat!, live.lng!), 12));
+      _offerJumpBack(beforeJump);
     }
+  }
+
+  /// A brief floating "Back" after a city jump, restoring the view
+  /// they left. Disappears by itself.
+  void _offerJumpBack(LatLngBounds? before) {
+    if (before == null || !mounted) return;
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(SnackBar(
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 6),
+        content: const Text('Jumped to city'),
+        action: SnackBarAction(
+          label: 'Back',
+          onPressed: () => _map?.animateCamera(
+              CameraUpdate.newLatLngBounds(before, 0)),
+        ),
+      ));
   }
 
   // ---------- menu ----------
@@ -1849,23 +1939,25 @@ class _MapScreenState extends State<MapScreen> {
               child: GestureDetector(
                 onTap: _openSearch,
                 child: Container(
-                  height: 38,
+                  height: 42,
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   decoration: BoxDecoration(
                     color: Brand.surface,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: Brand.border),
-                    boxShadow: Brand.shadowResting,
+                    boxShadow: Brand.shadowFloating,
                   ),
                   child: Row(children: [
                     const Icon(Icons.search,
-                        size: 18, color: Brand.inkMuted),
+                        size: 20, color: Brand.ink),
                     const SizedBox(width: 8),
                     const Expanded(
                       child: Text('Search cafes, coworking…',
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                              color: Brand.inkMuted, fontSize: 14)),
+                              color: Brand.inkSecondary,
+                              fontSize: 14.5,
+                              fontWeight: FontWeight.w500)),
                     ),
                     // Honest label while the app is young.
                     Container(
