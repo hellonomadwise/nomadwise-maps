@@ -194,7 +194,7 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
   Widget _body(List<Map<String, dynamic>> allEvents) {
     final now = DateTime.now().toUtc();
 
-    // Devices used by team accounts drop out of all the numbers —
+    // Devices used by team accounts drop out of all the numbers -
     // including devices remembered from earlier team sign-ins, so
     // browsing signed out on the same phone stays excluded too.
     // Visitors whose recorded browser identity looks automated

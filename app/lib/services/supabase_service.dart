@@ -62,7 +62,7 @@ class SupabaseService {
     return list;
   }
 
-  /// Venues remembered from the last visit — instant, may be slightly stale.
+  /// Venues remembered from the last visit, instant, may be slightly stale.
   Future<List<Venue>> cachedVenues() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -215,7 +215,7 @@ class SupabaseService {
 
   // ---------- submissions & coins ----------
 
-  /// Record a submission (photo optional — uploads it when provided).
+  /// Record a submission (photo optional, uploads it when provided).
   /// Coin awards happen automatically in the database (triggers).
   Future<void> submit({
     required String kind, // 'new_venue' | 'confirm'
@@ -446,7 +446,7 @@ class SupabaseService {
   /// Admin only: which accounts belong to which group
   /// ('team' | 'friend'; absent = genuine customer).
   /// Devices (anonymous ids) that have ever signed into a team
-  /// account — excluded from analytics even when browsing signed out.
+  /// account, excluded from analytics even when browsing signed out.
   Future<Set<String>> teamDevices() async {
     try {
       final rows = await _db.from('team_devices').select('anon_id');

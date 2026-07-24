@@ -183,7 +183,7 @@ class _MapScreenState extends State<MapScreen> {
     _checkAdmin();
     Analytics.capture('app_opened');
     // The intro cards no longer auto-show on first visit (too much
-    // friction) — they live under "How it works" in the menu instead.
+    // friction), they live under "How it works" in the menu instead.
     _supabase.authChanges.listen((state) {
       _checkAdmin();
       final user = _supabase.currentUser;
@@ -457,7 +457,7 @@ class _MapScreenState extends State<MapScreen> {
               bounds.northeast.longitude) /
           2;
 
-      // 1. Our own cache first — free.
+      // 1. Our own cache first, free.
       final cached = await _supabase.discoveredInBounds(
           bounds.southwest.latitude,
           bounds.northeast.latitude,
@@ -658,7 +658,7 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   /// Plain (non-promising) unscreened places currently hidden or shown
-  /// by the toggle, ignoring the toggle itself — used for the counter.
+  /// by the toggle, ignoring the toggle itself, used for the counter.
   List<DiscoveredPlace> get _plainUnscreened {
     final venuePlaceIds =
         _venues.map((v) => v.googlePlaceId).whereType<String>().toSet();
@@ -682,8 +682,8 @@ class _MapScreenState extends State<MapScreen> {
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 3),
         content: Text(_showUnscreened
-            ? 'Unscreened spaces shown — review one to earn coins'
-            : 'Unscreened spaces hidden — showing screened & promising'),
+            ? 'Unscreened spaces shown. Review one to earn coins'
+            : 'Unscreened spaces hidden. Showing screened & promising'),
       ));
   }
 
@@ -780,7 +780,7 @@ class _MapScreenState extends State<MapScreen> {
       };
 
   Set<Marker> get _markers => {
-        // "You are here" — blue dot, only when we truly know the location.
+        // "You are here", blue dot, only when we truly know the location.
         if (_hasRealLocation && _userLat != null)
           Marker(
             markerId: const MarkerId('me'),
@@ -959,7 +959,7 @@ class _MapScreenState extends State<MapScreen> {
     );
     if (placeId == null || !mounted) return;
     if (placeId.startsWith('venue-city:')) {
-      // A city we already have venues in — fly to its first venue.
+      // A city we already have venues in, fly to its first venue.
       final city = placeId.substring('venue-city:'.length);
       final v = _venues
           .where((v) => v.city == city && v.lat != null)
@@ -1107,7 +1107,7 @@ class _MapScreenState extends State<MapScreen> {
                   padding: const EdgeInsets.only(top: 8),
                   children: [
           // Beta notice: honest about the stage, and an open
-          // invitation — helping IS the product right now.
+          // invitation, helping IS the product right now.
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
             child: Container(
@@ -1129,7 +1129,7 @@ class _MapScreenState extends State<MapScreen> {
                   Text(
                     'Nomad Maps is young and improving every week, so '
                     'the occasional rough edge is part of the deal. If '
-                    'something looks off, send us feedback — or fix it '
+                    'something looks off, send us feedback, or fix it '
                     'on the map and earn coins. That is exactly the '
                     'help we are hoping for.',
                     style: TextStyle(
@@ -3202,7 +3202,7 @@ class _DiscoveredCardState extends State<_DiscoveredCard> {
 // Compact card shown when a pin is tapped (map mode)
 // ============================================================
 
-/// Small scrollable photo strip for the pin tap cards — people are
+/// Small scrollable photo strip for the pin tap cards, people are
 /// visual, a picture sells the place faster than any fact row.
 Widget _cardPhotoStrip(List<String> names) {
   if (names.isEmpty) return const SizedBox.shrink();

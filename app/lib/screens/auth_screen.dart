@@ -9,7 +9,7 @@ import '../theme.dart';
 import '../widgets/ui.dart';
 
 /// Email + Google sign-in. (Apple sign-in slots in here later once the
-/// Apple Developer account exists — see docs/APPLE_SIGN_IN.md.)
+/// Apple Developer account exists, see docs/APPLE_SIGN_IN.md.)
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
   @override

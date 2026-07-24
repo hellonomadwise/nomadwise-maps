@@ -100,7 +100,7 @@ class Venue {
     }
   }
 
-  /// How many of the core questions are still unanswered — each one is
+  /// How many of the core questions are still unanswered, each one is
   /// a coin-earning opportunity for contributors.
   int get unansweredCount => [
         laptopsAllowed,
@@ -112,7 +112,7 @@ class Venue {
         quietSpace,
       ].where((v) => v == null).length;
 
-  /// "today" / "3 days ago" / "2 months ago" — or null if never confirmed.
+  /// "today" / "3 days ago" / "2 months ago", or null if never confirmed.
   String? get confirmedAgoLabel {
     final t = lastConfirmedAt;
     if (t == null) return null;
@@ -128,7 +128,7 @@ class Venue {
     return y == 1 ? '1 year ago' : '$y years ago';
   }
 
-  /// Info older than 6 months (or never confirmed) counts as stale —
+  /// Info older than 6 months (or never confirmed) counts as stale -
   /// which the app presents as an invitation to earn coins.
   bool get infoIsStale =>
       lastConfirmedAt == null ||
@@ -330,7 +330,7 @@ class PlaceLive {
   final String? primaryType;
   final List<String>? types;
 
-  /// regularOpeningHours.periods — [{open:{day,hour,minute}, close:{day,hour,minute}}]
+  /// regularOpeningHours.periods, [{open:{day,hour,minute}, close:{day,hour,minute}}]
   /// Google day: 0 = Sunday … 6 = Saturday.
   final List<dynamic>? periods;
 

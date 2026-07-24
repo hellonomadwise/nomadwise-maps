@@ -62,7 +62,7 @@ class PlacesService {
   }
 
   /// Find cafes & coworking spaces Google knows about around a point.
-  /// Used by "Search this area" — results get cached in Supabase so the
+  /// Used by "Search this area", results get cached in Supabase so the
   /// same area never costs a second Google call.
   static const _searchFieldMask =
       'places.id,places.displayName,places.location,'
@@ -186,7 +186,7 @@ class PlacesService {
 
   final Map<String, List<String>> _photoNameCache = {};
 
-  /// Just the photo list for a place — a lean, cheap lookup used by
+  /// Just the photo list for a place, a lean, cheap lookup used by
   /// the map's tap cards (cached for the session).
   Future<List<String>> photoNames(String placeId) async {
     final hit = _photoNameCache[placeId];
@@ -339,7 +339,7 @@ class PlacesService {
 
   /// Load live details for a batch of venues (used when the map loads).
   /// Venues that already carry the database's cached Google copy are
-  /// skipped — only brand-new venues (not yet snapshotted by the daily
+  /// skipped, only brand-new venues (not yet snapshotted by the daily
   /// build job) trigger a real Google call.
   Future<void> enrich(Iterable<Venue> venues) async {
     await Future.wait(venues

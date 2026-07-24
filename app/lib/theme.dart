@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Nomadwise design tokens — from the "Nomad Maps Polish" handoff.
+/// Nomadwise design tokens, from the "Nomad Maps Polish" handoff.
 /// Legacy names (red/charcoal/amber/lightGrey/gradient) are kept as
 /// aliases so older code keeps compiling; they now point at the new
 /// palette.

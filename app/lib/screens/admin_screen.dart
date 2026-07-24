@@ -7,7 +7,7 @@ import '../services/supabase_service.dart';
 import '../theme.dart';
 
 /// Admin-only: review incoming new-venue submissions.
-/// (Confirmations self-verify via photo + GPS, so they rarely appear here —
+/// (Confirmations self-verify via photo + GPS, so they rarely appear here -
 /// only ones whose GPS check failed.)
 class AdminScreen extends StatefulWidget {
   const AdminScreen({super.key});

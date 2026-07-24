@@ -26,7 +26,7 @@ class Analytics {
   /// (no PostHog, no in-app analytics, no phone pings). The mark
   /// persists for this browser; nomadmaps.io/#public lifts it again.
   /// Does this visit come from a data-centre address (Amazon, Google
-  /// Cloud, hosting providers)? Real homes and cafes never do — but
+  /// Cloud, hosting providers)? Real homes and cafes never do, but
   /// VPNs can, so this is recorded as a tag rather than a hard block.
   /// Checked once per session, never persisted (VPNs come and go).
   static bool? _dc;

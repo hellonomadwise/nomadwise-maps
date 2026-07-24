@@ -313,7 +313,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           final verb = _kindVerb[a['kind']] ?? 'updated';
           final coins = _kindCoins[a['kind']];
           // Privacy: fresh activity carries no venue name (see
-          // migration 39) — show the city only, phrased naturally.
+          // migration 39), show the city only, phrased naturally.
           final place = a['venue_name'] != null
               ? [
                   a['venue_name'],

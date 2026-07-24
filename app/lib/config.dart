@@ -18,7 +18,7 @@ class AppConfig {
 
   // ---- Coin economy ----
   /// Reviewing/screening a space that isn't listed yet (identity comes
-  /// from Google, so it's easier than the old "add a venue" — hence 50).
+  /// from Google, so it's easier than the old "add a venue", hence 50).
   static const coinsNewVenue = 50;
   static const coinsConfirmVenue = 30;
 

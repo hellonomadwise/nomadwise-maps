@@ -25,7 +25,7 @@ import '../widgets/ui.dart';
 class AddVenueScreen extends StatefulWidget {
   final Venue? confirming;
 
-  /// Set when the user tapped an unscreened (Google-discovered) pin —
+  /// Set when the user tapped an unscreened (Google-discovered) pin -
   /// the place identity is prefilled and locked.
   final DiscoveredPlace? screening;
   final double? userLat, userLng;
@@ -753,7 +753,7 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
               Padding(
                 padding: const EdgeInsets.only(bottom: 4),
                 child: Text(
-                    'Often the wifi is named after the place — tap a '
+                    'Often the wifi is named after the place. Tap a '
                     'guess, then fix it if needed:',
                     style: TextStyle(
                         fontSize: 11.5, color: Colors.grey.shade600)),
