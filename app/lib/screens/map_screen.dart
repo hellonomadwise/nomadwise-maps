@@ -106,6 +106,12 @@ class _MapScreenState extends State<MapScreen> {
         _avatarUrl = p['avatar_url'];
       });
     }
+    // Only signed-in nomads have a wallet; an anonymous visitor must
+    // not see an unexplained coin chip (it reads like a cost).
+    if (!_supabase.signedIn) {
+      if (mounted) setState(() => _walletTotal = null);
+      return;
+    }
     final w = await _supabase.wallet();
     if (mounted) setState(() => _walletTotal = w.total);
   }
