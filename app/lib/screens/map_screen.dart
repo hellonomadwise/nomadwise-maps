@@ -367,9 +367,117 @@ class _MapScreenState extends State<MapScreen> {
 
     if (_deepLinkPlaceId != null) _openDeepLinkPlace(_deepLinkPlaceId!);
 
+    _maybeOnboard();
+
     await _places.enrich(_venues);
     _computeDistances();
     if (mounted) setState(() {});
+  }
+
+  /// First-visit welcome and the (later) install nudge. One screen,
+  /// one button; the old three-card intro stays behind "How it works".
+  Future<void> _maybeOnboard() async {
+    if (!mounted) return;
+    late final SharedPreferences prefs;
+    try {
+      prefs = await SharedPreferences.getInstance();
+    } catch (_) {
+      return;
+    }
+    final visits = (prefs.getInt('visit_count') ?? 0) + 1;
+    prefs.setInt('visit_count', visits);
+
+    if (!(prefs.getBool('welcome_seen_v1') ?? false)) {
+      prefs.setBool('welcome_seen_v1', true);
+      Analytics.capture('welcome_shown');
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => Dialog(
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20)),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 26, 24, 22),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              Image.asset('assets/brand/app_icon.png', height: 52),
+              const SizedBox(height: 14),
+              Row(mainAxisSize: MainAxisSize.min, children: [
+                const Flexible(
+                  child: Text('Welcome to Nomad Maps',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                          fontSize: 19, fontWeight: FontWeight.w800)),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Brand.violet.withValues(alpha: .12),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Text('BETA',
+                      style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: .8,
+                          color: Brand.violet)),
+                ),
+              ]),
+              const SizedBox(height: 10),
+              const Text(
+                'A map of cafes and coworking spaces that are good to '
+                'work from: tested WiFi speeds, plug sockets and quiet '
+                'corners, built by nomads for nomads.\n\n'
+                'It is free and improving every week. Review a space '
+                'you visit and you earn coins for helping.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    fontSize: 13.5, height: 1.5, color: Brand.inkSecondary),
+              ),
+              const SizedBox(height: 18),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: Brand.accent,
+                      foregroundColor: Colors.white,
+                      padding:
+                          const EdgeInsets.symmetric(vertical: 13),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12))),
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Explore the map',
+                      style: TextStyle(fontWeight: FontWeight.w700)),
+                ),
+              ),
+            ]),
+          ),
+        ),
+      );
+      return; // never stack the install nudge on the welcome
+    }
+
+    // Returning visitor on the web: one gentle install nudge. If they
+    // ignore it (timeout), it may return next visit; any tap ends it.
+    if (kIsWeb &&
+        visits >= 2 &&
+        !(prefs.getBool('install_prompt_done') ?? false) &&
+        mounted) {
+      Analytics.capture('install_prompt_shown');
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 8),
+        content: const Text('Install Nomad Maps for quick access?'),
+        action: SnackBarAction(
+          label: 'Install',
+          onPressed: () {
+            prefs.setBool('install_prompt_done', true);
+            _showAddToHome();
+          },
+        ),
+      ));
+    }
   }
 
   /// A ?place=GOOGLE_PLACE_ID link: open that exact space, whether
@@ -1254,16 +1362,6 @@ class _MapScreenState extends State<MapScreen> {
               },
             ),
           ],
-          if (kIsWeb)
-            _menuRow(
-              icon: Icons.add_to_home_screen,
-              label: 'Add to Home Screen',
-              sub: 'Use it like a real app',
-              onTap: () {
-                Navigator.pop(context);
-                _showAddToHome();
-              },
-            ),
           _menuRow(
             icon: Icons.chat_bubble_outline,
             label: 'Send feedback',
@@ -1384,7 +1482,7 @@ class _MapScreenState extends State<MapScreen> {
                     child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Add Nomad Maps to your Home Screen',
+                          Text('Install Nomad Maps for quick access',
                               style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w700)),
@@ -1813,22 +1911,10 @@ class _MapScreenState extends State<MapScreen> {
                           ]),
                     ),
                   )
-                : IconSquareButton(
-                    icon: Icons.account_balance_wallet_outlined,
-                    floating: true,
-                    child: Stack(clipBehavior: Clip.none, children: [
-                      const Icon(
-                          Icons.account_balance_wallet_outlined,
-                          size: 19,
-                          color: Brand.ink),
-                      const Positioned(
-                          right: -5, top: -5, child: CoinDot(size: 12)),
-                    ]),
-                    onTap: () => _requireSignIn(() => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => const WalletScreen()))),
-                  ),
+                // Signed out: no unexplained coin icon on the map.
+                // Earning is introduced by the welcome screen and the
+                // menu; the wallet appears once they sign in.
+                : const SizedBox.shrink(),
           ]),
         ),
         SingleChildScrollView(
