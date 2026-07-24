@@ -1,0 +1,26 @@
+[default][warning] [GroupMarkerNotSet(crbug.com/242999)!:A0301C006C190000]Automatic fallback to software WebGL has been deprecated. Please use the --enable-unsafe-swiftshader flag to opt in to lower security guarantees for trusted content.
+[default][debug] Injecting <script> tag. Using callback.
+[default][warning] [GroupMarkerNotSet(crbug.com/242999)!:A0301C006C190000]Automatic fallback to software WebGL has been deprecated. Please use the --enable-unsafe-swiftshader flag to opt in to lower security guarantees for trusted content.
+[default][warning] [GroupMarkerNotSet(crbug.com/242999)!:A0601C006C190000]Automatic fallback to software WebGL has been deprecated. Please use the --enable-unsafe-swiftshader flag to opt in to lower security guarantees for trusted content.
+[default][warning] [GroupMarkerNotSet(crbug.com/242999)!:A0901C006C190000]Automatic fallback to software WebGL has been deprecated. Please use the --enable-unsafe-swiftshader flag to opt in to lower security guarantees for trusted content.
+[default][warning] As of February 21st, 2024, google.maps.Marker is deprecated. Please use google.maps.marker.AdvancedMarkerElement instead. At this time, google.maps.Marker is not scheduled to be discontinued, but google.maps.marker.AdvancedMarkerElement is recommended over google.maps.Marker. While google.maps.Marker will continue to receive bug fixes for any major regressions, existing bugs in google.maps.Marker will not be addressed. At least 12 months notice will be given before support is discontinued. Please see https://developers.google.com/maps/deprecations for additional details and https://developers.google.com/maps/documentation/javascript/advanced-markers/migration for the migration guide.
+[default][error] Failed to load resource: the server responded with a status of 403 ()
+[default][error] Failed to load resource: the server responded with a status of 403 ()
+[default][error] Failed to load resource: the server responded with a status of 403 ()
+[default][error] Failed to load resource: the server responded with a status of 403 ()
+[default][error] Google Maps JavaScript API error: RefererNotAllowedMapError
+https://developers.google.com/maps/documentation/javascript/error-messages#referer-not-allowed-map-error
+Your site URL to be authorized: http://localhost:8765/
+[enUS][warning] [GroupMarkerNotSet(crbug.com/242999)!:A0F0AC006C190000]Automatic fallback to software WebGL has been deprecated. Please use the --enable-unsafe-swiftshader flag to opt in to lower security guarantees for trusted content.
+[enUS][debug] Injecting <script> tag. Using callback.
+[enUS][warning] [GroupMarkerNotSet(crbug.com/242999)!:A0F0AC006C190000]Automatic fallback to software WebGL has been deprecated. Please use the --enable-unsafe-swiftshader flag to opt in to lower security guarantees for trusted content.
+[enUS][warning] [GroupMarkerNotSet(crbug.com/242999)!:A020AD006C190000]Automatic fallback to software WebGL has been deprecated. Please use the --enable-unsafe-swiftshader flag to opt in to lower security guarantees for trusted content.
+[enUS][warning] [GroupMarkerNotSet(crbug.com/242999)!:A0C0AC006C190000]Automatic fallback to software WebGL has been deprecated. Please use the --enable-unsafe-swiftshader flag to opt in to lower security guarantees for trusted content.
+[enUS][warning] As of February 21st, 2024, google.maps.Marker is deprecated. Please use google.maps.marker.AdvancedMarkerElement instead. At this time, google.maps.Marker is not scheduled to be discontinued, but google.maps.marker.AdvancedMarkerElement is recommended over google.maps.Marker. While google.maps.Marker will continue to receive bug fixes for any major regressions, existing bugs in google.maps.Marker will not be addressed. At least 12 months notice will be given before support is discontinued. Please see https://developers.google.com/maps/deprecations for additional details and https://developers.google.com/maps/documentation/javascript/advanced-markers/migration for the migration guide.
+[enUS][error] Failed to load resource: the server responded with a status of 403 ()
+[enUS][error] Failed to load resource: the server responded with a status of 403 ()
+[enUS][error] Failed to load resource: the server responded with a status of 403 ()
+[enUS][error] Failed to load resource: the server responded with a status of 403 ()
+[enUS][error] Google Maps JavaScript API error: RefererNotAllowedMapError
+https://developers.google.com/maps/documentation/javascript/error-messages#referer-not-allowed-map-error
+Your site URL to be authorized: http://localhost:8765/

@@ -1,0 +1,590 @@
+[
+  {
+    "name": "Shinei Serviced Office and Coworking Space",
+    "slug": "thailand-bangkok-shinei-serviced-office-and-coworking-space",
+    "lat": 13.742382790724228,
+    "lng": 100.55346939215153,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "The Hula",
+    "slug": "indonesia-bali-the-hula",
+    "lat": -8.640691465689978,
+    "lng": 115.12546218511746,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Five30 Cafe",
+    "slug": "indonesia-bali-five30-cafe",
+    "lat": -8.644629587918994,
+    "lng": 115.1342895759281,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Green Waves Cafe",
+    "slug": "philippines-siargao-green-waves-cafe",
+    "lat": 9.784312651741383,
+    "lng": 126.15317248504716,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Mondayyy's Siargao Cafe",
+    "slug": "philippines-siargao-mondayyys-cafe",
+    "lat": 9.803649476380858,
+    "lng": 126.1579315758621,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Goodies",
+    "slug": "philippines-siargao-goodies",
+    "lat": 9.805190017441488,
+    "lng": 126.13932954521998,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Federal Palma",
+    "slug": "spain-mallorca-federal-palma",
+    "lat": 39.56904368457281,
+    "lng": 2.6501245450890587,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Fotografiska cafe",
+    "slug": "estonia-tallinn-fotografiska-cafe",
+    "lat": 59.438456202280676,
+    "lng": 24.725881877294558,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Caffeine EE",
+    "slug": "estonia-tallinn-caffeine-ee",
+    "lat": 59.44184960200877,
+    "lng": 24.73047157729476,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Comeet Creative Space",
+    "slug": "greece-crete-comeet-creative-space",
+    "lat": 35.21954519319257,
+    "lng": 24.7829097372972,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "ViOS Co-Lab Athens",
+    "slug": "greece-athens-vios-co-lab",
+    "lat": 38.0222839,
+    "lng": 23.765283,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "ViOS Downtown Athens",
+    "slug": "greece-athens-vios-downtown",
+    "lat": 37.983370200115914,
+    "lng": 23.728846876337993,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "ViOS Autograph Athens",
+    "slug": "greece-athens-vios-autograph",
+    "lat": 38.0028213,
+    "lng": 23.6817851,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Ofis Voyvoda Istanbul",
+    "slug": "turkey-istanbul-ofis-voyvoda",
+    "lat": 41.0246010445532,
+    "lng": 28.967379590294485,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Oblate Cafeteria",
+    "slug": "italy-florence-oblate-cafeteria",
+    "lat": 43.77262054469811,
+    "lng": 11.256803076657187,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Coffee Box",
+    "slug": "germany-munich-coffee-box",
+    "lat": 48.13577825385079,
+    "lng": 11.579074167920107,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Cafe Lehel | Coffee | Kaffee | Smoothie",
+    "slug": "germany-munich-cafe-lehel-coffee-kaffee-smoothie",
+    "lat": 48.14108505091635,
+    "lng": 11.586119476836025,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Man vs Machine Muellerstrasse",
+    "slug": "germany-munich-man-vs-machine-muellerstrasse",
+    "lat": 48.130963651620974,
+    "lng": 11.568610876835612,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Cafe Faber",
+    "slug": "germany-munich-cafe-faber",
+    "lat": 48.125144152026095,
+    "lng": 11.578087276835335,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Vogelmaier Kaffeer\u00f6sterei",
+    "slug": "germany-munich-vogelmaier-kaffeeroesterei",
+    "lat": 48.13551309349337,
+    "lng": 11.598018956005857,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Man vs Machine Schellingstrasse",
+    "slug": "germany-munich-man-vs-machine-schellingstrasse",
+    "lat": 48.14711124270004,
+    "lng": 11.551046086507382,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Impact Hub Budapest",
+    "slug": "impact-hub-budapest",
+    "lat": 47.49761339549666,
+    "lng": 19.061143276808714,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Cafe Csiga",
+    "slug": "cafe-csiga",
+    "lat": 47.493395895787415,
+    "lng": 19.07008877680855,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Arch & Beans Kavemuvek",
+    "slug": "arch-beans",
+    "lat": 47.49171652012268,
+    "lng": 19.058018768228276,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Lumen Cafe",
+    "slug": "lumen",
+    "lat": 47.49169241245563,
+    "lng": 19.04921964770286,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Magveto Cafe",
+    "slug": "magveto",
+    "lat": 47.49570439562824,
+    "lng": 19.061277276808706,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Schoendorf Bio Cafe",
+    "slug": "schoendorf-bio-cafe",
+    "lat": 48.1477661,
+    "lng": 17.1115818,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Foxford",
+    "slug": "foxford",
+    "lat": 48.15232324096834,
+    "lng": 17.078385124433332,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Cafe Sperl",
+    "slug": "cafe-sperl",
+    "lat": 48.199834,
+    "lng": 16.3610867,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Cafe Goldegg",
+    "slug": "cafe-goldegg",
+    "lat": 48.18966974753248,
+    "lng": 16.373588576838085,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Empress Coffee",
+    "slug": "empress-coffee",
+    "lat": 48.2005617,
+    "lng": 16.3406079,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Jonas Reindl Coffee Roasters Neubau",
+    "slug": "jonas-reindl-coffee-roasters-neubau",
+    "lat": 48.200408812333805,
+    "lng": 16.337240244859693,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "J Hornig Kaffeebar",
+    "slug": "j-hornig-kaffeebar",
+    "lat": 48.2002246,
+    "lng": 16.3613115,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Stroek Feierabend",
+    "slug": "stroek-feierabend",
+    "lat": 48.20438227125099,
+    "lng": 16.34663107703623,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Cafe Jelinek",
+    "slug": "cafe-jelinek",
+    "lat": 48.1952056471467,
+    "lng": 16.346835176838336,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Copenhagen Coffee Lab Winterhude",
+    "slug": "copenhagen-coffee-lab-winterhude",
+    "lat": 53.58554227224437,
+    "lng": 10.004899712326258,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "CODOS Coffee Muehlenkamp",
+    "slug": "codos-coffee-muehlenkamp",
+    "lat": 53.58030587224281,
+    "lng": 10.009750412325955,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Ceresia Coffee Roasters",
+    "slug": "ceresia-coffee-roasters",
+    "lat": 13.733053797725594,
+    "lng": 100.56605997589489,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Libertine Cocktail Bar at Casa Bonay",
+    "slug": "libertine-cocktail-bar-at-casa-bonay",
+    "lat": 41.39065700541447,
+    "lng": 2.156982880446136,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Coffee Shop Berawa",
+    "slug": "coffee-shop-berawa",
+    "lat": -8.650586587997207,
+    "lng": 115.12408567592823,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Old Muse Canggu",
+    "slug": "old-muse-canggu",
+    "lat": -8.68976563309299,
+    "lng": 115.08040165557124,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Art Food Corner",
+    "slug": "art-food-corner",
+    "lat": 32.6431178277608,
+    "lng": -16.933992049356508,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Maia Coffee Shop",
+    "slug": "maia-coffee-shop",
+    "lat": 32.648795390526665,
+    "lng": -16.912760323725294,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "The Workspace - By Amparo",
+    "slug": "the-workspace-by-amparo",
+    "lat": 32.84312444044029,
+    "lng": -16.860377128360717,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Lost x Found",
+    "slug": "lost-x-found",
+    "lat": 3.1445268531792427,
+    "lng": 101.7123815758441,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Cafe Eiles",
+    "slug": "cafe-eiles",
+    "lat": 48.209391146158374,
+    "lng": 16.352225476838946,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "R Coffee",
+    "slug": "r-coffee",
+    "lat": -8.636504687775654,
+    "lng": 115.11893231097257,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "The Lodge",
+    "slug": "the-lodge",
+    "lat": -8.645171189289247,
+    "lng": 115.11722320154134,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Macro Kitchen",
+    "slug": "macro-kitchen",
+    "lat": -8.6307312433055,
+    "lng": 115.12288348101956,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Bali Bustle Coworking & Coliving",
+    "slug": "bali-bustle-coworking-coliving",
+    "lat": -8.702532100000003,
+    "lng": 115.17294889678956,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Recharge Bar and Restaurant",
+    "slug": "recharge-bar-and-restaurant",
+    "lat": -8.89388099119884,
+    "lng": 116.28162581097644,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Gecko Kuta Lombok",
+    "slug": "gecko-kuta-lombok",
+    "lat": -8.89115669116201,
+    "lng": 116.27477761097634,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Milk Espresso",
+    "slug": "milk-espresso",
+    "lat": -8.889627791179079,
+    "lng": 116.27395657579807,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Working on Air",
+    "slug": "working-on-air",
+    "lat": -8.361437491640892,
+    "lng": 116.08085721058983,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Gilis Rock Creative Studios",
+    "slug": "gilis-rock-creative-studios",
+    "lat": -8.352848080660804,
+    "lng": 116.0349704733796,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Hellocapitano Lifestyle Cafe",
+    "slug": "hellocapitano-lifestyle-cafe",
+    "lat": -8.352848080660804,
+    "lng": 116.0349704733796,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Coffee & Thyme Gili Trawangan",
+    "slug": "coffee-thyme-gili-trawangan",
+    "lat": -8.352848080660804,
+    "lng": 116.0349704733796,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Bliss Casa",
+    "slug": "bliss-casa",
+    "lat": -8.352848080660804,
+    "lng": 116.0349704733796,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Jelajah Coffee Gili Trawangan",
+    "slug": "jelajah-coffee-gili-trawangan",
+    "lat": -8.356347188282436,
+    "lng": 116.02994100475914,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Kinoa Clean Eating",
+    "slug": "kinoa-clean-eating",
+    "lat": -8.650586587997207,
+    "lng": 115.12408567592823,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Lemanja Uluwatu",
+    "slug": "lemanja-uluwatu",
+    "lat": -8.8242061,
+    "lng": 115.1224506,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Lokl Coffee Co",
+    "slug": "lokl-coffee-co",
+    "lat": 3.148731188669463,
+    "lng": 101.69313744349385,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Mowie's Berawa",
+    "slug": "mowie-s-berawa",
+    "lat": -8.660231988123758,
+    "lng": 115.13822697592836,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Buri Siri Cafe & Coworking space",
+    "slug": "buri-siri-cafe-coworking-space",
+    "lat": 18.79450776067534,
+    "lng": 98.96862481090928,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Ombra Cafe",
+    "slug": "ombra-cafe",
+    "lat": 18.799046160534775,
+    "lng": 98.97170521090935,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Carrot Cafe",
+    "slug": "carrot-cafe",
+    "lat": 18.78260126104396,
+    "lng": 98.98221801090898,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "The Story 106",
+    "slug": "the-story-106",
+    "lat": 18.789906795467996,
+    "lng": 98.99253534397324,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Watercress Cafe",
+    "slug": "watercress-cafe",
+    "lat": -8.5131112,
+    "lng": 115.2608741,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Aletheia Back House",
+    "slug": "aletheia-back-house",
+    "lat": -8.4911761,
+    "lng": 115.2536716,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Rusters",
+    "slug": "rusters",
+    "lat": -8.536482,
+    "lng": 115.243865,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Mapogu Bali",
+    "slug": "mapogu-bali",
+    "lat": -8.8029144,
+    "lng": 115.1723828,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Alchemy Ubud",
+    "slug": "alchemy-ubud",
+    "lat": -8.506388586122462,
+    "lng": 115.24906927596376,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Tropical Nomad Non-Members Area",
+    "slug": "tropical-nomad-non-members-area",
+    "lat": -8.6525568,
+    "lng": 115.1380291,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Melograno Cafe",
+    "slug": "melograno-cafe",
+    "lat": -8.6329934,
+    "lng": 115.1401096,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Loko Cafe",
+    "slug": "loko-cafe",
+    "lat": -8.6513739,
+    "lng": 115.1442393,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "RiZE Cafe",
+    "slug": "rize-cafe",
+    "lat": -8.6485729,
+    "lng": 115.12336289999998,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "BWork Cafe",
+    "slug": "bwork-cafe",
+    "lat": -8.6540192,
+    "lng": 115.1352466,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Saya Work",
+    "slug": "saya-work",
+    "lat": -8.6616623,
+    "lng": 115.1362166,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Shortcut Cafe",
+    "slug": "shortcut-cafe",
+    "lat": -8.8041658,
+    "lng": 115.1462282,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Lusa By Suka",
+    "slug": "lusa-by-suka",
+    "lat": -8.660221700000001,
+    "lng": 115.1397652,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Touche",
+    "slug": "touche",
+    "lat": -8.6453841,
+    "lng": 115.1269697,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Ring Djinar",
+    "slug": "ring-djinar",
+    "lat": -8.628171099999998,
+    "lng": 115.1491107,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "Tropical Nomad Members Area",
+    "slug": "tropical-nomad-members-area",
+    "lat": -8.6525568,
+    "lng": 115.1380291,
+    "note": "no confident Google match"
+  },
+  {
+    "name": "BWork Members Area",
+    "slug": "bwork-members-area",
+    "lat": -8.6540192,
+    "lng": 115.1352466,
+    "note": "no confident Google match"
+  }
+]

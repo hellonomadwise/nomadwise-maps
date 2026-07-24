@@ -1,0 +1,60 @@
+{
+  "webflow_listings_total": 999,
+  "webflow_with_place_id": 655,
+  "webflow_without_place_id": 341,
+  "nomadmaps_venues_total": 874,
+  "nomadmaps_discovered_total": 5056,
+  "matched_to_nomadmaps_venues": 632,
+  "matched_to_nomadmaps_discovered": 17,
+  "webflow_only_new_to_nomadmaps": 9,
+  "nomadmaps_venues_not_on_webflow": 244,
+  "samples": {
+    "matched_venues": [
+      "Nomio Coworking Lounge",
+      "Baguccino",
+      "Hive Five Coworking Space Trogir",
+      "Kawisari Farm Shop Bali",
+      "Yolk House Farringdon",
+      "El Caf\u00e9 de Ac\u00e1",
+      "Jiboia Studio",
+      "Slavic Roots cafe and eatery",
+      "Yolk House Brighton Rock Place",
+      "BO.KA Workspace"
+    ],
+    "webflow_only": [
+      "KUDO (by hxi)",
+      "Matsu premium matcha & coffee",
+      "Ahoy Berlin",
+      "House of Yoreh",
+      "Dark Roast Cafe",
+      "Foods & Roots",
+      "Remote&Digital Coworking @ The District",
+      "GoHub | Coworking | Boa Vista",
+      "Glaswerk Oldenburg"
+    ],
+    "maps_only_venues": [
+      "Vizinha",
+      "pag\u00f3ni caf\u00e9",
+      "openhouse cafe | Seseh",
+      "Tribal Bali Coworking Hostel",
+      "Hurley Caf\u00e9, Sourdough Bakery & Restaurant.",
+      "LENA Specialty Coffee",
+      "BASTARD Coffee & Kitchen - Ruzafa",
+      "Federal Valencia",
+      "Llum Coworking Valencia \ud83d\udd06",
+      "Cafe Gavlen"
+    ],
+    "no_pid": [
+      "StartUp Nijmegen",
+      "Shinei Serviced Office and Coworking Space",
+      "MD amed",
+      "Oneway Espresso",
+      "Good Stuff Cafe & Eco Store Amed",
+      "Rimba Cafe",
+      "Savor Pererenan",
+      "The Capricorn Bali",
+      "The Hula",
+      "Openhouse Cafe"
+    ]
+  }
+}
