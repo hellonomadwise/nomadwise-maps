@@ -406,30 +406,30 @@ class _MapScreenState extends State<MapScreen> {
             padding: const EdgeInsets.fromLTRB(24, 26, 24, 22),
             child: Column(mainAxisSize: MainAxisSize.min, children: [
               Image.asset('assets/brand/app_icon.png', height: 52),
-              const SizedBox(height: 14),
-              Row(mainAxisSize: MainAxisSize.min, children: [
-                const Flexible(
-                  child: Text('Welcome to Nomad Maps',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                          fontSize: 19, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 12),
+              // Each element on its own centred line: the chip beside
+              // the title pushed it off-centre and wrapped it badly.
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 7, vertical: 2.5),
+                decoration: BoxDecoration(
+                  color: Brand.violet.withValues(alpha: .12),
+                  borderRadius: BorderRadius.circular(6),
                 ),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Brand.violet.withValues(alpha: .12),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: const Text('BETA',
-                      style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: .8,
-                          color: Brand.violet)),
-                ),
-              ]),
+                child: const Text('BETA',
+                    style: TextStyle(
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1,
+                        color: Brand.violet)),
+              ),
+              const SizedBox(height: 8),
+              const Text('Welcome to Nomad Maps',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      height: 1.2)),
               const SizedBox(height: 10),
               const Text(
                 'A map of cafes and coworking spaces that are good to '
