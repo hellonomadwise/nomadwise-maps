@@ -1106,6 +1106,41 @@ class _MapScreenState extends State<MapScreen> {
               child: ListView(
                   padding: const EdgeInsets.only(top: 8),
                   children: [
+          // Beta notice: honest about the stage, and an open
+          // invitation — helping IS the product right now.
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Brand.goldTint,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('BETA · WORK IN PROGRESS',
+                      style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: .8,
+                          color: Brand.goldTextDark)),
+                  SizedBox(height: 4),
+                  Text(
+                    'Nomad Maps is young and improving every week, so '
+                    'the occasional rough edge is part of the deal. If '
+                    'something looks off, send us feedback — or fix it '
+                    'on the map and earn coins. That is exactly the '
+                    'help we are hoping for.',
+                    style: TextStyle(
+                        fontSize: 12,
+                        height: 1.45,
+                        color: Brand.goldTextDark),
+                  ),
+                ],
+              ),
+            ),
+          ),
           _menuRow(
             icon: Icons.emoji_events_outlined,
             label: 'Leaderboard',
@@ -1718,14 +1753,30 @@ class _MapScreenState extends State<MapScreen> {
                     border: Border.all(color: Brand.border),
                     boxShadow: Brand.shadowResting,
                   ),
-                  child: const Row(children: [
-                    Icon(Icons.search, size: 18, color: Brand.inkMuted),
-                    SizedBox(width: 8),
-                    Expanded(
+                  child: Row(children: [
+                    const Icon(Icons.search,
+                        size: 18, color: Brand.inkMuted),
+                    const SizedBox(width: 8),
+                    const Expanded(
                       child: Text('Search cafes, coworking…',
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                               color: Brand.inkMuted, fontSize: 14)),
+                    ),
+                    // Honest label while the app is young.
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Brand.violet.withValues(alpha: .12),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Text('BETA',
+                          style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: .8,
+                              color: Brand.violet)),
                     ),
                   ]),
                 ),
