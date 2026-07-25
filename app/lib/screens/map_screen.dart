@@ -3218,19 +3218,26 @@ class _DiscoveredListCardState extends State<_DiscoveredListCard> {
                     fontSize: 12, fontWeight: FontWeight.w600),
               ),
             const SizedBox(height: 10),
+            // One dominant action; Google is a compact secondary that
+            // never wraps (equal widths made it break onto two lines).
             Row(children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                    onPressed: _openOnGoogle,
-                    icon: const Icon(Icons.map_outlined, size: 17),
-                    label: const Text('View on Google')),
-              ),
+              OutlinedButton.icon(
+                  onPressed: _openOnGoogle,
+                  style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 12),
+                      visualDensity: VisualDensity.compact),
+                  icon: const Icon(Icons.map_outlined, size: 16),
+                  label: const Text('Google',
+                      maxLines: 1, overflow: TextOverflow.ellipsis)),
               const SizedBox(width: 8),
               Expanded(
                 child: ElevatedButton(
                     onPressed: widget.onScreen,
                     child: Text(
-                        'Screen it · +${AppConfig.coinsNewVenue}')),
+                        'Screen it · +${AppConfig.coinsNewVenue}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis)),
               ),
             ]),
           ],
