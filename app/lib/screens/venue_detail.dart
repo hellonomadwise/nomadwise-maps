@@ -694,13 +694,10 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
       child:
           Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         copyRow('Network', w['ssid'] ?? ''),
-        if (w['password'] != null) ...[
-          const SizedBox(height: 4),
-          copyRow('Password', w['password']),
-        ] else
-          Text('Open network, no password',
-              style:
-                  TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+        const SizedBox(height: 4),
+        Text('Need the password? Ask the staff, it is theirs to share.',
+            style:
+                TextStyle(fontSize: 12, color: Colors.grey.shade600)),
         const SizedBox(height: 2),
         Row(children: [
           const Spacer(),
@@ -737,24 +734,21 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
       if (ok != true || !mounted) return;
     }
     final ssid = TextEditingController();
-    final pass = TextEditingController();
     final ok = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20)),
-              title: const Text('Share the WiFi login'),
+              title: const Text('Share the WiFi network name'),
               content: Column(mainAxisSize: MainAxisSize.min, children: [
                 TextField(
                     controller: ssid,
                     decoration: const InputDecoration(
-                        labelText: 'Network name (SSID)')),
-                const SizedBox(height: 10),
-                TextField(
-                    controller: pass,
-                    decoration: const InputDecoration(
-                        labelText: 'Password',
-                        helperText: 'Leave empty for open networks')),
+                        labelText: 'Network name (SSID)',
+                        helperText:
+                            'Just the name. Passwords are the venue\'s '
+                            'to share, so we do not collect them.',
+                        helperMaxLines: 2)),
               ]),
               actions: [
                 TextButton(
@@ -787,7 +781,6 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
       venueId: venue.id,
       payload: {
         'ssid': ssid.text.trim(),
-        'password': pass.text.trim(),
         if (netHash != null) 'network_hash': netHash,
       },
       gpsLat: pos.latitude,
@@ -990,8 +983,8 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
               ]),
               content: const Text(
                   'Thanks! Coins are credited after verification, '
-                  'usually within 5 minutes. (WiFi tests pay once per '
-                  'space per month.)'),
+                  'usually within a few days. (WiFi tests pay once '
+                  'per space per month.)'),
               actions: [
                 TextButton(
                     onPressed: () => Navigator.pop(ctx),

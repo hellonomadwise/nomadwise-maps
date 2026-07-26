@@ -49,7 +49,6 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
   final _neighbourhood = TextEditingController();
   final _wifi = TextEditingController();
   final _wifiSsid = TextEditingController();
-  final _wifiPass = TextEditingController();
   String _type = 'cafe';
 
   /// The typed wifi speed, cleaned up: comma accepted as the decimal
@@ -139,44 +138,6 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
   Venue? get _confirmTarget => widget.confirming ?? _existing;
 
   String? _knownSsid;
-  String? _knownPass;
-  bool _ssidIsGuess = false;
-
-  /// Pre-fill the wifi name with our best guess from the space's
-  /// name (marked clearly as a guess, freely editable).
-  void _prefillSsidGuess() {
-    if (_wifiSsid.text.trim().isNotEmpty) return;
-    if ((_knownSsid ?? '').isNotEmpty) return;
-    final guesses = _ssidGuesses();
-    if (guesses.isEmpty) return;
-    final name = _name.text.trim();
-    _wifiSsid.text = name.length <= 14 ? name : guesses.first;
-    _ssidIsGuess = true;
-  }
-
-  /// Cafes usually name their wifi after themselves. Offer tappable
-  /// guesses built from the space's name; the field stays editable so
-  /// a near-miss is fixed in a keystroke or two.
-  List<String> _ssidGuesses() {
-    final name = _name.text.trim();
-    if (name.length < 3) return [];
-    final words =
-        name.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
-    final first = words.first;
-    final guesses = <String>{};
-    if (first.length >= 3) {
-      guesses.add(first);
-      guesses.add('$first Guest');
-    }
-    if (words.length >= 2) guesses.add(words.take(2).join());
-    guesses.add(name);
-    final current = _wifiSsid.text.trim().toLowerCase();
-    return guesses
-        .where((s) => s.length >= 3 && s.toLowerCase() != current)
-        .take(4)
-        .toList();
-  }
-
   /// The wifi login a previous nomad recorded for this venue, offered
   /// as a one-tap fill (browsers cannot list nearby networks).
   Future<void> _loadKnownWifi([Venue? venue]) async {
@@ -186,12 +147,6 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
     if (mounted && w != null) {
       setState(() {
         _knownSsid = (w['ssid'] as String?)?.trim();
-        _knownPass = (w['password'] as String?)?.trim();
-        // A recorded name beats our guess.
-        if (_ssidIsGuess && (_knownSsid ?? '').isNotEmpty) {
-          _wifiSsid.text = _knownSsid!;
-          _ssidIsGuess = false;
-        }
       });
     }
   }
@@ -213,7 +168,6 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
     } else if (widget.confirming?.googlePlaceId != null) {
       _loadReference(widget.confirming!.googlePlaceId!);
     }
-    _prefillSsidGuess();
   }
 
   @override
@@ -303,8 +257,7 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
             .toList();
         _refRating = live.rating;
       }
-      _prefillSsidGuess();
-    });
+      });
   }
 
   Future<void> _pickPhoto() async {
@@ -490,7 +443,6 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
           venueId: venueId,
           payload: {
             'ssid': _wifiSsid.text.trim(),
-            'password': _wifiPass.text.trim(),
             if (netHash != null) 'network_hash': netHash,
           },
           gpsLat: pos.latitude,
@@ -523,7 +475,7 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
                 ]),
                 content: Text(isConfirm
                     ? 'Thanks! Your coins will be credited after '
-                        'verification, usually within 5 minutes.'
+                        'verification, usually within a few days.'
                     : 'Thanks! New spaces get a quick once-over by the '
                         'Nomadwise team. Your coins are usually credited '
                         'within a day.'),
@@ -699,16 +651,13 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
           const FieldLabel('WiFi network name', optional: true),
           TextFormField(
             controller: _wifiSsid,
-            decoration: InputDecoration(
-              helperText: _ssidIsGuess
-                  ? 'Our guess from the place name. Please check it '
-                      'against the real wifi and correct it.'
-                  : null,
+            decoration: const InputDecoration(
+              helperText: 'Type it exactly as it appears on your '
+                  'device, so the next nomad finds it first try.',
               helperMaxLines: 2,
             ),
-            // Rebuild so the footer's coin total updates live; once
-            // edited, the value is theirs, not our guess.
-            onChanged: (_) => setState(() => _ssidIsGuess = false),
+            // Rebuild so the footer's coin total updates live.
+            onChanged: (_) => setState(() {}),
           ),
           if (_knownSsid != null &&
               _knownSsid!.isNotEmpty &&
@@ -716,13 +665,8 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
             const SizedBox(height: 6),
             InkWell(
               borderRadius: BorderRadius.circular(20),
-              onTap: () => setState(() {
-                _wifiSsid.text = _knownSsid!;
-                if ((_knownPass ?? '').isNotEmpty &&
-                    _wifiPass.text.trim().isEmpty) {
-                  _wifiPass.text = _knownPass!;
-                }
-              }),
+              onTap: () =>
+                  setState(() => _wifiSsid.text = _knownSsid!),
               child: Container(
                 padding: const EdgeInsets.symmetric(
                     horizontal: 10, vertical: 6),
@@ -746,53 +690,6 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
               ),
             ),
           ],
-          if ((_knownSsid ?? '').isEmpty &&
-              _ssidGuesses().isNotEmpty) ...[
-            const SizedBox(height: 6),
-            if (_wifiSsid.text.trim().isEmpty)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Text(
-                    'Often the wifi is named after the place. Tap a '
-                    'guess, then fix it if needed:',
-                    style: TextStyle(
-                        fontSize: 11.5, color: Colors.grey.shade600)),
-              ),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: [
-                for (final g in _ssidGuesses())
-                  InkWell(
-                    borderRadius: BorderRadius.circular(20),
-                    onTap: () =>
-                        setState(() => _wifiSsid.text = g),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: Brand.field,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(g,
-                          style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: Brand.ink)),
-                    ),
-                  ),
-              ],
-            ),
-          ],
-          const SizedBox(height: 10),
-          const FieldLabel('WiFi password', optional: true),
-          TextFormField(
-            controller: _wifiPass,
-            decoration: const InputDecoration(
-                helperText:
-                    'Only shared with signed-in nomads, never shown publicly.',
-                helperMaxLines: 2),
-          ),
           const SizedBox(height: 24),
           const SectionLabel("WHAT'S IT LIKE?"),
           const SizedBox(height: 10),
@@ -1045,7 +942,7 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
         const SizedBox(height: 7),
         Text(
           isConfirm
-              ? 'Coins are credited after verification, usually within 5 minutes.'
+              ? 'Coins are credited after verification, usually within a few days.'
               : 'Reviewed by another nomad before it goes live',
           textAlign: TextAlign.center,
           style: const TextStyle(color: Brand.inkMuted, fontSize: 12),

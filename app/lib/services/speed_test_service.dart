@@ -49,10 +49,16 @@ class SpeedTestService {
     }
   }
 
-  /// Runs the test (a warm-up plus up to two timed rounds, best
-  /// result wins). [onProgress] receives the overall 0..1 across all
-  /// rounds. On very slow connections the second round is skipped:
-  /// one honest measurement beats a five minute wait.
+  /// The measurement runs for a genuine window of this many seconds:
+  /// downloads repeat until the window is filled, and the reported
+  /// speed is total bytes over total time across all of them. A "10
+  /// second test" that finished in one second produced numbers nobody
+  /// should trust, and trust is the product.
+  static const measureWindowSecs = 10;
+
+  /// Runs a warm-up download (ignored, wakes the connection up) and
+  /// then measures for the full window. [onProgress] is time-based,
+  /// so the bar reflects the real test duration.
   /// Returns Mbps, or null if the connection failed.
   static Future<double?> measureMbps(
       {void Function(String phase)? onPhase,
@@ -62,25 +68,65 @@ class SpeedTestService {
       onProgress?.call(0);
       final t0 = DateTime.now().millisecondsSinceEpoch;
       await _timedDownload(t0,
-          onProgress: (f) => onProgress?.call(f / 3));
-      onProgress?.call(1 / 3);
-      double best = 0;
-      var tookSecs = 0;
-      for (var i = 1; i <= 2; i++) {
-        if (i == 2 && tookSecs > 20) break; // slow wifi: one round is enough
-        onPhase?.call('Measuring download ($i/2)…');
-        final sw = Stopwatch()..start();
-        final m = await _timedDownload(t0 + i,
-            onProgress: (f) => onProgress?.call((i + f) / 3));
-        sw.stop();
-        tookSecs = sw.elapsed.inSeconds;
-        onProgress?.call((i + 1) / 3);
-        if (m > best) best = m;
+          onProgress: (f) => onProgress?.call(f * 0.15));
+      onProgress?.call(0.15);
+
+      onPhase?.call('Measuring ($measureWindowSecs s)…');
+      final window = Stopwatch()..start();
+      var totalBytes = 0;
+      var round = 1;
+      while (window.elapsed.inSeconds < measureWindowSecs &&
+          round <= 12) {
+        final before = window.elapsedMilliseconds;
+        totalBytes += await _timedDownloadBytes(t0 + round,
+            onProgress: (_) => onProgress?.call((0.15 +
+                    0.85 *
+                        window.elapsedMilliseconds /
+                        (measureWindowSecs * 1000))
+                .clamp(0.0, 0.99)));
+        // A download that returned instantly (tiny file, cache edge
+        // case) must not spin the loop; give the clock a beat.
+        if (window.elapsedMilliseconds - before < 50) {
+          await Future<void>.delayed(const Duration(milliseconds: 50));
+        }
+        round++;
       }
+      window.stop();
+      final secs = window.elapsedMilliseconds / 1000.0;
+      if (totalBytes == 0 || secs <= 0) return null;
       onProgress?.call(1);
-      return double.parse(best.toStringAsFixed(1));
+      final mbps = totalBytes * 8 / secs / 1e6;
+      return double.parse(mbps.toStringAsFixed(1));
     } catch (_) {
       return null;
+    }
+  }
+
+  /// Like [_timedDownload] but returns the byte count, so the caller
+  /// can aggregate across rounds.
+  static Future<int> _timedDownloadBytes(int cacheBust,
+      {void Function(double frac)? onProgress}) async {
+    final client = http.Client();
+    try {
+      final req = http.Request('GET', _testUrl(cacheBust))
+        ..headers['Cache-Control'] = 'no-store';
+      final resp =
+          await client.send(req).timeout(const Duration(seconds: 20));
+      if (resp.statusCode != 200) throw Exception('download failed');
+      final total = resp.contentLength ?? 4194304;
+      var received = 0;
+      final deadline = DateTime.now().add(const Duration(seconds: 60));
+      await for (final chunk
+          in resp.stream.timeout(const Duration(seconds: 25))) {
+        received += chunk.length;
+        if (total > 0) {
+          onProgress?.call((received / total).clamp(0.0, 1.0));
+        }
+        if (DateTime.now().isAfter(deadline)) break;
+      }
+      return received;
+    } finally {
+      client.close();
     }
   }
 }

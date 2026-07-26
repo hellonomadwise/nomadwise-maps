@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import '../config.dart';
@@ -27,7 +28,12 @@ class LocationService {
   /// unavailable. Callers fall back to the Lisbon default centre.
   static Future<Position?> current() async {
     try {
-      if (!await Geolocator.isLocationServiceEnabled()) return null;
+      // On the web this check can report "disabled" BEFORE permission
+      // was ever asked, which silently blocked the permission prompt.
+      // Ask first; the browser handles the rest.
+      if (!kIsWeb && !await Geolocator.isLocationServiceEnabled()) {
+        return null;
+      }
       var permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();

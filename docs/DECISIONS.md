@@ -29,29 +29,37 @@ to bottom when there is time. Updated 26 July 2026.
 6. **List card redesign** leading with the decision facts (WiFi,
    plugs, hours, noise) and the related "Work now" ranked-list idea.
    Marked "only if continuing", so it follows the direction decision.
-7. **Pin clustering.** Needed before any bulk expansion of visible
+7. **Farming caps in code.** Per-user daily submission caps,
+   per-space retest cooldowns, and the monthly payout cap enforced in
+   code rather than by manual approval alone. The mechanics are clear;
+   the numbers (including whether 100 euro/month stands) are the
+   decision. Belongs with item 4's coin sit-down.
+8. **After a WiFi test, return to the space page** with the new
+   result showing, instead of the map. Marked "only if continuing",
+   so it follows the direction decision.
+9. **Pin clustering.** Needed before any bulk expansion of visible
    pins (e.g. promoting unscreened places or another import). Gated on
    those decisions, not urgent today.
 
 ## Jonathan's own list (small, mostly minutes each)
 
-8. **Payout cap enforcement in code.** Parked on request. The plan
+10. **Payout cap enforcement in code.** Parked on request. The plan
    promises payouts pause at 100 euro/month; making it code (about an
    hour) should happen before any wider launch if coins stay on.
-9. **Gemini API key** (free, aistudio.google.com, 2 minutes) to switch
+11. **Gemini API key** (free, aistudio.google.com, 2 minutes) to switch
    on AI photo pre-screening, the fast fix for the stock-photo
    problem at 865-venue scale.
-10. **Two-factor auth** on Google, Supabase and GitHub for both
+12. **Two-factor auth** on Google, Supabase and GitHub for both
     founders. The plan committed to this; it is the single best item
     in the whole risk register.
-11. **84 unmatched listings** review sheet in Google Drive, a coffee
+13. **84 unmatched listings** review sheet in Google Drive, a coffee
     session for either founder; confirmed-closed ones are also
     nomadwise cleanup candidates.
-12. **Professional legal read of the terms** before the map gets big.
+14. **Professional legal read of the terms** before the map gets big.
     The plain-language version is live and solid for beta.
-13. **Custom SMTP sender** before wider launch (sign-in emails
+15. **Custom SMTP sender** before wider launch (sign-in emails
     currently come from the default sender).
-14. **October:** upgrade Google billing before the trial ends and set
+16. **October:** upgrade Google billing before the trial ends and set
     the final quota caps (the caps only unlock after the upgrade).
 
 ## Standing rules while these wait
