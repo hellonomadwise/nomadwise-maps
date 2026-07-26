@@ -1476,6 +1476,15 @@ class _MapScreenState extends State<MapScreen> {
             },
           ),
           _menuRow(
+            icon: Icons.monetization_on_outlined,
+            label: 'How coins work',
+            sub: 'What every action earns',
+            onTap: () {
+              Navigator.pop(context);
+              _showCoinTable();
+            },
+          ),
+          _menuRow(
             icon: Icons.description_outlined,
             label: 'Terms of service',
             sub: 'Coins, fair play, your data',
@@ -1519,6 +1528,73 @@ class _MapScreenState extends State<MapScreen> {
             ),
           const SizedBox(height: 8),
         ]),
+      ),
+    );
+  }
+
+  /// The single source of truth for coin values, straight from
+  /// AppConfig, so button copy and this table can never disagree.
+  void _showCoinTable() {
+    Analytics.capture('coin_table_viewed');
+    Widget row(String action, int coins) => Padding(
+          padding: const EdgeInsets.symmetric(vertical: 7),
+          child: Row(children: [
+            Expanded(
+                child: Text(action,
+                    style: const TextStyle(fontSize: 13.5))),
+            const CoinDot(size: 14),
+            const SizedBox(width: 6),
+            Text('+$coins',
+                style: const TextStyle(
+                    fontWeight: FontWeight.w700, fontSize: 14)),
+          ]),
+        );
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(22))),
+      builder: (ctx) => PointerInterceptor(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 22, 24, 28),
+          child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('How coins work',
+                    style: TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 10),
+                row('Review a new space', AppConfig.coinsNewVenue),
+                row('Confirm a space\'s details are still correct',
+                    AppConfig.coinsConfirmVenue),
+                row('Run a WiFi speed test on site',
+                    AppConfig.coinsWifiTest),
+                row('Share a space\'s WiFi login',
+                    AppConfig.coinsWifiLogin),
+                row('Finder bonus when a space you found gets screened',
+                    AppConfig.coinsDiscovery),
+                const SizedBox(height: 10),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Brand.goldTint,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '${AppConfig.coinsPerEuro} coins = 1 euro. Cash '
+                    'out from ${AppConfig.minCashOutEuro} euro. Every '
+                    'contribution is reviewed before coins become '
+                    'payable.',
+                    style: const TextStyle(
+                        fontSize: 12.5,
+                        height: 1.45,
+                        color: Brand.goldTextDark),
+                  ),
+                ),
+              ]),
+        ),
       ),
     );
   }
@@ -3002,7 +3078,7 @@ class _VenueListCard extends StatelessWidget {
                       color: Brand.amber, size: 16),
                   const SizedBox(width: 5),
                   Text(
-                    '${venue.unansweredCount} unanswered · earn ${AppConfig.coinsConfirmVenue} coins',
+                    '${venue.unansweredCount} details missing · earn ${AppConfig.coinsConfirmVenue} coins',
                     style: const TextStyle(
                         fontSize: 12,
                         color: Brand.charcoal,
@@ -3055,10 +3131,10 @@ class _VenueListCard extends StatelessWidget {
     return Wrap(spacing: 6, runSpacing: 6, children: [
       chip('Laptops', venue.laptopsAllowed),
       chip(
-          venue.wifiSpeedMbps != null
+          venue.wifiTested
               ? 'Wifi ${venue.wifiSpeedLabel} Mbps'
               : 'Wifi ?',
-          venue.wifiSpeedMbps != null ? true : null),
+          venue.wifiTested ? true : null),
       chip('Power', venue.powerOutlets),
       chip('Aircon', venue.aircon),
       chip('Seating', venue.comfortableSeating),
@@ -3537,7 +3613,7 @@ class _VenueCard extends StatelessWidget {
     }
 
     return Wrap(spacing: 6, runSpacing: 6, children: [
-      if (venue.wifiSpeedMbps != null)
+      if (venue.wifiTested)
         pillFact(Icons.wifi, Brand.ink, '${venue.wifiSpeedLabel} Mbps')
       else
         fact('Wifi', null),

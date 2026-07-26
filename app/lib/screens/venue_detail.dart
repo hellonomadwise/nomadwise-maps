@@ -389,16 +389,15 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
                   _freshnessBadge(),
                 ]),
                 const SizedBox(height: 10),
-                _feature('Laptops allowed', venue.laptopsAllowed,
+                _feature('Laptop-friendly', venue.laptopsAllowed,
                     highlight: true),
-                _feature('Power outlets', venue.powerOutlets),
+                _feature('Plug sockets', venue.powerOutlets),
                 _feature('Aircon', venue.aircon),
-                _feature('Comfortable seating', venue.comfortableSeating),
                 _feature('Cozy', venue.cozy),
                 _feature('Quiet space', venue.quietSpace),
+                _feature('Calls OK', venue.goodForCalls),
                 _feature('Real food (lunch)', venue.servesFood),
                 if (venue.type == 'coworking') ...[
-                  _feature('Good for calls', venue.goodForCalls),
                   _feature('Call/Skype room', venue.callRoom),
                   _feature('Monitor', venue.monitorAvailable),
                   _feature('Office chairs', venue.officeChairs),
@@ -431,8 +430,8 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            '${venue.unansweredCount} unanswered '
-                            'question${venue.unansweredCount == 1 ? '' : 's'} '
+                            '${venue.unansweredCount} detail${venue.unansweredCount == 1 ? '' : 's'} '
+                            'missing '
                             '. Help other nomads and earn coins',
                             style: const TextStyle(
                                 fontWeight: FontWeight.w500,
@@ -449,7 +448,7 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
                   },
                   icon: const Icon(Icons.verified_outlined),
                   label: Text(
-                      'Confirm / update this space  ·  earn ${AppConfig.coinsConfirmVenue} coins'),
+                      'Confirm this info is still correct  ·  earn ${AppConfig.coinsConfirmVenue} coins'),
                 ),
                 if (_creditsLine() != null) ...[
                   const SizedBox(height: 18),
@@ -593,7 +592,7 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
   }
 
   Widget _wifiHero() {
-    final speed = venue.wifiSpeedMbps;
+    final speed = venue.wifiTested ? venue.wifiSpeedMbps : null;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -644,28 +643,8 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
   }
 
   Widget _wifiLoginCard() {
-    // Signed out: invite to sign in (the login may or may not exist).
-    if (!_supabase.signedIn) {
-      return _wifiLoginShell(
-        icon: Icons.lock_outline,
-        child: Row(children: [
-          Expanded(
-            child: Text('Sign in to see or share this space\'s WiFi login',
-                style: TextStyle(
-                    fontSize: 13, color: Colors.grey.shade700)),
-          ),
-          TextButton(
-              onPressed: () => Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => const AuthScreen()))
-                  .then((_) {
-                if (mounted) setState(() {});
-                _loadWifiLogin();
-              }),
-              child: const Text('Sign in')),
-        ]),
-      );
-    }
-
+    // Reading is for everyone; only contributing needs an account.
+    // (Hiding the most useful data contradicted the app's purpose.)
     final w = _wifiLogin;
     if (w == null) {
       return _wifiLoginShell(
@@ -752,6 +731,11 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
   }
 
   Future<void> _shareWifiLogin() async {
+    if (!_supabase.signedIn) {
+      final ok = await Navigator.push<bool>(context,
+          MaterialPageRoute(builder: (_) => const AuthScreen()));
+      if (ok != true || !mounted) return;
+    }
     final ssid = TextEditingController();
     final pass = TextEditingController();
     final ok = await showDialog<bool>(

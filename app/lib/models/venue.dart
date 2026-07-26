@@ -100,16 +100,24 @@ class Venue {
     }
   }
 
-  /// How many of the core questions are still unanswered, each one is
-  /// a coin-earning opportunity for contributors.
+  /// How many of the details the review flow actually asks are still
+  /// missing, each one a coin-earning opportunity for contributors.
+  /// Must always match the questions shown in the confirm form.
   int get unansweredCount => [
         laptopsAllowed,
-        wifiSpeedMbps,
+        wifiTested ? true : null,
         powerOutlets,
         aircon,
-        comfortableSeating,
+        goodForCalls,
         cozy,
         quietSpace,
+        servesFood,
+        if (type == 'coworking') ...[
+          callRoom,
+          monitorAvailable,
+          officeChairs,
+          access24h,
+        ],
       ].where((v) => v == null).length;
 
   /// "today" / "3 days ago" / "2 months ago", or null if never confirmed.
@@ -165,11 +173,15 @@ class Venue {
     return WorkFriendly.unknown;
   }
 
+  /// A zero reading means "never actually measured" and must never be
+  /// shown as if it were a result.
+  bool get wifiTested => (wifiSpeedMbps ?? 0) > 0;
+
   /// Wifi speed formatted to one decimal place, e.g. "24.5".
+  /// Null when untested (including stored zeros).
   String? get wifiSpeedLabel {
-    final s = wifiSpeedMbps;
-    if (s == null) return null;
-    return s.toDouble().toStringAsFixed(1);
+    if (!wifiTested) return null;
+    return wifiSpeedMbps!.toDouble().toStringAsFixed(1);
   }
 
   num? get rating => live?.rating ?? ratingSnapshot;
