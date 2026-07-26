@@ -71,6 +71,18 @@ jobs:
         run: flutter test 2>&1 | tee -a ../ci_debug.log
         working-directory: app
 
+      # Apply any new database migrations exactly once (runner
+      # installed by migration 42; each application is recorded).
+      - name: Apply database migrations
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          if [ -n "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            python3 scripts/apply_migrations.py
+          fi
+
       # Import nomadwise.io Webflow listings into Nomadmaps venues.
       # Idempotent (skips anything already known) and reversible
       # (every row is tagged source='nomadwise-webflow'). Runs BEFORE
@@ -171,6 +183,7 @@ jobs:
           cp ci-debug/webflow_match_report.json /tmp/smokekeep/ 2>/dev/null || true
           cp ci-debug/webflow_import_report.json /tmp/smokekeep/ 2>/dev/null || true
           cp ci-debug/webflow_unresolved.json /tmp/smokekeep/ 2>/dev/null || true
+          cp ci-debug/migrations_report.json /tmp/smokekeep/ 2>/dev/null || true
           git config user.name "nomadwise-bot"
           git config user.email "actions@github.com"
           git checkout -B ci-debug
@@ -181,6 +194,7 @@ jobs:
           cp /tmp/smokekeep/webflow_match_report.json ci-debug/webflow_match_report.json 2>/dev/null || true
           cp /tmp/smokekeep/webflow_import_report.json ci-debug/webflow_import_report.json 2>/dev/null || true
           cp /tmp/smokekeep/webflow_unresolved.json ci-debug/webflow_unresolved.json 2>/dev/null || true
+          cp /tmp/smokekeep/migrations_report.json ci-debug/migrations_report.json 2>/dev/null || true
           git add -f ci-debug/ 2>/dev/null || true
           git commit -m "ci: smoke render artifacts" || true
           git push -f origin ci-debug || true
