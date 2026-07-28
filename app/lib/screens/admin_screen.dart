@@ -19,6 +19,7 @@ class _AdminScreenState extends State<AdminScreen> {
   final _supabase = SupabaseService();
   final _places = PlacesService();
   List<Map<String, dynamic>>? _pending;
+  List<Map<String, dynamic>> _recent = [];
 
   @override
   void initState() {
@@ -28,7 +29,77 @@ class _AdminScreenState extends State<AdminScreen> {
 
   Future<void> _load() async {
     final rows = await _supabase.pendingSubmissions();
-    if (mounted) setState(() => _pending = rows);
+    final recent = await _supabase.recentVerified();
+    if (mounted) {
+      setState(() {
+        _pending = rows;
+        _recent = recent;
+      });
+    }
+  }
+
+  static const _kindLabel = {
+    'new_venue': 'reviewed',
+    'confirm': 'confirmed',
+    'wifi_test': 'wifi-tested',
+    'wifi_login': 'shared wifi name for',
+  };
+
+  /// Auto-verified work, visible instead of silent: who did what,
+  /// where, and how close they were when the GPS check passed.
+  Widget _recentSection() {
+    if (_recent.isEmpty) return const SizedBox.shrink();
+    String ago(String? ts) {
+      final t = ts != null ? DateTime.tryParse(ts) : null;
+      if (t == null) return '';
+      final d = DateTime.now().difference(t.toLocal());
+      if (d.inMinutes < 60) return '${d.inMinutes} min ago';
+      if (d.inHours < 24) return '${d.inHours} h ago';
+      return '${d.inDays} d ago';
+    }
+
+    return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(4, 18, 4, 8),
+            child: Text('RECENTLY VERIFIED · AUTOMATIC',
+                style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: .8,
+                    color: Brand.inkSecondary)),
+          ),
+          ..._recent.map((r) {
+            final venue =
+                (r['venues'] as Map?)?['name'] ?? 'a space';
+            final who = r['display_name'] ?? 'A nomad';
+            final dist = r['gps_distance_m'];
+            return Padding(
+              padding: const EdgeInsets.symmetric(
+                  vertical: 6, horizontal: 4),
+              child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.verified_outlined,
+                        size: 16, color: Brand.success),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '$who ${_kindLabel[r['kind']] ?? 'updated'} '
+                        '$venue'
+                        '${dist != null ? ' · ${(dist as num).round()} m away' : ''}'
+                        ' · ${ago(r['verified_at'])}',
+                        style: const TextStyle(
+                            fontSize: 12.5,
+                            height: 1.4,
+                            color: Brand.inkSecondary),
+                      ),
+                    ),
+                  ]),
+            );
+          }),
+        ]);
   }
 
   @override
@@ -39,21 +110,26 @@ class _AdminScreenState extends State<AdminScreen> {
       body: pending == null
           ? const Center(child: CircularProgressIndicator(color: Brand.red))
           : pending.isEmpty
-              ? Center(
-                  child: Column(
-                      mainAxisSize: MainAxisSize.min,
+              ? RefreshIndicator(
+                  onRefresh: _load,
+                  child: ListView(
+                      padding: const EdgeInsets.all(14),
                       children: [
-                      Container(
-                        width: 76,
-                        height: 76,
-                        decoration: const BoxDecoration(
-                            color: Brand.successTint,
-                            shape: BoxShape.circle),
-                        child: const Icon(Icons.check_circle_outline,
-                            size: 36, color: Brand.success),
+                      const SizedBox(height: 40),
+                      Center(
+                        child: Container(
+                          width: 76,
+                          height: 76,
+                          decoration: const BoxDecoration(
+                              color: Brand.successTint,
+                              shape: BoxShape.circle),
+                          child: const Icon(Icons.check_circle_outline,
+                              size: 36, color: Brand.success),
+                        ),
                       ),
                       const SizedBox(height: 16),
                       const Text('All caught up',
+                          textAlign: TextAlign.center,
                           style: TextStyle(
                               fontSize: 17,
                               fontWeight: FontWeight.w600,
@@ -71,17 +147,20 @@ class _AdminScreenState extends State<AdminScreen> {
                                 color: Brand.inkMuted,
                                 height: 1.5)),
                       ),
+                      _recentSection(),
                     ]))
               : RefreshIndicator(
                   onRefresh: _load,
                   child: ListView.builder(
                     padding: const EdgeInsets.all(14),
-                    itemCount: pending.length,
-                    itemBuilder: (_, i) => _SubmissionCard(
-                        submission: pending[i],
-                        supabase: _supabase,
-                        places: _places,
-                        onDone: _load),
+                    itemCount: pending.length + 1,
+                    itemBuilder: (_, i) => i == pending.length
+                        ? _recentSection()
+                        : _SubmissionCard(
+                            submission: pending[i],
+                            supabase: _supabase,
+                            places: _places,
+                            onDone: _load),
                   ),
                 ),
     );

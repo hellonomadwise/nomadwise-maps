@@ -636,6 +636,41 @@ class SupabaseService {
     return (rows as List).map((r) => Map<String, dynamic>.from(r)).toList();
   }
 
+  /// The latest verified submissions (mostly self-verified via GPS),
+  /// so auto-approval is visible to the admin, not silent.
+  Future<List<Map<String, dynamic>>> recentVerified(
+      {int limit = 20}) async {
+    try {
+      final rows = await _db
+          .from('submissions')
+          .select('id, kind, verified_at, gps_distance_m, payload, '
+              'user_id, venue_id, venues(name)')
+          .eq('status', 'verified')
+          .order('verified_at', ascending: false)
+          .limit(limit);
+      final list = (rows as List)
+          .map((r) => Map<String, dynamic>.from(r))
+          .toList();
+      // Names come from profiles in one extra query (no FK for a join).
+      final ids = list.map((r) => r['user_id']).toSet().toList();
+      if (ids.isNotEmpty) {
+        final profs = await _db
+            .from('profiles')
+            .select('id, display_name')
+            .inFilter('id', ids);
+        final names = {
+          for (final p in (profs as List)) p['id']: p['display_name']
+        };
+        for (final r in list) {
+          r['display_name'] = names[r['user_id']];
+        }
+      }
+      return list;
+    } catch (_) {
+      return [];
+    }
+  }
+
   /// Credibility snapshot of a submitter: name, coin totals, verified count.
   Future<Map<String, dynamic>> submitterStats(String userId) async {
     final profile = await _db
