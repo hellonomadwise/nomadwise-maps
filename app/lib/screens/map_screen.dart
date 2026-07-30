@@ -2131,6 +2131,14 @@ class _MapScreenState extends State<MapScreen> {
                 initialCameraPosition: CameraPosition(
                     target: LatLng(_userLat ?? 20, _userLng ?? 0),
                     zoom: _initZoom),
+                // Google's own business icons (cafes, bars, shops) are
+                // hidden: tapping them opened Google's card with a link
+                // OUT of the app. Our pins are the only tappable places;
+                // "Search this area" is the in-app way to find the rest.
+                style: '''[
+                  {"featureType": "poi.business",
+                   "stylers": [{"visibility": "off"}]}
+                ]''',
                 myLocationEnabled: true,
                 myLocationButtonEnabled: false,
                 zoomControlsEnabled: false,
