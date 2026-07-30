@@ -475,9 +475,24 @@ def _grid(center_lat, center_lng, cell_m):
     return pts
 
 
+# Petrol stations and convenience chains are never work spots, even
+# when Google types them as cafes (Circle K sells coffee, it is still
+# a petrol station). Mirrors the app-side DiscoveredPlace.excluded.
+EXCLUDED_NAME = re.compile(r'circle\s*k\b', re.IGNORECASE)
+EXCLUDED_TYPES = {'gas_station', 'convenience_store'}
+
+
+def _excluded_place(pl):
+    name = (pl.get('displayName') or {}).get('text') or ''
+    return (EXCLUDED_NAME.search(name)
+            or pl.get('primaryType') in EXCLUDED_TYPES)
+
+
 def _row_from_place(pl, cowork=False):
     loc = pl.get('location') or {}
     if not pl.get('id') or loc.get('latitude') is None:
+        return None
+    if _excluded_place(pl):
         return None
     return {
         'google_place_id': pl['id'],

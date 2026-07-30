@@ -101,6 +101,7 @@ class PlacesService {
     final merged = <DiscoveredPlace>[];
     for (final list in results) {
       for (final p in list) {
+        if (p.excluded) continue; // petrol/convenience chains
         if (seen.add(p.placeId)) merged.add(p);
       }
     }

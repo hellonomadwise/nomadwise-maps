@@ -38,6 +38,18 @@ class DiscoveredPlace {
                 'bistro',
               }.contains(primaryType)));
 
+  /// Petrol stations and convenience chains are never work spots,
+  /// however Google types them (Circle K sells coffee, it is still a
+  /// petrol station). Blocked globally: never shown, never cached.
+  /// Migration 44 removes any already stored.
+  static final _excludedNames =
+      RegExp(r'circle\s*k\b', caseSensitive: false);
+  static const _excludedTypes = {'gas_station', 'convenience_store'};
+
+  bool get excluded =>
+      _excludedNames.hasMatch(name) ||
+      _excludedTypes.contains(primaryType);
+
   /// True when this place's Google reviews mention wifi, plugs or
   /// laptops positively, with no warnings against working there.
   bool get promising =>

@@ -92,6 +92,7 @@ class SupabaseService {
           .limit(200);
       return (rows as List)
           .map((r) => DiscoveredPlace.fromRow(Map<String, dynamic>.from(r)))
+          .where((p) => !p.excluded) // petrol/convenience chains
           .toList();
     } catch (_) {
       return []; // table not created yet
@@ -102,7 +103,8 @@ class SupabaseService {
   /// call. The signed-in searcher is recorded as the discoverer; on
   /// conflict nothing is overwritten, so the FIRST finder keeps the
   /// claim forever.
-  Future<void> cacheDiscovered(List<DiscoveredPlace> places) async {
+  Future<void> cacheDiscovered(List<DiscoveredPlace> allPlaces) async {
+    final places = allPlaces.where((p) => !p.excluded).toList();
     if (places.isEmpty) return;
     final uid = currentUser?.id;
     Future<void> save(bool withOwner) =>
