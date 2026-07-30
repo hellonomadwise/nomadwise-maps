@@ -3388,11 +3388,16 @@ class _DiscoveredCardState extends State<_DiscoveredCard> {
     // work evidence first...
     'wifi', 'wi-fi', 'laptop', 'work', 'study', 'plug', 'socket',
     'outlet', 'quiet',
-    // ...then the pull factors that make the trip tempting
-    'coffee', 'flat white', 'matcha', 'lunch', 'brunch', 'breakfast',
+    // ...then the pull factors that make the trip tempting,
+    // spread across the regions nomads actually sit in
+    'coffee', 'flat white', 'espresso', 'cold brew', 'matcha',
+    'lunch', 'brunch', 'breakfast', 'bowl', 'avocado toast',
     'croissant', 'pastry', 'pastries', 'cake', 'banana bread',
-    'delicious', 'amazing food', 'cozy', 'cosy', 'hygge',
-    'atmosphere', 'vibe', 'friendly', 'terrace', 'sunny', 'spacious',
+    'pain au chocolat', 'smoothie', 'pancake', 'bagel',
+    'delicious', 'tasty', 'amazing food', 'delicioso', 'lecker',
+    'enak', 'cozy', 'cosy', 'hygge', 'gezellig', 'acogedor',
+    'atmosphere', 'vibe', 'friendly', 'terrace', 'rooftop',
+    'garden', 'sunny', 'spacious', 'aircon', 'air con',
   ];
 
   Future<void> _loadExcerpts() async {

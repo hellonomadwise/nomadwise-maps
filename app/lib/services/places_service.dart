@@ -226,20 +226,23 @@ class PlacesService {
     'coffee': [
       'great coffee', 'good coffee', 'best coffee', 'amazing coffee',
       'flat white', 'specialty coffee', 'speciality coffee', 'barista',
-      'matcha',
+      'espresso', 'cold brew', 'matcha', 'buen café', 'bom café',
     ],
     'food': [
-      'lunch', 'brunch', 'breakfast', 'sandwich', 'salad',
-      'amazing food', 'great food', 'delicious',
+      'lunch', 'brunch', 'breakfast', 'sandwich', 'salad', 'bowl',
+      'avocado toast', 'amazing food', 'great food', 'delicious',
+      'tasty', 'delicioso', 'lecker', 'enak',
     ],
     'treats': [
       'croissant', 'pastry', 'pastries', 'cinnamon', 'cardamom',
-      'cake', 'banana bread',
+      'cake', 'banana bread', 'pain au chocolat', 'smoothie',
+      'pancake', 'bagel', 'dessert',
     ],
     'cozy': [
-      'cozy', 'cosy', 'hygge', 'atmosphere', 'good vibe', 'great vibe',
-      'lovely place', 'beautiful space', 'friendly staff', 'terrace',
-      'sunny', 'spacious',
+      'cozy', 'cosy', 'hygge', 'gezellig', 'acogedor', 'aconchegante',
+      'atmosphere', 'good vibe', 'great vibe', 'lovely place',
+      'beautiful space', 'friendly staff', 'terrace', 'rooftop',
+      'garden', 'sunny', 'spacious', 'air con', 'aircon',
     ],
   };
 
