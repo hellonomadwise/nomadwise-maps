@@ -1346,18 +1346,6 @@ class _MapScreenState extends State<MapScreen> {
             ),
           ),
           _menuRow(
-            icon: Icons.emoji_events_outlined,
-            label: 'Leaderboard',
-            sub: 'Top nomads & live activity',
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const LeaderboardScreen()));
-            },
-          ),
-          _menuRow(
             icon: Icons.rate_review_outlined,
             label: 'Review a space',
             sub: 'Earn up to ${AppConfig.coinsNewVenue} coins',
@@ -1465,6 +1453,18 @@ class _MapScreenState extends State<MapScreen> {
             onTap: () {
               Navigator.pop(context);
               _openFeedback();
+            },
+          ),
+          _menuRow(
+            icon: Icons.emoji_events_outlined,
+            label: 'Leaderboard',
+            sub: 'Top contributors',
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const LeaderboardScreen()));
             },
           ),
           _menuRow(
