@@ -3349,6 +3349,8 @@ class _DiscoveredCard extends StatefulWidget {
 class _DiscoveredCardState extends State<_DiscoveredCard> {
   Map<String, int>? _signals;
   List<String> _photos = [];
+  PlaceLive? _live;
+  List<String> _excerpts = [];
 
   DiscoveredPlace get place => widget.place;
 
@@ -3357,6 +3359,8 @@ class _DiscoveredCardState extends State<_DiscoveredCard> {
     super.initState();
     _loadSignals();
     _loadPhotos();
+    _loadLive();
+    _loadExcerpts();
   }
 
   @override
@@ -3365,9 +3369,103 @@ class _DiscoveredCardState extends State<_DiscoveredCard> {
     if (old.place.placeId != place.placeId) {
       _signals = null;
       _photos = [];
+      _live = null;
+      _excerpts = [];
       _loadSignals();
       _loadPhotos();
+      _loadLive();
+      _loadExcerpts();
     }
+  }
+
+  /// Opening hours, so "is it worth going?" is answerable in-app.
+  Future<void> _loadLive() async {
+    final live = await widget.places.details(place.placeId);
+    if (mounted) setState(() => _live = live);
+  }
+
+  static const _excerptWords = [
+    'wifi', 'wi-fi', 'laptop', 'work', 'study', 'plug', 'socket',
+    'outlet', 'quiet', 'coffee', 'lunch', 'brunch',
+  ];
+
+  Future<void> _loadExcerpts() async {
+    final texts = await widget.places.reviewTexts(place.placeId);
+    String trim(String t) {
+      final one = t.replaceAll(RegExp(r'\s+'), ' ').trim();
+      return one.length <= 150 ? one : '${one.substring(0, 147)}…';
+    }
+
+    // Prefer reviews that mention work-related things; otherwise the
+    // first (most relevant per Google) reviews.
+    final scored = [...texts]..sort((a, b) {
+        int score(String t) {
+          final lower = t.toLowerCase();
+          return _excerptWords.where(lower.contains).length;
+        }
+
+        return score(b).compareTo(score(a));
+      });
+    if (mounted) {
+      setState(
+          () => _excerpts = scored.take(2).map(trim).toList());
+    }
+  }
+
+  /// One line answering "can I go right now?".
+  Widget _hoursLine() {
+    final live = _live;
+    if (live == null || live.periods == null) {
+      return const SizedBox.shrink();
+    }
+    final now = DateTime.now();
+    final open = live.openNowAt(now);
+    String text;
+    Color color;
+    if (open == true) {
+      final close = live.nextCloseTime(now);
+      text = close != null
+          ? 'Open now · closes '
+              '${close.hour.toString().padLeft(2, '0')}:'
+              '${close.minute.toString().padLeft(2, '0')}'
+          : 'Open now';
+      color = Brand.success;
+    } else if (open == false) {
+      text = 'Closed right now';
+      color = Brand.inkSecondary;
+    } else {
+      return const SizedBox.shrink();
+    }
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(children: [
+        Icon(Icons.schedule, size: 15, color: color),
+        const SizedBox(width: 6),
+        Text(text,
+            style: TextStyle(
+                fontSize: 13, fontWeight: FontWeight.w600, color: color)),
+      ]),
+    );
+  }
+
+  Widget _excerptsBlock() {
+    if (_excerpts.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: _excerpts
+              .map((e) => Padding(
+                    padding: const EdgeInsets.only(bottom: 5),
+                    child: Text('"$e"',
+                        style: TextStyle(
+                            fontSize: 12,
+                            height: 1.4,
+                            fontStyle: FontStyle.italic,
+                            color: Colors.grey.shade700)),
+                  ))
+              .toList()),
+    );
   }
 
   Future<void> _loadSignals() async {
@@ -3459,9 +3557,11 @@ class _DiscoveredCardState extends State<_DiscoveredCard> {
               ],
             ]),
             const SizedBox(height: 10),
+            _hoursLine(),
             const StatusChip('Not screened by nomads yet'),
             const SizedBox(height: 10),
             _signalsRow(),
+            _excerptsBlock(),
             const SizedBox(height: 14),
             PrimaryCta(
               label: 'Screen this space',

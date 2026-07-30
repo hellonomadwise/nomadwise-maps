@@ -224,6 +224,11 @@ class PlacesService {
 
   final Map<String, List<String>> _reviewsCache = {};
 
+  /// Public access to a place's review texts (cached), so cards can
+  /// quote what reviewers say without leaving the app.
+  Future<List<String>> reviewTexts(String placeId) =>
+      _reviewTexts(placeId);
+
   /// The place's Google review texts (up to 5, cached).
   Future<List<String>> _reviewTexts(String placeId) async {
     final hit = _reviewsCache[placeId];
