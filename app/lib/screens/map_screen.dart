@@ -3437,16 +3437,20 @@ class _DiscoveredCardState extends State<_DiscoveredCard> {
   }
 
   // Excerpts are shown ONLY when a review carries decision-relevant
-  // evidence, ranked laptop > wifi > plug sockets > food. A review
+  // evidence. Remote-work topics rank first (laptop > wifi > plug
+  // sockets), then cozy atmosphere, then food and pastries. A review
   // about parking never makes the card.
   static const _excerptTiers = [
     ['laptop', 'notebook', 'digital nomad', 'remote work',
      'work from', 'working from', 'study', 'studying'],
     ['wifi', 'wi-fi', 'wlan', 'internet'],
     ['plug', 'socket', 'outlet', 'steckdose', 'tomada', 'enchufe'],
+    ['cozy', 'cosy', 'hygge', 'gezellig', 'acogedor', 'aconchegante',
+     'atmosphere', 'good vibe', 'great vibe', 'quiet', 'spacious'],
     ['lunch', 'brunch', 'breakfast', 'bowl', 'avocado toast',
      'sandwich', 'salad', 'delicious', 'tasty', 'amazing food',
-     'great food', 'croissant', 'pastry', 'pastries', 'cake'],
+     'great food', 'croissant', 'pastry', 'pastries', 'cake',
+     'pain au chocolat', 'banana bread'],
   ];
 
   Future<void> _loadExcerpts() async {
