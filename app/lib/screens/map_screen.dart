@@ -842,6 +842,34 @@ class _MapScreenState extends State<MapScreen> {
         LatLng(pos.latitude, pos.longitude), 15));
   }
 
+  /// The card's live review scan found signals the stored copy lacks:
+  /// promote the pin now and persist, so this place never waits for
+  /// the background scanner and every card view helps the next nomad.
+  void _applyLiveSignals(DiscoveredPlace p, Map<String, int> counts) {
+    final updated = p.withSignals(
+      wifi: counts['wifi'] ?? 0,
+      power: counts['power'] ?? 0,
+      laptop: counts['laptop'] ?? 0,
+      food: counts['food'] ?? 0,
+      negative: counts['_negative'] ?? 0,
+    );
+    // Never downgrade the authoritative nightly scan; only fill blanks
+    // or promote a place the scanner has not reached yet.
+    final firstScan = p.signalWifi == null;
+    final promotes = !p.promising && updated.promising;
+    if (!firstScan && !promotes) return;
+    final i = _discovered.indexWhere((d) => d.placeId == p.placeId);
+    if (i >= 0) {
+      setState(() {
+        _discovered[i] = updated;
+        if (_selectedDiscovered?.placeId == p.placeId) {
+          _selectedDiscovered = updated;
+        }
+      });
+    }
+    _supabase.cacheDiscovered([updated]);
+  }
+
   /// Metres from the user to a discovered place (null when the
   /// user's location is unknown).
   double? _discoveredDistance(DiscoveredPlace d) {
@@ -2322,6 +2350,8 @@ class _MapScreenState extends State<MapScreen> {
                             places: _places,
                             distanceM:
                                 _discoveredDistance(_selectedDiscovered!),
+                            onSignals: (c) => _applyLiveSignals(
+                                _selectedDiscovered!, c),
                             onScreen: () =>
                                 _openScreening(_selectedDiscovered!)))),
 
@@ -2445,6 +2475,8 @@ class _MapScreenState extends State<MapScreen> {
                       places: _places,
                       distanceM:
                           _discoveredDistance(_selectedDiscovered!),
+                      onSignals: (c) => _applyLiveSignals(
+                          _selectedDiscovered!, c),
                       onScreen: () =>
                           _openScreening(_selectedDiscovered!)),
             ),
@@ -3388,11 +3420,17 @@ class _DiscoveredCard extends StatefulWidget {
 
   /// Metres from the user, when their location is known.
   final double? distanceM;
+
+  /// Fires with the live review-scan result so the map can promote
+  /// the pin (and persist the scan) without waiting for the nightly
+  /// scanner to reach this place.
+  final void Function(Map<String, int> counts)? onSignals;
   const _DiscoveredCard(
       {required this.place,
       required this.places,
       required this.onScreen,
-      this.distanceM});
+      this.distanceM,
+      this.onSignals});
 
   @override
   State<_DiscoveredCard> createState() => _DiscoveredCardState();
@@ -3558,7 +3596,10 @@ class _DiscoveredCardState extends State<_DiscoveredCard> {
 
   Future<void> _loadSignals() async {
     final s = await widget.places.nomadSignals(place.placeId);
-    if (mounted) setState(() => _signals = s);
+    if (mounted) {
+      setState(() => _signals = s);
+      widget.onSignals?.call(s);
+    }
   }
 
   Future<void> _loadPhotos() async {

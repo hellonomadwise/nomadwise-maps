@@ -98,6 +98,35 @@ class DiscoveredPlace {
         'primary_type': primaryType,
         'rating': rating,
         'user_rating_count': userRatingCount,
+        if (signalWifi != null) 'signal_wifi': signalWifi,
+        if (signalPower != null) 'signal_power': signalPower,
+        if (signalLaptop != null) 'signal_laptop': signalLaptop,
+        if (signalNegative != null) 'signal_negative': signalNegative,
+        if (signalFood != null) 'signal_food': signalFood,
         'fetched_at': DateTime.now().toIso8601String(),
       };
+
+  /// A copy carrying freshly scanned review signals: opening a card
+  /// promotes the pin immediately instead of waiting for the nightly
+  /// scanner to reach this place.
+  DiscoveredPlace withSignals(
+          {required int wifi,
+          required int power,
+          required int laptop,
+          required int food,
+          required int negative}) =>
+      DiscoveredPlace(
+        placeId: placeId,
+        name: name,
+        lat: lat,
+        lng: lng,
+        primaryType: primaryType,
+        rating: rating,
+        userRatingCount: userRatingCount,
+        signalWifi: wifi,
+        signalPower: power,
+        signalLaptop: laptop,
+        signalNegative: negative,
+        signalFood: food,
+      );
 }

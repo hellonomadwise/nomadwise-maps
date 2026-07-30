@@ -280,18 +280,36 @@ class PlacesService {
 
   /// Scans a place's Google reviews for signs it might suit nomads.
   /// Returns mention counts per signal, e.g. {wifi: 3, power: 1, laptop: 2}.
+  /// Reviews arguing AGAINST working there disqualify a place from
+  /// "promising", exactly as the nightly scanner rules.
+  static const _negativePhrases = [
+    'no laptop', 'laptops not allowed', 'laptop not allowed',
+    'laptops are not allowed', 'laptop free', 'laptop-free',
+    'no computers', 'computers not allowed', 'no wifi', 'no wi-fi',
+    "wifi doesn't work", 'wifi does not work',
+    'not laptop friendly', 'not a place to work',
+  ];
+
   Future<Map<String, int>> nomadSignals(String placeId) async {
     final texts = (await _reviewTexts(placeId))
-        .map((t) => t.toLowerCase())
+        .map((t) => t.toLowerCase().replaceAll('\u2019', "'"))
         .toList();
     final counts = <String, int>{};
+    var negatives = 0;
+    for (final t in texts) {
+      if (_negativePhrases.any(t.contains)) {
+        negatives++;
+      }
+    }
     _signalWords.forEach((signal, words) {
       var n = 0;
       for (final t in texts) {
+        if (_negativePhrases.any(t.contains)) continue;
         if (words.any(t.contains)) n++;
       }
       if (n > 0) counts[signal] = n;
     });
+    if (negatives > 0) counts['_negative'] = negatives;
     return counts;
   }
 
