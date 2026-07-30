@@ -868,6 +868,28 @@ class _MapScreenState extends State<MapScreen> {
       });
     }
     _supabase.cacheDiscovered([updated]);
+    // The pin turning solid in front of someone is a golden moment:
+    // celebrate it and point the thrill at the action that actually
+    // earns coins (a real, verifiable screening).
+    if (promotes && mounted) {
+      Analytics.capture('promising_surfaced', {'place': p.name});
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(SnackBar(
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 7),
+          backgroundColor: Brand.violet,
+          content: Text(
+              'You just surfaced a promising spot! Be the first to '
+              'screen ${p.name} and earn '
+              '${AppConfig.coinsNewVenue} coins.'),
+          action: SnackBarAction(
+            label: 'Screen it',
+            textColor: Colors.white,
+            onPressed: () => _openScreening(updated),
+          ),
+        ));
+    }
   }
 
   /// Metres from the user to a discovered place (null when the

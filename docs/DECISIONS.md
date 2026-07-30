@@ -33,7 +33,10 @@ to bottom when there is time. Updated 26 July 2026.
    per-space retest cooldowns, and the monthly payout cap enforced in
    code rather than by manual approval alone. The mechanics are clear;
    the numbers (including whether 100 euro/month stands) are the
-   decision. Belongs with item 4's coin sit-down.
+   decision. Belongs with item 4's coin sit-down, along with the
+   open question of whether surfacing a promising place (a card view
+   that promotes a pin) should ever earn a reward, and if so what a
+   non-farmable version looks like.
 8. **After a WiFi test, return to the space page** with the new
    result showing, instead of the map. Marked "only if continuing",
    so it follows the direction decision.
