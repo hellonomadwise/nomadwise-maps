@@ -3506,10 +3506,6 @@ class _DiscoveredCardState extends State<_DiscoveredCard> {
 
   Future<void> _loadExcerpts() async {
     final texts = await widget.places.reviewTexts(place.placeId);
-    String trim(String t) {
-      final one = t.replaceAll(RegExp(r'\s+'), ' ').trim();
-      return one.length <= 150 ? one : '${one.substring(0, 147)}…';
-    }
 
     int score(String t) {
       final lower = t.toLowerCase();
@@ -3522,11 +3518,50 @@ class _DiscoveredCardState extends State<_DiscoveredCard> {
       return total;
     }
 
+    // Where the most decision-relevant keyword sits in the review,
+    // walking the tiers top-down (laptop beats wifi beats plugs...).
+    int bestMatchAt(String lower) {
+      for (final tier in _excerptTiers) {
+        var first = -1;
+        for (final w in tier) {
+          final i = lower.indexOf(w);
+          if (i >= 0 && (first < 0 || i < first)) first = i;
+        }
+        if (first >= 0) return first;
+      }
+      return 0;
+    }
+
+    // The excerpt starts at the sentence containing that keyword, so
+    // the card quotes the part about wifi or laptops, never a review's
+    // unrelated opening line.
+    String snippet(String t) {
+      final one = t.replaceAll(RegExp(r'\s+'), ' ').trim();
+      final at = bestMatchAt(one.toLowerCase());
+      var start = 0;
+      for (final m in RegExp(r'[.!?]\s+').allMatches(one)) {
+        if (m.end <= at) {
+          start = m.end;
+        } else {
+          break;
+        }
+      }
+      // Very long sentence: begin a few words before the keyword so
+      // it always fits inside the 150-character window.
+      if (at - start > 110) {
+        start = one.lastIndexOf(' ', at - 40) + 1;
+      }
+      final cut = one.substring(start);
+      final prefix = start > 0 ? '…' : '';
+      if (cut.length <= 150) return '$prefix$cut';
+      return '$prefix${cut.substring(0, 147)}…';
+    }
+
     final relevant = texts.where((t) => score(t) > 0).toList()
       ..sort((a, b) => score(b).compareTo(score(a)));
     if (mounted) {
       setState(
-          () => _excerpts = relevant.take(2).map(trim).toList());
+          () => _excerpts = relevant.take(2).map(snippet).toList());
     }
   }
 
