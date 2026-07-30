@@ -3385,8 +3385,14 @@ class _DiscoveredCardState extends State<_DiscoveredCard> {
   }
 
   static const _excerptWords = [
+    // work evidence first...
     'wifi', 'wi-fi', 'laptop', 'work', 'study', 'plug', 'socket',
-    'outlet', 'quiet', 'coffee', 'lunch', 'brunch',
+    'outlet', 'quiet',
+    // ...then the pull factors that make the trip tempting
+    'coffee', 'flat white', 'matcha', 'lunch', 'brunch', 'breakfast',
+    'croissant', 'pastry', 'pastries', 'cake', 'banana bread',
+    'delicious', 'amazing food', 'cozy', 'cosy', 'hygge',
+    'atmosphere', 'vibe', 'friendly', 'terrace', 'sunny', 'spacious',
   ];
 
   Future<void> _loadExcerpts() async {
@@ -3512,9 +3518,16 @@ class _DiscoveredCardState extends State<_DiscoveredCard> {
                     fontSize: 11, fontWeight: FontWeight.w600)),
           ]),
         );
+    final hasWorkSignal = s['wifi'] != null ||
+        s['power'] != null ||
+        s['laptop'] != null;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Text('Promising! Reviews mention:',
-          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+      Text(
+          hasWorkSignal
+              ? 'Promising! Reviews mention:'
+              : 'Reviewers mention:',
+          style: const TextStyle(
+              fontSize: 12, fontWeight: FontWeight.w700)),
       const SizedBox(height: 5),
       Wrap(spacing: 6, runSpacing: 4, children: [
         if (s['wifi'] != null) chip(Icons.wifi, 'wifi ×${s['wifi']}'),
@@ -3522,6 +3535,15 @@ class _DiscoveredCardState extends State<_DiscoveredCard> {
           chip(Icons.power, 'plugs ×${s['power']}'),
         if (s['laptop'] != null)
           chip(Icons.laptop_mac, 'laptops ×${s['laptop']}'),
+        if (s['coffee'] != null)
+          chip(Icons.coffee_outlined, 'great coffee ×${s['coffee']}'),
+        if (s['food'] != null)
+          chip(Icons.restaurant_outlined, 'food ×${s['food']}'),
+        if (s['treats'] != null)
+          chip(Icons.bakery_dining_outlined,
+              'pastries ×${s['treats']}'),
+        if (s['cozy'] != null)
+          chip(Icons.favorite_outline, 'cozy vibes ×${s['cozy']}'),
       ]),
     ]);
   }

@@ -220,6 +220,27 @@ class PlacesService {
       'working from', 'arbeiten', 'trabalhar', 'trabajar', 'study',
       'studying',
     ],
+    // The pull factors: what makes a nomad WANT to go. These show as
+    // card chips and steer the quoted excerpts; the solid-violet
+    // "promising" pin stays strictly about work evidence above.
+    'coffee': [
+      'great coffee', 'good coffee', 'best coffee', 'amazing coffee',
+      'flat white', 'specialty coffee', 'speciality coffee', 'barista',
+      'matcha',
+    ],
+    'food': [
+      'lunch', 'brunch', 'breakfast', 'sandwich', 'salad',
+      'amazing food', 'great food', 'delicious',
+    ],
+    'treats': [
+      'croissant', 'pastry', 'pastries', 'cinnamon', 'cardamom',
+      'cake', 'banana bread',
+    ],
+    'cozy': [
+      'cozy', 'cosy', 'hygge', 'atmosphere', 'good vibe', 'great vibe',
+      'lovely place', 'beautiful space', 'friendly staff', 'terrace',
+      'sunny', 'spacious',
+    ],
   };
 
   final Map<String, List<String>> _reviewsCache = {};
