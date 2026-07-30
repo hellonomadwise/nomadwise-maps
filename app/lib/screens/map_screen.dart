@@ -868,27 +868,12 @@ class _MapScreenState extends State<MapScreen> {
       });
     }
     _supabase.cacheDiscovered([updated]);
-    // The pin turning solid in front of someone is a golden moment:
-    // celebrate it and point the thrill at the action that actually
-    // earns coins (a real, verifiable screening).
-    if (promotes && mounted) {
+    // The pin turning solid in front of someone is a golden moment.
+    // The celebration itself renders inside the card (a violet strip
+    // right above the screen button) so nothing covers the actions;
+    // here we only record that it happened.
+    if (promotes) {
       Analytics.capture('promising_surfaced', {'place': p.name});
-      ScaffoldMessenger.of(context)
-        ..clearSnackBars()
-        ..showSnackBar(SnackBar(
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 7),
-          backgroundColor: Brand.violet,
-          content: Text(
-              'You just surfaced a promising spot! Be the first to '
-              'screen ${p.name} and earn '
-              '${AppConfig.coinsNewVenue} coins.'),
-          action: SnackBarAction(
-            label: 'Screen it',
-            textColor: Colors.white,
-            onPressed: () => _openScreening(updated),
-          ),
-        ));
     }
   }
 
@@ -3464,6 +3449,11 @@ class _DiscoveredCardState extends State<_DiscoveredCard> {
   PlaceLive? _live;
   List<String> _excerpts = [];
 
+  /// True when THIS card view flipped the pin to promising: the live
+  /// review scan found work signals the stored copy lacked. Shown as
+  /// a violet celebration strip right above the screen button.
+  bool _justPromoted = false;
+
   DiscoveredPlace get place => widget.place;
 
   @override
@@ -3483,6 +3473,7 @@ class _DiscoveredCardState extends State<_DiscoveredCard> {
       _photos = [];
       _live = null;
       _excerpts = [];
+      _justPromoted = false;
       _loadSignals();
       _loadPhotos();
       _loadLive();
@@ -3619,7 +3610,17 @@ class _DiscoveredCardState extends State<_DiscoveredCard> {
   Future<void> _loadSignals() async {
     final s = await widget.places.nomadSignals(place.placeId);
     if (mounted) {
-      setState(() => _signals = s);
+      // Same promotion rule as the map: a work signal with no
+      // warnings, on a place that was not already promising.
+      final promoted = !place.promising &&
+          s['_negative'] == null &&
+          (s['wifi'] != null ||
+              s['power'] != null ||
+              s['laptop'] != null);
+      setState(() {
+        _signals = s;
+        _justPromoted = promoted;
+      });
       widget.onSignals?.call(s);
     }
   }
@@ -3729,6 +3730,35 @@ class _DiscoveredCardState extends State<_DiscoveredCard> {
             const SizedBox(height: 10),
             _signalsRow(),
             _excerptsBlock(),
+            if (_justPromoted)
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.only(top: 12),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Brand.violet.withValues(alpha: .10),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                      color: Brand.violet.withValues(alpha: .35)),
+                ),
+                child: Row(children: [
+                  const Icon(Icons.auto_awesome,
+                      size: 16, color: Brand.violet),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                        'You just surfaced a promising spot! Screen '
+                        'it now and earn '
+                        '${AppConfig.coinsNewVenue} coins.',
+                        style: const TextStyle(
+                            fontSize: 12.5,
+                            height: 1.35,
+                            fontWeight: FontWeight.w600,
+                            color: Brand.violet)),
+                  ),
+                ]),
+              ),
             const SizedBox(height: 14),
             PrimaryCta(
               label: 'Screen this space',
