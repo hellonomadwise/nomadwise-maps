@@ -767,7 +767,10 @@ class _MapScreenState extends State<MapScreen> {
             !venuePlaceIds.contains(d.placeId) &&
             _catVisible(d.promising ? 'promising' : 'unscreened') &&
             (d.promising || _showUnscreened) &&
-            (!_filters.contains(VenueFilter.food) || d.foodLikely))
+            (!_filters.contains(VenueFilter.food) || d.foodLikely) &&
+            (_withinKm == null ||
+                (_discoveredDistance(d) ?? double.infinity) <=
+                    _withinKm! * 1000))
         .toList();
   }
 
@@ -839,6 +842,35 @@ class _MapScreenState extends State<MapScreen> {
         LatLng(pos.latitude, pos.longitude), 15));
   }
 
+  /// Metres from the user to a discovered place (null when the
+  /// user's location is unknown).
+  double? _discoveredDistance(DiscoveredPlace d) {
+    if (_userLat == null || _userLng == null) return null;
+    return Venue.haversineM(_userLat!, _userLng!, d.lat, d.lng);
+  }
+
+  /// "Within X km" filter: taps cycle off -> 2 -> 5 -> 10 -> off.
+  int? _withinKm;
+  static const _withinSteps = [2, 5, 10];
+
+  void _cycleWithin() {
+    if (_userLat == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text(
+              'Tap the locate button first so distances are known.')));
+      return;
+    }
+    setState(() {
+      if (_withinKm == null) {
+        _withinKm = _withinSteps.first;
+      } else {
+        final i = _withinSteps.indexOf(_withinKm!);
+        _withinKm =
+            i + 1 < _withinSteps.length ? _withinSteps[i + 1] : null;
+      }
+    });
+  }
+
   void _computeDistances() {
     if (_userLat == null) return;
     for (final v in _venues) {
@@ -875,6 +907,11 @@ class _MapScreenState extends State<MapScreen> {
         }
         if (_filters.contains(VenueFilter.open24h) && !v.is24h) return false;
         if (_filters.contains(VenueFilter.food) && !v.matchesFood) {
+          return false;
+        }
+        if (_withinKm != null &&
+            (v.distanceM == null ||
+                v.distanceM! > _withinKm! * 1000)) {
           return false;
         }
         return true;
@@ -2103,6 +2140,11 @@ class _MapScreenState extends State<MapScreen> {
             _chip('24 hours', VenueFilter.open24h),
             _chip('Work-friendly', VenueFilter.workFriendly),
             _chip('Food', VenueFilter.food),
+            _pill(
+                _withinKm == null ? 'Distance' : '< $_withinKm km',
+                icon: Icons.near_me_outlined,
+                on: _withinKm != null,
+                onTap: _cycleWithin),
             _jumpChip(),
           ]),
         ),
@@ -2278,6 +2320,8 @@ class _MapScreenState extends State<MapScreen> {
                         child: _DiscoveredCard(
                             place: _selectedDiscovered!,
                             places: _places,
+                            distanceM:
+                                _discoveredDistance(_selectedDiscovered!),
                             onScreen: () =>
                                 _openScreening(_selectedDiscovered!)))),
 
@@ -2399,6 +2443,8 @@ class _MapScreenState extends State<MapScreen> {
                   : _DiscoveredCard(
                       place: _selectedDiscovered!,
                       places: _places,
+                      distanceM:
+                          _discoveredDistance(_selectedDiscovered!),
                       onScreen: () =>
                           _openScreening(_selectedDiscovered!)),
             ),
@@ -3339,8 +3385,14 @@ class _DiscoveredCard extends StatefulWidget {
   final DiscoveredPlace place;
   final PlacesService places;
   final VoidCallback onScreen;
+
+  /// Metres from the user, when their location is known.
+  final double? distanceM;
   const _DiscoveredCard(
-      {required this.place, required this.places, required this.onScreen});
+      {required this.place,
+      required this.places,
+      required this.onScreen,
+      this.distanceM});
 
   @override
   State<_DiscoveredCard> createState() => _DiscoveredCardState();
@@ -3384,20 +3436,17 @@ class _DiscoveredCardState extends State<_DiscoveredCard> {
     if (mounted) setState(() => _live = live);
   }
 
-  static const _excerptWords = [
-    // work evidence first...
-    'wifi', 'wi-fi', 'laptop', 'work', 'study', 'plug', 'socket',
-    'outlet', 'quiet',
-    // ...then the pull factors that make the trip tempting,
-    // spread across the regions nomads actually sit in
-    'coffee', 'flat white', 'espresso', 'cold brew', 'matcha',
-    'lunch', 'brunch', 'breakfast', 'bowl', 'avocado toast',
-    'croissant', 'pastry', 'pastries', 'cake', 'banana bread',
-    'pain au chocolat', 'smoothie', 'pancake', 'bagel',
-    'delicious', 'tasty', 'amazing food', 'delicioso', 'lecker',
-    'enak', 'cozy', 'cosy', 'hygge', 'gezellig', 'acogedor',
-    'atmosphere', 'vibe', 'friendly', 'terrace', 'rooftop',
-    'garden', 'sunny', 'spacious', 'aircon', 'air con',
+  // Excerpts are shown ONLY when a review carries decision-relevant
+  // evidence, ranked laptop > wifi > plug sockets > food. A review
+  // about parking never makes the card.
+  static const _excerptTiers = [
+    ['laptop', 'notebook', 'digital nomad', 'remote work',
+     'work from', 'working from', 'study', 'studying'],
+    ['wifi', 'wi-fi', 'wlan', 'internet'],
+    ['plug', 'socket', 'outlet', 'steckdose', 'tomada', 'enchufe'],
+    ['lunch', 'brunch', 'breakfast', 'bowl', 'avocado toast',
+     'sandwich', 'salad', 'delicious', 'tasty', 'amazing food',
+     'great food', 'croissant', 'pastry', 'pastries', 'cake'],
   ];
 
   Future<void> _loadExcerpts() async {
@@ -3407,56 +3456,80 @@ class _DiscoveredCardState extends State<_DiscoveredCard> {
       return one.length <= 150 ? one : '${one.substring(0, 147)}…';
     }
 
-    // Prefer reviews that mention work-related things; otherwise the
-    // first (most relevant per Google) reviews.
-    final scored = [...texts]..sort((a, b) {
-        int score(String t) {
-          final lower = t.toLowerCase();
-          return _excerptWords.where(lower.contains).length;
+    int score(String t) {
+      final lower = t.toLowerCase();
+      var total = 0;
+      for (var tier = 0; tier < _excerptTiers.length; tier++) {
+        if (_excerptTiers[tier].any(lower.contains)) {
+          total += 1000 >> tier; // 1000, 500, 250, 125
         }
+      }
+      return total;
+    }
 
-        return score(b).compareTo(score(a));
-      });
+    final relevant = texts.where((t) => score(t) > 0).toList()
+      ..sort((a, b) => score(b).compareTo(score(a)));
     if (mounted) {
       setState(
-          () => _excerpts = scored.take(2).map(trim).toList());
+          () => _excerpts = relevant.take(2).map(trim).toList());
     }
   }
 
-  /// One line answering "can I go right now?".
+  /// One line answering "can I go right now?" and "how far is it?".
   Widget _hoursLine() {
     final live = _live;
-    if (live == null || live.periods == null) {
-      return const SizedBox.shrink();
+    String? text;
+    Color color = Brand.inkSecondary;
+    if (live != null && live.periods != null) {
+      final now = DateTime.now();
+      final open = live.openNowAt(now);
+      if (open == true) {
+        final close = live.nextCloseTime(now);
+        text = close != null
+            ? 'Open now · closes '
+                '${close.hour.toString().padLeft(2, '0')}:'
+                '${close.minute.toString().padLeft(2, '0')}'
+            : 'Open now';
+        color = Brand.success;
+      } else if (open == false) {
+        text = 'Closed right now';
+      }
     }
-    final now = DateTime.now();
-    final open = live.openNowAt(now);
-    String text;
-    Color color;
-    if (open == true) {
-      final close = live.nextCloseTime(now);
-      text = close != null
-          ? 'Open now · closes '
-              '${close.hour.toString().padLeft(2, '0')}:'
-              '${close.minute.toString().padLeft(2, '0')}'
-          : 'Open now';
-      color = Brand.success;
-    } else if (open == false) {
-      text = 'Closed right now';
-      color = Brand.inkSecondary;
-    } else {
+    if (text == null && _distanceLabel() == null) {
       return const SizedBox.shrink();
     }
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(children: [
-        Icon(Icons.schedule, size: 15, color: color),
-        const SizedBox(width: 6),
-        Text(text,
-            style: TextStyle(
-                fontSize: 13, fontWeight: FontWeight.w600, color: color)),
+        if (text != null) ...[
+          Icon(Icons.schedule, size: 15, color: color),
+          const SizedBox(width: 6),
+          Text(text,
+              style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: color)),
+        ],
+        if (_distanceLabel() != null) ...[
+          const SizedBox(width: 10),
+          const Icon(Icons.near_me_outlined,
+              size: 14, color: Brand.inkSecondary),
+          const SizedBox(width: 3),
+          Text(_distanceLabel()!,
+              style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Brand.inkSecondary)),
+        ],
       ]),
     );
+  }
+
+  String? _distanceLabel() {
+    final d = widget.distanceM;
+    if (d == null) return null;
+    if (d < 1000) return '${d.round()} m';
+    return '${(d / 1000).toStringAsFixed(1)} km';
   }
 
   Widget _excerptsBlock() {
