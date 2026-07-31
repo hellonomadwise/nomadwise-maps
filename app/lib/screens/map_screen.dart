@@ -3280,32 +3280,31 @@ String _hhmm(DateTime t) =>
 
 /// One answer to "can I go right now?": open with its closing time,
 /// or closed with when it opens next. Null when hours are unknown.
-(String, Color)? _hoursStatus(PlaceLive? live) {
-  if (live == null || live.periods == null) return null;
+/// Works from any weekly periods list: Google's live data or the
+/// copy stored in our own database.
+(String, Color)? _hoursStatus(List<dynamic>? periods) {
   final now = DateTime.now();
-  final open = live.openNowAt(now);
-  if (open == true) {
-    final close = live.nextCloseTime(now);
+  final s = periodsStatusAt(periods, now);
+  if (s == null) return null;
+  if (s.$1) {
+    final close = s.$2;
     return (
       close != null ? 'Open now · closes ${_hhmm(close)}' : 'Open now',
       Brand.success
     );
   }
-  if (open == false) {
-    final opens = live.nextOpenTime(now);
-    if (opens == null) return ('Closed right now', Brand.inkSecondary);
-    final String when;
-    if (opens.day == now.day && opens.month == now.month) {
-      when = _hhmm(opens);
-    } else if (opens.difference(now).inHours < 30 &&
-        opens.day == now.add(const Duration(days: 1)).day) {
-      when = '${_hhmm(opens)} tomorrow';
-    } else {
-      when = '${_weekdayNames[opens.weekday - 1]} ${_hhmm(opens)}';
-    }
-    return ('Closed · opens $when', Brand.inkSecondary);
+  final opens = periodsNextOpen(periods, now);
+  if (opens == null) return ('Closed right now', Brand.inkSecondary);
+  final String when;
+  if (opens.day == now.day && opens.month == now.month) {
+    when = _hhmm(opens);
+  } else if (opens.difference(now).inHours < 30 &&
+      opens.day == now.add(const Duration(days: 1)).day) {
+    when = '${_hhmm(opens)} tomorrow';
+  } else {
+    when = '${_weekdayNames[opens.weekday - 1]} ${_hhmm(opens)}';
   }
-  return null;
+  return ('Closed · opens $when', Brand.inkSecondary);
 }
 
 // ============================================================
@@ -3338,9 +3337,11 @@ class _DiscoveredListCardState extends State<_DiscoveredListCard> {
   @override
   void initState() {
     super.initState();
-    // Rows build lazily as the user scrolls, and details are cached,
-    // so answering "open now?" on sight stays within sane API use.
-    _loadHours();
+    // Free path first: hours stored in our own database by the
+    // nightly scanner. Only rows the scanner has not reached yet ask
+    // Google directly (lazily built, cached), a cost that shrinks to
+    // zero as the stored copies fill in.
+    if (place.periods == null) _loadHours();
   }
 
   Future<void> _loadHours() async {
@@ -3421,7 +3422,8 @@ class _DiscoveredListCardState extends State<_DiscoveredListCard> {
                   Text('Unscreened',
                       style: TextStyle(
                           fontSize: 12, color: Colors.grey.shade500)),
-                  if (_hoursStatus(_live) case (final text, final color)?)
+                  if (_hoursStatus(place.periods ?? _live?.periods)
+                      case (final text, final color)?)
                     Text(text,
                         style: TextStyle(
                             fontSize: 12,
@@ -3656,7 +3658,7 @@ class _DiscoveredCardState extends State<_DiscoveredCard> {
 
   /// One line answering "can I go right now?" and "how far is it?".
   Widget _hoursLine() {
-    final status = _hoursStatus(_live);
+    final status = _hoursStatus(_live?.periods ?? place.periods);
     final text = status?.$1;
     final color = status?.$2 ?? Brand.inkSecondary;
     if (text == null && _distanceLabel() == null) {

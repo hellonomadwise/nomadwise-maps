@@ -343,13 +343,19 @@ checked, promising = 0, 0
 for p in unchecked:
     counts = {'wifi': 0, 'power': 0, 'laptop': 0, 'food': 0}
     negatives = 0
+    hours = None
     try:
+        # Opening hours ride along on the same call the review scan
+        # already pays for; stored, they make "open now?" free forever.
         details = req(
             f"https://places.googleapis.com/v1/places/{p['google_place_id']}",
             headers={
                 'X-Goog-Api-Key': PLACES_KEY,
-                'X-Goog-FieldMask': 'reviews,businessStatus',
+                'X-Goog-FieldMask':
+                    'reviews,businessStatus,regularOpeningHours',
             })
+        hours = ((details or {}).get('regularOpeningHours')
+                 or {}).get('periods')
         if (details or {}).get('businessStatus') not in (None, 'OPERATIONAL'):
             # Permanently/temporarily closed: off the map entirely.
             req(f"{SUPABASE_URL}/rest/v1/discovered_places"
@@ -385,6 +391,7 @@ for p in unchecked:
                     datetime.now(timezone.utc).isoformat(),
                 **({'signal_food': counts['food']}
                    if has_food_col else {}),
+                **({'hours': hours} if hours else {}),
             })
         checked += 1
         if any(counts.values()) and negatives == 0:
@@ -412,7 +419,8 @@ MAX_SWEEP_CALLS = 260     # hard cap per run, bounds API spend
 
 SEARCH_MASK = ('places.id,places.displayName,places.location,'
                'places.primaryType,places.rating,'
-               'places.userRatingCount,places.businessStatus')
+               'places.userRatingCount,places.businessStatus,'
+               'places.regularOpeningHours')
 
 import re  # noqa: E402
 COWORK_NAME = re.compile(
@@ -503,6 +511,7 @@ def _row_from_place(pl, cowork=False):
         return None
     if _excluded_place(pl):
         return None
+    hours = (pl.get('regularOpeningHours') or {}).get('periods')
     return {
         'google_place_id': pl['id'],
         'name': (pl.get('displayName') or {}).get('text') or 'Unnamed',
@@ -512,6 +521,7 @@ def _row_from_place(pl, cowork=False):
             pl.get('primaryType') or ('coworking_space' if cowork else None),
         'rating': pl.get('rating'),
         'user_rating_count': pl.get('userRatingCount'),
+        **({'hours': hours} if hours else {}),
     }
 
 

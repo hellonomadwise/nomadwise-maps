@@ -389,33 +389,8 @@ class PlaceLive {
     return null;
   }
 
-  /// Walks the weekly periods and reports (isOpen, closesAt) at [now].
-  /// closesAt is null when the place never closes (24/7) or is closed.
-  /// Returns null when Google listed no hours at all.
-  (bool, DateTime?)? _statusAt(DateTime now) {
-    if (periods == null || periods!.isEmpty) return null;
-    for (final p in periods!) {
-      final open = p['open'], close = p['close'];
-      if (open == null) continue;
-      if (close == null) return (true, null); // open 24/7
-      // Consider periods opening today or yesterday (overnight).
-      for (final dayOffset in [0, -1]) {
-        final d = now.add(Duration(days: dayOffset));
-        if (open['day'] != (d.weekday % 7)) continue;
-        final openT = DateTime(d.year, d.month, d.day,
-            open['hour'] ?? 0, open['minute'] ?? 0);
-        var closeDayShift = (close['day'] - open['day']) % 7;
-        if (closeDayShift < 0) closeDayShift += 7;
-        final closeT = DateTime(d.year, d.month, d.day,
-                close['hour'] ?? 0, close['minute'] ?? 0)
-            .add(Duration(days: closeDayShift));
-        if (now.isAfter(openT) && now.isBefore(closeT)) {
-          return (true, closeT);
-        }
-      }
-    }
-    return (false, null);
-  }
+  (bool, DateTime?)? _statusAt(DateTime now) =>
+      periodsStatusAt(periods, now);
 
   /// Open right now? Computed live from the weekly hours, so a
   /// cached copy of this data stays accurate. Null when unknown.
@@ -430,25 +405,62 @@ class PlaceLive {
 
   /// When the place next opens, if it is closed right now. Null when
   /// it is open, never closes, or the hours are unknown.
-  DateTime? nextOpenTime(DateTime now) {
-    final s = _statusAt(now);
-    if (s == null || s.$1) return null;
-    DateTime? best;
-    for (final p in periods!) {
-      final open = p['open'];
-      if (open == null || open['day'] == null) continue;
-      // Walk the coming week and keep the soonest opening moment.
-      for (var dayOffset = 0; dayOffset <= 7; dayOffset++) {
-        final d = now.add(Duration(days: dayOffset));
-        if (open['day'] != (d.weekday % 7)) continue;
-        final openT = DateTime(d.year, d.month, d.day,
-            open['hour'] ?? 0, open['minute'] ?? 0);
-        if (openT.isAfter(now) &&
-            (best == null || openT.isBefore(best))) {
-          best = openT;
-        }
+  DateTime? nextOpenTime(DateTime now) => periodsNextOpen(periods, now);
+}
+
+// ============================================================
+// Weekly-hours maths, shared by Google's live data and the copies
+// stored in our own database (discovered_places.hours).
+// ============================================================
+
+/// Walks the weekly [periods] and reports (isOpen, closesAt) at [now].
+/// closesAt is null when the place never closes (24/7) or is closed.
+/// Returns null when no hours are known at all.
+(bool, DateTime?)? periodsStatusAt(List<dynamic>? periods, DateTime now) {
+  if (periods == null || periods.isEmpty) return null;
+  for (final p in periods) {
+    final open = p['open'], close = p['close'];
+    if (open == null) continue;
+    if (close == null) return (true, null); // open 24/7
+    // Consider periods opening today or yesterday (overnight).
+    for (final dayOffset in [0, -1]) {
+      final d = now.add(Duration(days: dayOffset));
+      if (open['day'] != (d.weekday % 7)) continue;
+      final openT = DateTime(d.year, d.month, d.day,
+          open['hour'] ?? 0, open['minute'] ?? 0);
+      var closeDayShift = (close['day'] - open['day']) % 7;
+      if (closeDayShift < 0) closeDayShift += 7;
+      final closeT = DateTime(d.year, d.month, d.day,
+              close['hour'] ?? 0, close['minute'] ?? 0)
+          .add(Duration(days: closeDayShift));
+      if (now.isAfter(openT) && now.isBefore(closeT)) {
+        return (true, closeT);
       }
     }
-    return best;
   }
+  return (false, null);
+}
+
+/// When the place next opens, if it is closed at [now]. Null when it
+/// is open, never closes, or the hours are unknown.
+DateTime? periodsNextOpen(List<dynamic>? periods, DateTime now) {
+  final s = periodsStatusAt(periods, now);
+  if (s == null || s.$1) return null;
+  DateTime? best;
+  for (final p in periods!) {
+    final open = p['open'];
+    if (open == null || open['day'] == null) continue;
+    // Walk the coming week and keep the soonest opening moment.
+    for (var dayOffset = 0; dayOffset <= 7; dayOffset++) {
+      final d = now.add(Duration(days: dayOffset));
+      if (open['day'] != (d.weekday % 7)) continue;
+      final openT = DateTime(d.year, d.month, d.day,
+          open['hour'] ?? 0, open['minute'] ?? 0);
+      if (openT.isAfter(now) &&
+          (best == null || openT.isBefore(best))) {
+        best = openT;
+      }
+    }
+  }
+  return best;
 }

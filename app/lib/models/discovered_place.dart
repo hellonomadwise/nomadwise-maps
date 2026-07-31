@@ -21,6 +21,11 @@ class DiscoveredPlace {
   /// Reviews mentioning real food (lunch, brunch, salads...).
   final int? signalFood;
 
+  /// Weekly opening periods (Google's regularOpeningHours.periods),
+  /// stored in our own database so the list can answer "open now?"
+  /// without asking Google for every row.
+  final List<dynamic>? periods;
+
   /// Should this place match the "Food" filter? Review mentions or a
   /// restaurant-style Google type both count.
   bool get foodLikely =>
@@ -71,6 +76,7 @@ class DiscoveredPlace {
     this.signalLaptop,
     this.signalNegative,
     this.signalFood,
+    this.periods,
   });
 
   /// From a Google Places searchNearby result.
@@ -83,6 +89,7 @@ class DiscoveredPlace {
         primaryType: j['primaryType'],
         rating: j['rating'],
         userRatingCount: j['userRatingCount'],
+        periods: j['regularOpeningHours']?['periods'],
       );
 
   /// From a row of our own discovered_places cache.
@@ -100,6 +107,7 @@ class DiscoveredPlace {
         signalLaptop: r['signal_laptop'],
         signalNegative: r['signal_negative'],
         signalFood: r['signal_food'],
+        periods: r['hours'],
       );
 
   Map<String, dynamic> toRow() => {
@@ -115,6 +123,7 @@ class DiscoveredPlace {
         if (signalLaptop != null) 'signal_laptop': signalLaptop,
         if (signalNegative != null) 'signal_negative': signalNegative,
         if (signalFood != null) 'signal_food': signalFood,
+        if (periods != null) 'hours': periods,
         'fetched_at': DateTime.now().toIso8601String(),
       };
 
@@ -140,5 +149,6 @@ class DiscoveredPlace {
         signalLaptop: laptop,
         signalNegative: negative,
         signalFood: food,
+        periods: periods,
       );
 }

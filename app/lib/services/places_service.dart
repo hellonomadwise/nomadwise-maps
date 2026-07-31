@@ -67,7 +67,7 @@ class PlacesService {
   static const _searchFieldMask =
       'places.id,places.displayName,places.location,'
       'places.primaryType,places.rating,places.userRatingCount,'
-      'places.businessStatus';
+      'places.businessStatus,places.regularOpeningHours';
 
   /// Permanently or temporarily closed places never reach the map.
   static bool _isOpenForBusiness(Map<String, dynamic> p) {
@@ -178,6 +178,7 @@ class PlacesService {
           primaryType: d.primaryType ?? 'coworking_space',
           rating: d.rating,
           userRatingCount: d.userRatingCount,
+          periods: d.periods,
         );
       }).toList();
     } catch (_) {
