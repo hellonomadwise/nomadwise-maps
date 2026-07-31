@@ -3375,7 +3375,7 @@ class _DiscoveredListCardState extends State<_DiscoveredListCard> {
               ClipRRect(
                 borderRadius: BorderRadius.circular(14),
                 child: _CardPhotoPager(_photos,
-                    height: 180, key: ValueKey(place.placeId)),
+                    height: 240, key: ValueKey(place.placeId)),
               ),
               const SizedBox(height: 10),
             ],
@@ -3403,27 +3403,34 @@ class _DiscoveredListCardState extends State<_DiscoveredListCard> {
                     fontSize: 12, fontWeight: FontWeight.w600),
               ),
             const SizedBox(height: 10),
-            // Two equal-width actions; the labels are short enough
-            // that neither wraps on a phone.
+            // Two actions sharing one row: equal width AND equal
+            // height, so the pair reads as a matched set.
             Row(children: [
               Expanded(
-                child: OutlinedButton.icon(
-                    onPressed: _openOnGoogle,
-                    style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 12)),
-                    icon: const Icon(Icons.map_outlined, size: 16),
-                    label: const Text('Google',
-                        maxLines: 1, overflow: TextOverflow.ellipsis)),
+                child: SizedBox(
+                  height: 48,
+                  child: OutlinedButton.icon(
+                      onPressed: _openOnGoogle,
+                      style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8)),
+                      icon: const Icon(Icons.map_outlined, size: 16),
+                      label: const Text('Google',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis)),
+                ),
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: ElevatedButton(
-                    onPressed: widget.onScreen,
-                    child: Text(
-                        'Screen it · +${AppConfig.coinsNewVenue}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis)),
+                child: SizedBox(
+                  height: 48,
+                  child: ElevatedButton(
+                      onPressed: widget.onScreen,
+                      child: Text(
+                          'Screen it · +${AppConfig.coinsNewVenue}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis)),
+                ),
               ),
             ]),
           ],
