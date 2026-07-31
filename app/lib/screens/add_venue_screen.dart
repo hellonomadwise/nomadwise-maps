@@ -261,13 +261,12 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
   }
 
   Future<void> _pickPhoto() async {
+    // Gallery source shows the phone's native chooser, which on both
+    // iPhone and Android offers the photo library AND taking a fresh
+    // picture, so one tap covers every path.
     final picker = ImagePicker();
-    final img = await picker.pickImage(
-        source: ImageSource.camera, maxWidth: 1600, imageQuality: 82);
-    // Camera unavailable (e.g. web preview on a laptop) -> gallery fallback.
-    final chosen = img ??
-        await picker.pickImage(
-            source: ImageSource.gallery, maxWidth: 1600, imageQuality: 82);
+    final chosen = await picker.pickImage(
+        source: ImageSource.gallery, maxWidth: 1600, imageQuality: 82);
     if (chosen != null) {
       final bytes = await chosen.readAsBytes();
       setState(() => _photo = bytes);
@@ -751,6 +750,12 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
                 borderRadius: BorderRadius.circular(14),
                 child: Image.memory(_photo!, height: 160,
                     width: double.infinity, fit: BoxFit.cover)),
+            const SizedBox(height: 6),
+            Text(
+                'Your photo appears on the space page once the team '
+                'has checked it.',
+                style: TextStyle(
+                    fontSize: 12, color: Colors.grey.shade600)),
           ],
           const SizedBox(height: 24),
         ]),

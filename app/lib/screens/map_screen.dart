@@ -815,8 +815,11 @@ class _MapScreenState extends State<MapScreen> {
                 screening: p,
                 userLat: _userLat,
                 userLng: _userLng)));
-    // Their new pending venue should appear for them right away.
+    // Their new pending venue should appear for them right away,
+    // WITH photos and hours: brand-new venues have no nightly Google
+    // snapshot yet, so fetch their live details before showing.
     _venues = await _supabase.fetchVenues();
+    await _places.enrich(_venues);
     _computeDistances();
     if (mounted) {
       setState(() => _selectedDiscovered = null);

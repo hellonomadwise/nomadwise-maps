@@ -20,6 +20,7 @@ class _AdminScreenState extends State<AdminScreen> {
   final _places = PlacesService();
   List<Map<String, dynamic>>? _pending;
   List<Map<String, dynamic>> _recent = [];
+  List<Map<String, dynamic>> _photos = [];
 
   @override
   void initState() {
@@ -30,12 +31,86 @@ class _AdminScreenState extends State<AdminScreen> {
   Future<void> _load() async {
     final rows = await _supabase.pendingSubmissions();
     final recent = await _supabase.recentVerified();
+    final photos = await _supabase.pendingPhotos();
     if (mounted) {
       setState(() {
         _pending = rows;
         _recent = recent;
+        _photos = photos;
       });
     }
+  }
+
+  Future<void> _decidePhoto(String id, bool approve) async {
+    await _supabase.setPhotoStatus(id, approve ? 'approved' : 'rejected');
+    _load();
+  }
+
+  /// Community photos held back until a founder checks quality and
+  /// safety. Approve puts them on the space page; reject hides them
+  /// forever (the review's facts stay untouched either way).
+  Widget _photoSection() {
+    if (_photos.isEmpty) return const SizedBox.shrink();
+    return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(4, 18, 4, 8),
+            child: Text('PHOTOS AWAITING APPROVAL',
+                style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: .8,
+                    color: Brand.inkSecondary)),
+          ),
+          ..._photos.map((p) {
+            final venue = (p['venues'] as Map?)?['name'] ?? 'a space';
+            return Card(
+              margin: const EdgeInsets.only(bottom: 12),
+              clipBehavior: Clip.antiAlias,
+              elevation: 1.5,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14)),
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Image.network(
+                        _supabase.photoUrl(p['photo_path']),
+                        height: 190,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                            height: 60,
+                            color: Brand.lightGrey,
+                            child: const Center(
+                                child:
+                                    Text('Photo failed to load')))),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+                      child: Row(children: [
+                        Expanded(
+                          child: Text(venue,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13.5)),
+                        ),
+                        TextButton(
+                            onPressed: () =>
+                                _decidePhoto(p['id'], false),
+                            child: const Text('Reject',
+                                style:
+                                    TextStyle(color: Brand.red))),
+                        const SizedBox(width: 4),
+                        ElevatedButton(
+                            onPressed: () =>
+                                _decidePhoto(p['id'], true),
+                            child: const Text('Approve')),
+                      ]),
+                    ),
+                  ]),
+            );
+          }),
+        ]);
   }
 
   static const _kindLabel = {
@@ -147,6 +222,7 @@ class _AdminScreenState extends State<AdminScreen> {
                                 color: Brand.inkMuted,
                                 height: 1.5)),
                       ),
+                      _photoSection(),
                       _recentSection(),
                     ]))
               : RefreshIndicator(
@@ -155,7 +231,13 @@ class _AdminScreenState extends State<AdminScreen> {
                     padding: const EdgeInsets.all(14),
                     itemCount: pending.length + 1,
                     itemBuilder: (_, i) => i == pending.length
-                        ? _recentSection()
+                        ? Column(
+                            crossAxisAlignment:
+                                CrossAxisAlignment.start,
+                            children: [
+                                _photoSection(),
+                                _recentSection()
+                              ])
                         : _SubmissionCard(
                             submission: pending[i],
                             supabase: _supabase,

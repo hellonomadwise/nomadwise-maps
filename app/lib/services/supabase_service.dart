@@ -737,6 +737,31 @@ class SupabaseService {
   String photoUrl(String path) =>
       _db.storage.from('submission-photos').getPublicUrl(path);
 
+  /// Admin: community photos waiting for a quality/safety check
+  /// before they appear on space pages.
+  Future<List<Map<String, dynamic>>> pendingPhotos() async {
+    try {
+      final rows = await _db
+          .from('submissions')
+          .select('id, photo_path, created_at, venue_id, venues(name)')
+          .not('photo_path', 'is', null)
+          .eq('photo_status', 'pending')
+          .order('created_at', ascending: false)
+          .limit(30);
+      return (rows as List)
+          .map((r) => Map<String, dynamic>.from(r))
+          .toList();
+    } catch (_) {
+      return []; // column not created yet
+    }
+  }
+
+  /// Admin: approve or reject one community photo.
+  Future<void> setPhotoStatus(String submissionId, String status) =>
+      _db
+          .from('submissions')
+          .update({'photo_status': status}).eq('id', submissionId);
+
   Future<List<Map<String, dynamic>>> ledger() async {
     final uid = currentUser?.id;
     if (uid == null) return [];
