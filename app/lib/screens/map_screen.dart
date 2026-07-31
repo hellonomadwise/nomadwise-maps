@@ -3269,6 +3269,46 @@ class _VenueListCard extends StatelessWidget {
 }
 
 // ============================================================
+// Shared opening-hours status line
+// ============================================================
+
+const _weekdayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+String _hhmm(DateTime t) =>
+    '${t.hour.toString().padLeft(2, '0')}:'
+    '${t.minute.toString().padLeft(2, '0')}';
+
+/// One answer to "can I go right now?": open with its closing time,
+/// or closed with when it opens next. Null when hours are unknown.
+(String, Color)? _hoursStatus(PlaceLive? live) {
+  if (live == null || live.periods == null) return null;
+  final now = DateTime.now();
+  final open = live.openNowAt(now);
+  if (open == true) {
+    final close = live.nextCloseTime(now);
+    return (
+      close != null ? 'Open now · closes ${_hhmm(close)}' : 'Open now',
+      Brand.success
+    );
+  }
+  if (open == false) {
+    final opens = live.nextOpenTime(now);
+    if (opens == null) return ('Closed right now', Brand.inkSecondary);
+    final String when;
+    if (opens.day == now.day && opens.month == now.month) {
+      when = _hhmm(opens);
+    } else if (opens.difference(now).inHours < 30 &&
+        opens.day == now.add(const Duration(days: 1)).day) {
+      when = '${_hhmm(opens)} tomorrow';
+    } else {
+      when = '${_weekdayNames[opens.weekday - 1]} ${_hhmm(opens)}';
+    }
+    return ('Closed · opens $when', Brand.inkSecondary);
+  }
+  return null;
+}
+
+// ============================================================
 // List-view row for an unscreened place
 // ============================================================
 
@@ -3291,8 +3331,22 @@ class _DiscoveredListCardState extends State<_DiscoveredListCard> {
   Map<String, int>? _signals;
   List<String> _photos = [];
   bool _loaded = false;
+  PlaceLive? _live;
 
   DiscoveredPlace get place => widget.place;
+
+  @override
+  void initState() {
+    super.initState();
+    // Rows build lazily as the user scrolls, and details are cached,
+    // so answering "open now?" on sight stays within sane API use.
+    _loadHours();
+  }
+
+  Future<void> _loadHours() async {
+    final live = await widget.places.details(place.placeId);
+    if (mounted) setState(() => _live = live);
+  }
 
   String get _distLabel {
     final d = widget.distanceM;
@@ -3367,6 +3421,12 @@ class _DiscoveredListCardState extends State<_DiscoveredListCard> {
                   Text('Unscreened',
                       style: TextStyle(
                           fontSize: 12, color: Colors.grey.shade500)),
+                  if (_hoursStatus(_live) case (final text, final color)?)
+                    Text(text,
+                        style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: color)),
                 ]),
           ),
           children: [
@@ -3596,24 +3656,9 @@ class _DiscoveredCardState extends State<_DiscoveredCard> {
 
   /// One line answering "can I go right now?" and "how far is it?".
   Widget _hoursLine() {
-    final live = _live;
-    String? text;
-    Color color = Brand.inkSecondary;
-    if (live != null && live.periods != null) {
-      final now = DateTime.now();
-      final open = live.openNowAt(now);
-      if (open == true) {
-        final close = live.nextCloseTime(now);
-        text = close != null
-            ? 'Open now · closes '
-                '${close.hour.toString().padLeft(2, '0')}:'
-                '${close.minute.toString().padLeft(2, '0')}'
-            : 'Open now';
-        color = Brand.success;
-      } else if (open == false) {
-        text = 'Closed right now';
-      }
-    }
+    final status = _hoursStatus(_live);
+    final text = status?.$1;
+    final color = status?.$2 ?? Brand.inkSecondary;
     if (text == null && _distanceLabel() == null) {
       return const SizedBox.shrink();
     }

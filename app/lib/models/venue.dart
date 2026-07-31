@@ -427,4 +427,28 @@ class PlaceLive {
     if (s == null || !s.$1) return null;
     return s.$2;
   }
+
+  /// When the place next opens, if it is closed right now. Null when
+  /// it is open, never closes, or the hours are unknown.
+  DateTime? nextOpenTime(DateTime now) {
+    final s = _statusAt(now);
+    if (s == null || s.$1) return null;
+    DateTime? best;
+    for (final p in periods!) {
+      final open = p['open'];
+      if (open == null || open['day'] == null) continue;
+      // Walk the coming week and keep the soonest opening moment.
+      for (var dayOffset = 0; dayOffset <= 7; dayOffset++) {
+        final d = now.add(Duration(days: dayOffset));
+        if (open['day'] != (d.weekday % 7)) continue;
+        final openT = DateTime(d.year, d.month, d.day,
+            open['hour'] ?? 0, open['minute'] ?? 0);
+        if (openT.isAfter(now) &&
+            (best == null || openT.isBefore(best))) {
+          best = openT;
+        }
+      }
+    }
+    return best;
+  }
 }
