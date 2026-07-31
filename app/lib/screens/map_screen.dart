@@ -3799,12 +3799,18 @@ class _DiscoveredCardState extends State<_DiscoveredCard> {
         borderRadius: BorderRadius.circular(22),
         boxShadow: Brand.shadowSheet,
       ),
-      padding: const EdgeInsets.all(18),
+      clipBehavior: Clip.antiAlias,
       child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _cardPhotoStrip(_photos),
+            _CardPhotoPager(_photos, key: ValueKey(place.placeId)),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 14, 18, 18),
+              child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
             Row(children: [
               Expanded(
                   child: Text(place.name,
@@ -3862,6 +3868,8 @@ class _DiscoveredCardState extends State<_DiscoveredCard> {
               coins: '+${AppConfig.coinsNewVenue}',
               onPressed: widget.onScreen,
             ),
+                  ]),
+            ),
           ]),
     );
   }
@@ -3871,31 +3879,69 @@ class _DiscoveredCardState extends State<_DiscoveredCard> {
 // Compact card shown when a pin is tapped (map mode)
 // ============================================================
 
-/// Small scrollable photo strip for the pin tap cards, people are
-/// visual, a picture sells the place faster than any fact row.
-Widget _cardPhotoStrip(List<String> names) {
-  if (names.isEmpty) return const SizedBox.shrink();
-  return Padding(
-    padding: const EdgeInsets.only(bottom: 12),
-    child: SizedBox(
-      height: 96,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: names.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemBuilder: (_, i) => ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: Image.network(
-            PlacesService.photoUrl(names[i], maxWidth: 400),
-            height: 96,
-            width: 132,
+/// One big edge-to-edge photo with left/right swiping and page dots,
+/// the way booking apps sell a place: a picture first, facts under it.
+class _CardPhotoPager extends StatefulWidget {
+  final List<String> names;
+  const _CardPhotoPager(this.names, {super.key});
+
+  @override
+  State<_CardPhotoPager> createState() => _CardPhotoPagerState();
+}
+
+class _CardPhotoPagerState extends State<_CardPhotoPager> {
+  int _page = 0;
+  static const _maxPhotos = 6;
+
+  @override
+  Widget build(BuildContext context) {
+    final names = widget.names.take(_maxPhotos).toList();
+    if (names.isEmpty) return const SizedBox.shrink();
+    return SizedBox(
+      height: 210,
+      width: double.infinity,
+      child: Stack(children: [
+        PageView.builder(
+          itemCount: names.length,
+          onPageChanged: (i) => setState(() => _page = i),
+          itemBuilder: (_, i) => Image.network(
+            PlacesService.photoUrl(names[i], maxWidth: 800),
             fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+            width: double.infinity,
+            height: 210,
+            errorBuilder: (_, __, ___) =>
+                Container(color: Brand.goldTint),
           ),
         ),
-      ),
-    ),
-  );
+        if (names.length > 1)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 10,
+            child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  for (var i = 0; i < names.length; i++)
+                    Container(
+                      width: 7,
+                      height: 7,
+                      margin:
+                          const EdgeInsets.symmetric(horizontal: 3),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white
+                            .withValues(alpha: i == _page ? 1 : .55),
+                        boxShadow: const [
+                          BoxShadow(
+                              color: Colors.black26, blurRadius: 3)
+                        ],
+                      ),
+                    ),
+                ]),
+          ),
+      ]),
+    );
+  }
 }
 
 class _VenueCard extends StatelessWidget {
@@ -3927,13 +3973,20 @@ class _VenueCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(22),
             boxShadow: Brand.shadowSheet,
           ),
-          padding: const EdgeInsets.all(18),
+          clipBehavior: Clip.antiAlias,
           child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _cardPhotoStrip(
-                    venue.visiblePhotoNames.take(5).toList()),
+                _CardPhotoPager(
+                    venue.visiblePhotoNames.take(6).toList(),
+                    key: ValueKey(venue.id)),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 14, 18, 18),
+                  child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                 Row(children: [
                   Expanded(
                       child: Text(venue.name,
@@ -3977,6 +4030,8 @@ class _VenueCard extends StatelessWidget {
                           fontWeight: FontWeight.w600,
                           color: Brand.accent)),
                 ]),
+                      ]),
+                ),
               ]),
         ),
       ),
