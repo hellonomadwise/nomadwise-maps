@@ -3308,10 +3308,7 @@ class _DiscoveredListCardState extends State<_DiscoveredListCard> {
     final signals = await widget.places.nomadSignals(place.placeId);
     if (mounted) {
       setState(() {
-        _photos = (live?.photoNames ?? [])
-            .take(4)
-            .map((n) => PlacesService.photoUrl(n, maxWidth: 400))
-            .toList();
+        _photos = (live?.photoNames ?? []).take(6).toList();
         _signals = signals;
       });
     }
@@ -3375,24 +3372,12 @@ class _DiscoveredListCardState extends State<_DiscoveredListCard> {
           children: [
             // ---- evidence: photos + review signals ----
             if (_photos.isNotEmpty) ...[
-              SizedBox(
-                height: 70,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: _photos.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 6),
-                  itemBuilder: (_, i) => ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.network(_photos[i],
-                        width: 94,
-                        height: 70,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) =>
-                            const SizedBox(width: 94)),
-                  ),
-                ),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: _CardPhotoPager(_photos,
+                    height: 180, key: ValueKey(place.placeId)),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
             ],
             if (s == null)
               Row(children: [
@@ -3883,7 +3868,8 @@ class _DiscoveredCardState extends State<_DiscoveredCard> {
 /// the way booking apps sell a place: a picture first, facts under it.
 class _CardPhotoPager extends StatefulWidget {
   final List<String> names;
-  const _CardPhotoPager(this.names, {super.key});
+  final double height;
+  const _CardPhotoPager(this.names, {this.height = 210, super.key});
 
   @override
   State<_CardPhotoPager> createState() => _CardPhotoPagerState();
@@ -3898,7 +3884,7 @@ class _CardPhotoPagerState extends State<_CardPhotoPager> {
     final names = widget.names.take(_maxPhotos).toList();
     if (names.isEmpty) return const SizedBox.shrink();
     return SizedBox(
-      height: 210,
+      height: widget.height,
       width: double.infinity,
       child: Stack(children: [
         PageView.builder(
@@ -3908,7 +3894,7 @@ class _CardPhotoPagerState extends State<_CardPhotoPager> {
             PlacesService.photoUrl(names[i], maxWidth: 800),
             fit: BoxFit.cover,
             width: double.infinity,
-            height: 210,
+            height: widget.height,
             errorBuilder: (_, __, ___) =>
                 Container(color: Brand.goldTint),
           ),
