@@ -289,6 +289,15 @@ class PlacesService {
     'no computers', 'computers not allowed', 'no wifi', 'no wi-fi',
     "wifi doesn't work", 'wifi does not work',
     'not laptop friendly', 'not a place to work',
+    // "they don't have wifi (yet)" phrasings, e.g. "only thing
+    // missing was wifi so I can work on my laptop"
+    'missing was wifi', 'missing was the wifi', 'wifi is missing',
+    'wifi was missing', 'missing wifi', 'no wifi yet',
+    'without wifi', "doesn't have wifi", 'does not have wifi',
+    "don't have wifi", "didn't have wifi", 'lacking wifi',
+    'lack of wifi', 'wish they had wifi', 'hope they add wifi',
+    'hopefully they will add wifi', 'there is no internet',
+    'no internet',
   ];
 
   Future<Map<String, int>> nomadSignals(String placeId) async {

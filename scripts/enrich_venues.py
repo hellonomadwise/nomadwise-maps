@@ -301,6 +301,15 @@ NEGATIVE_PHRASES = [
     'no working on laptop', 'not laptop friendly',
     'not a place to work', 'keine laptops', 'kein laptop',
     'kein wlan', 'sin wifi', 'sem wifi', 'pas de wifi',
+    # "they don't have wifi (yet)" phrasings, e.g. "only thing
+    # missing was wifi so I can work on my laptop"
+    'missing was wifi', 'missing was the wifi', 'wifi is missing',
+    'wifi was missing', 'missing wifi', 'no wifi yet',
+    'without wifi', "doesn't have wifi",
+    'does not have wifi', "don't have wifi", "didn't have wifi",
+    'lacking wifi', 'lack of wifi', 'wish they had wifi',
+    'hope they add wifi', 'hopefully they will add wifi',
+    'there is no internet', 'no internet',
 ]
 SIGNALS_PER_RUN = 250
 
