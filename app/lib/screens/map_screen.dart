@@ -3486,6 +3486,10 @@ class _DiscoveredCardState extends State<_DiscoveredCard> {
   /// a violet celebration strip right above the screen button.
   bool _justPromoted = false;
 
+  /// The review quotes fold open on demand; collapsed keeps the card
+  /// short enough that the map stays reachable behind it.
+  bool _reviewsOpen = false;
+
   DiscoveredPlace get place => widget.place;
 
   @override
@@ -3506,6 +3510,7 @@ class _DiscoveredCardState extends State<_DiscoveredCard> {
       _live = null;
       _excerpts = [];
       _justPromoted = false;
+      _reviewsOpen = false;
       _loadSignals();
       _loadPhotos();
       _loadLive();
@@ -3654,24 +3659,49 @@ class _DiscoveredCardState extends State<_DiscoveredCard> {
     return '${(d / 1000).toStringAsFixed(1)} km';
   }
 
+  /// Collapsed by default so the card stays short; a tap on
+  /// "See reviews" folds the quotes open and closed.
   Widget _excerptsBlock() {
     if (_excerpts.isEmpty) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.only(top: 8),
-      child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: _excerpts
-              .map((e) => Padding(
-                    padding: const EdgeInsets.only(bottom: 5),
-                    child: Text('"$e"',
-                        style: TextStyle(
-                            fontSize: 12,
-                            height: 1.4,
-                            fontStyle: FontStyle.italic,
-                            color: Colors.grey.shade700)),
-                  ))
-              .toList()),
-    );
+    return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: InkWell(
+              onTap: () =>
+                  setState(() => _reviewsOpen = !_reviewsOpen),
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child:
+                    Row(mainAxisSize: MainAxisSize.min, children: [
+                  Text(_reviewsOpen ? 'Hide reviews' : 'See reviews',
+                      style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: Brand.accent)),
+                  Icon(
+                      _reviewsOpen
+                          ? Icons.keyboard_arrow_up
+                          : Icons.keyboard_arrow_down,
+                      size: 19,
+                      color: Brand.accent),
+                ]),
+              ),
+            ),
+          ),
+          if (_reviewsOpen)
+            ..._excerpts.map((e) => Padding(
+                  padding: const EdgeInsets.only(bottom: 5),
+                  child: Text('"$e"',
+                      style: TextStyle(
+                          fontSize: 12,
+                          height: 1.4,
+                          fontStyle: FontStyle.italic,
+                          color: Colors.grey.shade700)),
+                )),
+        ]);
   }
 
   Future<void> _loadSignals() async {
