@@ -48,7 +48,8 @@ class CoinChip extends StatelessWidget {
   }
 }
 
-/// The gold coin: rimmed circle stamped with a dollar sign.
+/// The gold coin: a flat disc with a thin inner ring. Deliberately
+/// quiet, no dollar stamp, so it reads as a token, not cartoon cash.
 class CoinDot extends StatelessWidget {
   final double size;
   const CoinDot({super.key, this.size = 12});
@@ -57,18 +58,20 @@ class CoinDot extends StatelessWidget {
         width: size,
         height: size,
         alignment: Alignment.center,
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           color: Brand.gold,
           shape: BoxShape.circle,
-          border: Border.all(
-              color: const Color(0xFFE39B1F), width: size * .09),
         ),
-        child: Text('\$',
-            style: TextStyle(
-                fontSize: size * .58,
-                fontWeight: FontWeight.w900,
-                color: const Color(0xFF8A5A10),
-                height: 1)),
+        child: Container(
+          width: size * .60,
+          height: size * .60,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(
+                color: const Color(0xFFD9962C),
+                width: (size * .085).clamp(1.0, 2.5)),
+          ),
+        ),
       );
 }
 
