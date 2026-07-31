@@ -2340,9 +2340,16 @@ class _MapScreenState extends State<MapScreen> {
                     right: 12,
                     bottom: 24,
                     child: PointerInterceptor(
-                        child: _VenueCard(
-                            venue: _selected!,
-                            onDetails: () => _openDetail(_selected!)))),
+                        child: Stack(children: [
+                      _VenueCard(
+                          venue: _selected!,
+                          onDetails: () => _openDetail(_selected!)),
+                      Positioned(
+                          top: 8,
+                          right: 8,
+                          child: _cardCloseButton(() =>
+                              setState(() => _selected = null))),
+                    ]))),
 
               if (_selectedDiscovered != null &&
                   !_showList &&
@@ -2352,15 +2359,22 @@ class _MapScreenState extends State<MapScreen> {
                     right: 12,
                     bottom: 24,
                     child: PointerInterceptor(
-                        child: _DiscoveredCard(
-                            place: _selectedDiscovered!,
-                            places: _places,
-                            distanceM:
-                                _discoveredDistance(_selectedDiscovered!),
-                            onSignals: (c) => _applyLiveSignals(
-                                _selectedDiscovered!, c),
-                            onScreen: () =>
-                                _openScreening(_selectedDiscovered!)))),
+                        child: Stack(children: [
+                      _DiscoveredCard(
+                          place: _selectedDiscovered!,
+                          places: _places,
+                          distanceM:
+                              _discoveredDistance(_selectedDiscovered!),
+                          onSignals: (c) => _applyLiveSignals(
+                              _selectedDiscovered!, c),
+                          onScreen: () =>
+                              _openScreening(_selectedDiscovered!)),
+                      Positioned(
+                          top: 8,
+                          right: 8,
+                          child: _cardCloseButton(() => setState(
+                              () => _selectedDiscovered = null))),
+                    ]))),
 
               // ---- desktop: details live in a right-side panel ----
               if (_wideScreen &&
@@ -2375,6 +2389,23 @@ class _MapScreenState extends State<MapScreen> {
             ]),
     );
   }
+
+  /// Round close button overlaying a pin card's top corner. Tapping
+  /// the sliver of map left visible behind a tall card is fiddly on a
+  /// phone, so the way back to the map deserves its own button.
+  Widget _cardCloseButton(VoidCallback onClose) => Material(
+        color: Brand.surface,
+        shape: const CircleBorder(),
+        elevation: 3,
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onClose,
+          child: const Padding(
+            padding: EdgeInsets.all(9),
+            child: Icon(Icons.close, size: 19, color: Brand.ink),
+          ),
+        ),
+      );
 
   /// Bottom-right map controls: the locate button, and on desktop a
   /// zoom pill underneath it. Phones get pinch-to-zoom, so no pill.
