@@ -83,50 +83,12 @@ jobs:
             python3 scripts/apply_migrations.py
           fi
 
-      # Import nomadwise.io Webflow listings into Nomadmaps venues.
-      # Idempotent (skips anything already known) and reversible
-      # (every row is tagged source='nomadwise-webflow'). Runs BEFORE
-      # enrichment so new venues get coordinates in the same build.
-      - name: Webflow listings import
-        continue-on-error: true
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          # Used to resolve listings whose map links carry no Place ID
-          GOOGLE_PLACES_KEY: ${{ secrets.GOOGLE_PLACES_SERVER_KEY || secrets.GOOGLE_PLACES_KEY }}
-        run: |
-          if [ -n "$SUPABASE_SERVICE_ROLE_KEY" ] && [ -f scripts/webflow_import_data.json ]; then
-            python3 scripts/webflow_import.py
-          fi
-
-      # Fill in venue coordinates from Google (skips venues already done).
-      # Runs only when the needed secrets exist; safe to run every build.
-      - name: Enrich venue coordinates
-        continue-on-error: true
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          # Server-side job: uses the server key (no website restriction);
-          # falls back to the browser key if the server key isn't set yet.
-          GOOGLE_PLACES_KEY: ${{ secrets.GOOGLE_PLACES_SERVER_KEY || secrets.GOOGLE_PLACES_KEY }}
-        run: |
-          if [ -n "$SUPABASE_SERVICE_ROLE_KEY" ] && [ -n "$GOOGLE_PLACES_KEY" ]; then
-            python3 scripts/enrich_venues.py
-          else
-            echo "Skipping enrichment — secrets not set yet."
-          fi
-
-      # One-off + repeatable: match the nomadwise.io Webflow listings
-      # against the Nomadmaps database; report lands on ci-debug.
-      - name: Webflow match audit
-        continue-on-error: true
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: |
-          if [ -n "$SUPABASE_SERVICE_ROLE_KEY" ] && [ -f scripts/webflow_listings.json ]; then
-            python3 scripts/webflow_audit.py
-          fi
+      # NOTE: the Google-spending data jobs (Webflow import, venue
+      # enrichment, review-signal scans, city sweeps, match audit)
+      # deliberately do NOT run here any more. Running them on every
+      # push burnt through API credits on busy development days. They
+      # live in enrich.yml now, once a night, which is all the data
+      # freshness they were designed for.
 
       # ---------- web build -> GitHub Pages ----------
       - name: Build web

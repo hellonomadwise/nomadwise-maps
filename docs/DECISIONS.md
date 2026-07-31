@@ -62,8 +62,13 @@ to bottom when there is time. Updated 26 July 2026.
     The plain-language version is live and solid for beta.
 15. **Custom SMTP sender** before wider launch (sign-in emails
     currently come from the default sender).
-16. **October:** upgrade Google billing before the trial ends and set
-    the final quota caps (the caps only unlock after the upgrade).
+16. **Google billing: now urgent, not October.** The trial credit is
+    under 50 dollars (Google's mail, 31 July). Upgrade to a paid
+    account soon: it costs nothing by itself, keeps the remaining
+    credit, and unlocks the quota caps and budget alerts. Set a
+    budget alert (e.g. 25 euro/month) the same day. The 31 July fix
+    moved all credit-spending data jobs to one nightly run instead of
+    every build, which was the main leak.
 
 ## Standing rules while these wait
 

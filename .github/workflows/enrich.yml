@@ -1,18 +1,75 @@
-name: Enrich venues (coordinates + Google snapshot)
+name: Nightly data enrichment
+
+# All the jobs that spend Google Places API credit live here, ONCE A
+# NIGHT, instead of on every app build. A busy development day used
+# to run them on every push (fifteen times in a day at the worst);
+# now it runs them zero times, and the map data still refreshes every
+# night. The "Run workflow" button on GitHub triggers an extra run by
+# hand when needed.
 
 on:
-  workflow_dispatch:
   schedule:
-    - cron: '23 4 * * *' # daily, keeps the cached Google details fresh
+    - cron: '23 4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: enrich
+  cancel-in-progress: false
 
 jobs:
   enrich:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Fill venue coordinates from Google Places
+
+      # Import nomadwise.io Webflow listings into Nomadmaps venues.
+      # Idempotent (skips anything already known) and reversible
+      # (every row is tagged source='nomadwise-webflow').
+      - name: Webflow listings import
+        continue-on-error: true
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           GOOGLE_PLACES_KEY: ${{ secrets.GOOGLE_PLACES_SERVER_KEY || secrets.GOOGLE_PLACES_KEY }}
-        run: python3 scripts/enrich_venues.py
+        run: |
+          if [ -n "$SUPABASE_SERVICE_ROLE_KEY" ] && [ -f scripts/webflow_import_data.json ]; then
+            python3 scripts/webflow_import.py
+          fi
+
+      # Coordinates, Google snapshots, review-signal scans (including
+      # stored opening hours) and city sweeps.
+      - name: Enrich venues
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          GOOGLE_PLACES_KEY: ${{ secrets.GOOGLE_PLACES_SERVER_KEY || secrets.GOOGLE_PLACES_KEY }}
+        run: |
+          if [ -n "$SUPABASE_SERVICE_ROLE_KEY" ] && [ -n "$GOOGLE_PLACES_KEY" ]; then
+            python3 scripts/enrich_venues.py
+          else
+            echo "Skipping enrichment — secrets not set yet."
+          fi
+
+      - name: Webflow match audit
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          if [ -n "$SUPABASE_SERVICE_ROLE_KEY" ] && [ -f scripts/webflow_listings.json ]; then
+            python3 scripts/webflow_audit.py
+          fi
+
+      # Reports go to this run's log (readable on GitHub under
+      # Actions -> Nightly data enrichment).
+      - name: Show reports
+        if: always()
+        run: |
+          for f in ci-debug/*.json; do
+            if [ -f "$f" ]; then echo "===== $f"; cat "$f"; echo; fi
+          done
+          true
