@@ -3940,8 +3940,11 @@ class _VenueCard extends StatelessWidget {
     final wf = venue.workFriendly;
     final closing = venue.closingLabel(
         soonMinutes: AppConfig.closingSoonMinutes);
+    // Green dot: red is the brand pin colour, but a red dot next to
+    // "Work-friendly" reads as a warning. Status dots speak
+    // traffic-light, so the good status gets green.
     final (statusText, statusDot) = switch (wf) {
-      WorkFriendly.yes => ('Work-friendly', Brand.accent),
+      WorkFriendly.yes => ('Work-friendly', Brand.success),
       WorkFriendly.no => ('Not for laptops', Brand.ink),
       WorkFriendly.unknown => (
           'Unknown · confirm & earn',
