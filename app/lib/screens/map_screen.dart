@@ -1601,6 +1601,12 @@ class _MapScreenState extends State<MapScreen> {
                     MaterialPageRoute(builder: (_) => const AuthScreen()));
               },
             ),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 6, 16, 4),
+            child: Text('Nomad Maps is operated by Nomadwise Ltd',
+                style: TextStyle(
+                    fontSize: 11, color: Brand.inkMuted)),
+          ),
           const SizedBox(height: 8),
         ]),
       ),

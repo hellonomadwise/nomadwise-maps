@@ -101,10 +101,10 @@ class _WalletScreenState extends State<WalletScreen> {
     }
     Analytics.capture('cashout_requested', {'cents': _euroCents});
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        duration: Duration(seconds: 5),
+        duration: Duration(seconds: 6),
         content: Text(
-            'You reached the minimum! The Nomadwise team will be in '
-            'touch to pay you out.')));
+            'You reached the minimum! Nomadwise Ltd will be in touch '
+            'to pay you out, to a payment method in your own name.')));
   }
 
   @override
@@ -279,7 +279,7 @@ class _WalletScreenState extends State<WalletScreen> {
                                             const TermsScreen())),
                                 child: const Text(
                                   'Cash-outs are reviewed and approved '
-                                  'by us · see the terms',
+                                  'by Nomadwise Ltd · see the terms',
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
                                       fontSize: 11.5,

@@ -59,7 +59,16 @@ to bottom when there is time. Updated 26 July 2026.
     session for either founder; confirmed-closed ones are also
     nomadwise cleanup candidates.
 14. **Professional legal read of the terms** before the map gets big.
-    The plain-language version is live and solid for beta.
+    The plain-language version is live and solid for beta. Updated
+    1 August after the terms review: Nomadwise Ltd is now named in
+    the terms, cash-out flow and menu; contributors explicitly keep
+    photo ownership and grant a licence; a new account-security
+    section covers hacked accounts, recovery and payouts going only
+    to the account holder's own payment method.
+14b. **Account management page** (change email, delete account from
+    inside the app, later payment details). From the terms review;
+    needed before public launch, not for beta. Sign-in is Google
+    only, so there is no password to manage.
 15. **Custom SMTP sender** before wider launch (sign-in emails
     currently come from the default sender).
 16. **Google billing: now urgent, not October.** The trial credit is

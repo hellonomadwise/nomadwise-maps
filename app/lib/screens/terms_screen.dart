@@ -12,7 +12,7 @@ import '../theme.dart';
 class TermsScreen extends StatelessWidget {
   const TermsScreen({super.key});
 
-  static const _updated = '22 July 2026';
+  static const _updated = '1 August 2026';
 
   @override
   Widget build(BuildContext context) {
@@ -34,9 +34,10 @@ class TermsScreen extends StatelessWidget {
           const SizedBox(height: 16),
           _section(
             'Who we are',
-            'Nomad Maps (nomadmaps.io) is operated by the team behind '
-                'nomadwise.io. Questions or requests any time: '
-                'hello@nomadwise.io.',
+            'Nomad Maps (nomadmaps.io) is operated by Nomadwise Ltd, '
+                'the company behind nomadwise.io. Any agreement these '
+                'terms create is with Nomadwise Ltd. Questions or '
+                'requests any time: hello@nomadwise.io.',
           ),
           _section(
             'What Nomad Maps is',
@@ -79,11 +80,14 @@ class TermsScreen extends StatelessWidget {
                 'earning coins.',
           ),
           _section(
-            'Your content',
-            'You keep ownership of the photos and information you submit, '
-                'and you give us permission to show and use them in Nomad '
-                'Maps and nomadwise.io, including in edited or curated '
-                'form.',
+            'Your content stays yours',
+            'You keep ownership of the photos and information you '
+                'submit. By submitting, you give Nomadwise Ltd '
+                'permission (in legal words: a non-exclusive, worldwide '
+                'licence) to show and use them in Nomad Maps and '
+                'nomadwise.io, including in edited or curated form and '
+                'in promoting the map. You can ask us to take your '
+                'photos down at any time.',
           ),
           _section(
             'Your account and data',
@@ -91,6 +95,18 @@ class TermsScreen extends StatelessWidget {
                 'password. We store your email, display name and your '
                 'contributions. Email hello@nomadwise.io to delete your '
                 'account and data, and we will do it.',
+          ),
+          _section(
+            'Account security and payouts',
+            'Keep your sign-in secure: anyone with access to your '
+                'Google account can use your coins. Payouts are made by '
+                'Nomadwise Ltd only to the account holder, to a payment '
+                'method in the account holder\'s own name. We never pay '
+                'out to third parties. If you lose access to your '
+                'account, or think someone else has used it, email '
+                'hello@nomadwise.io as soon as you can; we will freeze '
+                'the balance while we sort it out with you, and honest '
+                'coins survive a hacked account.',
           ),
           _section(
             'Changes to these terms',
