@@ -355,7 +355,9 @@ class PlacesService {
   /// location so nearby places rank first.
   Future<List<PlaceSuggestion>> autocomplete(String input,
       {double? nearLat, double? nearLng, List<String>? types}) async {
-    if (input.trim().length < 3) return [];
+    // Two characters minimum, matching the search screen: cafes with
+    // short names ("94") must stay findable.
+    if (input.trim().length < 2) return [];
     try {
       final resp = await http.post(
         Uri.parse('https://places.googleapis.com/v1/places:autocomplete'),
