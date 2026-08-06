@@ -2214,71 +2214,85 @@ class _MapScreenState extends State<MapScreen> {
             ),
             const SizedBox(width: 10),
             Expanded(
-              child: Container(
-                height: 42,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
+              // The text field IS the bar: one box, painted once by
+              // the field itself (a field nested inside a decorated
+              // bar rendered as an ugly box-within-a-box). Being a
+              // real field means the first tap opens the keyboard.
+              child: DecoratedBox(
                 decoration: BoxDecoration(
-                  color: Brand.surface,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Brand.border),
                   boxShadow: Brand.shadowFloating,
                 ),
-                child: Row(children: [
-                  const Icon(Icons.search,
-                      size: 20, color: Brand.ink),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    // A REAL text field, so the very first tap opens
-                    // the keyboard (fake bars needed a second tap).
-                    child: TextField(
-                      controller: _searchCtrl,
-                      focusNode: _searchFocus,
-                      textInputAction: TextInputAction.search,
-                      onTap: () =>
-                          setState(() => _searchOpen = true),
-                      onChanged: (_) =>
-                          setState(() => _searchOpen = true),
-                      decoration: const InputDecoration(
-                        isCollapsed: true,
-                        border: InputBorder.none,
-                        hintText: 'Search cafes, coworking…',
-                        hintStyle: TextStyle(
-                            color: Brand.inkSecondary,
-                            fontSize: 14.5,
-                            fontWeight: FontWeight.w500),
-                      ),
-                      style: const TextStyle(
+                child: SizedBox(
+                  height: 42,
+                  child: TextField(
+                    controller: _searchCtrl,
+                    focusNode: _searchFocus,
+                    textInputAction: TextInputAction.search,
+                    textAlignVertical: TextAlignVertical.center,
+                    onTap: () => setState(() => _searchOpen = true),
+                    onChanged: (_) =>
+                        setState(() => _searchOpen = true),
+                    style: const TextStyle(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w500,
+                        color: Brand.ink),
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: Brand.surface,
+                      hintText: 'Search cafes, coworking…',
+                      hintStyle: const TextStyle(
+                          color: Brand.inkSecondary,
                           fontSize: 14.5,
-                          fontWeight: FontWeight.w500,
-                          color: Brand.ink),
+                          fontWeight: FontWeight.w500),
+                      contentPadding: EdgeInsets.zero,
+                      prefixIcon: const Icon(Icons.search,
+                          size: 20, color: Brand.ink),
+                      suffixIconConstraints: const BoxConstraints(
+                          minWidth: 0, minHeight: 0),
+                      suffixIcon: _searchOpen
+                          ? GestureDetector(
+                              onTap: _closeSearch,
+                              child: const Padding(
+                                padding: EdgeInsets.symmetric(
+                                    horizontal: 10),
+                                child: Icon(Icons.close,
+                                    size: 19,
+                                    color: Brand.inkSecondary),
+                              ),
+                            )
+                          : Padding(
+                              padding:
+                                  const EdgeInsets.only(right: 10),
+                              // Honest label while the app is young.
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Brand.violet
+                                      .withValues(alpha: .12),
+                                  borderRadius:
+                                      BorderRadius.circular(6),
+                                ),
+                                child: const Text('BETA',
+                                    style: TextStyle(
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: .8,
+                                        color: Brand.violet)),
+                              ),
+                            ),
+                      enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide:
+                              const BorderSide(color: Brand.border)),
+                      focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide:
+                              const BorderSide(color: Brand.border)),
                     ),
                   ),
-                  if (_searchOpen)
-                    GestureDetector(
-                      onTap: _closeSearch,
-                      child: const Padding(
-                        padding: EdgeInsets.only(left: 6),
-                        child: Icon(Icons.close,
-                            size: 19, color: Brand.inkSecondary),
-                      ),
-                    )
-                  else
-                    // Honest label while the app is young.
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: Brand.violet.withValues(alpha: .12),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: const Text('BETA',
-                          style: TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: .8,
-                              color: Brand.violet)),
-                    ),
-                ]),
+                ),
               ),
             ),
             const SizedBox(width: 10),
