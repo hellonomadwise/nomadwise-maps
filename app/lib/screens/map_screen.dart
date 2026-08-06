@@ -1110,25 +1110,31 @@ class _MapScreenState extends State<MapScreen> {
           builder: (_) => VenueDetailScreen(
               venue: v, onConfirm: () => _openAddVenue(confirming: v))));
 
-  // ---------- global space search ----------
+  // ---------- global space search (inline) ----------
+  // The search lives IN the top bar rather than on a pushed screen:
+  // iPhone browsers only open the keyboard when the tap lands
+  // directly on a real text field, so a separate search screen cost
+  // everyone a second tap.
 
-  Future<void> _openSearch() async {
-    // Instant (no-animation) route: the phone keyboard only opens
-    // automatically when focus lands during the tap itself, and a
-    // page transition breaks that timing on iOS.
-    final result = await Navigator.push<Object?>(
-      context,
-      PageRouteBuilder(
-        transitionDuration: Duration.zero,
-        reverseTransitionDuration: Duration.zero,
-        pageBuilder: (_, __, ___) => _SpaceSearchScreen(
-            venues: _venues,
-            places: _places,
-            nearLat: _userLat,
-            nearLng: _userLng),
-      ),
-    );
-    if (result == null || !mounted) return;
+  final _searchCtrl = TextEditingController();
+  final _searchFocus = FocusNode();
+  bool _searchOpen = false;
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    _searchFocus.dispose();
+    super.dispose();
+  }
+
+  void _closeSearch() {
+    _searchFocus.unfocus();
+    _searchCtrl.clear();
+    setState(() => _searchOpen = false);
+  }
+
+  Future<void> _handleSearchResult(Object result) async {
+    _closeSearch();
 
     if (result is Venue && result.lat != null) {
       setState(() {
@@ -1180,6 +1186,121 @@ class _MapScreenState extends State<MapScreen> {
       _map?.animateCamera(
           CameraUpdate.newLatLngZoom(LatLng(d.lat, d.lng), 16));
     }
+  }
+
+  /// Search results over the map: our own venues first, then Google
+  /// suggestions from anywhere. Two letters are enough, so places
+  /// with short names ("94") stay findable.
+  Widget _searchOverlay() {
+    final raw = _searchCtrl.text;
+    final q = raw.trim().toLowerCase();
+    Widget body;
+    if (q.length < 2) {
+      body = Center(
+          child: Text('Type at least 2 letters…',
+              style: TextStyle(color: Colors.grey.shade500)));
+    } else {
+      final local = _venues
+          .where((v) =>
+              v.name.toLowerCase().contains(q) ||
+              (v.neighbourhood ?? '').toLowerCase().contains(q))
+          .take(6)
+          .toList();
+      final localPlaceIds = _venues
+          .map((v) => v.googlePlaceId)
+          .whereType<String>()
+          .toSet();
+
+      Widget header(String text) => Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
+            child: Text(text,
+                style: TextStyle(
+                    fontSize: 11,
+                    letterSpacing: .5,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.grey.shade500)),
+          );
+
+      body = ListView(
+          keyboardDismissBehavior:
+              ScrollViewKeyboardDismissBehavior.onDrag,
+          children: [
+            if (local.isNotEmpty) ...[
+              header('ON NOMAD MAPS'),
+              ...local.map((v) => ListTile(
+                    leading: Icon(Icons.location_on,
+                        color: switch (v.workFriendly) {
+                          WorkFriendly.yes => Brand.red,
+                          WorkFriendly.no => Brand.ink,
+                          WorkFriendly.unknown => Brand.amber,
+                        }),
+                    title: Text(v.name),
+                    subtitle: Text([
+                      if (v.neighbourhood != null) v.neighbourhood!,
+                      if (v.distanceM != null) v.distanceLabel(),
+                    ].join(' · ')),
+                    trailing: v.rating != null
+                        ? Row(mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.star,
+                                  color: Brand.amber, size: 16),
+                              Text(' ${v.rating}')
+                            ])
+                        : null,
+                    onTap: () => _handleSearchResult(v),
+                  )),
+            ],
+            header('FROM GOOGLE · ANYWHERE'),
+            FutureBuilder<List<PlaceSuggestion>>(
+              future: _places.autocomplete(raw,
+                  nearLat: _userLat, nearLng: _userLng),
+              builder: (ctx, snap) {
+                if (!snap.hasData) {
+                  return const Padding(
+                    padding: EdgeInsets.all(20),
+                    child: Center(
+                        child: SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Brand.red))),
+                  );
+                }
+                final results = snap.data!
+                    .where(
+                        (s) => !localPlaceIds.contains(s.placeId))
+                    .take(6)
+                    .toList();
+                if (results.isEmpty) {
+                  return Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Text('Nothing found for "$raw"',
+                        style:
+                            TextStyle(color: Colors.grey.shade600)),
+                  );
+                }
+                return Column(
+                    children: results
+                        .map((s) => ListTile(
+                              leading: const Icon(
+                                  Icons.travel_explore,
+                                  color: Brand.charcoal,
+                                  size: 22),
+                              title: Text(s.main),
+                              subtitle: s.secondary.isEmpty
+                                  ? null
+                                  : Text(s.secondary,
+                                      maxLines: 1,
+                                      overflow:
+                                          TextOverflow.ellipsis),
+                              onTap: () => _handleSearchResult(s),
+                            ))
+                        .toList());
+              },
+            ),
+          ]);
+    }
+    return Container(color: Brand.surface, child: body);
   }
 
   // ---------- jump to city ----------
@@ -2093,29 +2214,55 @@ class _MapScreenState extends State<MapScreen> {
             ),
             const SizedBox(width: 10),
             Expanded(
-              child: GestureDetector(
-                onTap: _openSearch,
-                child: Container(
-                  height: 42,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  decoration: BoxDecoration(
-                    color: Brand.surface,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Brand.border),
-                    boxShadow: Brand.shadowFloating,
-                  ),
-                  child: Row(children: [
-                    const Icon(Icons.search,
-                        size: 20, color: Brand.ink),
-                    const SizedBox(width: 8),
-                    const Expanded(
-                      child: Text('Search cafes, coworking…',
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                              color: Brand.inkSecondary,
-                              fontSize: 14.5,
-                              fontWeight: FontWeight.w500)),
+              child: Container(
+                height: 42,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: Brand.surface,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Brand.border),
+                  boxShadow: Brand.shadowFloating,
+                ),
+                child: Row(children: [
+                  const Icon(Icons.search,
+                      size: 20, color: Brand.ink),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    // A REAL text field, so the very first tap opens
+                    // the keyboard (fake bars needed a second tap).
+                    child: TextField(
+                      controller: _searchCtrl,
+                      focusNode: _searchFocus,
+                      textInputAction: TextInputAction.search,
+                      onTap: () =>
+                          setState(() => _searchOpen = true),
+                      onChanged: (_) =>
+                          setState(() => _searchOpen = true),
+                      decoration: const InputDecoration(
+                        isCollapsed: true,
+                        border: InputBorder.none,
+                        hintText: 'Search cafes, coworking…',
+                        hintStyle: TextStyle(
+                            color: Brand.inkSecondary,
+                            fontSize: 14.5,
+                            fontWeight: FontWeight.w500),
+                      ),
+                      style: const TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w500,
+                          color: Brand.ink),
                     ),
+                  ),
+                  if (_searchOpen)
+                    GestureDetector(
+                      onTap: _closeSearch,
+                      child: const Padding(
+                        padding: EdgeInsets.only(left: 6),
+                        child: Icon(Icons.close,
+                            size: 19, color: Brand.inkSecondary),
+                      ),
+                    )
+                  else
                     // Honest label while the app is young.
                     Container(
                       padding: const EdgeInsets.symmetric(
@@ -2131,8 +2278,7 @@ class _MapScreenState extends State<MapScreen> {
                               letterSpacing: .8,
                               color: Brand.violet)),
                     ),
-                  ]),
-                ),
+                ]),
               ),
             ),
             const SizedBox(width: 10),
@@ -2323,6 +2469,17 @@ class _MapScreenState extends State<MapScreen> {
                   child: PointerInterceptor(child: _topChrome()),
                 ),
               ),
+
+              // ---- inline search results, over everything below
+              // the search bar while the field has attention ----
+              if (_searchOpen)
+                Positioned(
+                  top: MediaQuery.of(context).padding.top + 56,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: PointerInterceptor(child: _searchOverlay()),
+                ),
 
               // ---- legend (doubles as pin-colour filter) ----
               Positioned(
@@ -2881,166 +3038,6 @@ class _MapScreenState extends State<MapScreen> {
         ),
       ]),
     );
-  }
-}
-
-// ============================================================
-// Venue search (by name)
-// ============================================================
-
-class _SpaceSearchScreen extends StatefulWidget {
-  final List<Venue> venues;
-  final PlacesService places;
-  final double? nearLat, nearLng;
-  const _SpaceSearchScreen(
-      {required this.venues,
-      required this.places,
-      this.nearLat,
-      this.nearLng});
-
-  @override
-  State<_SpaceSearchScreen> createState() => _SpaceSearchScreenState();
-}
-
-class _SpaceSearchScreenState extends State<_SpaceSearchScreen> {
-  final _ctrl = TextEditingController();
-
-  List<Venue> get venues => widget.venues;
-  PlacesService get places => widget.places;
-  String get query => _ctrl.text;
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  void close(BuildContext context, Object? result) =>
-      Navigator.pop(context, result);
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () => close(context, null)),
-        title: TextField(
-          controller: _ctrl,
-          autofocus: true,
-          textInputAction: TextInputAction.search,
-          decoration: const InputDecoration(
-            hintText: 'Search any space, anywhere…',
-            border: InputBorder.none,
-          ),
-          style: const TextStyle(fontSize: 17),
-          onChanged: (_) => setState(() {}),
-        ),
-        actions: [
-          if (query.isNotEmpty)
-            IconButton(
-                icon: const Icon(Icons.clear),
-                onPressed: () => setState(() => _ctrl.clear()))
-        ],
-      ),
-      body: query.trim().length < 3
-          ? Center(
-              child: Text('Type at least 3 letters…',
-                  style: TextStyle(color: Colors.grey.shade500)))
-          : _resultList(context),
-    );
-  }
-
-  Widget _resultList(BuildContext context) {
-    final q = query.trim().toLowerCase();
-    final local = venues
-        .where((v) =>
-            v.name.toLowerCase().contains(q) ||
-            (v.neighbourhood ?? '').toLowerCase().contains(q))
-        .take(6)
-        .toList();
-    final localPlaceIds =
-        venues.map((v) => v.googlePlaceId).whereType<String>().toSet();
-
-    Widget header(String text) => Padding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
-          child: Text(text,
-              style: TextStyle(
-                  fontSize: 11,
-                  letterSpacing: .5,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.grey.shade500)),
-        );
-
-    return ListView(children: [
-      if (local.isNotEmpty) ...[
-        header('ON NOMAD MAPS'),
-        ...local.map((v) => ListTile(
-              leading: Icon(Icons.location_on,
-                  color: switch (v.workFriendly) {
-                    WorkFriendly.yes => Brand.red,
-                    WorkFriendly.no => Brand.ink,
-                    WorkFriendly.unknown => Brand.amber,
-                  }),
-              title: Text(v.name),
-              subtitle: Text([
-                if (v.neighbourhood != null) v.neighbourhood!,
-                if (v.distanceM != null) v.distanceLabel(),
-              ].join(' · ')),
-              trailing: v.rating != null
-                  ? Row(mainAxisSize: MainAxisSize.min, children: [
-                      const Icon(Icons.star,
-                          color: Brand.amber, size: 16),
-                      Text(' ${v.rating}')
-                    ])
-                  : null,
-              onTap: () => close(context, v),
-            )),
-      ],
-      header('FROM GOOGLE · ANYWHERE'),
-      FutureBuilder<List<PlaceSuggestion>>(
-        future: places.autocomplete(query,
-            nearLat: widget.nearLat, nearLng: widget.nearLng),
-        builder: (ctx, snap) {
-          if (!snap.hasData) {
-            return const Padding(
-              padding: EdgeInsets.all(20),
-              child: Center(
-                  child: SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Brand.red))),
-            );
-          }
-          final results = snap.data!
-              .where((s) => !localPlaceIds.contains(s.placeId))
-              .take(6)
-              .toList();
-          if (results.isEmpty) {
-            return Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text('Nothing found for "$query"',
-                  style: TextStyle(color: Colors.grey.shade600)),
-            );
-          }
-          return Column(
-              children: results
-                  .map((s) => ListTile(
-                        leading: const Icon(Icons.travel_explore,
-                            color: Brand.charcoal, size: 22),
-                        title: Text(s.main),
-                        subtitle: s.secondary.isEmpty
-                            ? null
-                            : Text(s.secondary,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis),
-                        onTap: () => close(context, s),
-                      ))
-                  .toList());
-        },
-      ),
-    ]);
   }
 }
 
