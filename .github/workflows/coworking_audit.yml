@@ -1,0 +1,2132 @@
+name: Coworking Google status audit
+
+# On-demand health check for the Webflow Coworking listings. Runs ONLY
+# when you click "Run workflow". Uses the Google Places key already in
+# this repo's secrets to ask Google each listing's business status, and
+# writes ci-debug/coworking_status.csv to the ci-debug branch. Nothing
+# else is touched.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Write input data
+        run: |
+          mkdir -p /tmp/audit
+          cat > /tmp/audit/input.json <<'JSON'
+          [
+           {
+            "name": "4 WALLS Coworking",
+            "city": "Neustadt",
+            "place_id": "ChIJMef71FuPsUcRFQJOge0poOk",
+            "item_id": "67d810202b24736bd92f2972"
+           },
+           {
+            "name": "ACE Coworking Space",
+            "city": "My An",
+            "place_id": "ChIJ-Z9VY1sXQjERKdCDqBhoHmo",
+            "item_id": "67dbb8235990780b5fce6e74"
+           },
+           {
+            "name": "ALTER SPACE Siargao Workspace",
+            "city": "General Luna",
+            "place_id": "",
+            "item_id": "67246a39070155fc18588f75"
+           },
+           {
+            "name": "ARK Coworking",
+            "city": "Angel",
+            "place_id": "ChIJ7XcKUj8bdkgRCv04bJNZHDc",
+            "item_id": "6809cff6709fce94fc706079"
+           },
+           {
+            "name": "AT 06",
+            "city": "Canggu",
+            "place_id": "",
+            "item_id": "65fa86d0e0379bf78d5245b3"
+           },
+           {
+            "name": "AWAN Connection",
+            "city": "Canggu",
+            "place_id": "",
+            "item_id": "65fa86d0e0379bf78d52451e"
+           },
+           {
+            "name": "Ahoy Berlin",
+            "city": "Wedding",
+            "place_id": "ChIJPZDUWfRRqEcRHIEMEqFSkTk",
+            "item_id": "67dbb81b89928f8e5c835aba"
+           },
+           {
+            "name": "Alt_ChiangMai - coliving & coworking space",
+            "city": "Old City",
+            "place_id": "ChIJ4zPcJEw72jARdGYLa7Rpeak",
+            "item_id": "67dbb83010fcee80de321324"
+           },
+           {
+            "name": "Argyll - 1 Cornhill",
+            "city": "City of London",
+            "place_id": "ChIJKaeQFFMDdkgRbECFmkRD-qI",
+            "item_id": "6809cffb12a4f2a72acc82e3"
+           },
+           {
+            "name": "Argyll - 1 King William Street",
+            "city": "City of London",
+            "place_id": "ChIJeTVTgVQDdkgROOBGx7cPH68",
+            "item_id": "6809d29f812c1fb97363c9ba"
+           },
+           {
+            "name": "Argyll - 20 North Audley Street",
+            "city": "Mayfair",
+            "place_id": "ChIJ-397lzIFdkgRymqgkIoPzo4",
+            "item_id": "6809d00484cf6fe0ca12cae0"
+           },
+           {
+            "name": "Argyll - 288 Bishopsgate",
+            "city": "Liverpool Street",
+            "place_id": "ChIJuUon1rMcdkgR1tbetCWkK6U",
+            "item_id": "6809d0061f2325d5045f697d"
+           },
+           {
+            "name": "Argyll - 85 Gresham Street",
+            "city": "City of London",
+            "place_id": "ChIJ8dhs0qocdkgR6O6ZOkL7SeU",
+            "item_id": "6809cffaea423d76c26e82bc"
+           },
+           {
+            "name": "Argyll - Central Court",
+            "city": "Holborn",
+            "place_id": "ChIJw5xHeksbdkgR8z40zKnvmmU",
+            "item_id": "6809d000744673d0e5f5a536"
+           },
+           {
+            "name": "Argyll - Michelin House",
+            "city": "Chelsea",
+            "place_id": "ChIJtzfcbWoFdkgRAZCv9_98iSI",
+            "item_id": "6809cffccca1f7b77befdec3"
+           },
+           {
+            "name": "Argyll - Nova North",
+            "city": "Victoria",
+            "place_id": "ChIJ0-V7rf8FdkgR6GINYfO92BE",
+            "item_id": "6809d009ef2baf52183a38ab"
+           },
+           {
+            "name": "Argyll - Octagon Point",
+            "city": "City of London",
+            "place_id": "ChIJ-dgZLKsEdkgRYcz9lHlqTi0",
+            "item_id": "6809cffac6dc5faef1523d44"
+           },
+           {
+            "name": "Avila Spaces",
+            "city": "Saldanha",
+            "place_id": "ChIJMUIsYAozGQ0RxnGf2TgYIgE",
+            "item_id": "6809cff63edc9df7affd054d"
+           },
+           {
+            "name": "Avila Spaces Parque Das Nacoes",
+            "city": "Parque das Nacoes",
+            "place_id": "ChIJJ0csu7AxGQ0R2IBBZx8hU-M",
+            "item_id": "6809cff795ba1239c120e7d2"
+           },
+           {
+            "name": "BO.KA Workspace",
+            "city": "Old Town, Paphos",
+            "place_id": "ChIJS-wpQr8H5xQRY9WdewfuHTU",
+            "item_id": "68a2fa296ea37c7e45863609"
+           },
+           {
+            "name": "BWork Members Area",
+            "city": "Canggu",
+            "place_id": "",
+            "item_id": "65fa86d0e0379bf78d524490"
+           },
+           {
+            "name": "Bali Bustle Coworking & Coliving",
+            "city": "Kuta (Bali)",
+            "place_id": "",
+            "item_id": "6631cb0d5be6e2bfb1874f04"
+           },
+           {
+            "name": "Baltic Cowork",
+            "city": "Kesklinn",
+            "place_id": "ChIJ4eQVPQSVkkYRH04LKAKP19k",
+            "item_id": "67dbb82e05b2a7fae38f8129"
+           },
+           {
+            "name": "Beachub",
+            "city": "Srithanu",
+            "place_id": "ChIJkZoQvtgBVTAR6fZuHLksTig",
+            "item_id": "6784e2104f1f500b3ca69c90"
+           },
+           {
+            "name": "Beehive Lofts Coworking",
+            "city": "Ancoats",
+            "place_id": "ChIJ9xVfNruxe0gRA2KNhp-vh-0",
+            "item_id": "6809cff67a5c39fcdc925cac"
+           },
+           {
+            "name": "Behongli Coworking Space",
+            "city": "Mapo-gu",
+            "place_id": "ChIJkaDhizaZfDURemtciMYlkDE",
+            "item_id": "67f8adc6d69e2722cd625a3c"
+           },
+           {
+            "name": "Beluna - House of Creatives",
+            "city": "Ubud",
+            "place_id": "",
+            "item_id": "65fa86d0e0379bf78d52469d"
+           },
+           {
+            "name": "Bespoke Spaces Coworking - Archway",
+            "city": "Archway",
+            "place_id": "ChIJB9iT4i4bdkgRZMUlhh4YZEA",
+            "item_id": "6809cff7e45574f02ae14dba"
+           },
+           {
+            "name": "Bespoke Spaces Coworking - Hornsey Rd",
+            "city": "Archway",
+            "place_id": "ChIJjwV4rrwbdkgR6Os5nWEmq6s",
+            "item_id": "6809cff694d120b9c29c6cfe"
+           },
+           {
+            "name": "Betahaus | Coworking Barcelona",
+            "city": "Gracia",
+            "place_id": "ChIJL2uOcbuipBIRPFrHBWTTkNc",
+            "item_id": "6809cff3443445c22086feee"
+           },
+           {
+            "name": "Beton by Spacemade",
+            "city": "Clerkenwell",
+            "place_id": "ChIJO-QoS1MbdkgRtTgxaCdUAuU",
+            "item_id": "67d52fb0be684099921b007c"
+           },
+           {
+            "name": "Biliq Seminyak",
+            "city": "Seminyak",
+            "place_id": "",
+            "item_id": "6631c9da9377358b028c2fb2"
+           },
+           {
+            "name": "Biliq Sunset",
+            "city": "Kuta (Bali)",
+            "place_id": "",
+            "item_id": "6631cb0dbdcb81d0e34d99ed"
+           },
+           {
+            "name": "Blacktip Cafe & Workspace",
+            "city": "Mae Haad",
+            "place_id": "ChIJxyK0YVehVTARvL0TFf4pfXk",
+            "item_id": "67c19545c7059a51dd786c30"
+           },
+           {
+            "name": "Blue Garage Coworking Space",
+            "city": "Lewisham",
+            "place_id": "ChIJ3aVmThYDdkgR7Sw0nKvF5zQ",
+            "item_id": "6809d00392fd7d3374c629d8"
+           },
+           {
+            "name": "BukitHub",
+            "city": "Uluwatu (Ungasan)",
+            "place_id": "",
+            "item_id": "660f6e1b44ab603706fd0baa"
+           },
+           {
+            "name": "Buri Siri Cafe & Coworking space",
+            "city": "Nimman",
+            "place_id": "",
+            "item_id": "660a6637b397cf1a2392d7ea"
+           },
+           {
+            "name": "CORE Oldenburg",
+            "city": "Oldenburg",
+            "place_id": "ChIJweyfWdvftkcRPRoCnjhYAfU",
+            "item_id": "6749620d75224ac4ae447fdf"
+           },
+           {
+            "name": "COSP Coworking Space Glashuetten",
+            "city": "Glashuetten",
+            "place_id": "ChIJgZKPJs-vvUcRWOu2ux_LBWI",
+            "item_id": "67f8adc66fca3737f5d67517"
+           },
+           {
+            "name": "Camp 308 by IZE",
+            "city": "Pererenan",
+            "place_id": "",
+            "item_id": "65fa86d0e0379bf78d5245b7"
+           },
+           {
+            "name": "Cloudworks El Born",
+            "city": "El Born",
+            "place_id": "ChIJNyom1gejpBIREqa2HzwFzgI",
+            "item_id": "6809cff330e33b57847dd468"
+           },
+           {
+            "name": "Cloudworks La Rambla - Drassanes",
+            "city": "La Rambla",
+            "place_id": "ChIJZaH1npejpBIRf5Ms3Un0TuQ",
+            "item_id": "6809cff330e33b57847dd465"
+           },
+           {
+            "name": "Cloudworks Sant Antoni",
+            "city": "Sant Antoni",
+            "place_id": "ChIJuR3ZdLCjpBIR-suyWblAs5s",
+            "item_id": "6809cff53d3ee1234b7bd57a"
+           },
+           {
+            "name": "Cloudworks Sant Joan",
+            "city": "L'Eixample Dreta",
+            "place_id": "ChIJDwqFOwCjpBIRIoolIq4NTjs",
+            "item_id": "6809cff492fd7d3374c61eda"
+           },
+           {
+            "name": "CoWorkBude14 - Coworking in Winterhude",
+            "city": "Winterhude",
+            "place_id": "ChIJFY1-C7eJsUcROY8pHs79buo",
+            "item_id": "67d81020a75efa94b9d5b19f"
+           },
+           {
+            "name": "Coco Space",
+            "city": "General Luna",
+            "place_id": "ChIJU3SNJJQJBDMRBP3vtCh_pFc",
+            "item_id": "6809d00d1f2325d5045f6fe1"
+           },
+           {
+            "name": "Code Space Coworking Space",
+            "city": "Fa Ham",
+            "place_id": "ChIJe_HTM9Q62jAR-Coi2WZlWFw",
+            "item_id": "67dbb81ea4e8954f6bec5811"
+           },
+           {
+            "name": "Collaborative One - Flexible Workspaces",
+            "city": "South Croydon",
+            "place_id": "ChIJ5S4OwygHdkgR8czZcifVFI0",
+            "item_id": "6809d0088d21fca2437b87ca"
+           },
+           {
+            "name": "Comeet Creative Space",
+            "city": "Heraklion",
+            "place_id": "",
+            "item_id": "66e7cd8f8930475289ccbf9e"
+           },
+           {
+            "name": "Common Ground Central World",
+            "city": "Siam",
+            "place_id": "ChIJxx7J-bWd4jARo06iEgppJY8",
+            "item_id": "674b37a3db75f1b2a4159b8a"
+           },
+           {
+            "name": "Common Ground G Tower",
+            "city": "Huai Khwang",
+            "place_id": "ChIJO-oki6if4jAR_37BSKeGehs",
+            "item_id": "674b37a3464b231db2ce0b5c"
+           },
+           {
+            "name": "Common Ground Ploenchit",
+            "city": "Phloen Chit",
+            "place_id": "ChIJSUbUzQSf4jARHUTqMpT8Zog",
+            "item_id": "674b37a36541130c2bea46ed"
+           },
+           {
+            "name": "Common Ground by Spacemade",
+            "city": "Wimbledon",
+            "place_id": "ChIJMczi5_UJdkgRFKvr4QiXXng",
+            "item_id": "67d52fb0794483edbf42d273"
+           },
+           {
+            "name": "Cowork Funchal",
+            "city": "Funchal",
+            "place_id": "",
+            "item_id": "664fb8980d7d14d3e11a8b66"
+           },
+           {
+            "name": "Coworking Space H24",
+            "city": "Thong Sala",
+            "place_id": "ChIJPQGcmiv9VDARoGzrXpvkQOs",
+            "item_id": "6784e210f5ed5087d887b1f7"
+           },
+           {
+            "name": "Coworking Space Ponta do Sol",
+            "city": "Ponta do Sol",
+            "place_id": "ChIJTa-2R21XYAwR_Wc9aLkg_Zk",
+            "item_id": "67d65594a76aa2b2afaadf8d"
+           },
+           {
+            "name": "Coworking at Meraki Market Cafe",
+            "city": "Chloraka",
+            "place_id": "ChIJJ3PhYDYH5xQRkpPPKY3XcIY",
+            "item_id": "67dbb82cd505e94c4326f037"
+           },
+           {
+            "name": "Coworking at Sunset Hill Resort",
+            "city": "Srithanu",
+            "place_id": "ChIJQedo_ov9VDARR01xNy2Hsys",
+            "item_id": "6784e20fcac506bc5144cfaf"
+           },
+           {
+            "name": "DEOS Coworking",
+            "city": "Canggu",
+            "place_id": "ChIJYRocrIw50i0RQ7nCFvV2o8g",
+            "item_id": "67ba680ec6e7b846dc15ffa4"
+           },
+           {
+            "name": "Design District Coworking",
+            "city": "Greenwich Peninsula",
+            "place_id": "ChIJoaVQy_Wp2EcRhPeEABBkTLM",
+            "item_id": "6809cfff79bb466f4f651aa9"
+           },
+           {
+            "name": "Designers Hub Coworking",
+            "city": "District 7",
+            "place_id": "ChIJgdusBs0ldTERuwpeMGJ14mE",
+            "item_id": "67dbb8283caa81895e3f0cf2"
+           },
+           {
+            "name": "Die Diele Coworking Space & Hangout",
+            "city": "Ottensen",
+            "place_id": "ChIJVVX50ZGFsUcRgPfOf3kz-II",
+            "item_id": "67d81020a8225578775ef25e"
+           },
+           {
+            "name": "Draftboard MBK Center",
+            "city": "Siam",
+            "place_id": "ChIJIQDC03Gf4jARokZmQtT-jG4",
+            "item_id": "674b37a331a2fd6ff89b763c"
+           },
+           {
+            "name": "Dream Cowork Hotel Lombok",
+            "city": "Kuta",
+            "place_id": "",
+            "item_id": "6619cfabccb74532b4537edb"
+           },
+           {
+            "name": "Eclektic Space I Coworking Poblenou",
+            "city": "Poblenou",
+            "place_id": "ChIJ_2K-76KjpBIRM7OyhK_OWto",
+            "item_id": "6809cff43edc9df7affd0400"
+           },
+           {
+            "name": "Elmtree by Spacemade",
+            "city": "Marylebone",
+            "place_id": "ChIJ-6dccP0bdkgRRBtVSGOYk4o",
+            "item_id": "67d52fb283c0ed0c6c8cfe67"
+           },
+           {
+            "name": "Engelnest Coworking Space and Event Venue",
+            "city": "Schoeneberg",
+            "place_id": "ChIJXfG2Ok5RqEcRRYDQYLIIqrU",
+            "item_id": "6809cff51f2325d5045f5e8c"
+           },
+           {
+            "name": "Enosta Space - Coworking & Coliving Space - An Nhon 3",
+            "city": "An Hai Bac",
+            "place_id": "ChIJsTIQVPwZQjERisX0ymdzD2E",
+            "item_id": "67dbb822e400d4eb3b3dafa6"
+           },
+           {
+            "name": "Espai Born",
+            "city": "El Born",
+            "place_id": "ChIJXU8RyP6ipBIRHyf0iEf5d_8",
+            "item_id": "6809cff3ea423d76c26e7c7c"
+           },
+           {
+            "name": "FLOW Workspace",
+            "city": "Sanur",
+            "place_id": "ChIJZdI3635B0i0RG_dHMtwAYM4",
+            "item_id": "67f8adc654fe9b4f221d44d6"
+           },
+           {
+            "name": "Fora - 133 Whitechapel High Street",
+            "city": "Whitechapel",
+            "place_id": "ChIJkYaZKksDdkgR63q4ENoxEK8",
+            "item_id": "67d005782b0f8cde8c058153"
+           },
+           {
+            "name": "Fora - 180 Borough High Street",
+            "city": "London Bridge",
+            "place_id": "ChIJm_9vhlgDdkgR7PXgQdGoKQA",
+            "item_id": "67d0057aaf08fe56f2775bd0"
+           },
+           {
+            "name": "Fora - 19 Eastbourne Terrace",
+            "city": "Paddington",
+            "place_id": "ChIJK2BsAK0adkgRzrQ-En3khuU",
+            "item_id": "67d005755d875e92236fb5e6"
+           },
+           {
+            "name": "Fora - 2 Stephen Street",
+            "city": "Fitzrovia",
+            "place_id": "ChIJyQJWUiwbdkgR5R38h0Aa_2I",
+            "item_id": "67d0057dea314b1109ec32b6"
+           },
+           {
+            "name": "Fora - 20 Eastbourne Terrace",
+            "city": "Paddington",
+            "place_id": "ChIJhSX-HK0adkgR8J4qMB99xKo",
+            "item_id": "67d00575dd12d83f886e1de0"
+           },
+           {
+            "name": "Fora - 201 Borough High Street",
+            "city": "London Bridge",
+            "place_id": "ChIJb6rOnFgDdkgRGyW7fINX0Fc",
+            "item_id": "67d0057be660a8c7f2a6d5be"
+           },
+           {
+            "name": "Fora - 210 Euston Road",
+            "city": "King's Cross",
+            "place_id": "ChIJg-hukvUbdkgRcS1a1Hl3_Yk",
+            "item_id": "67d0057b2ab4ba62f9fb68a0"
+           },
+           {
+            "name": "Fora - 22 Berners Street",
+            "city": "Fitzrovia",
+            "place_id": "ChIJi-OU9lkbdkgRRsUDw2P9t3Q",
+            "item_id": "67d0057eac035010a7c1bcfc"
+           },
+           {
+            "name": "Fora - 22 Manchester Square",
+            "city": "Marylebone",
+            "place_id": "ChIJF2SZhtIadkgR7_BogH_T5Aw",
+            "item_id": "67d00577320a6853fc55bceb"
+           },
+           {
+            "name": "Fora - 24 Greville Street",
+            "city": "Farringdon",
+            "place_id": "ChIJmUBU900bdkgRQImVoSpYL7o",
+            "item_id": "67d0057c2055896bf9a6f425"
+           },
+           {
+            "name": "Fora - 24/25 The Shard",
+            "city": "London Bridge",
+            "place_id": "ChIJHzDiLjYDdkgRv3cLDH4uzpo",
+            "item_id": "67d0057a5133d82f182d5106"
+           },
+           {
+            "name": "Fora - 241 Southwark Bridge Road",
+            "city": "London Bridge",
+            "place_id": "ChIJJ0ySZxAFdkgRAfV4uPeHeEg",
+            "item_id": "67d0057aaf08fe56f2775b83"
+           },
+           {
+            "name": "Fora - 42 Berners Street",
+            "city": "Fitzrovia",
+            "place_id": "ChIJT-46If4bdkgR9PHJBEtlAJc",
+            "item_id": "67d0057de660a8c7f2a6d713"
+           },
+           {
+            "name": "Fora - 50 Liverpool Street",
+            "city": "Liverpool Street",
+            "place_id": "ChIJK66jhbIcdkgRKTSJGBXrwEQ",
+            "item_id": "67d005785274b807cfa79c5b"
+           },
+           {
+            "name": "Fora - 7 Stratford Place",
+            "city": "Mayfair",
+            "place_id": "ChIJHa4KLdMadkgRd2tdIVxt1oM",
+            "item_id": "67d00577625cd4a1e0118418"
+           },
+           {
+            "name": "Fora - 81 Rivington Street",
+            "city": "Shoreditch",
+            "place_id": "ChIJFduUY7ocdkgRxnTfSFvcbeQ",
+            "item_id": "67d0057acff59196e045ad23"
+           },
+           {
+            "name": "Fora - 91 Wimpole Street",
+            "city": "Marylebone",
+            "place_id": "ChIJP1xcZ9MadkgRYs30L-QPS4c",
+            "item_id": "67d005776814cd699c94f843"
+           },
+           {
+            "name": "Fora - Albert House",
+            "city": "Shoreditch",
+            "place_id": "ChIJi45pgqUcdkgRXectoez_4uM",
+            "item_id": "67d0057a6c16189eb742ced3"
+           },
+           {
+            "name": "Fora - Belle House",
+            "city": "Victoria",
+            "place_id": "ChIJw-hSpCAFdkgRw5tCPFasLQI",
+            "item_id": "67d005773ea7a2ae91220355"
+           },
+           {
+            "name": "Fora - Blue Fin Building",
+            "city": "Southwark",
+            "place_id": "ChIJmZkMUOMFdkgRLo3uZiYgei0",
+            "item_id": "67d00579ac718f9bd066dfd6"
+           },
+           {
+            "name": "Fora - Borough Yards",
+            "city": "London Bridge",
+            "place_id": "ChIJB3ilSogDdkgRRp9JnqimTjo",
+            "item_id": "67d0057a6beee86747bfe48e"
+           },
+           {
+            "name": "Fora - Broadwick Street",
+            "city": "Soho",
+            "place_id": "ChIJqXgiVGEFdkgRVIw_-3bMEgE",
+            "item_id": "67d00577bfd365a3239fc0df"
+           },
+           {
+            "name": "Fora - Brock House",
+            "city": "Fitzrovia",
+            "place_id": "ChIJ9_XxUOgbdkgRBOE2Ej3xKUk",
+            "item_id": "67d00577ac035010a7c1b3db"
+           },
+           {
+            "name": "Fora - Central Street",
+            "city": "Shoreditch",
+            "place_id": "ChIJVYQVNVgbdkgRn-lpQGr3fMI",
+            "item_id": "67d0057a9f2fb4bd245acdb8"
+           },
+           {
+            "name": "Fora - Chancery House",
+            "city": "Holborn",
+            "place_id": "ChIJ-3e_dUsbdkgRI22vVq3wxJc",
+            "item_id": "67d0057cbb649ef4ec0d8f77"
+           },
+           {
+            "name": "Fora - Dallington Street",
+            "city": "Clerkenwell",
+            "place_id": "ChIJAeWPvlAbdkgRWPKl_S4AN08",
+            "item_id": "67d0057cd16ee9ad182c5b59"
+           },
+           {
+            "name": "Fora - East Side",
+            "city": "King's Cross",
+            "place_id": "ChIJpV8MrT4bdkgRNxob9Q4HSE4",
+            "item_id": "67d0057b83958e65aba335d9"
+           },
+           {
+            "name": "Fora - Eastcastle Street",
+            "city": "Fitzrovia",
+            "place_id": "ChIJ21BKcUYbdkgRnTh2X8qJCkw",
+            "item_id": "67d0057dd8d3c051a7d90038"
+           },
+           {
+            "name": "Fora - Folgate Street",
+            "city": "Shoreditch",
+            "place_id": "ChIJ9zk96vEddkgRM90muIOwId8",
+            "item_id": "67d00579ea314b1109ec2f89"
+           },
+           {
+            "name": "Fora - Great Eastern Street",
+            "city": "Shoreditch",
+            "place_id": "ChIJx-IsBjwddkgR50qyIwiHqWg",
+            "item_id": "67d0057934ee586e1611fbda"
+           },
+           {
+            "name": "Fora - Green Park House",
+            "city": "Mayfair",
+            "place_id": "ChIJUwZuDykFdkgRuWUr8yiHj68",
+            "item_id": "67d005763858f26043897c61"
+           },
+           {
+            "name": "Fora - Greencoat Place",
+            "city": "Victoria",
+            "place_id": "ChIJfWvr2RgFdkgRQK_KREEA-Uw",
+            "item_id": "67d0057760a5af99b0ac355d"
+           },
+           {
+            "name": "Fora - Gridiron Building",
+            "city": "King's Cross",
+            "place_id": "ChIJCXjAaDwbdkgRwoHN-wcAgR8",
+            "item_id": "67d0057d38dcaa6d89228c59"
+           },
+           {
+            "name": "Fora - Henry Wood House",
+            "city": "Oxford Circus",
+            "place_id": "ChIJzbImj9UadkgRCQ2O21dZO2U",
+            "item_id": "67d0057718cb4d95ba671984"
+           },
+           {
+            "name": "Fora - Kirby Street",
+            "city": "Farringdon",
+            "place_id": "ChIJ79sNxU0bdkgRj6z1z4OtWs4",
+            "item_id": "67d0057c3ea7a2ae912205b8"
+           },
+           {
+            "name": "Fora - Liberty House",
+            "city": "Oxford Circus",
+            "place_id": "ChIJl0Qxer8FdkgRZVPCjXIrK90",
+            "item_id": "67d00576bb649ef4ec0d8b9f"
+           },
+           {
+            "name": "Fora - Lloyd's Avenue",
+            "city": "Aldgate",
+            "place_id": "ChIJdZXNXUwDdkgRikFSisv5B-w",
+            "item_id": "67d00578ea314b1109ec2e86"
+           },
+           {
+            "name": "Fora - Melcombe Place",
+            "city": "Fitzrovia",
+            "place_id": "ChIJVfc0tLEcdkgRnBGE99SxED0",
+            "item_id": "67d0057e98c46311e16e3999"
+           },
+           {
+            "name": "Fora - Montacute Yards",
+            "city": "Shoreditch",
+            "place_id": "ChIJEyWZ0uMddkgRIuAl7FU8zrU",
+            "item_id": "67cd80ca03e3822d9416ad7c"
+           },
+           {
+            "name": "Fora - One Canada Square",
+            "city": "Canary Wharf",
+            "place_id": "ChIJI_6NC84DdkgRCOTs93Zbzqc",
+            "item_id": "67d00578af08fe56f27759dc"
+           },
+           {
+            "name": "Fora - One Lyric Square",
+            "city": "Hammersmith",
+            "place_id": "ChIJe-BR94gPdkgRhkOy37qKhn0",
+            "item_id": "67d005759500730b3cb0889f"
+           },
+           {
+            "name": "Fora - Orion House",
+            "city": "Covent Garden",
+            "place_id": "ChIJy4Ov80YFdkgR2AkupoxG4jk",
+            "item_id": "67d005763eee1139354d2c1f"
+           },
+           {
+            "name": "Fora - Parcels Building",
+            "city": "Marylebone",
+            "place_id": "ChIJLwdvC2EFdkgR3Oav5D52uxo",
+            "item_id": "67d0057533fd20e9d39592cd"
+           },
+           {
+            "name": "Fora - Princelet Street",
+            "city": "Shoreditch",
+            "place_id": "ChIJs7mx93UddkgR328Zy3y82Vg",
+            "item_id": "67d0057952d93d6f9475e5a8"
+           },
+           {
+            "name": "Fora - Scott House",
+            "city": "Waterloo",
+            "place_id": "ChIJm1GIg9cFdkgRiYoNMTo6bws",
+            "item_id": "67d0057890b91d35c3e440fb"
+           },
+           {
+            "name": "Fora - Sixty London Wall",
+            "city": "City of London",
+            "place_id": "ChIJL04JWGQddkgRbj_idUEnq-Q",
+            "item_id": "67d005786f0aeaf5c6d84c45"
+           },
+           {
+            "name": "Fora - Summit House",
+            "city": "Holborn",
+            "place_id": "ChIJ29PEdHwbdkgRNbz7xhKlkpY",
+            "item_id": "67d0057bbcfbe0e5e5a87a80"
+           },
+           {
+            "name": "Fora - The Black & White Building",
+            "city": "Shoreditch",
+            "place_id": "ChIJmzfhYrocdkgRAlvusWSYG1I",
+            "item_id": "67d005796beee86747bfe3fd"
+           },
+           {
+            "name": "Fora - The Bloomsbury Building",
+            "city": "Bloomsbury",
+            "place_id": "ChIJhcKFmDMbdkgRxpFuVEF8Wl4",
+            "item_id": "67d0057b5274b807cfa79ea3"
+           },
+           {
+            "name": "Fora - The Smiths Building",
+            "city": "Fitzrovia",
+            "place_id": "ChIJ2bPtWNYadkgRtuA4fgpNfm4",
+            "item_id": "67d0057ccff59196e045afd8"
+           },
+           {
+            "name": "Fora - The Stanley Building",
+            "city": "King's Cross",
+            "place_id": "ChIJU2wTRTwbdkgRyz0ae-CJmXY",
+            "item_id": "67d0057d38dcaa6d89228baf"
+           },
+           {
+            "name": "Fora - Thomas House",
+            "city": "Victoria",
+            "place_id": "ChIJ2bwYnR8FdkgRbx6RGg_mSsI",
+            "item_id": "67d00577e4386956d523324e"
+           },
+           {
+            "name": "Fora - Tintagel House",
+            "city": "Vauxhall",
+            "place_id": "ChIJw07S_OsEdkgRHtZC52Az9g4",
+            "item_id": "67d00579252888f6403d6762"
+           },
+           {
+            "name": "Fora - United House",
+            "city": "Notting Hill",
+            "place_id": "ChIJt8RlfPsPdkgRlgJwW95P1Es",
+            "item_id": "67d0057513ffffc58044295d"
+           },
+           {
+            "name": "Fora - Wardour Street",
+            "city": "Soho",
+            "place_id": "ChIJV55_V9MEdkgR74zW8fmfj5Q",
+            "item_id": "67d00575cf0a639d0da6c2b4"
+           },
+           {
+            "name": "Fora - Warnford Court",
+            "city": "City of London",
+            "place_id": "ChIJtyd6t6wcdkgRlE8PuRryqrw",
+            "item_id": "67d005789bca6142614da01d"
+           },
+           {
+            "name": "Fora - White Collar Factory",
+            "city": "Shoreditch",
+            "place_id": "ChIJ_TKRF1cbdkgRvrrjhSAg4Jk",
+            "item_id": "67d005797ff194b7a30e5712"
+           },
+           {
+            "name": "Fora - York House",
+            "city": "King's Cross",
+            "place_id": "ChIJTzUzf0MbdkgRwmp0dWudDtI",
+            "item_id": "67d0057bd88dfcaae86926c7"
+           },
+           {
+            "name": "Forum Coworking Space",
+            "city": "Sukhumvit (Asoke)",
+            "place_id": "ChIJd307M7yf4jARtDWDG8tSIiI",
+            "item_id": "674b37a21d78a6be7f43cfbd"
+           },
+           {
+            "name": "Foundry",
+            "city": "Downtown Dubai",
+            "place_id": "ChIJXQ5UUDJpXz4RVWnUHR6Fl4M",
+            "item_id": "67dbb8246de5ed125908b03c"
+           },
+           {
+            "name": "Fulham Works by Spacemade",
+            "city": "Fulham",
+            "place_id": "ChIJm3xfdjwPdkgRt7XHUwSgtnc",
+            "item_id": "67d52faeff9f765cf4c77038"
+           },
+           {
+            "name": "GEEK Hub Nguyen Dinh Chieu",
+            "city": "District 1",
+            "place_id": "ChIJKyzSZTUvdTERFeBxsx6kh5o",
+            "item_id": "67dbb8283caa81895e3f0bf1"
+           },
+           {
+            "name": "Gatehouse by Spacemade",
+            "city": "Wandsworth",
+            "place_id": "ChIJ6YEQRsQPdkgRei4TWfyeQHE",
+            "item_id": "67d52faeff9f765cf4c77034"
+           },
+           {
+            "name": "Gilis Rock Creative Studios",
+            "city": "Gili Trawangan",
+            "place_id": "",
+            "item_id": "6613fb804ce2334be5517dd0"
+           },
+           {
+            "name": "Glaswerk Oldenburg",
+            "city": "Osternburg",
+            "place_id": "ChIJdRKGU5jftkcRlcUQWWbHtbc",
+            "item_id": "6749620d2dfe65c9a02077a8"
+           },
+           {
+            "name": "Glowfish",
+            "city": "Sathon",
+            "place_id": "ChIJ90ybWC2f4jARiiXzLIaesNw",
+            "item_id": "674b37a38dfb7342938a26ac"
+           },
+           {
+            "name": "GoHub | Coworking | Boa Vista",
+            "city": "Sal Rei",
+            "place_id": "ChIJVaiVGdsjSwkRr7GZ09s3_zA",
+            "item_id": "676736cf08df50d034dac5b7"
+           },
+           {
+            "name": "GoWork Park23",
+            "city": "Kuta (Bali)",
+            "place_id": "",
+            "item_id": "665ed1a567f91d7e7438583b"
+           },
+           {
+            "name": "Heden Rossio",
+            "city": "Baixa",
+            "place_id": "ChIJ86EF0mYzGQ0Rge8U_PmvS3c",
+            "item_id": "6809cff512a4f2a72acc7fa9"
+           },
+           {
+            "name": "Hedonist",
+            "city": "Uluwatu (Ungasan)",
+            "place_id": "",
+            "item_id": "665ed1a52e16798a3c6abf1f"
+           },
+           {
+            "name": "Hello World Saigon",
+            "city": "District 1",
+            "place_id": "ChIJ8xtnZU0pdTERyibOuLgMwwM",
+            "item_id": "67dbb827a763429798b83c79"
+           },
+           {
+            "name": "Hive Five Coworking Space Trogir",
+            "city": "Trogir",
+            "place_id": "ChIJJahdRwBrNRMR4ZWV51AL350",
+            "item_id": "692a198139ec79a2157ebf5f"
+           },
+           {
+            "name": "Hub Bali",
+            "city": "Kuta (Bali)",
+            "place_id": "",
+            "item_id": "6631cb0da256acf959355935"
+           },
+           {
+            "name": "Hub53 Coworking and Coliving Space",
+            "city": "Nimman",
+            "place_id": "ChIJvSqIVIsw2jARzD2AZd7JYCM",
+            "item_id": "67dbb82121ae962504f3594b"
+           },
+           {
+            "name": "Hustle Club Koh Phangan",
+            "city": "Nai Wok",
+            "place_id": "ChIJ4XhSgq_9VDARfmZSIal1vH8",
+            "item_id": "6784e20fe8d7ba0be2f3866b"
+           },
+           {
+            "name": "Idea Space",
+            "city": "Battersea",
+            "place_id": "ChIJ2XJRpaUFdkgRT1ggUPQa4TQ",
+            "item_id": "6809cff71f2325d5045f6070"
+           },
+           {
+            "name": "Impact Brixton",
+            "city": "Brixton",
+            "place_id": "ChIJ5_vAPGgEdkgR4IBYWwPb6ao",
+            "item_id": "6809cff8961511d665e9d6c4"
+           },
+           {
+            "name": "Impact Hub Budapest",
+            "city": "District 7",
+            "place_id": "",
+            "item_id": "669a2349ecf0b0084c72732e"
+           },
+           {
+            "name": "Impact Hub Lisbon - Baixa",
+            "city": "Baixa",
+            "place_id": "ChIJHxsOcq80GQ0RJxEI1ec1NT0",
+            "item_id": "6809cff5369276b8469627bd"
+           },
+           {
+            "name": "Impact Hub London Euston",
+            "city": "Euston",
+            "place_id": "ChIJUeUQZFMbdkgRPJr65FLboJ4",
+            "item_id": "6809cffe30e33b57847ddd0b"
+           },
+           {
+            "name": "Impact Hub London King's Cross",
+            "city": "King's Cross",
+            "place_id": "ChIJ89Pfkz4bdkgRJppIm6Ugu7c",
+            "item_id": "6809d00294d120b9c29c7b9b"
+           },
+           {
+            "name": "Industrious 245 Hammersmith Rd",
+            "city": "Hammersmith",
+            "place_id": "ChIJ3XEHU1IPdkgRsFt1nluQ6cI",
+            "item_id": "6809d000fee47a27657c43e0"
+           },
+           {
+            "name": "Industrious 70 St Mary Axe",
+            "city": "City of London",
+            "place_id": "ChIJnTbkUZoddkgR0vtvDTzLAf0",
+            "item_id": "6809cffd146566dc3d30b316"
+           },
+           {
+            "name": "Industrious 77 Coleman Street",
+            "city": "Moorgate",
+            "place_id": "ChIJhVtKSFAddkgRHFIKDs-eFZ4",
+            "item_id": "6809d004ad3417de7779e961"
+           },
+           {
+            "name": "Industrious St Peters Square",
+            "city": "City Centre",
+            "place_id": "ChIJtV-O5P-xe0gR1YkSEZYEE04",
+            "item_id": "6809d00b95ba1239c121005a"
+           },
+           {
+            "name": "Industrious Windmill Green",
+            "city": "Spinningfields",
+            "place_id": "ChIJ1z-s9nSxe0gRUzdFKrKwft4",
+            "item_id": "6809d009b596b2a76218ace0"
+           },
+           {
+            "name": "Inner Space Coworking",
+            "city": "Srithanu",
+            "place_id": "ChIJoRLjJ14BVTARFE7aDbmgF3g",
+            "item_id": "6784e20fdf81c9ffd09f7c18"
+           },
+           {
+            "name": "Itnig Coworking",
+            "city": "Poblenou",
+            "place_id": "",
+            "item_id": "6667f39dfc62869767822cd0"
+           },
+           {
+            "name": "Jiboia Studio",
+            "city": "Ajuda",
+            "place_id": "ChIJY50I7jXLHg0RoSOVKkbcU4k",
+            "item_id": "68a2fa2903f08bf14606d2f3"
+           },
+           {
+            "name": "KAPTÁR coworking",
+            "city": "District 6",
+            "place_id": "",
+            "item_id": "669a2349996baedf02aa3917"
+           },
+           {
+            "name": "KARIA Coworking",
+            "city": "Kuta",
+            "place_id": "ChIJlagOZYWpzS0RqrMwFD-zYW8",
+            "item_id": "682f68ce3f5caf1d9b1fff69"
+           },
+           {
+            "name": "KUDO (by hxi)",
+            "city": "Schwabing",
+            "place_id": "ChIJs2c9rKN1nkcR-wTN3Ig8cvg",
+            "item_id": "688cc1e525829eac2efe0cee"
+           },
+           {
+            "name": "Karya CoWorking",
+            "city": "Berawa",
+            "place_id": "",
+            "item_id": "65fa86d0e0379bf78d5245b1"
+           },
+           {
+            "name": "Kastner Kommunity Coworking",
+            "city": "District 8",
+            "place_id": "ChIJG0oDfozdQUcRMvyTfUW21gU",
+            "item_id": "67dbb81f504f03ad3bff4643"
+           },
+           {
+            "name": "Kelp Coworking Space Ericeira",
+            "city": "Central",
+            "place_id": "ChIJB6gPC10nHw0RcRvqZe4q9OY",
+            "item_id": "67dbb8306a5781d34f54a7bf"
+           },
+           {
+            "name": "Kembali Innovation Hub",
+            "city": "Seminyak",
+            "place_id": "",
+            "item_id": "6631c9dab3a10a2206c20839"
+           },
+           {
+            "name": "KoHub",
+            "city": "Long Beach",
+            "place_id": "ChIJ49oAH2ADTjARwCkDJRp-mlc",
+            "item_id": "67d509dbb3b07aef0c3584a2"
+           },
+           {
+            "name": "LABS 90 High Holborn",
+            "city": "Holborn",
+            "place_id": "ChIJ7awT0SYbdkgRqIgHCXDFZdw",
+            "item_id": "6809d001744673d0e5f5a887"
+           },
+           {
+            "name": "LABS Atrium",
+            "city": "Camden Town",
+            "place_id": "ChIJ9ZOaE-QadkgRAEG1Zx871vw",
+            "item_id": "6809cff9b0476ee3035a45f2"
+           },
+           {
+            "name": "LABS Hawley Lock",
+            "city": "Camden Town",
+            "place_id": "ChIJp-zMuKIbdkgR_zyM4KBsz-s",
+            "item_id": "6809cff8369276b84696299c"
+           },
+           {
+            "name": "LABS Hogarth House",
+            "city": "Holborn",
+            "place_id": "ChIJ9fDlMCIbdkgRiyuOALS9KLI",
+            "item_id": "6809d001e45574f02ae155b3"
+           },
+           {
+            "name": "LABS House",
+            "city": "Holborn",
+            "place_id": "ChIJjbgz95YbdkgRdMJVFi1f_7A",
+            "item_id": "6809d001aaa66b13a54e97d5"
+           },
+           {
+            "name": "La Vaca Coworking Barcelona",
+            "city": "Poble Sec",
+            "place_id": "ChIJjbdR42aipBIRxLKXQY3JF0M",
+            "item_id": "6809cff42aa4ba2c3edff960"
+           },
+           {
+            "name": "Landmark Office Space - Cavendish Square",
+            "city": "Oxford Circus",
+            "place_id": "ChIJYT3k3tQadkgRDhrTArdeVKQ",
+            "item_id": "67d52fb35057b3fadcd55488"
+           },
+           {
+            "name": "Landmark Office Space - New Cavendish Street",
+            "city": "Fitzrovia",
+            "place_id": "ChIJVddPSQAbdkgRUXSv0weg-YE",
+            "item_id": "67d52fb37c2c7c93f510505e"
+           },
+           {
+            "name": "Launchpad | Serviced Office",
+            "city": "Silom",
+            "place_id": "ChIJDSfo1s2Y4jARl0aSVZajmn4",
+            "item_id": "67d810204bfa605e2961d41e"
+           },
+           {
+            "name": "Lexias Hostel Workspace Siargao",
+            "city": "General Luna",
+            "place_id": "",
+            "item_id": "67246a39a182f8d77ef9a855"
+           },
+           {
+            "name": "Libera Space",
+            "city": "Kuta (Bali)",
+            "place_id": "",
+            "item_id": "6631c9dba256acf959346886"
+           },
+           {
+            "name": "Likuid Spaces Centre Road",
+            "city": "Colombo 2",
+            "place_id": "ChIJTTdXX1tZ4joR_CnUZNdbB8M",
+            "item_id": "67c19548b957326990536b63"
+           },
+           {
+            "name": "Likuid Spaces Charles Place",
+            "city": "Colombo 3",
+            "place_id": "ChIJ-VAUR2FZ4joRf9mbdWuFDVM",
+            "item_id": "67dbb822a4e8954f6bec5cb4"
+           },
+           {
+            "name": "Linuxx Serviced Offices Emporium",
+            "city": "Khlong Toei",
+            "place_id": "ChIJ4dQEgwGf4jARAV_PlFAF8C0",
+            "item_id": "6840bf1f2865edd274230aa8"
+           },
+           {
+            "name": "Linuxx Serviced Offices Vanissa",
+            "city": "Lumphini",
+            "place_id": "ChIJAQAAANee4jARlEjvyaLCaPA",
+            "item_id": "6840bf1fccd14459496f7013"
+           },
+           {
+            "name": "Lisbon-Cowork",
+            "city": "Graca",
+            "place_id": "ChIJC9Bfq0IzGQ0R4iDbZ09NUmE",
+            "item_id": "6809cff65b7d6598c8b425e1"
+           },
+           {
+            "name": "Livit Hub Bali",
+            "city": "Sanur",
+            "place_id": "",
+            "item_id": "65fa86d0e0379bf78d5245b8"
+           },
+           {
+            "name": "Local Stitch Creator Town Seogyo",
+            "city": "Hongdae",
+            "place_id": "",
+            "item_id": "66cf5711048af48af52fbe97"
+           },
+           {
+            "name": "MATES Coworking",
+            "city": "Altstadt-Lehel",
+            "place_id": "",
+            "item_id": "66c1ffe8a92c91bc21116ef0"
+           },
+           {
+            "name": "MAUI Beach Coworking",
+            "city": "Poblenou",
+            "place_id": "ChIJk_pjIGujpBIRDH4DRHwWuMo",
+            "item_id": "6809cff53d3ee1234b7bd553"
+           },
+           {
+            "name": "MOB Bailen - Coworking and Office Space",
+            "city": "L'Eixample Dreta",
+            "place_id": "ChIJUTho3uSipBIRts-X_zZHkbg",
+            "item_id": "6809cff33edc9df7affd035d"
+           },
+           {
+            "name": "Madeira Friends Hub",
+            "city": "Funchal",
+            "place_id": "ChIJ4a5jC4hhYAwRxNaVp4Kz0ZM",
+            "item_id": "68a2fa29da54a513639efb75"
+           },
+           {
+            "name": "Masco Coworking Space",
+            "city": "George Town",
+            "place_id": "ChIJidMgbZTDSjARWcHtSaOY-lE",
+            "item_id": "67dbb82c8db6988b7bc4d2f6"
+           },
+           {
+            "name": "Mindspace Friedrichstrasse",
+            "city": "Mitte",
+            "place_id": "ChIJa-cbfNpRqEcR-7OtwASSiFI",
+            "item_id": "67dbb81bc24274cca94b1ff9"
+           },
+           {
+            "name": "Mindspace Hammersmith",
+            "city": "Hammersmith",
+            "place_id": "ChIJOWDu444PdkgRtRHxCVJADms",
+            "item_id": "67d0057eed7fb89b8d6ef78d"
+           },
+           {
+            "name": "Mindspace Hausvogteiplatz",
+            "city": "Mitte",
+            "place_id": "ChIJT3KF8UhRqEcRxtpv-1wIY-4",
+            "item_id": "67dbb81a5203d0ff237908bb"
+           },
+           {
+            "name": "Mindspace Krausenstrasse",
+            "city": "Mitte",
+            "place_id": "ChIJZXO14dBRqEcR0zJ2QRco9SM",
+            "item_id": "67dbb81bddcf0747ac9b4624"
+           },
+           {
+            "name": "Mindspace Muenzstrasse",
+            "city": "Mitte",
+            "place_id": "ChIJBzVpiSxRqEcRCqohoqj6_HY",
+            "item_id": "67dbb81a1b29a29f6ac56e2e"
+           },
+           {
+            "name": "Mindspace Old Street",
+            "city": "Old Street",
+            "place_id": "ChIJsU4XTxwddkgRYSH25Rrp4Qc",
+            "item_id": "67d0057ee23f36cf1738212f"
+           },
+           {
+            "name": "Mindspace Shoreditch",
+            "city": "Shoreditch",
+            "place_id": "ChIJkQYK57EcdkgR7ENg5Xr_GpA",
+            "item_id": "67cd80c9e31d55649009408f"
+           },
+           {
+            "name": "Mindspace Zimmerstrasse",
+            "city": "Mitte",
+            "place_id": "ChIJ7wrGaHpRqEcRut27Nd7rvs4",
+            "item_id": "67dbb81a74e3ee07a6fd76f9"
+           },
+           {
+            "name": "Missionworks",
+            "city": "Hammersmith",
+            "place_id": "ChIJKRSL3wwPdkgRgKMpTVlkS5k",
+            "item_id": "6809d0001f2325d5045f64d8"
+           },
+           {
+            "name": "Monday",
+            "city": "Uluwatu (Ungasan)",
+            "place_id": "",
+            "item_id": "65fa86d0e0379bf78d52478d"
+           },
+           {
+            "name": "Nagara Boutique Hotel and Coworking",
+            "city": "Uluwatu (Ungasan)",
+            "place_id": "",
+            "item_id": "65fa86d0e0379bf78d52478e"
+           },
+           {
+            "name": "Naplab Chula",
+            "city": "Chulalongkorn",
+            "place_id": "ChIJwVb-Bi6Z4jARXPxQjlh3F7w",
+            "item_id": "674b37a3db75f1b2a4159bb7"
+           },
+           {
+            "name": "Nebula",
+            "city": "Berawa",
+            "place_id": "",
+            "item_id": "665ed1a52920d92b2630f77e"
+           },
+           {
+            "name": "Nook Coworking",
+            "city": "JLT",
+            "place_id": "ChIJhZrGd-htXz4Rk5VCzJsH2xE",
+            "item_id": "67dbb8246c76d644eeb542fe"
+           },
+           {
+            "name": "OfficeFirst",
+            "city": "Sathon",
+            "place_id": "ChIJsTXSzjKf4jARdBWLRr5I-4c",
+            "item_id": "674b37a3ab62ac5800dbe070"
+           },
+           {
+            "name": "Ofis Voyvoda Istanbul",
+            "city": "Karaköy",
+            "place_id": "",
+            "item_id": "66d86b89956e2e75497bf514"
+           },
+           {
+            "name": "OneCoWork Catedral",
+            "city": "Gothic Quarter",
+            "place_id": "",
+            "item_id": "6667f39f541a6794de3c60c5"
+           },
+           {
+            "name": "OneCoWork Placa Catalunya",
+            "city": "Placa Catalunya",
+            "place_id": "",
+            "item_id": "6667f39d5c334145f794c84f"
+           },
+           {
+            "name": "Only Connect Kings Cross",
+            "city": "King's Cross",
+            "place_id": "ChIJl49JuUcbdkgR4fDn9_deq0Q",
+            "item_id": "6809d002ab10cbeb29fc77b9"
+           },
+           {
+            "name": "Outpost Ubud Coworking",
+            "city": "Ubud",
+            "place_id": "ChIJJQhT6KA90i0RiIrfxiXiYmU",
+            "item_id": "67a956434bf28c588cfe8479"
+           },
+           {
+            "name": "Outpost Ubud Penestanan",
+            "city": "Ubud",
+            "place_id": "",
+            "item_id": "65fa86d0e0379bf78d5247a8"
+           },
+           {
+            "name": "Outsite Cowork Cafe - Lisbon",
+            "city": "Principe Real",
+            "place_id": "ChIJmXvhdQs1GQ0RW12nb7Rmn-w",
+            "item_id": "67dbb82bed6cebb08a3d7324"
+           },
+           {
+            "name": "PAU Coworking",
+            "city": "Sant Antoni",
+            "place_id": "ChIJs5DRIV6ipBIRORrxwgoN2GM",
+            "item_id": "6809cff4f1c03b3ee7301806"
+           },
+           {
+            "name": "PLAY House",
+            "city": "Guapulo",
+            "place_id": "ChIJ68_AhP-b1ZER9jWtUTiVuGM",
+            "item_id": "682f68cf5ea7af73c20f95c0"
+           },
+           {
+            "name": "PUCO Rooftop",
+            "city": "Canggu",
+            "place_id": "",
+            "item_id": "65fa86d0e0379bf78d524577"
+           },
+           {
+            "name": "Paddington Works Coworking & Meeting Rooms",
+            "city": "Paddington",
+            "place_id": "ChIJkycdE5AbdkgREE6ar2-45ls",
+            "item_id": "6809d00596ac59bddca355d7"
+           },
+           {
+            "name": "Palo Alto Club",
+            "city": "Telliskivi",
+            "place_id": "ChIJT8agz9yTkkYRtRPydCI277M",
+            "item_id": "67dbb82e9d6996c79dc04e0f"
+           },
+           {
+            "name": "Parq",
+            "city": "Ubud",
+            "place_id": "",
+            "item_id": "65fa86d0e0379bf78d5247ac"
+           },
+           {
+            "name": "Pi55 Coworking Space",
+            "city": "Athens",
+            "place_id": "",
+            "item_id": "66f6dc5cd3a1bde5c5fbdb21"
+           },
+           {
+            "name": "Plexal Shoreditch",
+            "city": "Shoreditch",
+            "place_id": "ChIJG-2cCTYddkgRdrfcVcXaQ34",
+            "item_id": "6809d00a41cbbf7c9a3974f4"
+           },
+           {
+            "name": "Plexal Stratford",
+            "city": "Hackney",
+            "place_id": "ChIJqRdzUA0ddkgRCVvKOKNCX5Q",
+            "item_id": "6809d000961511d665e9e1b5"
+           },
+           {
+            "name": "Prime Coworking Palmarejo Baixo",
+            "city": "Praia",
+            "place_id": "ChIJR9N-Q1aYNQkROj3az7SCkxs",
+            "item_id": "676736d055a65924fbd005a1"
+           },
+           {
+            "name": "Punspace Tha Phae Gate",
+            "city": "Old City",
+            "place_id": "",
+            "item_id": "660a663590a05eb56f0ebadc"
+           },
+           {
+            "name": "Punspace Wiang Kaew",
+            "city": "Old City",
+            "place_id": "ChIJ70YKaJc62jARBad3R1y7O2E",
+            "item_id": "67c1954788ef56df50c5646b"
+           },
+           {
+            "name": "Ranjana Café & Coworking Space",
+            "city": "Kerobokan",
+            "place_id": "",
+            "item_id": "660a351143bf1e4a02e97799"
+           },
+           {
+            "name": "Remote&Digital Coworking @ The District",
+            "city": "Thong Sala",
+            "place_id": "ChIJWyFL0Nn9VDARMTtfyVRBYCo",
+            "item_id": "6784e20f2c567ba362777bd8"
+           },
+           {
+            "name": "Remote&Digital Coworking La Casa",
+            "city": "Baan Tai",
+            "place_id": "ChIJXV1vMJ79VDARHTfq4FD9py0",
+            "item_id": "6784e21eef53f58d51dd260a"
+           },
+           {
+            "name": "Rhodes Project SCE",
+            "city": "Rhodes",
+            "place_id": "",
+            "item_id": "66e7cd909fc161515f714c6d"
+           },
+           {
+            "name": "SOKKOOL Coliving & Coworking",
+            "city": "Berawa",
+            "place_id": "ChIJWSkl1jRH0i0RQtjmt402op0",
+            "item_id": "67d78a0bd01eb8fd6ab57efe"
+           },
+           {
+            "name": "STUDIOS 94",
+            "city": "Suthep",
+            "place_id": "ChIJPVzEk6g72jARAFhFmEKnGbA",
+            "item_id": "6861a7d71ecd566aa10a46e2"
+           },
+           {
+            "name": "Sangha Cowork Funchal",
+            "city": "Funchal",
+            "place_id": "",
+            "item_id": "664fb898e38eec241d3ce301"
+           },
+           {
+            "name": "Saya Work",
+            "city": "Berawa",
+            "place_id": "",
+            "item_id": "65fa86d0e0379bf78d5245a4"
+           },
+           {
+            "name": "Second Home Holland Park",
+            "city": "Holland Park",
+            "place_id": "ChIJXQIJYecPdkgRcMck1hsB3ks",
+            "item_id": "67d0057ee4386956d5233847"
+           },
+           {
+            "name": "Second Home Mercado",
+            "city": "Cais do Sodre",
+            "place_id": "ChIJz7YW9H00GQ0RXQjcw9JEVqo",
+            "item_id": "67d0057e94816bfdd92d2a34"
+           },
+           {
+            "name": "Second Home Spitalfields",
+            "city": "Spitalfields",
+            "place_id": "ChIJrWaBB7YcdkgRw6Fv--wBXIU",
+            "item_id": "67cd80c9bca334002604a20e"
+           },
+           {
+            "name": "Selina Secret Garden & Cowork",
+            "city": "Bica",
+            "place_id": "",
+            "item_id": "663e5f59095083a5889f7b68"
+           },
+           {
+            "name": "Setter Coworking",
+            "city": "Berawa",
+            "place_id": "",
+            "item_id": "65fa86d0e0379bf78d524578"
+           },
+           {
+            "name": "Setter Ubud Coworking",
+            "city": "Ubud",
+            "place_id": "",
+            "item_id": "66f857f0ac399ec84dac1ff0"
+           },
+           {
+            "name": "Shinei Serviced Office and Coworking Space",
+            "city": "Sukhumvit (Asoke)",
+            "place_id": "",
+            "item_id": "67483b8907a182a525ff87dd"
+           },
+           {
+            "name": "Shoreditch Exchange",
+            "city": "Shoreditch",
+            "place_id": "ChIJ6_M8-tkddkgRr58QwdnyikQ",
+            "item_id": "6809d00612a4f2a72acc8b80"
+           },
+           {
+            "name": "Sierra Cartel",
+            "city": "HSR Layout",
+            "place_id": "ChIJu50ZwZMUrjsRsMn1p_FjEeI",
+            "item_id": "689ea4445fd1f4dfba3264c7"
+           },
+           {
+            "name": "Sinag Hostel",
+            "city": "General Luna",
+            "place_id": "",
+            "item_id": "67246a3a7b2496726a8137a6"
+           },
+           {
+            "name": "South Lombok Cowork",
+            "city": "Kuta",
+            "place_id": "",
+            "item_id": "6619cfab6042563326c231f6"
+           },
+           {
+            "name": "Sowo Coworking Barcelona",
+            "city": "L'Eixample Dreta",
+            "place_id": "ChIJURz6K1KjpBIRJbE11JtyIUk",
+            "item_id": "67dbb81921ae962504f34997"
+           },
+           {
+            "name": "SpaceBox - Coworking Space",
+            "city": "WTC",
+            "place_id": "ChIJmQIJwnhDXz4RioElpXRrJu4",
+            "item_id": "67dbb8246de5ed125908b0f0"
+           },
+           {
+            "name": "Spaces, Oxford Street",
+            "city": "Oxford Circus",
+            "place_id": "ChIJ9Xe13iobdkgR_DNr2NLkV58",
+            "item_id": "67d52fb4355e10f05a1167eb"
+           },
+           {
+            "name": "Spare Street Works",
+            "city": "Southwark",
+            "place_id": "ChIJ3c1DUyQFdkgRUjpUlLjp1N4",
+            "item_id": "6809d0082aa4ba2c3ee00e6b"
+           },
+           {
+            "name": "StarWork Chiang Mai",
+            "city": "Wat Ket",
+            "place_id": "ChIJy8X8b0wl2jARx4OZOpCGXTc",
+            "item_id": "67dbb8220a49e102711f6584"
+           },
+           {
+            "name": "StartUp Nijmegen",
+            "city": "Nijmegen",
+            "place_id": "",
+            "item_id": "6749620db2122279a61abc5f"
+           },
+           {
+            "name": "Stone Soup",
+            "city": "Exarcheia",
+            "place_id": "ChIJG4LnrDC9oRQRFkajoLamry0",
+            "item_id": "67ca769f00f6ce5b547d4283"
+           },
+           {
+            "name": "Szikra Coworking",
+            "city": "District 7",
+            "place_id": "ChIJfdXX6UXdQUcRZ5iYj8jsy5c",
+            "item_id": "67dbb81e05b2a7fae38f6dc5"
+           },
+           {
+            "name": "THINQTANQ",
+            "city": "Stonehouse",
+            "place_id": "ChIJ_5XpPU2TbEgRBCAMO11ex_4",
+            "item_id": "67f8adc6a4f7481d14a8a101"
+           },
+           {
+            "name": "TLoft Coworking Space",
+            "city": "Bang Rak",
+            "place_id": "ChIJ_TE8Vh-Z4jARHrbLApAm1z4",
+            "item_id": "674b37a4040573bdb642152a"
+           },
+           {
+            "name": "Tha Ploook",
+            "city": "Wang Lang",
+            "place_id": "ChIJkSByRIyZ4jARmPgcjvOjbyY",
+            "item_id": "674b37a3713557a76c1b454a"
+           },
+           {
+            "name": "The Block Lisboa",
+            "city": "Avenidas Novas",
+            "place_id": "ChIJsXrTNKEzGQ0Rt0Z2O9Lwvtg",
+            "item_id": "67dbb8294d8a2c443942eaaa"
+           },
+           {
+            "name": "The Brew Eagle House - Shoreditch",
+            "city": "Shoreditch",
+            "place_id": "ChIJRctCV6YcdkgRGWntVepnddo",
+            "item_id": "6809d006443445c220870e8d"
+           },
+           {
+            "name": "The Brick Startup Space",
+            "city": "Nimman",
+            "place_id": "ChIJ77ssGYY62jARQr_TRG_x19A",
+            "item_id": "67dbb81fa4e8954f6bec58f8"
+           },
+           {
+            "name": "The Clement Rooms by Spacemade",
+            "city": "Fleet Street",
+            "place_id": "ChIJfcf50yUFdkgR35m0xoJLmms",
+            "item_id": "67d52fb0111e2972054ec208"
+           },
+           {
+            "name": "The Co-Spaces (Downtown Dubai)",
+            "city": "Downtown Dubai",
+            "place_id": "ChIJ4Qr6TSloXz4Ru9Irol1mfUQ",
+            "item_id": "67dbb830a75607567a511206"
+           },
+           {
+            "name": "The Daun Coworking",
+            "city": "Canggu",
+            "place_id": "",
+            "item_id": "6631c9da9facf5b27d131d77"
+           },
+           {
+            "name": "The Great Room Gaysorn Tower",
+            "city": "Siam",
+            "place_id": "ChIJIwI6ULWf4jARLXyjDdUgJLU",
+            "item_id": "674b37a38dfb7342938a26df"
+           },
+           {
+            "name": "The Hive Prakanong",
+            "city": "Phra Khanong",
+            "place_id": "ChIJy2nfermf4jARCOcOF_ChsjY",
+            "item_id": "674b37a37d4012b5ceec1777"
+           },
+           {
+            "name": "The Hive Thonglor",
+            "city": "Thonglor",
+            "place_id": "ChIJk29fqVWe4jARpjO_NU9jqPk",
+            "item_id": "674b37a3e6116045f05e6dc5"
+           },
+           {
+            "name": "The Landing by Spacemade",
+            "city": "Putney",
+            "place_id": "ChIJuaSoF78PdkgR06mEadF-Kyo",
+            "item_id": "67d52fb095de9f5015c35919"
+           },
+           {
+            "name": "The Ministry, Borough | Workspace & Members' Club",
+            "city": "Borough",
+            "place_id": "",
+            "item_id": "66edafbaf8ed8e1c2284762b"
+           },
+           {
+            "name": "The Park East",
+            "city": "Bang Na",
+            "place_id": "ChIJoa6NZgeh4jAR094crhZCfcI",
+            "item_id": "674b37a4dd188bc8871b7d9a"
+           },
+           {
+            "name": "The Sentry C",
+            "city": "District 1",
+            "place_id": "ChIJhT3ZOBcvdTERLS0Qo5jqrPQ",
+            "item_id": "67dbb8277b580966f91db169"
+           },
+           {
+            "name": "The Sentry P",
+            "city": "District 2",
+            "place_id": "ChIJ-TRnnhcndTERUkcpKy_C1gQ",
+            "item_id": "67dbb8281b29a29f6ac57537"
+           },
+           {
+            "name": "The Sentry Z",
+            "city": "District 1",
+            "place_id": "ChIJ46NnV24vdTERWZL-ZzogsaQ",
+            "item_id": "67dbb82621ae962504f35e1f"
+           },
+           {
+            "name": "The Shed CoWorking",
+            "city": "Salamanca",
+            "place_id": "ChIJwf-Ed70oQg0R8scDRHMbmz4",
+            "item_id": "67c195450c9b98325f98217b"
+           },
+           {
+            "name": "The Social Hub Coworking Barcelona Poblenou",
+            "city": "Poblenou",
+            "place_id": "ChIJz1qORhGjpBIRucNFtGw8JgA",
+            "item_id": "6809cff4146566dc3d30aefe"
+           },
+           {
+            "name": "The Space Bali",
+            "city": "Uluwatu (Bingin)",
+            "place_id": "",
+            "item_id": "65fa86d0e0379bf78d52469e"
+           },
+           {
+            "name": "The Spot, Coworking Space",
+            "city": "Kuta",
+            "place_id": "",
+            "item_id": "6619cfaba457f12b5e659d47"
+           },
+           {
+            "name": "The Urban Office",
+            "city": "Sukhumvit",
+            "place_id": "ChIJew1mBgGf4jARm5MCHcXT1qc",
+            "item_id": "674b37a4464b231db2ce0ba6"
+           },
+           {
+            "name": "The Urban Office Asoke",
+            "city": "Sukhumvit (Asoke)",
+            "place_id": "ChIJlxMDlnGf4jARO6bixKWcEX8",
+            "item_id": "674b37a4aa9025ffb5998386"
+           },
+           {
+            "name": "The Urban Office Phra Khanong",
+            "city": "Phra Khanong",
+            "place_id": "ChIJFZHVx3Kf4jARhdrQYEuUgbc",
+            "item_id": "674b37a4ab62ac5800dbe0e8"
+           },
+           {
+            "name": "The Work Loft Silom",
+            "city": "Sathon",
+            "place_id": "ChIJ8UI3DSyf4jARARZlmXaiFLQ",
+            "item_id": "674b37a4e6116045f05e6e6e"
+           },
+           {
+            "name": "The WorkWell @EC1",
+            "city": "Angel",
+            "place_id": "ChIJETqSh1sbdkgRB1qu3p_ULOc",
+            "item_id": "6809cff6b0476ee3035a449e"
+           },
+           {
+            "name": "The Workers' League Blackheath",
+            "city": "Blackheath",
+            "place_id": "ChIJt1xVGvGp2EcRIB3EEf5eFlc",
+            "item_id": "6809cff82b95fde8a648fd90"
+           },
+           {
+            "name": "The Workers' League Bonhill Street",
+            "city": "Old Street",
+            "place_id": "ChIJsURprbwddkgRMrYOXxxGHp8",
+            "item_id": "6809d0049b273d029c33ad94"
+           },
+           {
+            "name": "The Workspace - By Amparo",
+            "city": "Machico",
+            "place_id": "",
+            "item_id": "664fb8982673479a5d6dcc4d"
+           },
+           {
+            "name": "Think SOciety Coworking Space & Coffee",
+            "city": "Bang Na",
+            "place_id": "ChIJrQJKCQOg4jARSRqoFP-P2y0",
+            "item_id": "674b37a4fbc7383b4c995215"
+           },
+           {
+            "name": "Time To Cowork",
+            "city": "Cais do Sodre",
+            "place_id": "ChIJA3nCiDo1GQ0RJsUaadfc9yg",
+            "item_id": "6809cff59b7082d7ab261209"
+           },
+           {
+            "name": "Tribe Social Club - Coworking",
+            "city": "Bairro Alto",
+            "place_id": "ChIJkXZMFQA1GQ0RovxB_uOSRr0",
+            "item_id": "6809cff57a5c39fcdc925c4d"
+           },
+           {
+            "name": "Tropical Nomad Members Area",
+            "city": "Canggu",
+            "place_id": "",
+            "item_id": "65fa86d0e0379bf78d5244af"
+           },
+           {
+            "name": "UNBOX Community - API World Tower",
+            "city": "WTC",
+            "place_id": "ChIJcYFCl-RDXz4RVEjjzdZlevo",
+            "item_id": "67dbb824911faea0a7115876"
+           },
+           {
+            "name": "Ubud.Space Coworking and Coffee",
+            "city": "Ubud",
+            "place_id": "",
+            "item_id": "65fa86d0e0379bf78d5247a6"
+           },
+           {
+            "name": "Uncommon Borough - Flexible Office Work Space",
+            "city": "Borough",
+            "place_id": "ChIJq6pq8FgDdkgR00mfXSJQ_lE",
+            "item_id": "6809cff8e55fef2e1e088016"
+           },
+           {
+            "name": "Uncommon Fulham - Flexible Office Work Space",
+            "city": "Fulham",
+            "place_id": "ChIJYeZo30cPdkgRkjoJ2pQR-v8",
+            "item_id": "6809cfffe45574f02ae15494"
+           },
+           {
+            "name": "Uncommon Highbury - Flexible Office Work Space",
+            "city": "Higbury",
+            "place_id": "ChIJLYKV53AbdkgRRrGVI9jBLZ4",
+            "item_id": "6809d0009b273d029c33aa58"
+           },
+           {
+            "name": "Uncommon Holborn - Flexible Office Work Space",
+            "city": "Holborn",
+            "place_id": "ChIJj7Q4hzUbdkgRcWBnl6bCP8o",
+            "item_id": "6809d001709fce94fc7067f1"
+           },
+           {
+            "name": "Uncommon Liverpool Street - Flexible Office Work Space",
+            "city": "Liverpool Streeet",
+            "place_id": "ChIJ81XC488ddkgR1m3RFl2ybHA",
+            "item_id": "6809d003744673d0e5f5ad21"
+           },
+           {
+            "name": "Us&Co Monument",
+            "city": "City of London",
+            "place_id": "ChIJZ6DtBU4DdkgRHdPqrVSBKCA",
+            "item_id": "6809cff9ad3417de7779e4fa"
+           },
+           {
+            "name": "Us&Co Stratford | Coworking & Meeting Rooms",
+            "city": "Stratford",
+            "place_id": "ChIJbzw-Df4ddkgRkGakk_oBuG8",
+            "item_id": "6809d009744673d0e5f5afe4"
+           },
+           {
+            "name": "ViOS Autograph Athens",
+            "city": "Athens",
+            "place_id": "",
+            "item_id": "66df1faf92b716c215bfd0fa"
+           },
+           {
+            "name": "ViOS Co-Lab Athens",
+            "city": "Athens",
+            "place_id": "",
+            "item_id": "66df1faf587225f8f7da6501"
+           },
+           {
+            "name": "ViOS Downtown Athens",
+            "city": "Athens",
+            "place_id": "",
+            "item_id": "66df1fafd45c3b9c49f31f0d"
+           },
+           {
+            "name": "WORX Gower House",
+            "city": "Colombo 5",
+            "place_id": "ChIJlSuzNChb4joRoqQqO0C1Tsc",
+            "item_id": "67dbb822f75acbcb4abf5edb"
+           },
+           {
+            "name": "WORX Havelock House",
+            "city": "Colombo 5",
+            "place_id": "ChIJwR1ZEa9b4joRGS-NVgpGkgc",
+            "item_id": "67dbb8220c22857f902f7e94"
+           },
+           {
+            "name": "WORX Jawatte House",
+            "city": "Colombo 5",
+            "place_id": "ChIJe2FWgaFb4joRnuRe2Eb1ih4",
+            "item_id": "67c195476a9fcf2d19dd3f50"
+           },
+           {
+            "name": "WORX Nawala House",
+            "city": "Kotte",
+            "place_id": "ChIJVdsqS01b4joRP7Yk4KiUbYA",
+            "item_id": "67dbb822a75607567a5103ac"
+           },
+           {
+            "name": "Werklab Inc",
+            "city": "Strathcona",
+            "place_id": "ChIJp-BR1WpxhlQRBqWBOUp6wDg",
+            "item_id": "6749620d16ec5811acf144d6"
+           },
+           {
+            "name": "WinPlace Coworking Space",
+            "city": "District 1",
+            "place_id": "ChIJDWHQ8aUpdTERKdVHXo3zxNQ",
+            "item_id": "67dbb828186cec74323ab9fa"
+           },
+           {
+            "name": "Work.Life Aldersgate Street",
+            "city": "City of London",
+            "place_id": "ChIJTciSpogbdkgRYlWk5GOM9bM",
+            "item_id": "67d52fa9a79f0c901cbad1ae"
+           },
+           {
+            "name": "Work.Life Bermondsey",
+            "city": "Bermondsey",
+            "place_id": "ChIJC9BYx0QDdkgRM8cEOlJ-cgQ",
+            "item_id": "67d52fadc13128f252051c2a"
+           },
+           {
+            "name": "Work.Life Borough",
+            "city": "Borough",
+            "place_id": "ChIJpe9mkTwDdkgR2_1uihrNRPA",
+            "item_id": "67d52fadb214ed85a9e6d0ab"
+           },
+           {
+            "name": "Work.Life Camden",
+            "city": "Camden Town",
+            "place_id": "ChIJXcTRiOEadkgR9d2Yly1rmgg",
+            "item_id": "67d52fad191e39fba6dbd531"
+           },
+           {
+            "name": "Work.Life Camden Coworking",
+            "city": "Camden Town",
+            "place_id": "ChIJXcTRiOEadkgR9d2Yly1rmgg",
+            "item_id": "6809cffccca1f7b77befde5b"
+           },
+           {
+            "name": "Work.Life Fitzrovia",
+            "city": "Fitzrovia",
+            "place_id": "ChIJLzEW52YbdkgR_Tojdlgd8Kw",
+            "item_id": "67d52fa9c56b4eec49f572c5"
+           },
+           {
+            "name": "Work.Life Hammersmith",
+            "city": "Hammersmith",
+            "place_id": "ChIJETPoyBUFdkgRY26DzxaFpbI",
+            "item_id": "67d52fa9dc72582cf7c0ff3d"
+           },
+           {
+            "name": "Work.Life Holborn",
+            "city": "Holborn",
+            "place_id": "ChIJs0Z1xXQbdkgRc_BWuIqnpmU",
+            "item_id": "67d52fa931f06ae8f08f122c"
+           },
+           {
+            "name": "Work.Life Liverpool Street",
+            "city": "Liverpool Street",
+            "place_id": "ChIJN786tG0ddkgRTWFksnCiuP4",
+            "item_id": "67d52fa9ae483e2d920987e2"
+           },
+           {
+            "name": "Work.Life Old Street",
+            "city": "Old Street",
+            "place_id": "ChIJ8W9jXKUcdkgRD6fdbTPxsTU",
+            "item_id": "67d52fa930406223ba184320"
+           },
+           {
+            "name": "Work.Life Soho",
+            "city": "Soho",
+            "place_id": "ChIJD9k1GngbdkgROGKcFvyQx9I",
+            "item_id": "67d52fb2fff86e042a2beefa"
+           },
+           {
+            "name": "Work.Life St Cross Street",
+            "city": "Holborn",
+            "place_id": "ChIJiVpt67UbdkgRIOkPnexx6f8",
+            "item_id": "67d52facff9f765cf4c76f61"
+           },
+           {
+            "name": "WorkFlow Thao Dien - Working Space",
+            "city": "District 2",
+            "place_id": "ChIJkfsaXES_aIYRzc8XE6wZZ2E",
+            "item_id": "67dbb8283caa81895e3f0c19"
+           },
+           {
+            "name": "WorkStories Serviced Office",
+            "city": "Khlong Toei",
+            "place_id": "ChIJmwKkvUmf4jARt5CiXsiLvUc",
+            "item_id": "674b37a4019791da08eabeb1"
+           },
+           {
+            "name": "WorkWize Coworking Space",
+            "city": "Huai Khwang",
+            "place_id": "ChIJnSpbitSf4jARckFoWOuUR-s",
+            "item_id": "674b37a49ddadf84a13c1c1f"
+           },
+           {
+            "name": "Workin'CV",
+            "city": "Praia",
+            "place_id": "ChIJHf-p1Q90k4MR_orddD1A3bQ",
+            "item_id": "676736d025a33401d6527468"
+           },
+           {
+            "name": "Working on Air",
+            "city": "Gili Air",
+            "place_id": "",
+            "item_id": "6613fb8149a091e1a4d49da8"
+           },
+           {
+            "name": "Workland Fahle",
+            "city": "Ulemiste",
+            "place_id": "ChIJx4i5HxeVkkYR7gxm0ZO02CU",
+            "item_id": "67dbb82e89928f8e5c836e5c"
+           },
+           {
+            "name": "Workshop17 Kloof Street",
+            "city": "Gardens",
+            "place_id": "ChIJhZ7xY1pnzB0R0oal5T5yr0w",
+            "item_id": "67d81020f5512df966898e94"
+           },
+           {
+            "name": "Workspace 6",
+            "city": "Centrum",
+            "place_id": "ChIJf7bpI8wJxkcRKhCAw-fiqm0",
+            "item_id": "6840bf20edd5a1245b84305b"
+           },
+           {
+            "name": "Wrkhub by Tutmak",
+            "city": "Ubud",
+            "place_id": "",
+            "item_id": "65fa86d0e0379bf78d5247aa"
+           },
+           {
+            "name": "Xom Space",
+            "city": "District 1",
+            "place_id": "ChIJzZHdUoYvdTEReFWbBoKxAds",
+            "item_id": "67dbb827ddbd6ff42ecee057"
+           },
+           {
+            "name": "Yellow Coworking Space",
+            "city": "Nimman",
+            "place_id": "",
+            "item_id": "660a6636d708a5ea159e49f8"
+           },
+           {
+            "name": "Yolk House Brighton Rock Place",
+            "city": "Kemptown",
+            "place_id": "ChIJ59W-90CFdUgRC_hB9mxREow",
+            "item_id": "68a2fa29a392c76e4ce3160d"
+           },
+           {
+            "name": "Yolk House Farringdon",
+            "city": "Farringdon",
+            "place_id": "ChIJmbftluwbdkgRKQj_6QfuHCo",
+            "item_id": "68a2fa294f772123c82934f3"
+           },
+           {
+            "name": "Zoku Vienna",
+            "city": "Leopoldstadt",
+            "place_id": "ChIJxVPN_hkHbUcRsFkytwur4Dc",
+            "item_id": "67dbb82f6cc27ddd69368cec"
+           },
+           {
+            "name": "betahaus HafenCity",
+            "city": "Hafencity",
+            "place_id": "ChIJTazvhvmOsUcR2Z-BU3BlE88",
+            "item_id": "67dbb825e95b63f8187e0e6c"
+           },
+           {
+            "name": "betahaus Schanze",
+            "city": "Sternschanze",
+            "place_id": "ChIJu-Z5G2mPsUcRQVBdqBCMN80",
+            "item_id": "67dbb826a763429798b83bb4"
+           },
+           {
+            "name": "betahaus | Kreuzberg",
+            "city": "Kreuzberg",
+            "place_id": "ChIJqQFHjS1OqEcR8d99mafShxY",
+            "item_id": "67dbb81ab2bb3bdb73a475bb"
+           },
+           {
+            "name": "eOffice Fitzrovia",
+            "city": "Fitzrovia",
+            "place_id": "ChIJp82Vo9QEdkgRKHAe09jr19c",
+            "item_id": "6809cffe8b8009b34b39fc38"
+           },
+           {
+            "name": "ecos work spaces hannover süd",
+            "city": "Döhren",
+            "place_id": "ChIJ37Ic7OAKsEcRhuAJG0jsSc8",
+            "item_id": "688cc1e4c04b37d19159d16f"
+           },
+           {
+            "name": "myOffice - Downtown Dubai",
+            "city": "Downtown Dubai",
+            "place_id": "ChIJU1J8XYFCXz4RAe9lK4B4bLk",
+            "item_id": "67dbb823ed6cebb08a3d6ec8"
+           },
+           {
+            "name": "myOffice - Dubai Marina Plaza",
+            "city": "Dubai Marina",
+            "place_id": "ChIJvZwgg7ATXz4RHjBTj1xeBsE",
+            "item_id": "67dbb824a75607567a510403"
+           },
+           {
+            "name": "redNERD Coliving",
+            "city": "Mubarak 7",
+            "place_id": "ChIJbcGVW6N9UhQRVWSY-42hzj8",
+            "item_id": "6809d00f3d3ee1234b7be39f"
+           },
+           {
+            "name": "the Hive District 1",
+            "city": "District 1",
+            "place_id": "ChIJB7ZTfA0pdTER8FjIuHEiU0w",
+            "item_id": "67dbb8276a5db9ee9dddbe5b"
+           },
+           {
+            "name": "the Hive Thao Dien",
+            "city": "District 2",
+            "place_id": "ChIJDZpz_xkmdTERp4ox5YRf3ng",
+            "item_id": "67dbb8280c22857f902f82ec"
+           },
+           {
+            "name": "the Hive Villa",
+            "city": "District 2",
+            "place_id": "ChIJ0bGWhREndTERDEv4xgNNFEI",
+            "item_id": "67dbb8284b90ebc1123caa15"
+           },
+           {
+            "name": "tuesday coworking - Schoneberg",
+            "city": "Schoneberg",
+            "place_id": "ChIJt8y2PjZRqEcRaT8gatTnonk",
+            "item_id": "67dbb8306c76d644eeb54d13"
+           },
+           {
+            "name": "Nomio Coworking Lounge",
+            "city": "Tivat",
+            "place_id": "ChIJG5cu5uUzTBMRlgcJho0aCto",
+            "item_id": "6a43ad33a5ab5166508cb67a"
+           }
+          ]
+          JSON
+
+      - name: Check Google business status
+        env:
+          GOOGLE_PLACES_KEY: ${{ secrets.GOOGLE_PLACES_SERVER_KEY || secrets.GOOGLE_PLACES_KEY }}
+        run: |
+          python3 - <<'PYEOF'
+          import json, csv, time, urllib.request, os
+          from collections import Counter
+          KEY=os.environ.get("GOOGLE_PLACES_KEY")
+          if not KEY: raise SystemExit("No Google Places key secret set.")
+          rows=json.load(open("/tmp/audit/input.json"))
+          def get(url,headers=None,data=None):
+              req=urllib.request.Request(url,headers=headers or {},data=data)
+              with urllib.request.urlopen(req,timeout=20) as r: return json.load(r)
+          def details(pid):
+              url=f"https://places.googleapis.com/v1/places/{pid}?languageCode=en"
+              h={"X-Goog-Api-Key":KEY,"X-Goog-FieldMask":"id,displayName,businessStatus"}
+              try:
+                  d=get(url,headers=h); return d.get("businessStatus","UNKNOWN"),(d.get("displayName") or {}).get("text","")
+              except Exception as e: return f"ERROR:{getattr(e,'code','')}",""
+          def search(name,city):
+              url="https://places.googleapis.com/v1/places:searchText"
+              h={"X-Goog-Api-Key":KEY,"Content-Type":"application/json","X-Goog-FieldMask":"places.id,places.displayName,places.businessStatus"}
+              body=json.dumps({"textQuery":f"{name} {city}".strip()}).encode()
+              try:
+                  d=get(url,headers=h,data=body); p=(d.get("places") or [None])[0]
+                  if not p: return "NOT_FOUND","",""
+                  return p.get("businessStatus","UNKNOWN"),(p.get("displayName") or {}).get("text",""),p.get("id","")
+              except Exception as e: return f"ERROR:{getattr(e,'code','')}","",""
+          LAB={"OPERATIONAL":"Open","CLOSED_TEMPORARILY":"Temporarily closed","CLOSED_PERMANENTLY":"PERMANENTLY CLOSED","NOT_FOUND":"Not found on Google","UNKNOWN":"Unknown"}
+          out=[]
+          for i,r in enumerate(rows,1):
+              pid=r.get("place_id","")
+              if pid: raw,gname=details(pid)
+              else: raw,gname,pid=search(r["name"],r.get("city",""))
+              out.append({"name":r["name"],"city":r.get("city",""),"item_id":r.get("item_id",""),"place_id":pid,"google_name":gname,"raw_status":raw,"status":LAB.get(raw,raw)})
+              time.sleep(0.05)
+              if i%50==0: print(f"...{i}/{len(rows)}")
+          os.makedirs("ci-debug",exist_ok=True)
+          with open("ci-debug/coworking_status.csv","w",newline="",encoding="utf-8") as f:
+              w=csv.DictWriter(f,fieldnames=list(out[0].keys())); w.writeheader(); w.writerows(out)
+          print("Status tally:",Counter(o["status"] for o in out))
+          PYEOF
+
+      - name: Publish result to ci-debug branch
+        run: |
+          git config user.name "nomadwise-bot"
+          git config user.email "actions@github.com"
+          git fetch origin ci-debug || true
+          git checkout -B ci-debug
+          git add -f ci-debug/coworking_status.csv
+          git commit -m "audit: coworking Google business status" || true
+          git push -f origin ci-debug
