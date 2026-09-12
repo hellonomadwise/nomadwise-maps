@@ -112,7 +112,20 @@ What is in place:
 - Release control is Webflow's own per-item sitemap switch plus the
   existing nofollow field. No custom sitemap is needed.
 
-Not built yet (next phases): creating Webflow items from the app for
-new finds, the release switch inside the admin screen, business
-accounts and paid claims, the monthly stats email. The optional
-"Open in Nomad Maps" button on the website is a joint decision.
+Reverse direction (same day): founders queue a space for the site
+from its page in the app ("Queue for the site", admins only; needs a
+Google match). The nightly sync turns each queued space into a Webflow
+DRAFT listing, attached to the matching Country, Region and Location,
+with every fact the app knows and an Images entry holding the approved
+community photos (Google's photos are never copied to the site). It
+stays a draft until a founder adds words and pictures and publishes in
+Webflow; the next night it reads as released. A space whose city or
+neighbourhood matches no Webflow Location stays queued and is listed
+under needs_location in the sync report. Decided: only queued spaces go
+to the site, never every approved one.
+
+Not built yet (next phases): business accounts and paid claims, the
+monthly stats email, a live read of Webflow's sitemap flag (the sync
+uses a snapshot from 12 September until the endpoint is confirmed).
+The optional "Open in Nomad Maps" button on the website is a joint
+decision.
