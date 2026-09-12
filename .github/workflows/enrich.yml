@@ -13,7 +13,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: enrich
@@ -25,19 +25,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Import nomadwise.io Webflow listings into Nomadmaps venues.
-      # Idempotent (skips anything already known) and reversible
-      # (every row is tagged source='nomadwise-webflow').
-      - name: Webflow listings import
+      # Sync the live nomadwise.io Webflow collection into Nomadmaps
+      # venues (slug, website status, editorial facts; inserts newcomers).
+      # Matches on the Google Place ID stored on both sides. Read-only
+      # towards Webflow; skips itself politely if the token is missing.
+      - name: Webflow sync
         continue-on-error: true
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          GOOGLE_PLACES_KEY: ${{ secrets.GOOGLE_PLACES_SERVER_KEY || secrets.GOOGLE_PLACES_KEY }}
+          WEBFLOW_API_TOKEN: ${{ secrets.WEBFLOW_API_TOKEN }}
         run: |
-          if [ -n "$SUPABASE_SERVICE_ROLE_KEY" ] && [ -f scripts/webflow_import_data.json ]; then
-            python3 scripts/webflow_import.py
-          fi
+          python3 scripts/webflow_sync.py
 
       # Coordinates, Google snapshots, review-signal scans (including
       # stored opening hours) and city sweeps.
@@ -54,16 +53,6 @@ jobs:
             echo "Skipping enrichment — secrets not set yet."
           fi
 
-      - name: Webflow match audit
-        continue-on-error: true
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: |
-          if [ -n "$SUPABASE_SERVICE_ROLE_KEY" ] && [ -f scripts/webflow_listings.json ]; then
-            python3 scripts/webflow_audit.py
-          fi
-
       # Reports go to this run's log (readable on GitHub under
       # Actions -> Nightly data enrichment).
       - name: Show reports
@@ -73,3 +62,22 @@ jobs:
             if [ -f "$f" ]; then echo "===== $f"; cat "$f"; echo; fi
           done
           true
+
+      # The sync report also goes to a small "sync-reports" branch so it
+      # can be read without opening the Actions log. Never touches main.
+      - name: Publish sync report
+        if: always()
+        continue-on-error: true
+        run: |
+          if [ ! -f ci-debug/webflow_sync_report.json ]; then exit 0; fi
+          git config user.name "nomadwise-bot"
+          git config user.email "actions@github.com"
+          cp ci-debug/webflow_sync_report.json /tmp/webflow_sync_report.json
+          git checkout --orphan sync-reports
+          git rm -rf --cached . >/dev/null 2>&1 || true
+          rm -rf reports
+          mkdir -p reports
+          cp /tmp/webflow_sync_report.json reports/webflow_sync_report.json
+          git add -f reports/webflow_sync_report.json
+          git commit -m "sync: nightly Webflow sync report"
+          git push -f origin sync-reports
