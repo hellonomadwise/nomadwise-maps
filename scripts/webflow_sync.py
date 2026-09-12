@@ -25,6 +25,15 @@ marked removed but kept.
 Listings whose place is unknown to Nomadmaps are inserted (source
 'nomadwise-webflow', status 'verified'), exactly as the old import did.
 
+The reverse direction (phase 0b): venues the founders have set to
+website_status 'queued' in the admin screen get a Webflow item created
+as a DRAFT, attached to the matching Country, Region and Location, with
+every fact the app knows. Nothing goes live by itself: the founders
+open the draft in Webflow, add the photo and words, and publish; the
+next night's pull sees the live page and marks the venue 'released'.
+A venue whose city or neighbourhood matches no Webflow Location is
+left queued and listed under needs_location in the report.
+
 Needs: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, WEBFLOW_API_TOKEN
 (site token, CMS read + Sites read). Exits politely if any is missing
 or migration 49 has not been applied yet.
@@ -66,7 +75,11 @@ report = {
     'marked_removed': 0,
     'status_counts': {},
     'no_place_id': [],
+    'inserted_names': [],
     'skipped_not_live_new': 0,
+    'queued_for_site': 0,
+    'created_on_site': [],
+    'needs_location': [],
     'errors': [],
 }
 
@@ -281,8 +294,12 @@ if sitemap is None:
 
 
 def status_of(item):
-    if item.get('isArchived') or item.get('isDraft'):
+    if item.get('isArchived'):
         return 'removed'
+    if item.get('isDraft'):
+        # A draft that has never been live is a page in the making;
+        # a draft that used to be live has been taken down.
+        return 'removed' if item.get('lastPublished') else 'published_hidden'
     if item['id'] not in live_ids:
         return 'removed'
     return 'released' if sitemap.get(item['id'], True) else 'published_hidden'
@@ -391,6 +408,7 @@ for item in items:
     if wifi and wifi > 0:
         row['wifi_speed_mbps'] = wifi
     inserts.append(row)
+    report['inserted_names'].append(row['name'])
     by_pid[pid] = row
     report['status_counts'][status] = \
         report['status_counts'].get(status, 0) + 1
@@ -421,5 +439,277 @@ except urllib.error.HTTPError as e:
     report['errors'].append('write failed: ' + e.read().decode()[:400])
     finish(1)
 
+
+# ---------------------------------------------------------------- push
+# Venues the founders queued for the site become Webflow DRAFTS.
+import re  # noqa: E402
+
+IMAGES_ID = '65fa86d0e0379bf78d52451b'
+IMAGES_TYPE_COWORKING = 'ca9c2f49fd6b2b993833e8563871ff2a'
+LOCATIONS_ID = '65fa86d0e0379bf78d52451c'
+REGIONS_ID = '660a67b0318bdc118b67a3e5'
+COUNTRIES_ID = '660a654b9f17e25bfb2500bd'
+ADDED_BY_NOMADWISE = '65fa86d0e0379bf78d524789'
+DESCRIPTION = ('Find cafes & coworking spaces for digital nomads with '
+               'fast WiFi, affordable coffee, aircon, comfy seating, '
+               'plugs, and quiet spots. | ')
+
+
+def _norm(x):
+    return re.sub(r'[^a-z0-9]+', ' ', (x or '').lower()).strip()
+
+
+def slugify(x):
+    x = re.sub(r'[^a-z0-9]+', '-', (x or '').lower()).strip('-')
+    return re.sub(r'-{2,}', '-', x)
+
+
+def word(flag, label):
+    """App booleans back into Webflow's words. Unknown stays empty."""
+    if flag is None:
+        return None
+    return label if flag else 'No'
+
+
+def approved_photos(venue_id, limit=5):
+    """Public URLs of the community photos an admin has approved,
+    oldest first (Google's photos may not be copied to the site)."""
+    try:
+        rows = sb(f'venue_photos?venue_id=eq.{venue_id}'
+                  f'&select=photo_path&order=verified_at.asc&limit={limit}')
+    except Exception:  # noqa: BLE001
+        return []
+    return [f'{SUPABASE_URL}/storage/v1/object/public/submission-photos/'
+            f"{r['photo_path']}" for r in (rows or []) if r.get('photo_path')]
+
+
+def wf_write(path, method, body):
+    return _call(WEBFLOW_API + path,
+                 {'Authorization': f'Bearer {WEBFLOW_TOKEN}',
+                  'accept': 'application/json',
+                  'Content-Type': 'application/json'},
+                 method=method, body=body)
+
+
+def day_fields(v):
+    """Monday..Sunday text from the venue's own hours, else from the
+    cached Google details ('Monday: 9:00 AM - 5:00 PM')."""
+    slugs = ['weekday-hours', 'weekend-hours', 'wednesday', 'thursday',
+             'friday', 'saturday', 'sunday']
+    keys = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
+    out = {}
+    h = v.get('opening_hours') or {}
+    if h:
+        for k, slug_ in zip(keys, slugs):
+            if h.get(k):
+                out[slug_] = h[k]
+        return out
+    g = v.get('g_details') or {}
+    desc = ((g.get('regularOpeningHours') or {})
+            .get('weekdayDescriptions') or [])
+    for line, slug_ in zip(desc, slugs):
+        if ':' in line:
+            out[slug_] = line.split(':', 1)[1].strip()
+    return out
+
+
+try:
+    queued = sb_all(
+        'venues?website_status=eq.queued&webflow_cms_id=is.null'
+        '&select=id,name,type,city,neighbourhood,google_place_id,website,'
+        'instagram,wifi_speed_mbps,google_rating_snapshot,'
+        'google_reviews_snapshot,opening_hours,g_details,power_outlets,'
+        'aircon,comfortable_seating,cozy,quiet_space,good_for_calls,'
+        'call_room,monitor,office_chairs,access_24h')
+except Exception as e:  # noqa: BLE001
+    report['errors'].append(f'queued read: {e}')
+    queued = []
+report['queued_for_site'] = len(queued)
+
+if queued:
+    try:
+        locations = wf_all(f'/v2/collections/{LOCATIONS_ID}/items')
+        regions = wf_all(f'/v2/collections/{REGIONS_ID}/items')
+        countries = wf_all(f'/v2/collections/{COUNTRIES_ID}/items')
+    except Exception as e:  # noqa: BLE001
+        report['errors'].append(f'webflow places read: {e}')
+        locations, regions, countries = [], [], []
+
+    loc_by_label = {}
+    for loc in locations:
+        if loc.get('isArchived') or loc.get('isDraft'):
+            continue
+        loc_by_label.setdefault(
+            _norm(loc['fieldData'].get('name-label')), loc)
+    region_by_id = {r['id']: r for r in regions}
+    region_by_label = {}
+    for r in regions:
+        if not (r.get('isArchived') or r.get('isDraft')):
+            region_by_label.setdefault(
+                _norm(r['fieldData'].get('name-label')), r)
+    country_by_id = {c['id']: c for c in countries}
+    taken_slugs = {(i.get('fieldData') or {}).get('slug') for i in items}
+
+    # The public Maps embed key the existing pages already use.
+    embed_key = ''
+    for i in items:
+        m = re.search(r'[?&]key=([^&]+)', (i.get('fieldData') or {})
+                      .get('map-embed') or '')
+        if m:
+            embed_key = m.group(1)
+            break
+
+    def resolve_place(v):
+        """(region, location or None) for a venue. A Location is a
+        neighbourhood inside a Region and is optional (many listings
+        only have a Region); the Region is what a page needs."""
+        loc = None
+        for cand in (v.get('neighbourhood'), v.get('city')):
+            loc = loc_by_label.get(_norm(cand))
+            if loc:
+                break
+        if loc:
+            lf = loc['fieldData']
+            region = region_by_id.get(lf.get('region-3')) or region_by_id.get(
+                (lf.get('region-2') or [None])[0])
+            return region, loc
+        for cand in (v.get('city'), v.get('neighbourhood')):
+            region = region_by_label.get(_norm(cand))
+            if region:
+                return region, None
+        return None, None
+
+    for v in queued:
+        if not v.get('google_place_id'):
+            report['needs_location'].append(
+                {'name': v['name'], 'why': 'no Google Place ID'})
+            continue
+        region, loc = resolve_place(v)
+        if not region:
+            report['needs_location'].append(
+                {'name': v['name'], 'city': v.get('city'),
+                 'neighbourhood': v.get('neighbourhood'),
+                 'why': 'no Webflow Region or Location matches its '
+                        'city or neighbourhood'})
+            continue
+        rf = region['fieldData']
+        lf = loc['fieldData'] if loc else {}
+        country = country_by_id.get(rf.get('country') or lf.get('country'))
+        if not country:
+            report['needs_location'].append(
+                {'name': v['name'], 'region': rf.get('name'),
+                 'why': 'Region has no Country'})
+            continue
+        cf = country['fieldData']
+        where = lf.get('name-label') or rf.get('name-label')
+        is_cow = v.get('type') == 'coworking'
+        kind = 'Coworking Space' if is_cow else 'Cafe'
+        pid = v['google_place_id']
+        base = f"{rf.get('slug')}-{slugify(v['name'])}"
+        slug_ = base
+        n = 2
+        while slug_ in taken_slugs:
+            slug_ = f'{base}-{n}'
+            n += 1
+        taken_slugs.add(slug_)
+
+        fields = {
+            'name': v['name'],
+            'slug': slug_,
+            'google-place-id': pid,
+            'cafe-or-coworking': OPTION_COWORKING if is_cow else OPTION_CAFE,
+            'country': country['id'],
+            'region-2': region['id'],
+            'locations': loc['id'] if loc else None,
+            'locations-label': lf.get('name-label'),
+            'region-label': rf.get('name-label'),
+            'place-added-by': ADDED_BY_NOMADWISE,
+            'map-embed': ('https://www.google.com/maps/embed/v1/place'
+                          f'?key={embed_key}&q=place_id:{pid}'),
+            'map-directions': ('https://www.google.com/maps/search/?api=1'
+                               f"&query={urllib.parse.quote(v['name'])}"
+                               f'&query_place_id={pid}'),
+            'website-url': v.get('website'),
+            'instagram': v.get('instagram'),
+            'rating': v.get('google_rating_snapshot'),
+            'reviews': v.get('google_reviews_snapshot'),
+            'average-internet-speed': v.get('wifi_speed_mbps'),
+            'enough-plug-sockets': word(v.get('power_outlets'),
+                                        'Enough Plug Sockets'),
+            'sea-view': word(v.get('aircon'), 'Aircon'),
+            'comfortable-seating': word(v.get('comfortable_seating'),
+                                        'Comfortable Seating'),
+            'cozy': word(v.get('cozy'), 'Cozy'),
+            'gluten-friendly-option-gf': word(v.get('quiet_space'),
+                                              'Quiet Space'),
+            'good-for-calls': word(v.get('good_for_calls'), 'Good for Calls'),
+            'isolated-quiet-room': word(v.get('call_room'), 'Skype Room'),
+            'monitor-available': word(v.get('monitor'), 'Monitor Available'),
+            'office-chairs': word(v.get('office_chairs'), 'Office Chairs'),
+            '24hr-member-access': word(v.get('access_24h'), '24 Hour Access'),
+            'membership-plans-available': 'Pass Required' if is_cow else 'No',
+            'h1-label': (f"{v['name']} in {lf.get('name-label')} - "
+                         f"{rf.get('name-label')}" if loc
+                         else f"{v['name']} in {rf.get('name-label')}"),
+            'title-tag': f"{v['name']}: {kind} with WiFi in "
+                         f"{rf.get('name-label')}",
+            'meta-description': DESCRIPTION + v['name'],
+            'back-button-url': ('https://www.nomadwise.io/region/'
+                                f"{rf.get('slug')}"),
+            'nofollow': 'nofollow',
+        }
+        fields.update(day_fields(v))
+        fields = {k: val for k, val in fields.items() if val is not None}
+        try:
+            made = wf_write(f'/v2/collections/{COLLECTION_ID}/items', 'POST',
+                            {'isDraft': True, 'isArchived': False,
+                             'fieldData': fields})
+            new_id = (made or {}).get('id')
+            if not new_id:
+                raise RuntimeError(f'no id in response: {made}')
+
+            # Its Images entry: the approved community photos, plus
+            # the alt and title text the other entries use. Created
+            # even when there are no photos yet, so the founders only
+            # have to drop pictures in, not build the entry.
+            photos = approved_photos(v['id'])
+            caption = f"{v['name']} in {where}"
+            img = {'name': f"{v['name']} 1", 'slug': f'{slug_}-1',
+                   'coworking-space': new_id,
+                   'coworking-spaces-multi-ref': [new_id],
+                   'type': IMAGES_TYPE_COWORKING,
+                   'has-enough-images': len(photos) > 3}
+            for n, url in enumerate(photos, start=1):
+                suffix = '' if n == 1 else f'-{n}'
+                alt = caption if n == 1 else f'{caption} {n}'
+                img[f'image{suffix}'] = {'url': url, 'alt': alt}
+                img[f'alt-text{suffix}'] = alt
+                img[f'image-title{suffix}'] = caption
+            time.sleep(1.1)
+            made_img = wf_write(f'/v2/collections/{IMAGES_ID}/items', 'POST',
+                                {'isDraft': True, 'isArchived': False,
+                                 'fieldData': img})
+            img_id = (made_img or {}).get('id')
+            if img_id:
+                time.sleep(1.1)
+                wf_write(f'/v2/collections/{COLLECTION_ID}/items/{new_id}',
+                         'PATCH', {'fieldData': {'image-reference': img_id}})
+
+            sb(f"venues?id=eq.{v['id']}", method='PATCH',
+               body={'webflow_cms_id': new_id, 'webflow_slug': slug_,
+                     'website_status': 'published_hidden',
+                     'website_synced_at': now},
+               prefer='return=minimal')
+            report['created_on_site'].append(
+                {'name': v['name'], 'slug': slug_, 'photos': len(photos),
+                 'images_entry': bool(img_id)})
+        except urllib.error.HTTPError as e:
+            report['errors'].append(
+                f"create {v['name']}: {e.code} {e.read().decode()[:300]}")
+        except Exception as e:  # noqa: BLE001
+            report['errors'].append(f"create {v['name']}: {e}")
+        time.sleep(1.1)  # stay well under Webflow's per-minute limit
+
 report['no_place_id'] = report['no_place_id'][:20]
-finish(0)
+report['inserted_names'] = report['inserted_names'][:40]
+finish(1 if report['errors'] else 0)
