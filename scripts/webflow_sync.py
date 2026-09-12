@@ -218,6 +218,16 @@ def editorial_fields(f, existing_type=None):
     return {k: v for k, v in out.items() if v is not None}
 
 
+def _unexpected(exc_type, exc, tb):
+    import traceback
+    report['errors'].append('unexpected: ' + ''.join(
+        traceback.format_exception(exc_type, exc, tb))[-800:])
+    finish(1)
+
+
+sys.excepthook = _unexpected
+
+
 # ------------------------------------------------------------ webflow
 try:
     items = wf_all(f'/v2/collections/{COLLECTION_ID}/items')
@@ -318,7 +328,9 @@ for item in items:
     elif cms_id in by_cms:
         venue, how = by_cms[cms_id], 'matched_by_cms_id'
 
-    if venue and venue['id'] in claimed:
+    if venue and (venue.get('id') is None or venue['id'] in claimed):
+        # Already handled this run (a second Webflow item pointing at
+        # the same place, or a place queued for insertion just above).
         continue
     if venue:
         claimed.add(venue['id'])
