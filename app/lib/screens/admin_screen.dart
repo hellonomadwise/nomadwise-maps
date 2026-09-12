@@ -591,6 +591,17 @@ class _SubmissionCardState extends State<_SubmissionCard> {
             Text('Tap a feature to cycle Yes → No → Unknown',
                 style:
                     TextStyle(color: Colors.grey.shade500, fontSize: 11)),
+            const SizedBox(height: 6),
+            // Where this space stands on nomadwise.io (nightly sync).
+            Row(children: [
+              Icon(Icons.public, size: 14, color: Colors.grey.shade500),
+              const SizedBox(width: 4),
+              Text(
+                  'nomadwise.io: ${_websiteLabel(venue.websiteStatus)}'
+                  '${venue.webflowSlug != null ? '  /coworking/${venue.webflowSlug}' : ''}',
+                  style: TextStyle(
+                      color: Colors.grey.shade600, fontSize: 11)),
+            ]),
             const SizedBox(height: 8),
           ],
 
@@ -616,6 +627,14 @@ class _SubmissionCardState extends State<_SubmissionCard> {
       ),
     );
   }
+
+  static String _websiteLabel(String? status) => switch (status) {
+        'released' => 'Released',
+        'published_hidden' => 'Published, hidden from sitemap',
+        'queued' => 'Queued for the site',
+        'removed' => 'Removed from the site',
+        _ => 'Not on the site',
+      };
 
   Widget _featureChip(String label, String key, bool? value) {
     final (color, icon) = switch (value) {

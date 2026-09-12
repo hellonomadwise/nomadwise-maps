@@ -42,6 +42,23 @@ class Venue {
   /// When the community last confirmed this venue's info.
   final DateTime? lastConfirmedAt;
 
+  /// The page on nomadwise.io (nomadwise.io/coworking/<slug>), kept in
+  /// step by the nightly Webflow sync. websiteStatus is one of
+  /// not_on_site / queued / published_hidden / released / removed.
+  final String? webflowSlug;
+  final String? websiteStatus;
+
+  /// The public nomadwise.io page for this space, when it has one.
+  Uri? get websitePage {
+    final slug = webflowSlug;
+    if (slug == null || slug.isEmpty) return null;
+    if (websiteStatus != 'released' &&
+        websiteStatus != 'published_hidden') {
+      return null;
+    }
+    return Uri.parse('https://www.nomadwise.io/coworking/$slug');
+  }
+
   /// Google photos curated away (food close-ups etc).
   final List<String> hiddenPhotos;
 
@@ -89,6 +106,8 @@ class Venue {
         lastConfirmedAt = j['last_confirmed_at'] != null
             ? DateTime.tryParse(j['last_confirmed_at'])
             : null,
+        webflowSlug = j['webflow_slug'],
+        websiteStatus = j['website_status'],
         hiddenPhotos =
             (j['hidden_photos'] as List?)?.cast<String>() ?? const [],
         raw = j {

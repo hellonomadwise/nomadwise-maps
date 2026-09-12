@@ -84,3 +84,35 @@ to bottom when there is time. Updated 26 July 2026.
 Nothing public without both founders. Nothing touches nomadwise
 content, data or SEO without a joint yes. Anything reversible stays
 reversible.
+
+## Shipped: the one-to-one link with nomadwise.io (12 September 2026)
+
+Both founders agreed the first step of the Listings Engine is a
+reliable link between every Nomad Maps venue and its nomadwise.io
+page, in both directions, before any business features are built.
+
+What is in place:
+
+- The Webflow Coworking collection has a "Google Place ID" field,
+  filled for 998 of 999 listings (the odd one out, Merchants Lane, is
+  permanently closed: archived, with a redirect to its city page).
+  The place id is the shared key on both sides; nothing else is.
+- Migration 49 adds venues.webflow_slug, website_status and
+  website_synced_at. The nightly job (scripts/webflow_sync.py, run by
+  enrich.yml, token WEBFLOW_API_TOKEN) reads the live Webflow
+  collection, matches on the place id and keeps those fields current.
+  Its report lands on the sync-reports branch.
+- Field ownership rule, so the two systems never fight: Webflow wins
+  on words (name, type, website, instagram, neighbourhood, Google
+  snapshots, fallback hours, the yes/no facts); the community wins
+  on measurements (a venue's WiFi speed is never overwritten once a
+  nomad has tested it there; photos and confirmations are untouched).
+- The space page in the app shows "See the full guide on nomadwise.io"
+  while the page is live; admins see each space's website status.
+- Release control is Webflow's own per-item sitemap switch plus the
+  existing nofollow field. No custom sitemap is needed.
+
+Not built yet (next phases): creating Webflow items from the app for
+new finds, the release switch inside the admin screen, business
+accounts and paid claims, the monthly stats email. The optional
+"Open in Nomad Maps" button on the website is a joint decision.

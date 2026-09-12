@@ -1,0 +1,3882 @@
+{
+  "generated": "2026-09-12",
+  "type": "live",
+  "items": {
+    "6a43ad33a5ab5166508cb67a": {
+      "slug": "montenegro-kotor-nomio-coworking-lounge",
+      "includeInSitemap": true
+    },
+    "69c349f3cc1ef85a9098c404": {
+      "slug": "indonesia-bali-baguccino",
+      "includeInSitemap": true
+    },
+    "692a198139ec79a2157ebf5f": {
+      "slug": "croatia-split-hive-five-coworking-space-trogir",
+      "includeInSitemap": true
+    },
+    "68a2fa2ada4c4a5087adda9f": {
+      "slug": "indonesia-bali-kawisari-coffee-farm-shop-eatery-bali",
+      "includeInSitemap": true
+    },
+    "68a2fa294f772123c82934f3": {
+      "slug": "england-brighton-yolk-house-farringdon",
+      "includeInSitemap": true
+    },
+    "68a2fa2903f08bf14606d2f6": {
+      "slug": "paraguay-asuncion-el-cafe-de-aca-paseo-galeria",
+      "includeInSitemap": true
+    },
+    "68a2fa2903f08bf14606d2f3": {
+      "slug": "portugal-lisbon-jiboia-studio",
+      "includeInSitemap": true
+    },
+    "68a2fa295bf48671df8927f3": {
+      "slug": "indonesia-bali-slavic-roots-cafe-and-eatery",
+      "includeInSitemap": true
+    },
+    "68a2fa29a392c76e4ce3160d": {
+      "slug": "england-brighton-yolk-house-ltd",
+      "includeInSitemap": true
+    },
+    "68a2fa296ea37c7e45863609": {
+      "slug": "cyprus-paphos-boka-workspace",
+      "includeInSitemap": true
+    },
+    "68a2fa29da54a513639efb75": {
+      "slug": "portugal-madeira-friends-hub",
+      "includeInSitemap": true
+    },
+    "689ea4445fd1f4dfba3264c7": {
+      "slug": "india-bengaluru-sierra-cartel",
+      "includeInSitemap": true
+    },
+    "688cc1e52c5a3b0ccf60a3e0": {
+      "slug": "united-states-duluth-190-coffee-and-tea",
+      "includeInSitemap": true
+    },
+    "688cc1e4c04b37d19159d16f": {
+      "slug": "germany-hannover-ecos-work-spaces-hannover-sud",
+      "includeInSitemap": true
+    },
+    "688cc1e479b1b078b64c5458": {
+      "slug": "united-arab-emirates-dubai-cafe-de-palma",
+      "includeInSitemap": true
+    },
+    "6861a7d71ecd566aa10a46e2": {
+      "slug": "thailand-chiang-mai-studios-94",
+      "includeInSitemap": true
+    },
+    "6840bf2684f557d9f0837ab4": {
+      "slug": "united-states-new-york-city-joe-the-juice-lexington-ave-street",
+      "includeInSitemap": true
+    },
+    "6840bf20edd5a1245b84305b": {
+      "slug": "netherlands-amsterdam-workspace-6",
+      "includeInSitemap": true
+    },
+    "6840bf1fccd14459496f7013": {
+      "slug": "thailand-bangkok-linuxx-serviced-offices-vanissa",
+      "includeInSitemap": true
+    },
+    "6840bf1fbfd7bd3fee0521fa": {
+      "slug": "portugal-ericeira-boardriders-quiksilver-roxy-dc-shoes-ericeira",
+      "includeInSitemap": true
+    },
+    "6840bf1f2865edd274230aa8": {
+      "slug": "thailand-bangkok-linuxx-serviced-offices-emporium",
+      "includeInSitemap": true
+    },
+    "682f68cfdfdebe7cbc3a4acc": {
+      "slug": "portugal-ericeira-balagan",
+      "includeInSitemap": true
+    },
+    "682f68cf5ea7af73c20f95c0": {
+      "slug": "ecuador-quinto-play-house",
+      "includeInSitemap": true
+    },
+    "682f68cfd76c09cb79ce280b": {
+      "slug": "ecuador-quito-paccari-experience-house",
+      "includeInSitemap": true
+    },
+    "682f68ce3f5caf1d9b1fff69": {
+      "slug": "indonesia-lombok-karia-coworking",
+      "includeInSitemap": true
+    },
+    "682f68ce6a882ae0d3254e9d": {
+      "slug": "ecuador-quito-cafe-velez-la-floresta",
+      "includeInSitemap": true
+    },
+    "682f68ce868bdbefdaaab531": {
+      "slug": "portugal-ericeira-hurley-surf-club",
+      "includeInSitemap": true
+    },
+    "682f68cea052aea1cac1d918": {
+      "slug": "portugal-ericeira-the-capsule",
+      "includeInSitemap": true
+    },
+    "682f68cd609c7f75894b2082": {
+      "slug": "sri-lanka-tangalle-easylife-campus",
+      "includeInSitemap": true
+    },
+    "682f68cd6850d1a8dbefbd1c": {
+      "slug": "united-arab-emirates-dubai-cafe-de-paris",
+      "includeInSitemap": true
+    },
+    "682f68cdf24f3f6a1d3a950d": {
+      "slug": "portugal-ericeira-gig-green-is-good",
+      "includeInSitemap": true
+    },
+    "682f68cd8cb09f6ab7be4838": {
+      "slug": "indonesia-bali-le-bajo-bali",
+      "includeInSitemap": true
+    },
+    "682f68cdb474326072435878": {
+      "slug": "portugal-ericeira-dear-rose-cafe",
+      "includeInSitemap": true
+    },
+    "6809d29f812c1fb97363c9ba": {
+      "slug": "england-london-argyll-1-king-william-street",
+      "includeInSitemap": true
+    },
+    "6809d29f79bb466f4f66fecc": {
+      "slug": "england-london-the-observatory-coffee-shop",
+      "includeInSitemap": true
+    },
+    "6809d00f3d3ee1234b7be39f": {
+      "slug": "egypt-hurghada-rednerd-coliving",
+      "includeInSitemap": true
+    },
+    "6809d00d1f2325d5045f6fe1": {
+      "slug": "philippines-siargao-coco-space",
+      "includeInSitemap": true
+    },
+    "6809d00d94d120b9c29c84bb": {
+      "slug": "indonesia-nusa-penida-alily-lounge-restaurant-bar",
+      "includeInSitemap": true
+    },
+    "6809d00d25e5cac9d891ffc0": {
+      "slug": "austria-vienna-aida-cafe-konditorei-singerstrasse",
+      "includeInSitemap": true
+    },
+    "6809d00d92fd7d3374c631c4": {
+      "slug": "indonesia-east-java-local-noodle-cafe",
+      "includeInSitemap": true
+    },
+    "6809d00c9b273d029c33b6e0": {
+      "slug": "indonesia-east-java-oikia-cafe-and-eatery",
+      "includeInSitemap": true
+    },
+    "6809d00c8b8009b34b3a05a5": {
+      "slug": "indonesia-east-java-simposium-coffee",
+      "includeInSitemap": true
+    },
+    "6809d00c1f2325d5045f6e89": {
+      "slug": "australia-cairns-caffiend",
+      "includeInSitemap": true
+    },
+    "6809d00c8fb333d4e527351c": {
+      "slug": "indonesia-bali-natys-bar-grill",
+      "includeInSitemap": true
+    },
+    "6809d00ce45574f02ae1603b": {
+      "slug": "indonesia-bali-home-cafe",
+      "includeInSitemap": true
+    },
+    "6809d00b92fd7d3374c6311d": {
+      "slug": "indonesia-bali-tarisa-cafe",
+      "includeInSitemap": true
+    },
+    "6809d00b2aa4ba2c3ee0112c": {
+      "slug": "indonesia-bali-7am-bakers-and-7pm-diners-pererenan",
+      "includeInSitemap": true
+    },
+    "6809d00b709fce94fc706d8c": {
+      "slug": "indonesia-bali-kokos-kitchen-bar",
+      "includeInSitemap": true
+    },
+    "6809d00bb6b8aaacae652480": {
+      "slug": "indonesia-bali-bulls-coffee-negara",
+      "includeInSitemap": true
+    },
+    "6809d00bc24ac45af7799899": {
+      "slug": "england-london-grounded-london",
+      "includeInSitemap": true
+    },
+    "6809d00b95ba1239c121005a": {
+      "slug": "england-manchester-industrious-st-peters-square",
+      "includeInSitemap": true
+    },
+    "6809d00b146566dc3d30c443": {
+      "slug": "indonesia-bali-bright-cafe",
+      "includeInSitemap": true
+    },
+    "6809d00b92fd7d3374c6308a": {
+      "slug": "england-london-black-sheep-coffee-elizabeth-street",
+      "includeInSitemap": true
+    },
+    "6809d00a41cbbf7c9a3974f4": {
+      "slug": "england-london-plexal-shoreditch",
+      "includeInSitemap": true
+    },
+    "6809d00a9b7082d7ab262065": {
+      "slug": "england-london-black-sheep-coffee-victoria-st",
+      "includeInSitemap": true
+    },
+    "6809d00a12a4f2a72acc8edf": {
+      "slug": "england-london-ole-steen",
+      "includeInSitemap": true
+    },
+    "6809d00a2b95fde8a6490648": {
+      "slug": "england-london-the-acai-girls-belgravia",
+      "includeInSitemap": true
+    },
+    "6809d00a8fb333d4e52733b4": {
+      "slug": "england-london-stullen",
+      "includeInSitemap": true
+    },
+    "6809d009c6dc5faef1524770": {
+      "slug": "england-london-chestnut-bakery-belgravia",
+      "includeInSitemap": true
+    },
+    "6809d009ef2baf52183a38ab": {
+      "slug": "england-london-argyll-nova-north",
+      "includeInSitemap": true
+    },
+    "6809d009b596b2a76218ace0": {
+      "slug": "england-london-industrious-windmill-green",
+      "includeInSitemap": true
+    },
+    "6809d009744673d0e5f5afe4": {
+      "slug": "england-london-usco-stratford-coworking-meeting-rooms",
+      "includeInSitemap": true
+    },
+    "6809d008ea423d76c26e8cdb": {
+      "slug": "england-london-gladwells-deli-grocery",
+      "includeInSitemap": true
+    },
+    "6809d0088d21fca2437b87ca": {
+      "slug": "england-london-collaborative-one-flexible-workspaces",
+      "includeInSitemap": true
+    },
+    "6809d008744673d0e5f5af59": {
+      "slug": "england-london-lumberjack-cafe",
+      "includeInSitemap": true
+    },
+    "6809d0082aa4ba2c3ee00e6b": {
+      "slug": "england-london-spare-street-works",
+      "includeInSitemap": true
+    },
+    "6809d0077a5c39fcdc92683c": {
+      "slug": "england-london-soderberg-soho",
+      "includeInSitemap": true
+    },
+    "6809d0078141cc203339b77d": {
+      "slug": "england-london-coffee-junction",
+      "includeInSitemap": true
+    },
+    "6809d007aaa66b13a54e9e30": {
+      "slug": "england-london-grind-shoreditch",
+      "includeInSitemap": true
+    },
+    "6809d00612a4f2a72acc8b80": {
+      "slug": "england-london-shoreditch-exchange",
+      "includeInSitemap": true
+    },
+    "6809d006443445c220870e8d": {
+      "slug": "england-london-the-brew-eagle-house-shoreditch",
+      "includeInSitemap": true
+    },
+    "6809d006c6ebe30715270158": {
+      "slug": "england-london-serendipity-coffee-house",
+      "includeInSitemap": true
+    },
+    "6809d0061f2325d5045f697d": {
+      "slug": "england-london-argyll-288-bishopsgate",
+      "includeInSitemap": true
+    },
+    "6809d0052b95fde8a64903e3": {
+      "slug": "england-london-the-roasting",
+      "includeInSitemap": true
+    },
+    "6809d00596ac59bddca355d7": {
+      "slug": "england-london-paddington-works-coworking-meeting-rooms",
+      "includeInSitemap": true
+    },
+    "6809d00512a4f2a72acc8a83": {
+      "slug": "england-london-redemption-roasters-piccadilly",
+      "includeInSitemap": true
+    },
+    "6809d0057e404065049f6ec4": {
+      "slug": "england-london-fwdcoffee-whitecross-st",
+      "includeInSitemap": true
+    },
+    "6809d0049b273d029c33ad94": {
+      "slug": "england-london-the-workers-league-bonhill-street",
+      "includeInSitemap": true
+    },
+    "6809d004ad3417de7779e961": {
+      "slug": "england-london-industrious-77-coleman-street",
+      "includeInSitemap": true
+    },
+    "6809d00484cf6fe0ca12cae0": {
+      "slug": "england-london-argyll-20-north-audley-street",
+      "includeInSitemap": true
+    },
+    "6809d003e55fef2e1e088919": {
+      "slug": "england-london-watchhouse-hanover",
+      "includeInSitemap": true
+    },
+    "6809d0037e404065049f6df8": {
+      "slug": "england-london-watchhouse-marylebone",
+      "includeInSitemap": true
+    },
+    "6809d003744673d0e5f5ad21": {
+      "slug": "england-london-uncommon-liverpool-street-flexible-office-work-space",
+      "includeInSitemap": true
+    },
+    "6809d00392fd7d3374c629d8": {
+      "slug": "england-london-blue-garage-coworking-space",
+      "includeInSitemap": true
+    },
+    "6809d0028141cc203339b509": {
+      "slug": "england-london-prufrock-coffee",
+      "includeInSitemap": true
+    },
+    "6809d002ab10cbeb29fc77b9": {
+      "slug": "england-london-only-connect-kings-cross",
+      "includeInSitemap": true
+    },
+    "6809d00294d120b9c29c7b9b": {
+      "slug": "england-london-impact-hub-london-kings-cross",
+      "includeInSitemap": true
+    },
+    "6809d00284cf6fe0ca12c9ae": {
+      "slug": "england-london-brew-garden-caffe-vergnano-1882",
+      "includeInSitemap": true
+    },
+    "6809d001fee47a27657c44b2": {
+      "slug": "england-london-redemption-roasters-holborn",
+      "includeInSitemap": true
+    },
+    "6809d001744673d0e5f5a887": {
+      "slug": "england-london-labs-90-high-holborn",
+      "includeInSitemap": true
+    },
+    "6809d001709fce94fc7067f1": {
+      "slug": "england-london-uncommon-holborn-flexible-office-work-space",
+      "includeInSitemap": true
+    },
+    "6809d001aaa66b13a54e97d5": {
+      "slug": "england-london-labs-house",
+      "includeInSitemap": true
+    },
+    "6809d001e45574f02ae155b3": {
+      "slug": "england-london-labs-hogarth-house",
+      "includeInSitemap": true
+    },
+    "6809d000744673d0e5f5a536": {
+      "slug": "england-london-argyll-central-court",
+      "includeInSitemap": true
+    },
+    "6809d0009b273d029c33aa58": {
+      "slug": "england-london-uncommon-highbury-flexible-office-work-space",
+      "includeInSitemap": true
+    },
+    "6809d0001f2325d5045f64d8": {
+      "slug": "england-london-missionworks",
+      "includeInSitemap": true
+    },
+    "6809d000961511d665e9e1b5": {
+      "slug": "england-london-plexal-stratford",
+      "includeInSitemap": true
+    },
+    "6809d000fee47a27657c43e0": {
+      "slug": "england-london-industrious-245-hammersmith-rd",
+      "includeInSitemap": true
+    },
+    "6809cfff79bb466f4f651aa9": {
+      "slug": "england-london-design-district-coworking",
+      "includeInSitemap": true
+    },
+    "6809cfff7a5c39fcdc92641f": {
+      "slug": "england-london-attendant-coffee-roasters-fitzrovia",
+      "includeInSitemap": true
+    },
+    "6809cfffab3e78356fccc2e1": {
+      "slug": "england-london-the-fleet-street-press",
+      "includeInSitemap": true
+    },
+    "6809cfffe45574f02ae15494": {
+      "slug": "england-london-uncommon-fulham-flexible-office-work-space",
+      "includeInSitemap": true
+    },
+    "6809cffe9b7082d7ab2616de": {
+      "slug": "england-london-qima-cafe-and-patisserie-fitzrovia",
+      "includeInSitemap": true
+    },
+    "6809cffe8b8009b34b39fc38": {
+      "slug": "england-london-eoffice-fitzrovia",
+      "includeInSitemap": true
+    },
+    "6809cffe3d3ee1234b7bd9ed": {
+      "slug": "england-london-fwdcoffee-farringdon-rd",
+      "includeInSitemap": true
+    },
+    "6809cffe30e33b57847ddd0b": {
+      "slug": "england-london-impact-hub-london-euston",
+      "includeInSitemap": true
+    },
+    "6809cffd369276b846962d54": {
+      "slug": "england-london-redemption-roasters-covent-garden",
+      "includeInSitemap": true
+    },
+    "6809cffd00ffd0361151c758": {
+      "slug": "england-london-watchhouse-somerset-house",
+      "includeInSitemap": true
+    },
+    "6809cffdc6ebe3071526fc39": {
+      "slug": "england-london-coffee-island",
+      "includeInSitemap": true
+    },
+    "6809cffd84cf6fe0ca12c631": {
+      "slug": "england-london-wolfox-savoy-london",
+      "includeInSitemap": true
+    },
+    "6809cffd146566dc3d30b316": {
+      "slug": "england-london-industrious-70-st-mary-axe",
+      "includeInSitemap": true
+    },
+    "6809cffccca1f7b77befdec3": {
+      "slug": "england-london-argyll-michelin-house",
+      "includeInSitemap": true
+    },
+    "6809cffc8b8009b34b39fa8a": {
+      "slug": "england-london-common",
+      "includeInSitemap": true
+    },
+    "6809cffccca1f7b77befde5b": {
+      "slug": "england-london-worklife-camden-coworking",
+      "includeInSitemap": true
+    },
+    "6809cffb12a4f2a72acc82e3": {
+      "slug": "england-london-argyll-1-cornhill",
+      "includeInSitemap": true
+    },
+    "6809cffac6dc5faef1523d44": {
+      "slug": "england-london-argyll-octagon-point",
+      "includeInSitemap": true
+    },
+    "6809cffaea423d76c26e82bc": {
+      "slug": "england-london-argyll-85-gresham-street",
+      "includeInSitemap": true
+    },
+    "6809cff9ad3417de7779e4fa": {
+      "slug": "england-london-usco-monument",
+      "includeInSitemap": true
+    },
+    "6809cff9b0476ee3035a45f2": {
+      "slug": "england-london-labs-atrium",
+      "includeInSitemap": true
+    },
+    "6809cff8369276b84696299c": {
+      "slug": "england-london-labs-hawley-lock",
+      "includeInSitemap": true
+    },
+    "6809cff82b95fde8a648fd90": {
+      "slug": "england-london-the-workers-league-blackheath",
+      "includeInSitemap": true
+    },
+    "6809cff800ffd0361151c42c": {
+      "slug": "england-london-stir-coffee-brixton",
+      "includeInSitemap": true
+    },
+    "6809cff8e55fef2e1e088016": {
+      "slug": "england-london-uncommon-borough-flexible-office-work-space",
+      "includeInSitemap": true
+    },
+    "6809cff8961511d665e9d6c4": {
+      "slug": "england-london-impact-brixton",
+      "includeInSitemap": true
+    },
+    "6809cff71f2325d5045f6070": {
+      "slug": "england-london-idea-space",
+      "includeInSitemap": true
+    },
+    "6809cff7961511d665e9d686": {
+      "slug": "england-london-sendero-specialty-coffee-patcham-terrace",
+      "includeInSitemap": true
+    },
+    "6809cff77a5c39fcdc925da1": {
+      "slug": "england-london-attendant-coffee-roasters-bank",
+      "includeInSitemap": true
+    },
+    "6809cff72aa4ba2c3edffb0f": {
+      "slug": "england-london-doppio-coffee-warehouse-battersea",
+      "includeInSitemap": true
+    },
+    "6809cff795ba1239c120e7d2": {
+      "slug": "portugal-lisbon-avila-spaces-parque-das-nacoes",
+      "includeInSitemap": true
+    },
+    "6809cff7e45574f02ae14dba": {
+      "slug": "england-london-bespoke-spaces-coworking-archway",
+      "includeInSitemap": true
+    },
+    "6809cff694d120b9c29c6cfe": {
+      "slug": "england-london-bespoke-spaces-coworking-hornsey-rd",
+      "includeInSitemap": true
+    },
+    "6809cff6709fce94fc706079": {
+      "slug": "england-london-ark-coworking",
+      "includeInSitemap": true
+    },
+    "6809cff6b0476ee3035a449e": {
+      "slug": "england-london-the-workwell-ec1",
+      "includeInSitemap": true
+    },
+    "6809cff63edc9df7affd054d": {
+      "slug": "portugal-lisbon-avila-spaces",
+      "includeInSitemap": true
+    },
+    "6809cff67a5c39fcdc925cac": {
+      "slug": "england-london-beehive-lofts-coworking",
+      "includeInSitemap": true
+    },
+    "6809cff65b7d6598c8b425e1": {
+      "slug": "portugal-lisbon-lisbon-cowork",
+      "includeInSitemap": true
+    },
+    "6809cff59b7082d7ab261209": {
+      "slug": "portugal-lisbon-time-to-cowork",
+      "includeInSitemap": true
+    },
+    "6809cff5369276b8469627bd": {
+      "slug": "portugal-lisbon-impact-hub-lisbon-baixa",
+      "includeInSitemap": true
+    },
+    "6809cff57a5c39fcdc925c4d": {
+      "slug": "portugal-lisbon-tribe-social-club-coworking",
+      "includeInSitemap": true
+    },
+    "6809cff512a4f2a72acc7fa9": {
+      "slug": "portugal-lisbon-heden-rossio",
+      "includeInSitemap": true
+    },
+    "6809cff53d3ee1234b7bd57a": {
+      "slug": "spain-barcelona-cloudworks-sant-antoni",
+      "includeInSitemap": true
+    },
+    "6809cff51f2325d5045f5e8c": {
+      "slug": "germany-berlin-engelnest-coworking-space-and-event-venue",
+      "includeInSitemap": true
+    },
+    "6809cff53d3ee1234b7bd553": {
+      "slug": "spain-barcelona-maui-beach-coworking",
+      "includeInSitemap": true
+    },
+    "6809cff43edc9df7affd0400": {
+      "slug": "spain-barcelona-eclektic-space-coworking-poblenou",
+      "includeInSitemap": true
+    },
+    "6809cff4f1c03b3ee7301806": {
+      "slug": "spain-barcelona-pau-coworking",
+      "includeInSitemap": true
+    },
+    "6809cff4146566dc3d30aefe": {
+      "slug": "spain-barcelona-the-social-hub-coworking-barcelona-poblenou",
+      "includeInSitemap": true
+    },
+    "6809cff42aa4ba2c3edff960": {
+      "slug": "spain-barcelona-la-vaca-coworking-barcelona",
+      "includeInSitemap": true
+    },
+    "6809cff492fd7d3374c61eda": {
+      "slug": "spain-barcelona-cloudworks-sant-joan",
+      "includeInSitemap": true
+    },
+    "6809cff33edc9df7affd035d": {
+      "slug": "spain-barcelona-mob-bailen-coworking-and-office-space",
+      "includeInSitemap": true
+    },
+    "6809cff330e33b57847dd468": {
+      "slug": "spain-barcelona-cloudworks-el-born",
+      "includeInSitemap": true
+    },
+    "6809cff330e33b57847dd465": {
+      "slug": "spain-barcelona-cloudworks-la-rambla-drassanes",
+      "includeInSitemap": true
+    },
+    "6809cff3ea423d76c26e7c7c": {
+      "slug": "spain-barcelona-espai-born",
+      "includeInSitemap": true
+    },
+    "6809cff3443445c22086feee": {
+      "slug": "spain-barcelona-betahaus-coworking-barcelona",
+      "includeInSitemap": true
+    },
+    "67f8adc66fca3737f5d67517": {
+      "slug": "germany-hochtaunuskreis-cosp-coworking-space-glashuetten",
+      "includeInSitemap": true
+    },
+    "67f8adc654fe9b4f221d44d6": {
+      "slug": "indonesia-bali-flow-workspace",
+      "includeInSitemap": true
+    },
+    "67f8adc6d69e2722cd625a3c": {
+      "slug": "south-korea-seoul-behongli-coworking-space",
+      "includeInSitemap": true
+    },
+    "67f8adc6a4f7481d14a8a101": {
+      "slug": "england-plymouth-thinqtanq",
+      "includeInSitemap": true
+    },
+    "67dbb8306cc27ddd69368d55": {
+      "slug": "vietnam-ho-chi-minh-city-bibli-library-cafe",
+      "includeInSitemap": true
+    },
+    "67dbb8306a5781d34f54a7bf": {
+      "slug": "portugal-ericeira-kelp-coworking-space-ericeira",
+      "includeInSitemap": true
+    },
+    "67dbb830a75607567a511206": {
+      "slug": "united-arab-emirates-dubai-the-co-spaces-downtown-dubai",
+      "includeInSitemap": true
+    },
+    "67dbb83010fcee80de321324": {
+      "slug": "thailand-chiang-mai-altchiangmai-coliving-coworking-space",
+      "includeInSitemap": true
+    },
+    "67dbb83007076504f24862ed": {
+      "slug": "austria-vienna-cafe-in-der-burggasse24",
+      "includeInSitemap": true
+    },
+    "67dbb8306c76d644eeb54d13": {
+      "slug": "germany-berlin-tuesday-coworking-schoneberg",
+      "includeInSitemap": true
+    },
+    "67dbb8302484dbfd03be2252": {
+      "slug": "austria-vienna-no-panic-coffee-paniglgasse",
+      "includeInSitemap": true
+    },
+    "67dbb830ea3ad0a21ebb0aa2": {
+      "slug": "austria-vienna-carl-ludwig-cafe",
+      "includeInSitemap": true
+    },
+    "67dbb82fc24274cca94b372c": {
+      "slug": "austria-vienna-goldener-papagei",
+      "includeInSitemap": true
+    },
+    "67dbb82f3d9e84649e43f9b9": {
+      "slug": "austria-vienna-coffee-u-boot",
+      "includeInSitemap": true
+    },
+    "67dbb82fee26f6b1058f5fb0": {
+      "slug": "austria-vienna-caffe-vom-see",
+      "includeInSitemap": true
+    },
+    "67dbb82f6cc27ddd69368cec": {
+      "slug": "austria-vienna-zoku-vienna",
+      "includeInSitemap": true
+    },
+    "67dbb82f3caa81895e3f0fd5": {
+      "slug": "austria-vienna-cafe-the-province",
+      "includeInSitemap": true
+    },
+    "67dbb82fddbd6ff42ecee59a": {
+      "slug": "austria-vienna-freyja-the-croissant-story",
+      "includeInSitemap": true
+    },
+    "67dbb82f68b145495a7cd801": {
+      "slug": "austria-vienna-kaffein-home-base",
+      "includeInSitemap": true
+    },
+    "67dbb82f504f03ad3bff5070": {
+      "slug": "estonia-tallinn-la-boulangerie",
+      "includeInSitemap": true
+    },
+    "67dbb82fddbd6ff42ecee53b": {
+      "slug": "estonia-tallinn-rost-bakery",
+      "includeInSitemap": true
+    },
+    "67dbb82fa763429798b841a5": {
+      "slug": "austria-vienna-grey-kaffee",
+      "includeInSitemap": true
+    },
+    "67dbb82e89928f8e5c836e5c": {
+      "slug": "estonia-tallinn-workland-fahle",
+      "includeInSitemap": true
+    },
+    "67dbb82e9d6996c79dc04e0f": {
+      "slug": "estonia-tallinn-palo-alto-club",
+      "includeInSitemap": true
+    },
+    "67dbb82ea4e8954f6bec6290": {
+      "slug": "estonia-tallinn-cafe-kiosk-no3",
+      "includeInSitemap": true
+    },
+    "67dbb82efd6d8320609aad81": {
+      "slug": "estonia-tallinn-dot-cafe",
+      "includeInSitemap": true
+    },
+    "67dbb82e05b2a7fae38f8129": {
+      "slug": "estonia-tallinn-baltic-cowork",
+      "includeInSitemap": true
+    },
+    "67dbb82e6a5781d34f54a3b2": {
+      "slug": "croatia-split-teak-foodbar",
+      "includeInSitemap": true
+    },
+    "67dbb82d5203d0ff237913ce": {
+      "slug": "croatia-split-kavana-procaffe",
+      "includeInSitemap": true
+    },
+    "67dbb82d06a7e0d321e78eee": {
+      "slug": "croatia-split-cafe-bar-fro",
+      "includeInSitemap": true
+    },
+    "67dbb82d90548257c388ed5e": {
+      "slug": "croatia-split-d16-coffee",
+      "includeInSitemap": true
+    },
+    "67dbb82d89928f8e5c836d95": {
+      "slug": "czech-republic-prague-cafe-neustadt",
+      "includeInSitemap": true
+    },
+    "67dbb82de400d4eb3b3db69a": {
+      "slug": "czechia-prague-coffee-corner-bakery-machova",
+      "includeInSitemap": true
+    },
+    "67dbb82d911faea0a7115e04": {
+      "slug": "czech-republic-prague-the-kavarna",
+      "includeInSitemap": true
+    },
+    "67dbb82dfd6d8320609aacf4": {
+      "slug": "czech-republic-prague-the-miners-coffee-churchill",
+      "includeInSitemap": true
+    },
+    "67dbb82d4c5a803673f3d8d5": {
+      "slug": "czech-republic-prague-the-miners-coffee-jzp",
+      "includeInSitemap": true
+    },
+    "67dbb82cddcf0747ac9b5a11": {
+      "slug": "czechia-prague-standard-cafe",
+      "includeInSitemap": true
+    },
+    "67dbb82cd5406b36281692ba": {
+      "slug": "czech-republic-prague-rybka-cafe-and-bookshop",
+      "includeInSitemap": true
+    },
+    "67dbb82c8db6988b7bc4d2f6": {
+      "slug": "malaysia-penang-masco-coworking-space",
+      "includeInSitemap": true
+    },
+    "67dbb82c0a49e102711f6ccb": {
+      "slug": "france-paris-la-maison-rose",
+      "includeInSitemap": true
+    },
+    "67dbb82c9d6996c79dc04c15": {
+      "slug": "thailand-pai-the-pedlar",
+      "includeInSitemap": true
+    },
+    "67dbb82cd505e94c4326f037": {
+      "slug": "cyprus-paphos-coworking-at-meraki-market-cafe",
+      "includeInSitemap": true
+    },
+    "67dbb82ce95b63f8187e11de": {
+      "slug": "netherlands-nijmegen-lunchroom-borboleta",
+      "includeInSitemap": true
+    },
+    "67dbb82c90eb89a5859e03e9": {
+      "slug": "germany-muenster-herr-sonnenschein",
+      "includeInSitemap": true
+    },
+    "67dbb82c3d9e84649e43f7b8": {
+      "slug": "germany-muenster-specops-network",
+      "includeInSitemap": true
+    },
+    "67dbb82b5990780b5fce759a": {
+      "slug": "portugal-lisbon-39-degraus",
+      "includeInSitemap": true
+    },
+    "67dbb82bb2bb3bdb73a4859d": {
+      "slug": "australia-melbourne-good-measure",
+      "includeInSitemap": true
+    },
+    "67dbb82bddcf0747ac9b5973": {
+      "slug": "portugal-lisbon-seagull-method-cafe-brunch",
+      "includeInSitemap": true
+    },
+    "67dbb82bed6cebb08a3d7324": {
+      "slug": "portugal-lisbon-outsite-cowork-cafe-lisbon",
+      "includeInSitemap": true
+    },
+    "67dbb82b911faea0a7115d2c": {
+      "slug": "portugal-lisbon-tease",
+      "includeInSitemap": true
+    },
+    "67dbb82b68b145495a7cd5f3": {
+      "slug": "portugal-lisbon-debru-craft-beer",
+      "includeInSitemap": true
+    },
+    "67dbb82b2484dbfd03be1f86": {
+      "slug": "portugal-lisbon-the-royal-rawness",
+      "includeInSitemap": true
+    },
+    "67dbb82ba763429798b83dbc": {
+      "slug": "portugal-lisbon-maria-food-hub",
+      "includeInSitemap": true
+    },
+    "67dbb82bd5406b3628168fdf": {
+      "slug": "portugal-lisbon-casa-independente",
+      "includeInSitemap": true
+    },
+    "67dbb82b9d7b9f1af5e4fb09": {
+      "slug": "portugal-lisbon-curva-cafe",
+      "includeInSitemap": true
+    },
+    "67dbb82a504f03ad3bff4d20": {
+      "slug": "portugal-lisbon-cafe-da-garagem",
+      "includeInSitemap": true
+    },
+    "67dbb82a6de5ed125908b36c": {
+      "slug": "portugal-lisbon-baoba-cafe-bica",
+      "includeInSitemap": true
+    },
+    "67dbb82a911faea0a7115ce9": {
+      "slug": "portugal-lisbon-break-brunch-lisbon",
+      "includeInSitemap": true
+    },
+    "67dbb82a186cec74323abb18": {
+      "slug": "portugal-lisbon-buna-coffee-people",
+      "includeInSitemap": true
+    },
+    "67dbb82a9d7b9f1af5e4fabc": {
+      "slug": "portugal-lisbon-fabrica-coffee-roasters-pena",
+      "includeInSitemap": true
+    },
+    "67dbb82a9b9a7bd5d4e4f72d": {
+      "slug": "portugal-lisbon-cotidiano-chiado",
+      "includeInSitemap": true
+    },
+    "67dbb82921ae962504f3631d": {
+      "slug": "portugal-lisbon-manjerica",
+      "includeInSitemap": true
+    },
+    "67dbb829a1ea83e165b76ca2": {
+      "slug": "portugal-lisbon-marquise-da-mobler",
+      "includeInSitemap": true
+    },
+    "67dbb8294d8a2c443942eaaa": {
+      "slug": "portugal-lisbon-the-block-lisboa",
+      "includeInSitemap": true
+    },
+    "67dbb82974e3ee07a6fd8117": {
+      "slug": "portugal-lisbon-selva-comedy-cafe",
+      "includeInSitemap": true
+    },
+    "67dbb8298db6988b7bc4cea5": {
+      "slug": "malaysia-kuala-lumpur-pulp-cafe-bangsar",
+      "includeInSitemap": true
+    },
+    "67dbb8296de5ed125908b2b2": {
+      "slug": "thailand-koh-samui-lama-cafe",
+      "includeInSitemap": true
+    },
+    "67dbb829f75acbcb4abf6238": {
+      "slug": "thailand-koh-samui-monami-cafe",
+      "includeInSitemap": true
+    },
+    "67dbb8298db6988b7bc4ce71": {
+      "slug": "thailand-koh-samui-ocean-lane-handcraft-coffee-sol",
+      "includeInSitemap": true
+    },
+    "67dbb828af3498ee80e1236c": {
+      "slug": "vietnam-ho-chi-minh-city-three-oclock-nguyen-dinh-chieu",
+      "includeInSitemap": true
+    },
+    "67dbb8283caa81895e3f0cf2": {
+      "slug": "vietnam-ho-chi-minh-city-designers-hub-coworking",
+      "includeInSitemap": true
+    },
+    "67dbb8280c22857f902f82ec": {
+      "slug": "vietnam-ho-chi-minh-city-the-hive-thao-dien",
+      "includeInSitemap": true
+    },
+    "67dbb8284b90ebc1123caa15": {
+      "slug": "vietnam-ho-chi-minh-city-the-hive-villa",
+      "includeInSitemap": true
+    },
+    "67dbb8284d8a2c443942e9c1": {
+      "slug": "vietnam-ho-chi-minh-city-workflow-thao-dien-cafe",
+      "includeInSitemap": true
+    },
+    "67dbb8281b29a29f6ac57537": {
+      "slug": "vietnam-ho-chi-minh-city-the-sentry-p",
+      "includeInSitemap": true
+    },
+    "67dbb8283caa81895e3f0c19": {
+      "slug": "vietnam-ho-chi-minh-city-workflow-thao-dien-working-space",
+      "includeInSitemap": true
+    },
+    "67dbb8283caa81895e3f0bf1": {
+      "slug": "vietnam-ho-chi-minh-city-geek-hub-nguyen-dinh-chieu",
+      "includeInSitemap": true
+    },
+    "67dbb828186cec74323ab9fa": {
+      "slug": "vietnam-ho-chi-minh-city-winplace-coworking-space",
+      "includeInSitemap": true
+    },
+    "67dbb827a763429798b83c79": {
+      "slug": "vietnam-ho-chi-minh-city-hello-world-saigon",
+      "includeInSitemap": true
+    },
+    "67dbb8276a5db9ee9dddbe5b": {
+      "slug": "vietnam-ho-chi-minh-city-the-hive-district-1",
+      "includeInSitemap": true
+    },
+    "67dbb8277b580966f91db1ac": {
+      "slug": "vietnam-ho-chi-minh-city-infact-coffee-workspace",
+      "includeInSitemap": true
+    },
+    "67dbb827ddbd6ff42ecee057": {
+      "slug": "vietnam-ho-chi-minh-city-xom-space",
+      "includeInSitemap": true
+    },
+    "67dbb8271b29a29f6ac574d1": {
+      "slug": "vietnam-ho-chi-minh-city-thuc-coffee-ly-tu-trong",
+      "includeInSitemap": true
+    },
+    "67dbb8277b580966f91db169": {
+      "slug": "vietnam-ho-chi-minh-city-the-sentry-c",
+      "includeInSitemap": true
+    },
+    "67dbb8271eaac0167b91c04d": {
+      "slug": "vietnam-ho-chi-minh-city-okkio-caffe-tu-do",
+      "includeInSitemap": true
+    },
+    "67dbb82621ae962504f35e1f": {
+      "slug": "vietnam-ho-chi-minh-city-the-sentry-z",
+      "includeInSitemap": true
+    },
+    "67dbb826a763429798b83be1": {
+      "slug": "vietnam-ho-chi-minh-city-highlands-coffee-vincom-landmark-81",
+      "includeInSitemap": true
+    },
+    "67dbb826ea3ad0a21ebb0609": {
+      "slug": "vietnam-hanoi-hidden-gem-cafe",
+      "includeInSitemap": true
+    },
+    "67dbb826a763429798b83bb4": {
+      "slug": "germany-hamburg-betahaus-schanze",
+      "includeInSitemap": true
+    },
+    "67dbb82605b2a7fae38f7d3c": {
+      "slug": "germany-hamburg-espresso-house-gertigstrasse",
+      "includeInSitemap": true
+    },
+    "67dbb826504f03ad3bff4b1e": {
+      "slug": "germany-hamburg-manufact-coffee-roasters",
+      "includeInSitemap": true
+    },
+    "67dbb826e400d4eb3b3db22e": {
+      "slug": "germany-hamburg-hugsandcoffee",
+      "includeInSitemap": true
+    },
+    "67dbb8261b29a29f6ac573f3": {
+      "slug": "germany-hamburg-torrefaktum-kaffeeroesterei",
+      "includeInSitemap": true
+    },
+    "67dbb82505b2a7fae38f7cf4": {
+      "slug": "germany-hamburg-rabowls-grosse-johannisstrae",
+      "includeInSitemap": true
+    },
+    "67dbb82543db72ec10650390": {
+      "slug": "germany-hamburg-starbucks-jungfernstieg",
+      "includeInSitemap": true
+    },
+    "67dbb825af3498ee80e11caa": {
+      "slug": "germany-hamburg-nord-coast-coffee-roastery",
+      "includeInSitemap": true
+    },
+    "67dbb8254d8a2c443942e8c8": {
+      "slug": "germany-hamburg-public-coffee-roasters",
+      "includeInSitemap": true
+    },
+    "67dbb82505b2a7fae38f7c17": {
+      "slug": "germany-hamburg-cafe-johanna",
+      "includeInSitemap": true
+    },
+    "67dbb825e95b63f8187e0e6c": {
+      "slug": "germany-hamburg-betahaus-hafencity",
+      "includeInSitemap": true
+    },
+    "67dbb825e400d4eb3b3db10e": {
+      "slug": "germany-hamburg-kropka",
+      "includeInSitemap": true
+    },
+    "67dbb825c24274cca94b2e24": {
+      "slug": "germany-hamburg-braena-coffeebreakfast",
+      "includeInSitemap": true
+    },
+    "67dbb8254b90ebc1123ca8e9": {
+      "slug": "germany-hamburg-klippkroog",
+      "includeInSitemap": true
+    },
+    "67dbb8246c76d644eeb5437b": {
+      "slug": "portugal-ericeira-sunset-bamboo",
+      "includeInSitemap": true
+    },
+    "67dbb8246de5ed125908b0f0": {
+      "slug": "united-arab-emirates-dubai-spacebox-coworking-space",
+      "includeInSitemap": true
+    },
+    "67dbb824911faea0a7115876": {
+      "slug": "united-arab-emirates-dubai-unbox-community-api-world-tower",
+      "includeInSitemap": true
+    },
+    "67dbb82410fcee80de3205fb": {
+      "slug": "united-arab-emirates-dubai-one-life-kitchen-cafe-jvc",
+      "includeInSitemap": true
+    },
+    "67dbb8240c22857f902f8057": {
+      "slug": "united-arab-emirates-dubai-stomping-grounds",
+      "includeInSitemap": true
+    },
+    "67dbb82407076504f2484ce6": {
+      "slug": "united-arab-emirates-dubai-friends-avenue-cafe-jlt",
+      "includeInSitemap": true
+    },
+    "67dbb8246c76d644eeb542fe": {
+      "slug": "united-arab-emirates-dubai-nook-coworking",
+      "includeInSitemap": true
+    },
+    "67dbb824a75607567a510403": {
+      "slug": "united-arab-emirates-dubai-myoffice-dubai-marina-plaza",
+      "includeInSitemap": true
+    },
+    "67dbb8246de5ed125908b03c": {
+      "slug": "united-arab-emirates-dubai-foundry",
+      "includeInSitemap": true
+    },
+    "67dbb8236cc27ddd6936866c": {
+      "slug": "united-arab-emirates-dubai-one-life-kitchen-and-cafe-d3",
+      "includeInSitemap": true
+    },
+    "67dbb8230a49e102711f66f2": {
+      "slug": "united-arab-emirates-dubai-tomserg",
+      "includeInSitemap": true
+    },
+    "67dbb823ed6cebb08a3d6ec8": {
+      "slug": "united-arab-emirates-dubai-myoffice-downtown-dubai",
+      "includeInSitemap": true
+    },
+    "67dbb8236c76d644eeb54283": {
+      "slug": "vietnam-da-nang-six-on-six-cafe",
+      "includeInSitemap": true
+    },
+    "67dbb823e95b63f8187e0c36": {
+      "slug": "vietnam-da-nang-xliii-specialty-coffee",
+      "includeInSitemap": true
+    },
+    "67dbb823ef5a30fcd3257d6a": {
+      "slug": "vietnam-da-nang-kurumi-healthy-vegan-food-desserts",
+      "includeInSitemap": true
+    },
+    "67dbb8238db6988b7bc4caa9": {
+      "slug": "vietnam-da-nang-z-coffee-roastery",
+      "includeInSitemap": true
+    },
+    "67dbb8235990780b5fce6e74": {
+      "slug": "vietnam-da-nang-ace-coworking-space",
+      "includeInSitemap": true
+    },
+    "67dbb822e400d4eb3b3dafa6": {
+      "slug": "vietnam-da-nang-enosta-space-coworking-coliving-space",
+      "includeInSitemap": true
+    },
+    "67dbb822a75607567a5103ac": {
+      "slug": "sri-lanka-colombo-worx-nawala-house",
+      "includeInSitemap": true
+    },
+    "67dbb822f75acbcb4abf5edb": {
+      "slug": "sri-lanka-colombo-worx-gower-house",
+      "includeInSitemap": true
+    },
+    "67dbb8220c22857f902f7e94": {
+      "slug": "sri-lanka-colombo-worx-havelock-house",
+      "includeInSitemap": true
+    },
+    "67dbb822a4e8954f6bec5cb4": {
+      "slug": "sri-lanka-colombo-charles-place",
+      "includeInSitemap": true
+    },
+    "67dbb8220a49e102711f6584": {
+      "slug": "thailand-chiang-mai-starwork-chiang-mai",
+      "includeInSitemap": true
+    },
+    "67dbb8224c5a803673f3d1d2": {
+      "slug": "thailand-chiang-mai-wako-bake-suthep",
+      "includeInSitemap": true
+    },
+    "67dbb8221b29a29f6ac5712b": {
+      "slug": "thailand-chiang-mai-red-panda-hostel-cafe",
+      "includeInSitemap": true
+    },
+    "67dbb8217b580966f91da921": {
+      "slug": "thailand-chiang-mai-shapel-hostel-x-cafes",
+      "includeInSitemap": true
+    },
+    "67dbb821b2bb3bdb73a47b73": {
+      "slug": "thailand-chiang-mai-single-origin-store-tha-pae",
+      "includeInSitemap": true
+    },
+    "67dbb8216a5db9ee9dddbb28": {
+      "slug": "thailand-chiang-mai-friend-coffee-bar",
+      "includeInSitemap": true
+    },
+    "67dbb821507d6795321a8d07": {
+      "slug": "thailand-chiang-mai-kalm-village-chiang-mai",
+      "includeInSitemap": true
+    },
+    "67dbb821911faea0a711562c": {
+      "slug": "thailand-chiang-mai-wako-bake-at-old-town",
+      "includeInSitemap": true
+    },
+    "67dbb821a4e8954f6bec5be7": {
+      "slug": "thailand-chiang-mai-nes-cafe",
+      "includeInSitemap": true
+    },
+    "67dbb821b2bb3bdb73a47b3f": {
+      "slug": "thailand-chiang-mai-tempt-cafe-brunch",
+      "includeInSitemap": true
+    },
+    "67dbb8215990780b5fce6db0": {
+      "slug": "thailand-chiang-mai-eurana-cafe-restaurant",
+      "includeInSitemap": true
+    },
+    "67dbb82121ae962504f3594b": {
+      "slug": "thailand-chiang-mai-hub53-coworking-and-coliving-space",
+      "includeInSitemap": true
+    },
+    "67dbb8204c5a803673f3d106": {
+      "slug": "thailand-chiang-mai-into-the-woods",
+      "includeInSitemap": true
+    },
+    "67dbb8202484dbfd03be17fd": {
+      "slug": "thailand-chiang-mai-zmoy-cafe",
+      "includeInSitemap": true
+    },
+    "67dbb82021ae962504f35855": {
+      "slug": "hungary-budapest-kastner-kommunity-cafe",
+      "includeInSitemap": true
+    },
+    "67dbb820e95b63f8187e0a90": {
+      "slug": "thailand-chiang-mai-fern-forest-cafe",
+      "includeInSitemap": true
+    },
+    "67dbb820ee26f6b1058f4a7f": {
+      "slug": "thailand-chiang-mai-the-cofreze",
+      "includeInSitemap": true
+    },
+    "67dbb81fc24274cca94b2294": {
+      "slug": "thailand-chiang-mai-cotton-tree-coffee-roasters",
+      "includeInSitemap": true
+    },
+    "67dbb81f1bbb0a6e72afdef2": {
+      "slug": "thailand-chiang-mai-the-barn-eatery-and-design",
+      "includeInSitemap": true
+    },
+    "67dbb81fa4e8954f6bec58f8": {
+      "slug": "thailand-chiang-mai-the-brick-startup-space",
+      "includeInSitemap": true
+    },
+    "67dbb81f0a49e102711f649a": {
+      "slug": "thailand-chiang-mai-roastniyom-coffee-nimman",
+      "includeInSitemap": true
+    },
+    "67dbb81f507d6795321a8a9c": {
+      "slug": "thailand-chiang-mai-artisan-cafe",
+      "includeInSitemap": true
+    },
+    "67dbb81f06a7e0d321e78627": {
+      "slug": "thailand-chiang-mai-graph-ground",
+      "includeInSitemap": true
+    },
+    "67dbb81f504f03ad3bff4643": {
+      "slug": "hungary-budapest-kastner-kommunity-coworking",
+      "includeInSitemap": true
+    },
+    "67dbb81ea4e8954f6bec5811": {
+      "slug": "thailand-chiang-mai-code-space-coworking-space",
+      "includeInSitemap": true
+    },
+    "67dbb81e90eb89a5859dfc47": {
+      "slug": "singapore-central-singapore-working-title-lasalle",
+      "includeInSitemap": true
+    },
+    "67dbb81e4c69903847e6c41f": {
+      "slug": "singapore-central-singapore-twenty-eight-cafe",
+      "includeInSitemap": true
+    },
+    "67dbb81e05b2a7fae38f6dc5": {
+      "slug": "hungary-budapest-szikra-coworking",
+      "includeInSitemap": true
+    },
+    "67dbb81d7b580966f91da3f2": {
+      "slug": "slovakia-bratislava-black-coffee-on-the-roof",
+      "includeInSitemap": true
+    },
+    "67dbb81d43db72ec1064ff30": {
+      "slug": "hungary-budapest-madal-cafe-specialty-coffee-shop-kavezo",
+      "includeInSitemap": true
+    },
+    "67dbb81da4e8954f6bec5797": {
+      "slug": "hungary-budapest-kozpont",
+      "includeInSitemap": true
+    },
+    "67dbb81d0a49e102711f638a": {
+      "slug": "hungary-budapest-flow-specialty-coffee-bar-bistro",
+      "includeInSitemap": true
+    },
+    "67dbb81d911faea0a7114d36": {
+      "slug": "hungary-budapest-meron-budapest-specialty-coffee-brunch",
+      "includeInSitemap": true
+    },
+    "67dbb81de95b63f8187e087b": {
+      "slug": "hungary-budapest-mon-cheri-coffee-shop-budapest",
+      "includeInSitemap": true
+    },
+    "67dbb81da4e8954f6bec5737": {
+      "slug": "hungary-budapest-espresso-embassy",
+      "includeInSitemap": true
+    },
+    "67dbb81c6a5db9ee9dddb944": {
+      "slug": "hungary-budapest-madal-cafe",
+      "includeInSitemap": true
+    },
+    "67dbb81c07076504f2483da9": {
+      "slug": "slovakia-bratislava-good-times-coffee-roasters",
+      "includeInSitemap": true
+    },
+    "67dbb81c9d6996c79dc0407c": {
+      "slug": "germany-berlin-the-barn-cafe",
+      "includeInSitemap": true
+    },
+    "67dbb81c98d3364802634e45": {
+      "slug": "slovakia-bratislava-pan-kralicek-priestor",
+      "includeInSitemap": true
+    },
+    "67dbb81b1eaac0167b91bbbc": {
+      "slug": "germany-berlin-kiez-kaffee-kraft",
+      "includeInSitemap": true
+    },
+    "67dbb81bfd6d8320609aa597": {
+      "slug": "spain-barcelona-roma-sants",
+      "includeInSitemap": true
+    },
+    "67dbb81b06a7e0d321e784e8": {
+      "slug": "germany-berlin-bonanza-coffee-heroes",
+      "includeInSitemap": true
+    },
+    "67dbb81bf75acbcb4abf5bba": {
+      "slug": "germany-berlin-st-oberholz",
+      "includeInSitemap": true
+    },
+    "67dbb81bc24274cca94b1ff9": {
+      "slug": "germany-berlin-mindspace-friedrichstrasse",
+      "includeInSitemap": true
+    },
+    "67dbb81bddcf0747ac9b4624": {
+      "slug": "germany-berlin-mindspace-krausenstrasse",
+      "includeInSitemap": true
+    },
+    "67dbb81a5203d0ff237908bb": {
+      "slug": "germany-berlin-mindspace-hausvogteiplatz",
+      "includeInSitemap": true
+    },
+    "67dbb81a1b29a29f6ac56e2e": {
+      "slug": "germany-berlin-mindspace-munzstrasse",
+      "includeInSitemap": true
+    },
+    "67dbb81a74e3ee07a6fd76f9": {
+      "slug": "germany-berlin-mindspace-zimmerstrasse",
+      "includeInSitemap": true
+    },
+    "67dbb81a6a5db9ee9dddb732": {
+      "slug": "spain-barcelona-saga-coffee-stories",
+      "includeInSitemap": true
+    },
+    "67dbb81ab2bb3bdb73a475bb": {
+      "slug": "germany-berlin-betahaus-kreuzberg",
+      "includeInSitemap": true
+    },
+    "67dbb819e95b63f8187dfe1d": {
+      "slug": "spain-barcelona-tostao",
+      "includeInSitemap": true
+    },
+    "67dbb8194c69903847e6c1b2": {
+      "slug": "spain-barcelona-lulu-flyn-leixample-dreta",
+      "includeInSitemap": true
+    },
+    "67dbb819b2bb3bdb73a47445": {
+      "slug": "thailand-bangkok-cafe-noina-by-hematoa",
+      "includeInSitemap": true
+    },
+    "67dbb81921ae962504f34997": {
+      "slug": "spain-barcelona-sowo-coworking-barcelona",
+      "includeInSitemap": true
+    },
+    "67dbb81807076504f2483654": {
+      "slug": "thailand-bangkok-tobys-at-noble-play",
+      "includeInSitemap": true
+    },
+    "67dbb818e400d4eb3b3d9ebf": {
+      "slug": "spain-barcelona-lulu-flyn-el-born",
+      "includeInSitemap": true
+    },
+    "67dbb8180c22857f902f75ce": {
+      "slug": "spain-barcelona-hidden-coffee-roasters-el-born",
+      "includeInSitemap": true
+    },
+    "67dbb818d505e94c4326db0c": {
+      "slug": "spain-barcelona-cafe-del-born",
+      "includeInSitemap": true
+    },
+    "67dbb8189b9a7bd5d4e4ecb6": {
+      "slug": "thailand-bangkok-piccolo-backyard-picoroaster",
+      "includeInSitemap": true
+    },
+    "67d81020a8225578775ef25e": {
+      "slug": "germany-hamburg-die-diele-coworking-space-hangout",
+      "includeInSitemap": true
+    },
+    "67d81020f5512df966898e94": {
+      "slug": "south-africa-cape-town-workshop17-kloof-street",
+      "includeInSitemap": true
+    },
+    "67d810202b24736bd92f2972": {
+      "slug": "germany-hamburg-4-walls-coworking",
+      "includeInSitemap": true
+    },
+    "67d81020a75efa94b9d5b19f": {
+      "slug": "germany-hamburg-coworkbude14-coworking-in-winterhude",
+      "includeInSitemap": true
+    },
+    "67d810204bfa605e2961d41e": {
+      "slug": "thailand-bangkok-launchpad-serviced-office",
+      "includeInSitemap": true
+    },
+    "67d78a0bd01eb8fd6ab57efe": {
+      "slug": "indonesia-bali-sokkool-coliving-coworking",
+      "includeInSitemap": true
+    },
+    "67d6559495de9f50158f8a3c": {
+      "slug": "portugal-madeira-loja-do-cha",
+      "includeInSitemap": true
+    },
+    "67d65594fae0bf02991b6881": {
+      "slug": "portugal-madeira-restaurante-arraial-da-imperatriz",
+      "includeInSitemap": true
+    },
+    "67d65594a76aa2b2afaadf8d": {
+      "slug": "portugal-madeira-coworking-space-ponta-do-sol",
+      "includeInSitemap": true
+    },
+    "67d6559437ff54b81df3ef20": {
+      "slug": "portugal-madeira-magic-tea-house",
+      "includeInSitemap": true
+    },
+    "67d6559481c2dd042f14962d": {
+      "slug": "portugal-madeira-prima-caju",
+      "includeInSitemap": true
+    },
+    "67d6559425c4c8e6544510ee": {
+      "slug": "portugal-madeira-joes-bar",
+      "includeInSitemap": true
+    },
+    "67d65594c13128f252cdef69": {
+      "slug": "portugal-madeira-land-food-coffee",
+      "includeInSitemap": true
+    },
+    "67d52fb4355e10f05a1167eb": {
+      "slug": "england-london-spaces-oxford-street",
+      "includeInSitemap": true
+    },
+    "67d52fb35057b3fadcd55488": {
+      "slug": "england-london-landmark-office-space-cavendish-square",
+      "includeInSitemap": true
+    },
+    "67d52fb37c2c7c93f510505e": {
+      "slug": "england-london-landmark-office-space-new-cavendish-street",
+      "includeInSitemap": true
+    },
+    "67d52fb2fff86e042a2beefa": {
+      "slug": "england-london-worklife-soho-central-london-coworking",
+      "includeInSitemap": true
+    },
+    "67d52fb283c0ed0c6c8cfe67": {
+      "slug": "england-london-elmtree-by-spacemade",
+      "includeInSitemap": true
+    },
+    "67d52fb0be684099921b007c": {
+      "slug": "england-london-beton-by-spacemade",
+      "includeInSitemap": true
+    },
+    "67d52fb0111e2972054ec208": {
+      "slug": "england-london-the-clement-rooms-by-spacemade",
+      "includeInSitemap": true
+    },
+    "67d52fb095de9f5015c35919": {
+      "slug": "england-london-the-landing-by-spacemade",
+      "includeInSitemap": true
+    },
+    "67d52fb0794483edbf42d273": {
+      "slug": "england-london-common-ground-by-spacemade",
+      "includeInSitemap": true
+    },
+    "67d52faeff9f765cf4c77038": {
+      "slug": "england-london-fulham-works-by-spacemade",
+      "includeInSitemap": true
+    },
+    "67d52faeff9f765cf4c77034": {
+      "slug": "england-london-gatehouse-by-spacemade",
+      "includeInSitemap": true
+    },
+    "67d52fadc13128f252051c2a": {
+      "slug": "england-london-worklife-bermondsey",
+      "includeInSitemap": true
+    },
+    "67d52fadb214ed85a9e6d0ab": {
+      "slug": "england-london-worklife-borough-office-space-coworking",
+      "includeInSitemap": true
+    },
+    "67d52fad191e39fba6dbd531": {
+      "slug": "england-london-worklife-camden-office-space-coworking",
+      "includeInSitemap": true
+    },
+    "67d52facff9f765cf4c76f61": {
+      "slug": "england-london-worklife-st-cross-street",
+      "includeInSitemap": true
+    },
+    "67d52fa9c56b4eec49f572c5": {
+      "slug": "england-london-worklife-fitzrovia-office-space-coworking",
+      "includeInSitemap": true
+    },
+    "67d52fa9ae483e2d920987e2": {
+      "slug": "england-london-worklife-liverpool-street-office-space-coworking",
+      "includeInSitemap": true
+    },
+    "67d52fa9a79f0c901cbad1ae": {
+      "slug": "england-london-worklife-aldersgate-street-office-space-coworking",
+      "includeInSitemap": true
+    },
+    "67d52fa9dc72582cf7c0ff3d": {
+      "slug": "england-london-worklife-hammersmith-office-space-coworking",
+      "includeInSitemap": true
+    },
+    "67d52fa931f06ae8f08f122c": {
+      "slug": "england-london-worklife-holborn",
+      "includeInSitemap": true
+    },
+    "67d52fa930406223ba184320": {
+      "slug": "england-london-worklife-old-street-office-space-coworking",
+      "includeInSitemap": true
+    },
+    "67d509dbb3b07aef0c3584a2": {
+      "slug": "thailand-koh-lanta-kohub",
+      "includeInSitemap": true
+    },
+    "67d509dbec8577ad324a0da4": {
+      "slug": "thailand-koh-lanta-smoon",
+      "includeInSitemap": true
+    },
+    "67d509dbd0b07d0b71f60e24": {
+      "slug": "thailand-koh-lanta-peak-cafe-koh-lanta",
+      "includeInSitemap": true
+    },
+    "67d509db1816368273e4f87c": {
+      "slug": "thailand-koh-lanta-full-fill-cafe-vegetarian",
+      "includeInSitemap": true
+    },
+    "67d509db863c60f4235b5703": {
+      "slug": "thailand-koh-lanta-fruit-tree-lodge-coffee-shop",
+      "includeInSitemap": true
+    },
+    "67d509db7e2b022278f5098c": {
+      "slug": "thailand-koh-lanta-escape-cafe",
+      "includeInSitemap": true
+    },
+    "67d509da32c7e0dc91166b5e": {
+      "slug": "thailand-koh-lanta-living-room-cafe-restaurant",
+      "includeInSitemap": true
+    },
+    "67d509daa76aa2b2afcc7a37": {
+      "slug": "thailand-koh-lanta-laantalanta-cafe",
+      "includeInSitemap": true
+    },
+    "67d509da9f95d7192f5afc42": {
+      "slug": "thailand-koh-lanta-together-cafe",
+      "includeInSitemap": true
+    },
+    "67d509da045042941d772bb2": {
+      "slug": "thailand-koh-lanta-lanta-coffee-cup-club",
+      "includeInSitemap": true
+    },
+    "67d509dad0b07d0b71f60dbc": {
+      "slug": "thailand-koh-lanta-the-glass-house",
+      "includeInSitemap": true
+    },
+    "67d0058079b300bc140abc9f": {
+      "slug": "england-london-the-locals-chelsea",
+      "includeInSitemap": true
+    },
+    "67d0057f2b0f8cde8c058611": {
+      "slug": "england-london-the-chelsea-gardener-cafe",
+      "includeInSitemap": true
+    },
+    "67d0057fbcfbe0e5e5a882a6": {
+      "slug": "england-london-clean-hearts-cafe-old-street",
+      "includeInSitemap": true
+    },
+    "67d0057fe660a8c7f2a6dbb5": {
+      "slug": "england-london-attendant-coffee-roasters-shoreditch",
+      "includeInSitemap": true
+    },
+    "67d0057fac035010a7c1c08b": {
+      "slug": "united-arab-emirates-dubai-jones-the-grocer-dusit-thani-hotel",
+      "includeInSitemap": true
+    },
+    "67d0057fe660a8c7f2a6db6e": {
+      "slug": "england-london-kybelle-cafe",
+      "includeInSitemap": true
+    },
+    "67d0057fe23f36cf173821e8": {
+      "slug": "england-london-aida-shoreditch",
+      "includeInSitemap": true
+    },
+    "67d0057f7ff194b7a30e5b59": {
+      "slug": "thailand-chiang-mai-bob-coffee",
+      "includeInSitemap": true
+    },
+    "67d0057fb74e588f084245fb": {
+      "slug": "indonesia-bali-rockaway-kintamani",
+      "includeInSitemap": true
+    },
+    "67d0057f2dda61cb90d8e6e3": {
+      "slug": "thailand-chiang-mai-cloud-coffee",
+      "includeInSitemap": true
+    },
+    "67d0057e4db2a5ec5517a61b": {
+      "slug": "thailand-chiang-mai-blue-coffee-at-agriculture-cmu",
+      "includeInSitemap": true
+    },
+    "67d0057eed7fb89b8d6ef78d": {
+      "slug": "england-london-mindspace-hammersmith",
+      "includeInSitemap": true
+    },
+    "67d0057eac035010a7c1bcfc": {
+      "slug": "england-london-fora-22-berners-street",
+      "includeInSitemap": true
+    },
+    "67d0057ee23f36cf1738212f": {
+      "slug": "england-london-mindspace-old-street",
+      "includeInSitemap": true
+    },
+    "67d0057ee4386956d5233847": {
+      "slug": "england-london-second-home-holland-park",
+      "includeInSitemap": true
+    },
+    "67d0057e98c46311e16e3999": {
+      "slug": "england-london-fora-melcombe-place",
+      "includeInSitemap": true
+    },
+    "67d0057e94816bfdd92d2a34": {
+      "slug": "portugal-lisbon-second-home-mercado",
+      "includeInSitemap": true
+    },
+    "67d0057dea314b1109ec32b6": {
+      "slug": "england-london-fora-2-stephen-street",
+      "includeInSitemap": true
+    },
+    "67d0057d38dcaa6d89228c59": {
+      "slug": "england-london-fora-gridiron-building",
+      "includeInSitemap": true
+    },
+    "67d0057de660a8c7f2a6d713": {
+      "slug": "england-london-fora-42-berners-street",
+      "includeInSitemap": true
+    },
+    "67d0057d38dcaa6d89228baf": {
+      "slug": "england-london-fora-the-stanley-building",
+      "includeInSitemap": true
+    },
+    "67d0057dd8d3c051a7d90038": {
+      "slug": "england-london-fora-eastcastle-street",
+      "includeInSitemap": true
+    },
+    "67d0057c2055896bf9a6f425": {
+      "slug": "england-london-fora-24-greville-street",
+      "includeInSitemap": true
+    },
+    "67d0057ccff59196e045afd8": {
+      "slug": "england-london-fora-the-smiths-building",
+      "includeInSitemap": true
+    },
+    "67d0057cbb649ef4ec0d8f77": {
+      "slug": "england-london-fora-chancery-house",
+      "includeInSitemap": true
+    },
+    "67d0057cd16ee9ad182c5b59": {
+      "slug": "england-london-fora-dallington-street",
+      "includeInSitemap": true
+    },
+    "67d0057c3ea7a2ae912205b8": {
+      "slug": "england-london-fora-kirby-street",
+      "includeInSitemap": true
+    },
+    "67d0057bbcfbe0e5e5a87a80": {
+      "slug": "england-london-fora-summit-house",
+      "includeInSitemap": true
+    },
+    "67d0057b5274b807cfa79ea3": {
+      "slug": "england-london-fora-the-bloomsbury-building",
+      "includeInSitemap": true
+    },
+    "67d0057bd88dfcaae86926c7": {
+      "slug": "england-london-fora-york-house",
+      "includeInSitemap": true
+    },
+    "67d0057b83958e65aba335d9": {
+      "slug": "england-london-fora-east-side",
+      "includeInSitemap": true
+    },
+    "67d0057b2ab4ba62f9fb68a0": {
+      "slug": "england-london-fora-210-euston-road",
+      "includeInSitemap": true
+    },
+    "67d0057be660a8c7f2a6d5be": {
+      "slug": "england-london-fora-201-borough-high-street",
+      "includeInSitemap": true
+    },
+    "67d0057aaf08fe56f2775bd0": {
+      "slug": "england-london-fora-180-borough-high-street",
+      "includeInSitemap": true
+    },
+    "67d0057a5133d82f182d5106": {
+      "slug": "england-london-fora-2425-the-shard",
+      "includeInSitemap": true
+    },
+    "67d0057aaf08fe56f2775b83": {
+      "slug": "england-london-fora-241-southwark-bridge-road",
+      "includeInSitemap": true
+    },
+    "67d0057a6c16189eb742ced3": {
+      "slug": "england-london-fora-albert-house",
+      "includeInSitemap": true
+    },
+    "67d0057acff59196e045ad23": {
+      "slug": "england-london-fora-81-rivington-street",
+      "includeInSitemap": true
+    },
+    "67d0057a6beee86747bfe48e": {
+      "slug": "england-london-fora-borough-yards",
+      "includeInSitemap": true
+    },
+    "67d0057a9f2fb4bd245acdb8": {
+      "slug": "england-london-fora-central-street",
+      "includeInSitemap": true
+    },
+    "67d00579ea314b1109ec2f89": {
+      "slug": "england-london-fora-folgate-street",
+      "includeInSitemap": true
+    },
+    "67d00579252888f6403d6762": {
+      "slug": "england-london-fora-tintagel-house",
+      "includeInSitemap": true
+    },
+    "67d0057934ee586e1611fbda": {
+      "slug": "england-london-fora-great-eastern-street",
+      "includeInSitemap": true
+    },
+    "67d0057952d93d6f9475e5a8": {
+      "slug": "england-london-fora-princelet-street",
+      "includeInSitemap": true
+    },
+    "67d005797ff194b7a30e5712": {
+      "slug": "england-london-fora-white-collar-factory",
+      "includeInSitemap": true
+    },
+    "67d005796beee86747bfe3fd": {
+      "slug": "england-london-fora-the-black-white-building",
+      "includeInSitemap": true
+    },
+    "67d00579ac718f9bd066dfd6": {
+      "slug": "england-london-fora-blue-fin-building",
+      "includeInSitemap": true
+    },
+    "67d0057890b91d35c3e440fb": {
+      "slug": "england-london-fora-scott-house",
+      "includeInSitemap": true
+    },
+    "67d005782b0f8cde8c058153": {
+      "slug": "england-london-fora-133-whitechapel-high-street",
+      "includeInSitemap": true
+    },
+    "67d005785274b807cfa79c5b": {
+      "slug": "england-london-fora-50-liverpool-street",
+      "includeInSitemap": true
+    },
+    "67d00578ea314b1109ec2e86": {
+      "slug": "england-london-fora-lloyds-avenue",
+      "includeInSitemap": true
+    },
+    "67d005789bca6142614da01d": {
+      "slug": "england-london-fora-warnford-court",
+      "includeInSitemap": true
+    },
+    "67d00578af08fe56f27759dc": {
+      "slug": "england-london-fora-one-canada-square",
+      "includeInSitemap": true
+    },
+    "67d005786f0aeaf5c6d84c45": {
+      "slug": "england-london-fora-sixty-london-wall",
+      "includeInSitemap": true
+    },
+    "67d0057760a5af99b0ac355d": {
+      "slug": "england-london-fora-greencoat-place",
+      "includeInSitemap": true
+    },
+    "67d00577320a6853fc55bceb": {
+      "slug": "england-london-fora-22-manchester-square",
+      "includeInSitemap": true
+    },
+    "67d005773ea7a2ae91220355": {
+      "slug": "england-london-fora-belle-house",
+      "includeInSitemap": true
+    },
+    "67d00577bfd365a3239fc0df": {
+      "slug": "england-london-fora-broadwick-street",
+      "includeInSitemap": true
+    },
+    "67d00577e4386956d523324e": {
+      "slug": "england-london-fora-thomas-house",
+      "includeInSitemap": true
+    },
+    "67d00577625cd4a1e0118418": {
+      "slug": "england-london-fora-7-stratford-place",
+      "includeInSitemap": true
+    },
+    "67d005776814cd699c94f843": {
+      "slug": "england-london-fora-91-wimpole-street",
+      "includeInSitemap": true
+    },
+    "67d00577ac035010a7c1b3db": {
+      "slug": "england-london-fora-brock-house",
+      "includeInSitemap": true
+    },
+    "67d0057718cb4d95ba671984": {
+      "slug": "england-london-fora-henry-wood-house",
+      "includeInSitemap": true
+    },
+    "67d00576bb649ef4ec0d8b9f": {
+      "slug": "england-london-fora-liberty-house",
+      "includeInSitemap": true
+    },
+    "67d005763858f26043897c61": {
+      "slug": "england-london-fora-green-park-house",
+      "includeInSitemap": true
+    },
+    "67d005763eee1139354d2c1f": {
+      "slug": "england-london-fora-orion-house",
+      "includeInSitemap": true
+    },
+    "67d005755d875e92236fb5e6": {
+      "slug": "england-london-fora-19-eastbourne-terrace",
+      "includeInSitemap": true
+    },
+    "67d005759500730b3cb0889f": {
+      "slug": "england-london-fora-one-lyric-square",
+      "includeInSitemap": true
+    },
+    "67d00575cf0a639d0da6c2b4": {
+      "slug": "england-london-fora-wardour-street",
+      "includeInSitemap": true
+    },
+    "67d0057533fd20e9d39592cd": {
+      "slug": "england-london-fora-parcels-building",
+      "includeInSitemap": true
+    },
+    "67d0057513ffffc58044295d": {
+      "slug": "england-london-fora-united-house",
+      "includeInSitemap": true
+    },
+    "67d00575dd12d83f886e1de0": {
+      "slug": "england-london-fora-20-eastbourne-terrace",
+      "includeInSitemap": true
+    },
+    "67cd80ca03e3822d9416ad7c": {
+      "slug": "england-london-fora-montacute-yards",
+      "includeInSitemap": true
+    },
+    "67cd80c9e31d55649009408f": {
+      "slug": "england-london-mindspace-shoreditch",
+      "includeInSitemap": true
+    },
+    "67cd80c9bca334002604a20e": {
+      "slug": "england-london-second-home-spitalfields",
+      "includeInSitemap": true
+    },
+    "67ca769f00f6ce5b547d4283": {
+      "slug": "greece-athens-stone-soup",
+      "includeInSitemap": true
+    },
+    "67c195482ceb224f64c7a4f2": {
+      "slug": "thailand-koh-tao-banana-rock",
+      "includeInSitemap": true
+    },
+    "67c19548b957326990536b63": {
+      "slug": "sri-lanka-colombo-likquid-spaces-centre-road",
+      "includeInSitemap": true
+    },
+    "67c195484f40ee7a8f3d4e17": {
+      "slug": "thailand-koh-tao-cafe-culture-coffee",
+      "includeInSitemap": true
+    },
+    "67c19548e7cd2d963f1c40a9": {
+      "slug": "thailand-koh-tao-the-factory-cafe",
+      "includeInSitemap": true
+    },
+    "67c195475dfe681ca64b0399": {
+      "slug": "thailand-chiang-mai-the-baristro-asian-style",
+      "includeInSitemap": true
+    },
+    "67c195478b996d4ced6233ff": {
+      "slug": "thailand-chiang-mai-the-xym-cafe",
+      "includeInSitemap": true
+    },
+    "67c19547747f55c0778ab2ea": {
+      "slug": "indonesia-bali-secret-spot-canggu",
+      "includeInSitemap": true
+    },
+    "67c195476a9fcf2d19dd3f50": {
+      "slug": "sri-lanka-colombo-worx-jawatte-house",
+      "includeInSitemap": true
+    },
+    "67c19547158419155ebd60e7": {
+      "slug": "taiwan-taipei-verse-bar-cafe",
+      "includeInSitemap": true
+    },
+    "67c1954788ef56df50c5646b": {
+      "slug": "thailand-chiang-mai-punspace-wiang-kaew",
+      "includeInSitemap": true
+    },
+    "67c195479a91d10441b8f058": {
+      "slug": "england-london-oat-new-inn-yard",
+      "includeInSitemap": true
+    },
+    "67c195468c90db03472505bd": {
+      "slug": "thailand-koh-tao-tree-house-cafe",
+      "includeInSitemap": true
+    },
+    "67c19546bddd0f94e2dfd425": {
+      "slug": "thailand-chiang-mai-inner-cafe-bistro",
+      "includeInSitemap": true
+    },
+    "67c19546d1fd4b90cf0a055b": {
+      "slug": "thailand-chiang-mai-beansliquor",
+      "includeInSitemap": true
+    },
+    "67c19546b0d618a06b1648d9": {
+      "slug": "thailand-chiang-mai-minimal-coffee-maker",
+      "includeInSitemap": true
+    },
+    "67c19546254b014e0389f7c9": {
+      "slug": "vietnam-da-nang-wonderlust-coffee-souvenir",
+      "includeInSitemap": true
+    },
+    "67c19545a1d76679e89aa920": {
+      "slug": "malaysia-kuala-lumpur-cafe-in-house",
+      "includeInSitemap": true
+    },
+    "67c1954568b5e977f37a9461": {
+      "slug": "thailand-koh-tao-taoni-cafe",
+      "includeInSitemap": true
+    },
+    "67c19545a61dc8864e8b6ae7": {
+      "slug": "thailand-koh-tao-navish-cafe-hostel",
+      "includeInSitemap": true
+    },
+    "67c19545c7059a51dd786c30": {
+      "slug": "thailand-koh-tao-blacktip-cafe-workspace",
+      "includeInSitemap": true
+    },
+    "67c195450c9b98325f98217b": {
+      "slug": "spain-madrid-the-shed-coworking",
+      "includeInSitemap": true
+    },
+    "67c1954413d0ea57bc8b66fa": {
+      "slug": "thailand-koh-tao-blue-light-wine-bar-bistro",
+      "includeInSitemap": true
+    },
+    "67c19544f6fe73dd04bc3d5d": {
+      "slug": "thailand-koh-tao-horizon-morn",
+      "includeInSitemap": true
+    },
+    "67c195445a754d8053648232": {
+      "slug": "thailand-koh-tao-coconut-monkey",
+      "includeInSitemap": true
+    },
+    "67c19544f1accb724c1a6600": {
+      "slug": "thailand-koh-tao-nui-bakery-sandwiches",
+      "includeInSitemap": true
+    },
+    "67c195436cc3bde415cd6c01": {
+      "slug": "thailand-bangkok-red-drip-specialty-coffee-banthatthong",
+      "includeInSitemap": true
+    },
+    "67c19543b0d618a06b16449c": {
+      "slug": "vietnam-da-nang-the-local-beans",
+      "includeInSitemap": true
+    },
+    "67c195432ca7b17c4cfd82c9": {
+      "slug": "vietnam-da-nang-thenscoffee",
+      "includeInSitemap": true
+    },
+    "67c19542b79a4084f67bc313": {
+      "slug": "vietnam-da-nang-deep-sii-57a-le-loi",
+      "includeInSitemap": true
+    },
+    "67ba680ec6e7b846dc15ffa4": {
+      "slug": "indonesia-bali-deos-coworking",
+      "includeInSitemap": true
+    },
+    "67a9564532c3199ae053831c": {
+      "slug": "indonesia-gili-islands-begadang-beer-garden-gili-air",
+      "includeInSitemap": true
+    },
+    "67a956456c0cce17d1ff1ad1": {
+      "slug": "indonesia-bali-bread-basket-bakery-canggu-bali",
+      "includeInSitemap": true
+    },
+    "67a95645a3411b789b68e3a9": {
+      "slug": "indonesia-gili-islands-pjs-beach-bar-grill",
+      "includeInSitemap": true
+    },
+    "67a956443ca0442425c77d5a": {
+      "slug": "thailand-koh-phangan-vagga-bar-cafe",
+      "includeInSitemap": true
+    },
+    "67a956442fd30ee1c7c86cfd": {
+      "slug": "indonesia-bali-kopi-kota-buduk",
+      "includeInSitemap": true
+    },
+    "67a95644a7bf46e2d2ddf70c": {
+      "slug": "thailand-koh-phangan-bubbas-thong-sala",
+      "includeInSitemap": true
+    },
+    "67a956430e939dfa15213318": {
+      "slug": "indonesia-bali-avocado-resto",
+      "includeInSitemap": true
+    },
+    "67a956434bf28c588cfe8479": {
+      "slug": "indonesia-bali-outpost-ubud-coworking",
+      "includeInSitemap": true
+    },
+    "67a95643cfcb17dd39520f73": {
+      "slug": "indonesia-bali-anomali-coffee-ubud",
+      "includeInSitemap": true
+    },
+    "67a956432fd30ee1c7c86bbd": {
+      "slug": "indonesia-bali-salty-coffee-bali",
+      "includeInSitemap": true
+    },
+    "67a956433b17907c34541923": {
+      "slug": "indonesia-bali-monsieur-spoon-canggu",
+      "includeInSitemap": true
+    },
+    "67a95643ae3b2b07a92746cb": {
+      "slug": "indonesia-bali-hanaka-coffee-canggu",
+      "includeInSitemap": true
+    },
+    "67a956428f227e475aaee65c": {
+      "slug": "indonesia-bali-hanaka-coffee",
+      "includeInSitemap": true
+    },
+    "67a956420121dd9da02354d9": {
+      "slug": "indonesia-bali-saute-canggu",
+      "includeInSitemap": true
+    },
+    "67a21a24dab3de17fef18978": {
+      "slug": "indonesia-bali-oku-cafe-bistro-balangan",
+      "includeInSitemap": true
+    },
+    "679c5e8ec8a9859eed886315": {
+      "slug": "indonesia-bali-brekky-cafe-pererenan",
+      "includeInSitemap": true
+    },
+    "679c449b1f44d535f9e2db38": {
+      "slug": "thailand-surat-thani-augusto-smoothy-bar",
+      "includeInSitemap": true
+    },
+    "6784e21eef53f58d51dd260a": {
+      "slug": "thailand-koh-phangan-remotedigital-coworking-la-casa",
+      "includeInSitemap": true
+    },
+    "6784e21d54282d6114317059": {
+      "slug": "thailand-koh-phangan-sticky-island-cafe",
+      "includeInSitemap": true
+    },
+    "6784e21b54282d61143169f4": {
+      "slug": "thailand-koh-phangan-young-son-cafe",
+      "includeInSitemap": true
+    },
+    "6784e21b5a861705e4831fac": {
+      "slug": "thailand-koh-phangan-karma-kafe",
+      "includeInSitemap": true
+    },
+    "6784e21b28014e1b748e80f8": {
+      "slug": "thailand-koh-phangan-warung-cafe-and-restaurant",
+      "includeInSitemap": true
+    },
+    "6784e21a0146afa43d35cc6d": {
+      "slug": "thailand-koh-phangan-mimis-cafe",
+      "includeInSitemap": true
+    },
+    "6784e21aed4a0ca08cff1115": {
+      "slug": "thailand-koh-phangan-uncle-cafe",
+      "includeInSitemap": true
+    },
+    "6784e21aed4a0ca08cff0fab": {
+      "slug": "thailand-koh-phangan-southway-coffee-bar",
+      "includeInSitemap": true
+    },
+    "6784e21952c3fbabb938e276": {
+      "slug": "thailand-koh-phangan-rong-cafe",
+      "includeInSitemap": true
+    },
+    "6784e219668d29537c3df4f0": {
+      "slug": "thailand-koh-phangan-bubbas-coffee-baan-tai",
+      "includeInSitemap": true
+    },
+    "6784e21854cea2cf5f033c48": {
+      "slug": "thailand-koh-phangan-hundred-islands-coffee-bar",
+      "includeInSitemap": true
+    },
+    "6784e218355e745c2caa6f8f": {
+      "slug": "thailand-koh-phangan-cafe-de-koh-phangan",
+      "includeInSitemap": true
+    },
+    "6784e21854282d61143163f3": {
+      "slug": "thailand-koh-phangan-common-grounds-coffee",
+      "includeInSitemap": true
+    },
+    "6784e218fe2abce0a8c0f434": {
+      "slug": "thailand-koh-phangan-niras-home-bakery",
+      "includeInSitemap": true
+    },
+    "6784e2173e2d6e2a81c444b2": {
+      "slug": "thailand-koh-phangan-prime-cafe",
+      "includeInSitemap": true
+    },
+    "6784e217a1caac0cd3e725c0": {
+      "slug": "thailand-koh-phangan-indigo-cafe-and-eatery-thongsala",
+      "includeInSitemap": true
+    },
+    "6784e2178dc303e48a2184d4": {
+      "slug": "thailand-koh-phangan-baan-manali-beach-cafe",
+      "includeInSitemap": true
+    },
+    "6784e216eaef01228e1bb4f4": {
+      "slug": "thailand-koh-phangan-deli-devi",
+      "includeInSitemap": true
+    },
+    "6784e2165a861705e48317d4": {
+      "slug": "thailand-koh-phangan-bubbas-roastery",
+      "includeInSitemap": true
+    },
+    "6784e215cac506bc5144d480": {
+      "slug": "thailand-koh-phangan-cookies-cafe",
+      "includeInSitemap": true
+    },
+    "6784e215cc89dd1a71be7d7b": {
+      "slug": "thailand-koh-phangan-flow-cafe-and-eatery",
+      "includeInSitemap": true
+    },
+    "6784e214dad4a33d2f896f69": {
+      "slug": "thailand-koh-phangan-kaif-deli-and-restaurant",
+      "includeInSitemap": true
+    },
+    "6784e2147b4a753aff29306e": {
+      "slug": "thailand-koh-phangan-carrot-cafe",
+      "includeInSitemap": true
+    },
+    "6784e21497020a242c7159d0": {
+      "slug": "thailand-koh-phangan-the-seaside-cafe",
+      "includeInSitemap": true
+    },
+    "6784e21342cb3312d6bd4c87": {
+      "slug": "thailand-koh-phangan-orion-cafe",
+      "includeInSitemap": true
+    },
+    "6784e2135a861705e4830bfe": {
+      "slug": "thailand-koh-phangan-foxxys-restaurant-and-cafe",
+      "includeInSitemap": true
+    },
+    "6784e213dbc183768451ccb2": {
+      "slug": "thailand-koh-phangan-mit-cafe",
+      "includeInSitemap": true
+    },
+    "6784e2130f8b7e29bed7d16e": {
+      "slug": "thailand-koh-phangan-apichada-view-point",
+      "includeInSitemap": true
+    },
+    "6784e21328014e1b748e7550": {
+      "slug": "thailand-koh-phangan-coffee",
+      "includeInSitemap": true
+    },
+    "6784e21266b29ec2d9e6fb47": {
+      "slug": "thailand-koh-phangan-sand-and-tan",
+      "includeInSitemap": true
+    },
+    "6784e21228014e1b748e7410": {
+      "slug": "thailand-koh-phangan-tomorrow-x",
+      "includeInSitemap": true
+    },
+    "6784e2122c567ba362777f47": {
+      "slug": "thailand-koh-phangan-art-cafe",
+      "includeInSitemap": true
+    },
+    "6784e212668d29537c3dee7e": {
+      "slug": "thailand-koh-phangan-you-and-me",
+      "includeInSitemap": true
+    },
+    "6784e2119557868af88b3205": {
+      "slug": "thailand-koh-phangan-footprint-cafes",
+      "includeInSitemap": true
+    },
+    "6784e211b2a7feb5e79c79db": {
+      "slug": "thailand-koh-phangan-whats-cup",
+      "includeInSitemap": true
+    },
+    "6784e211b7f8692649cd1f17": {
+      "slug": "thailand-koh-phangan-balance-specialty-coffee",
+      "includeInSitemap": true
+    },
+    "6784e211053e82772ef952d6": {
+      "slug": "thailand-koh-phangan-little-cookies",
+      "includeInSitemap": true
+    },
+    "6784e2116afb8172e6e9818a": {
+      "slug": "thailand-koh-phangan-qs",
+      "includeInSitemap": true
+    },
+    "6784e211053e82772ef952a7": {
+      "slug": "thailand-koh-phangan-the-shell-lounge",
+      "includeInSitemap": true
+    },
+    "6784e2109557868af88b30b6": {
+      "slug": "thailand-koh-phangan-bake-sense-coffee",
+      "includeInSitemap": true
+    },
+    "6784e210f5ed5087d887b1f7": {
+      "slug": "thailand-koh-phangan-coworking-space-h24",
+      "includeInSitemap": true
+    },
+    "6784e2108eab5b56e37402fe": {
+      "slug": "thailand-koh-phangan-dots-coffee",
+      "includeInSitemap": true
+    },
+    "6784e2104f1f500b3ca69c90": {
+      "slug": "thailand-koh-phangan-beachub",
+      "includeInSitemap": true
+    },
+    "6784e20fcac506bc5144cfaf": {
+      "slug": "thailand-koh-phangan-coworking-at-sunset-hill-resort",
+      "includeInSitemap": true
+    },
+    "6784e20fcac506bc5144cfaa": {
+      "slug": "thailand-koh-phangan-indigo-specialty-coffee-and-bakery",
+      "includeInSitemap": true
+    },
+    "6784e20fe8d7ba0be2f3866b": {
+      "slug": "thailand-koh-phangan-hustle-club",
+      "includeInSitemap": true
+    },
+    "6784e20fdf81c9ffd09f7c18": {
+      "slug": "thailand-koh-phangan-inner-space-coworking",
+      "includeInSitemap": true
+    },
+    "677bc82c58bee706e157829d": {
+      "slug": "thailand-bangkok-coffee-wake",
+      "includeInSitemap": true
+    },
+    "677bc82ce480f9dca98f5b03": {
+      "slug": "thailand-bangkok-oasis-coffee-chula",
+      "includeInSitemap": true
+    },
+    "677bc82c70de7bd5c1c99ed7": {
+      "slug": "thailand-bangkok-tang-cafe",
+      "includeInSitemap": true
+    },
+    "676736d01376786f173b888e": {
+      "slug": "cape-verde-santiago-latelier-praia",
+      "includeInSitemap": true
+    },
+    "676736d089a1188e682361e5": {
+      "slug": "cape-verde-santiago-natura-coffee-shop",
+      "includeInSitemap": true
+    },
+    "676736d0172848529ca6a830": {
+      "slug": "cape-verde-santiago-restaurante-anabel",
+      "includeInSitemap": true
+    },
+    "676736d0e55be10dc129f015": {
+      "slug": "cape-verde-santiago-livraria-nho-eugenio",
+      "includeInSitemap": true
+    },
+    "676736d025a33401d6527468": {
+      "slug": "cape-verde-santiago-workincv",
+      "includeInSitemap": true
+    },
+    "676736d0a5ce67675dbc38f1": {
+      "slug": "cape-verde-sao-vicente-mi-cafe",
+      "includeInSitemap": true
+    },
+    "676736d0a6c4a906421570cf": {
+      "slug": "cape-verde-santiago-restaurante-tambake",
+      "includeInSitemap": true
+    },
+    "676736d0d39b71a90ae30d5a": {
+      "slug": "cape-verde-sao-vicente-bombu-mininu",
+      "includeInSitemap": true
+    },
+    "676736d055a65924fbd005a1": {
+      "slug": "cape-verde-santiago-prime-coworking-palmarejo-baixo",
+      "includeInSitemap": true
+    },
+    "676736d0943bc7a565c7f9b5": {
+      "slug": "cape-verde-sao-vicente-kafe-djan-djan",
+      "includeInSitemap": true
+    },
+    "676736d01d037159b010aae8": {
+      "slug": "cape-verde-sao-vicente-cafe-verde",
+      "includeInSitemap": true
+    },
+    "676736cf1a411002707ffd45": {
+      "slug": "cape-verde-boa-vista-cafe-encontro",
+      "includeInSitemap": true
+    },
+    "676736cff6ff5b3bc250884c": {
+      "slug": "cape-verde-sal-papaya-cafe-cabo-verde",
+      "includeInSitemap": true
+    },
+    "676736cf9d7b3a96011eb914": {
+      "slug": "cape-verde-sal-art-kafe-santa-maria",
+      "includeInSitemap": true
+    },
+    "676736cf874353655e293f75": {
+      "slug": "cape-verde-boa-vista-cremositos-boavista",
+      "includeInSitemap": true
+    },
+    "676736cf89a1188e68236120": {
+      "slug": "cape-verde-sal-cape-fruit",
+      "includeInSitemap": true
+    },
+    "6760cb2ae4a85d59b97c32b9": {
+      "slug": "thailand-bangkok-dear-cafe",
+      "includeInSitemap": true
+    },
+    "674b37a41d78a6be7f43d179": {
+      "slug": "thailand-bangkok-craft",
+      "includeInSitemap": true
+    },
+    "674b37a49ddadf84a13c1c1f": {
+      "slug": "thailand-bangkok-workwize-coworking-space",
+      "includeInSitemap": true
+    },
+    "674b37a4019791da08eabeb1": {
+      "slug": "thailand-bangkok-workstories-serviced-office",
+      "includeInSitemap": true
+    },
+    "674b37a4e6116045f05e6e6e": {
+      "slug": "thailand-bangkok-the-work-loft-silom",
+      "includeInSitemap": true
+    },
+    "674b37a4040573bdb642152a": {
+      "slug": "thailand-bangkok-tloft-coworking-space",
+      "includeInSitemap": true
+    },
+    "674b37a4fbc7383b4c995215": {
+      "slug": "thailand-bangkok-think-society-coworking-space-and-coffee",
+      "includeInSitemap": true
+    },
+    "674b37a4aa9025ffb5998386": {
+      "slug": "thailand-bangkok-the-urban-office-asoke",
+      "includeInSitemap": true
+    },
+    "674b37a4ab62ac5800dbe0e8": {
+      "slug": "thailand-bangkok-the-urban-office-phra-khanong",
+      "includeInSitemap": true
+    },
+    "674b37a4464b231db2ce0ba6": {
+      "slug": "thailand-bangkok-the-urban-office",
+      "includeInSitemap": true
+    },
+    "674b37a4dd188bc8871b7d9a": {
+      "slug": "thailand-bangkok-the-park-east",
+      "includeInSitemap": true
+    },
+    "674b37a331a2fd6ff89b763c": {
+      "slug": "thailand-bangkok-draftboard-mbk-center",
+      "includeInSitemap": true
+    },
+    "674b37a3713557a76c1b454a": {
+      "slug": "thailand-bangkok-tha-ploook",
+      "includeInSitemap": true
+    },
+    "674b37a37d4012b5ceec1777": {
+      "slug": "thailand-bangkok-the-hive-prakanong",
+      "includeInSitemap": true
+    },
+    "674b37a38dfb7342938a26df": {
+      "slug": "thailand-bangkok-the-great-room-gaysorn-tower",
+      "includeInSitemap": true
+    },
+    "674b37a3db75f1b2a4159bb7": {
+      "slug": "thailand-bangkok-naplab-chula",
+      "includeInSitemap": true
+    },
+    "674b37a38dfb7342938a26ac": {
+      "slug": "thailand-bangkok-glowfish",
+      "includeInSitemap": true
+    },
+    "674b37a3db75f1b2a4159b8a": {
+      "slug": "thailand-bangkok-common-ground-central-world",
+      "includeInSitemap": true
+    },
+    "674b37a3464b231db2ce0b5c": {
+      "slug": "thailand-bangkok-common-ground-g-tower",
+      "includeInSitemap": true
+    },
+    "674b37a3e6116045f05e6dc5": {
+      "slug": "thailand-bangkok-the-hive-thonglor",
+      "includeInSitemap": true
+    },
+    "674b37a36541130c2bea46ed": {
+      "slug": "thailand-bangkok-common-ground-ploenchit",
+      "includeInSitemap": true
+    },
+    "674b37a3ab62ac5800dbe070": {
+      "slug": "thailand-bangkok-officefirst",
+      "includeInSitemap": true
+    },
+    "674b37a204fee7c9b3adfee9": {
+      "slug": "thailand-bangkok-yest-works-coffee-roastery",
+      "includeInSitemap": true
+    },
+    "674b37a25713b502134106b4": {
+      "slug": "thailand-bangkok-yest-works-coffee-bar",
+      "includeInSitemap": true
+    },
+    "674b37a2040573bdb642132f": {
+      "slug": "thailand-bangkok-true-coffee-emquartier",
+      "includeInSitemap": true
+    },
+    "674b37a2cc980781b21b0d0f": {
+      "slug": "thailand-bangkok-too-fast-to-sleep-siam",
+      "includeInSitemap": true
+    },
+    "674b37a2334d8fa6dd9140a0": {
+      "slug": "thailand-bangkok-tiny-cup-cafe",
+      "includeInSitemap": true
+    },
+    "674b37a2926734b936a25b34": {
+      "slug": "thailand-bangkok-the-gingerbread-house",
+      "includeInSitemap": true
+    },
+    "674b37a246b1507886392741": {
+      "slug": "thailand-bangkok-the-coffee-club-shama-hotel",
+      "includeInSitemap": true
+    },
+    "674b37a27d4012b5ceec15e2": {
+      "slug": "thailand-bangkok-the-coffee-academics",
+      "includeInSitemap": true
+    },
+    "674b37a2e281a34da8daf684": {
+      "slug": "thailand-bangkok-roast-coffee-and-eatery",
+      "includeInSitemap": true
+    },
+    "674b37a2aa9025ffb599816f": {
+      "slug": "thailand-bangkok-starbucks-siam-center",
+      "includeInSitemap": true
+    },
+    "674b37a202306752fb737da3": {
+      "slug": "thailand-bangkok-starbucks-samyan-mitrtown",
+      "includeInSitemap": true
+    },
+    "674b37a231a2fd6ff89b7516": {
+      "slug": "thailand-bangkok-rocket-coffeebar",
+      "includeInSitemap": true
+    },
+    "674b37a21d78a6be7f43cfbd": {
+      "slug": "thailand-bangkok-forum-coworking-space",
+      "includeInSitemap": true
+    },
+    "674b37a2ef4caa499b5c1e80": {
+      "slug": "thailand-bangkok-puritan",
+      "includeInSitemap": true
+    },
+    "674b37a1334d8fa6dd913fe7": {
+      "slug": "thailand-bangkok-porcupine-cafe",
+      "includeInSitemap": true
+    },
+    "674b37a17c16244ffee9224a": {
+      "slug": "thailand-bangkok-phil-coffee-co",
+      "includeInSitemap": true
+    },
+    "674b37a18dfb7342938a25cb": {
+      "slug": "thailand-bangkok-paul-le-cafe-iconsiam",
+      "includeInSitemap": true
+    },
+    "674b37a16067c08a088f3edc": {
+      "slug": "thailand-bangkok-oasis-coffee-thanon-rang-nam",
+      "includeInSitemap": true
+    },
+    "674b37a1fbc7383b4c994f2f": {
+      "slug": "thailand-bangkok-thecommons",
+      "includeInSitemap": true
+    },
+    "674b37a1f8c8e65f34560eaa": {
+      "slug": "thailand-bangkok-oasis-coffee",
+      "includeInSitemap": true
+    },
+    "674b37a18dfb7342938a259a": {
+      "slug": "thailand-bangkok-nana-coffee-roasters-ari",
+      "includeInSitemap": true
+    },
+    "674b37a18f6a3b8d67dbede8": {
+      "slug": "thailand-bangkok-miche",
+      "includeInSitemap": true
+    },
+    "674b37a1e6116045f05e6d08": {
+      "slug": "thailand-bangkok-madame-musur",
+      "includeInSitemap": true
+    },
+    "674b37a16541130c2bea45c9": {
+      "slug": "thailand-bangkok-luka-cafe",
+      "includeInSitemap": true
+    },
+    "674b37a0fbc7383b4c994e9a": {
+      "slug": "thailand-bangkok-library-cafe",
+      "includeInSitemap": true
+    },
+    "674b37a0a92a17a46dbe3a4e": {
+      "slug": "thailand-bangkok-le-cafe-phenix",
+      "includeInSitemap": true
+    },
+    "674b37a0cc980781b21b0b01": {
+      "slug": "thailand-bangkok-i-found-you-cafe",
+      "includeInSitemap": true
+    },
+    "674b37a0a680442a2a7da64a": {
+      "slug": "thailand-bangkok-kif",
+      "includeInSitemap": true
+    },
+    "674b37a011bf5448aba7531a": {
+      "slug": "thailand-bangkok-brave-roasters-siam-discovery",
+      "includeInSitemap": true
+    },
+    "674b37a0e281a34da8daf3fa": {
+      "slug": "thailand-bangkok-kaizen-coffee-ekamai",
+      "includeInSitemap": true
+    },
+    "674b37a0db75f1b2a41599af": {
+      "slug": "thailand-bangkok-gallery-drip-coffee",
+      "includeInSitemap": true
+    },
+    "674b37a0d5dd4e12f7834a6d": {
+      "slug": "thailand-bangkok-cafe-velodome",
+      "includeInSitemap": true
+    },
+    "674b37a08577b80adfa59282": {
+      "slug": "thailand-bangkok-cozi-cafe-and-bar",
+      "includeInSitemap": true
+    },
+    "674b37a08f6a3b8d67dbed68": {
+      "slug": "thailand-bangkok-flat-white-cafe",
+      "includeInSitemap": true
+    },
+    "674b37a0a04f12f57f48cbc5": {
+      "slug": "thailand-bangkok-counting-sheep-corner",
+      "includeInSitemap": true
+    },
+    "674b37a0fbc7383b4c994dee": {
+      "slug": "thailand-bangkok-coffeeology",
+      "includeInSitemap": true
+    },
+    "674b37a0d50b5fd22bcfeff6": {
+      "slug": "thailand-bangkok-klaire-coffee-and-brunch",
+      "includeInSitemap": true
+    },
+    "674b379fe281a34da8daf3a1": {
+      "slug": "thailand-bangkok-cafe-neighbor",
+      "includeInSitemap": true
+    },
+    "674b379f207c69628c4cecfb": {
+      "slug": "thailand-bangkok-bake-brothers",
+      "includeInSitemap": true
+    },
+    "674b379f207c69628c4cecf4": {
+      "slug": "thailand-bangkok-aroon-cafe",
+      "includeInSitemap": true
+    },
+    "674b379f040573bdb6420eb0": {
+      "slug": "thailand-bangkok-broccoli-revolution-sukhumvit-49",
+      "includeInSitemap": true
+    },
+    "674b379f31a2fd6ff89b722c": {
+      "slug": "thailand-bangkok-bay-aree",
+      "includeInSitemap": true
+    },
+    "674b379f04fee7c9b3adfd79": {
+      "slug": "thailand-bangkok-bartels-sukhumvit",
+      "includeInSitemap": true
+    },
+    "674b379f02306752fb737bbd": {
+      "slug": "thailand-bangkok-artis-coffee",
+      "includeInSitemap": true
+    },
+    "6749620e783e16c39adb351c": {
+      "slug": "germany-oldenburg-cafe-and-bar-celona",
+      "includeInSitemap": true
+    },
+    "6749620ea56284c241daf68e": {
+      "slug": "germany-oldenburg-kaethe-kaffee",
+      "includeInSitemap": true
+    },
+    "6749620ed55091acf47cbffc": {
+      "slug": "germany-oldenburg-woyton-haarenstrasse",
+      "includeInSitemap": true
+    },
+    "6749620e2c1fc7a5bd3f8942": {
+      "slug": "germany-oldenburg-vapiano-kasinoplatz",
+      "includeInSitemap": true
+    },
+    "6749620d1eef3246ea2076fe": {
+      "slug": "germany-oldenburg-cafe-extrablatt",
+      "includeInSitemap": true
+    },
+    "6749620dd55091acf47cbf85": {
+      "slug": "england-london-le-pain-quotidien",
+      "includeInSitemap": true
+    },
+    "6749620d75224ac4ae447fdf": {
+      "slug": "germany-oldenburg-core",
+      "includeInSitemap": true
+    },
+    "6749620d16ec5811acf144d6": {
+      "slug": "canada-vancouver-werklab-inc",
+      "includeInSitemap": true
+    },
+    "6749620d7f89197226299b5c": {
+      "slug": "malaysia-kuala-lumpur-see-cafe-arcoris-mont-kiara",
+      "includeInSitemap": true
+    },
+    "67483b8907a182a525ff87dd": {
+      "slug": "thailand-bangkok-shinei-serviced-office-and-coworking-space",
+      "includeInSitemap": true
+    },
+    "67481c8bbc56713bcc03a5d0": {
+      "slug": "indonesia-bali-suburbia-cafe",
+      "includeInSitemap": true
+    },
+    "674339c692db7d9f735ea23d": {
+      "slug": "indonesia-bali-md-amed",
+      "includeInSitemap": true
+    },
+    "674339c636e86e0b98d8fed4": {
+      "slug": "indonesia-bali-oneway-espresso",
+      "includeInSitemap": true
+    },
+    "674339c68e26c188137a260f": {
+      "slug": "indonesia-bali-good-stuff-cafe-and-eco-store-amed",
+      "includeInSitemap": true
+    },
+    "674339c6c8c703d92acf948a": {
+      "slug": "indonesia-bali-rimba-cafe",
+      "includeInSitemap": true
+    },
+    "674339c659d39d6f8dc86602": {
+      "slug": "indonesia-bali-savor-pererenan",
+      "includeInSitemap": true
+    },
+    "6725a28f4e06a595785f5a6b": {
+      "slug": "indonesia-bali-the-capricorn-bali",
+      "includeInSitemap": true
+    },
+    "6725a28e9bbcd67059bd4714": {
+      "slug": "indonesia-bali-the-hula",
+      "includeInSitemap": true
+    },
+    "6725a28edc6305cc1d05e5fd": {
+      "slug": "indonesia-bali-openhouse-cafe",
+      "includeInSitemap": true
+    },
+    "6725a28e4e06a595785f5a23": {
+      "slug": "indonesia-bali-five30-cafe",
+      "includeInSitemap": true
+    },
+    "67246a3a77bc6d78c33441c7": {
+      "slug": "philippines-siargao-yes-surf-siargao",
+      "includeInSitemap": true
+    },
+    "67246a3a623c6cfc8f2e2516": {
+      "slug": "philippines-siargao-lamari",
+      "includeInSitemap": true
+    },
+    "67246a3a7b2496726a8137a6": {
+      "slug": "philippines-siargao-sinag-hostel",
+      "includeInSitemap": true
+    },
+    "67246a3add2bc1bc91c944a2": {
+      "slug": "philippines-siargao-the-ohm-cafe",
+      "includeInSitemap": true
+    },
+    "67246a3abe3e0525fa25c478": {
+      "slug": "philippines-siargao-the-hub-by-lokal-lab",
+      "includeInSitemap": true
+    },
+    "67246a3ae051ce3154cde01b": {
+      "slug": "philippines-siargao-brunch-spot",
+      "includeInSitemap": true
+    },
+    "67246a3a857eb78fd4d7b309": {
+      "slug": "philippines-siargao-green-waves-cafe",
+      "includeInSitemap": true
+    },
+    "67246a3a49dd3e0404417462": {
+      "slug": "philippines-siargao-amon-cafe",
+      "includeInSitemap": true
+    },
+    "67246a39a182f8d77ef9a855": {
+      "slug": "philippines-siargao-lexias-hostel-workspace",
+      "includeInSitemap": true
+    },
+    "67246a39b1e35b11a8c12213": {
+      "slug": "philippines-siargao-spotted-pig-cafe",
+      "includeInSitemap": true
+    },
+    "67246a3962a5f35d6b0ce43a": {
+      "slug": "philippines-siargao-bravo-beach-resort",
+      "includeInSitemap": true
+    },
+    "67246a39487b0a37a62b9d98": {
+      "slug": "philippines-siargao-mondayyys-cafe",
+      "includeInSitemap": true
+    },
+    "67246a399ec6f0803f1253b0": {
+      "slug": "philippines-siargao-coastal-grounds-coffee",
+      "includeInSitemap": true
+    },
+    "6722fe1495b89fcd4c2b39cd": {
+      "slug": "philippines-siargao-goodies",
+      "includeInSitemap": true
+    },
+    "671a2069df76804d23b3534c": {
+      "slug": "spain-mallorca-federal-palma",
+      "includeInSitemap": true
+    },
+    "66f857f0b5cc23c2b708e745": {
+      "slug": "estonia-tallinn-fotografiska-cafe",
+      "includeInSitemap": true
+    },
+    "66f857f0fd59f1e533a11360": {
+      "slug": "estonia-tallinn-st-vitus",
+      "includeInSitemap": true
+    },
+    "66f857f0ac399ec84dac1ff0": {
+      "slug": "indonesia-bali-setter-ubud-coworking",
+      "includeInSitemap": true
+    },
+    "66f857f0a136d5f5d4f4fc34": {
+      "slug": "estonia-tallinn-caffeine-ee",
+      "includeInSitemap": true
+    },
+    "66f857f037d8e0032dee8e45": {
+      "slug": "estonia-tallinn-literaat-telliskivi-rahva-raamat",
+      "includeInSitemap": true
+    },
+    "66f6dc5cd3a1bde5c5fbdb21": {
+      "slug": "greece-athens-pi55-coworking-space",
+      "includeInSitemap": true
+    },
+    "66f6dc5c991043ca2f96d97f": {
+      "slug": "thailand-bangkok-starbucks-iconsiam",
+      "includeInSitemap": true
+    },
+    "66eee81357b17c5f9dec1336": {
+      "slug": "england-manchester-foundation-coffee-house-whitworth-st",
+      "includeInSitemap": true
+    },
+    "66edafbbd1ce4a25b222f350": {
+      "slug": "england-london-brixton-the-laundry",
+      "includeInSitemap": true
+    },
+    "66edafbaf8ed8e1c2284762b": {
+      "slug": "england-london-borough-the-ministry",
+      "includeInSitemap": true
+    },
+    "66e7cd909fc161515f714c6d": {
+      "slug": "greece-rhodes-project-sce",
+      "includeInSitemap": true
+    },
+    "66e7cd8f8930475289ccbf9e": {
+      "slug": "greece-crete-comeet-creative-space",
+      "includeInSitemap": true
+    },
+    "66df1faf587225f8f7da6501": {
+      "slug": "greece-athens-vios-co-lab",
+      "includeInSitemap": true
+    },
+    "66df1fafd45c3b9c49f31f0d": {
+      "slug": "greece-athens-vios-downtown",
+      "includeInSitemap": true
+    },
+    "66df1faf92b716c215bfd0fa": {
+      "slug": "greece-athens-vios-autograph",
+      "includeInSitemap": true
+    },
+    "66ddd4c0fa9ffe666938b549": {
+      "slug": "italy-florence-ditta-artigianale-riva-darno",
+      "includeInSitemap": true
+    },
+    "66d86b89956e2e75497bf514": {
+      "slug": "turkey-istanbul-ofis-voyvoda",
+      "includeInSitemap": true
+    },
+    "66d7e9babab9945648a84f14": {
+      "slug": "indonesia-lombok-curfew-restaurant-and-beer-garden",
+      "includeInSitemap": true
+    },
+    "66cf5711344f70f9f2b749a2": {
+      "slug": "estonia-tallinn-fika-cafe-telliskivi",
+      "includeInSitemap": true
+    },
+    "66cf5711048af48af52fbe97": {
+      "slug": "south-korea-seoul-local-stitch-creator-town-seogyo",
+      "includeInSitemap": true
+    },
+    "66c9a000a43762e556a453f1": {
+      "slug": "italy-florence-oblate-cafeteria",
+      "includeInSitemap": true
+    },
+    "66c9a000229c69b40827033e": {
+      "slug": "italy-florence-la-cite",
+      "includeInSitemap": true
+    },
+    "66c1ffe8a3d76f74288c3e4a": {
+      "slug": "germany-munich-coffee-fellows-leopoldstrasse",
+      "includeInSitemap": true
+    },
+    "66c1ffe8c2f1bc92ad2e4c8f": {
+      "slug": "germany-munich-coffee-fellows-tal",
+      "includeInSitemap": true
+    },
+    "66c1ffe8234911f96b0e72ba": {
+      "slug": "germany-munich-coffee-box",
+      "includeInSitemap": true
+    },
+    "66c1ffe7d6f79a015a526223": {
+      "slug": "germany-munich-kanso-coffee-lab",
+      "includeInSitemap": true
+    },
+    "66c1ffe75673bb6bae94b5d0": {
+      "slug": "germany-munich-cafe-lehel-coffee-kaffee-smoothie",
+      "includeInSitemap": true
+    },
+    "66c1ffe7591c2b56960deea2": {
+      "slug": "germany-munich-cafe-bla-specialty-coffee-shop",
+      "includeInSitemap": true
+    },
+    "66c1ffe7788daf37985268f4": {
+      "slug": "germany-munich-man-vs-machine-muellerstrasse",
+      "includeInSitemap": true
+    },
+    "66c1ffe784c0d0d41f0a43d5": {
+      "slug": "germany-munich-cafe-koenigin-43",
+      "includeInSitemap": true
+    },
+    "66c1ffe7c2f1bc92ad2e4c52": {
+      "slug": "germany-munich-keep-banana",
+      "includeInSitemap": true
+    },
+    "66c1ffe65f02084760873cd9": {
+      "slug": "germany-munich-kyso-cafe",
+      "includeInSitemap": true
+    },
+    "66c1ffe60c2b45fe48eea4db": {
+      "slug": "germany-munich-cafe-faber",
+      "includeInSitemap": true
+    },
+    "66c1ffe65f02084760873c87": {
+      "slug": "germany-munich-bean-batter",
+      "includeInSitemap": true
+    },
+    "66c1ffe63562faa7756f381a": {
+      "slug": "germany-munich-vogelmaier-kaffeeroesterei",
+      "includeInSitemap": true
+    },
+    "66c1ffe602f84885c8de1ba6": {
+      "slug": "germany-munich-man-vs-machine-schellingstrasse",
+      "includeInSitemap": true
+    },
+    "66c1ffe65a276f51ed224f38": {
+      "slug": "germany-munich-lost-weekend",
+      "includeInSitemap": true
+    },
+    "66bbc200c03c05268b843f63": {
+      "slug": "germany-munich-vits-kaffee",
+      "includeInSitemap": true
+    },
+    "669a23496fdc1972db6b8707": {
+      "slug": "itt-varlak",
+      "includeInSitemap": true
+    },
+    "669a2349996baedf02aa3917": {
+      "slug": "kaptar-coworking",
+      "includeInSitemap": true
+    },
+    "669a234945922c6668d4ef09": {
+      "slug": "ohana",
+      "includeInSitemap": true
+    },
+    "669a23493d668678317b8014": {
+      "slug": "sixletter-coffee-co",
+      "includeInSitemap": true
+    },
+    "669a2349ecf0b0084c72732e": {
+      "slug": "impact-hub-budapest",
+      "includeInSitemap": true
+    },
+    "668b9113ddffc472b7985f54": {
+      "slug": "cafe-csiga",
+      "includeInSitemap": true
+    },
+    "668b8ee9693ce0961bc84f1f": {
+      "slug": "dorado-cafe",
+      "includeInSitemap": true
+    },
+    "668b8ee838fddafe57a331af": {
+      "slug": "arch-beans",
+      "includeInSitemap": true
+    },
+    "668b8ee8a2ac86b35a9455f3": {
+      "slug": "fekete",
+      "includeInSitemap": true
+    },
+    "66838ea5f95e35cb4812568f": {
+      "slug": "lab-cafe",
+      "includeInSitemap": true
+    },
+    "66838ea4f54d17573352a8a5": {
+      "slug": "talks-kaviaren",
+      "includeInSitemap": true
+    },
+    "66838ea4c9c44ab2cac000d5": {
+      "slug": "lumen",
+      "includeInSitemap": true
+    },
+    "66838ea3cc73c29067482ae2": {
+      "slug": "magveto",
+      "includeInSitemap": true
+    },
+    "66838ea377d056cf201b64d4": {
+      "slug": "black",
+      "includeInSitemap": true
+    },
+    "66838ea34c9bbcdc5491c5a9": {
+      "slug": "schoendorf-bio-cafe",
+      "includeInSitemap": true
+    },
+    "66838ea3a0e10752e40fde2c": {
+      "slug": "urban-bistro",
+      "includeInSitemap": true
+    },
+    "66838ea39e72c94ab3c62c89": {
+      "slug": "urban-house",
+      "includeInSitemap": true
+    },
+    "66838ea3da87dd848e300bbe": {
+      "slug": "foxford",
+      "includeInSitemap": true
+    },
+    "66795f582608a890b5948de3": {
+      "slug": "cafe-sperl",
+      "includeInSitemap": true
+    },
+    "66781d498854ad6b0ab913b3": {
+      "slug": "cafe-goldegg",
+      "includeInSitemap": true
+    },
+    "6676cf062a6f276c22680660": {
+      "slug": "empress-coffee",
+      "includeInSitemap": true
+    },
+    "6676cf0629de5e0a4761112c": {
+      "slug": "kleines-cafe",
+      "includeInSitemap": true
+    },
+    "6676cf0652d6a726321f48f8": {
+      "slug": "pickwicks",
+      "includeInSitemap": true
+    },
+    "6676cf06a5d1c33e1116d564": {
+      "slug": "coffeepirates",
+      "includeInSitemap": true
+    },
+    "6676cf06800e7ce0353e7198": {
+      "slug": "jonas-reindl-coffee-roasters-neubau",
+      "includeInSitemap": true
+    },
+    "6676cf066b98a81f2ce7c06a": {
+      "slug": "das-cafe",
+      "includeInSitemap": true
+    },
+    "6676cf06a56a3a9ca5a86d38": {
+      "slug": "jonas-reindl-coffee-roasters-josefstadt",
+      "includeInSitemap": true
+    },
+    "6676cf05e2f7aa2056c0092e": {
+      "slug": "jonas-reindl-coffee-roasters-alsergrund",
+      "includeInSitemap": true
+    },
+    "6676cf052abfbef196fc89e5": {
+      "slug": "j-hornig-kaffeebar",
+      "includeInSitemap": true
+    },
+    "6676cf053d1ef88b5109e37a": {
+      "slug": "cafe-7stern",
+      "includeInSitemap": true
+    },
+    "6676cf056617805c99ef7444": {
+      "slug": "stroek-feierabend",
+      "includeInSitemap": true
+    },
+    "6676cf056b3b94617753b1b6": {
+      "slug": "werkzeugh",
+      "includeInSitemap": true
+    },
+    "6676cf05bc969b0c31a234cd": {
+      "slug": "cafe-jelinek",
+      "includeInSitemap": true
+    },
+    "666d6161832653f698d5b27f": {
+      "slug": "zeit-cafe",
+      "includeInSitemap": true
+    },
+    "666d61617b96efb34741f8e8": {
+      "slug": "nord-coast-coffee",
+      "includeInSitemap": true
+    },
+    "666b03fb5273cee26e6d2740": {
+      "slug": "copenhagen-coffee-lab-winterhude",
+      "includeInSitemap": true
+    },
+    "666b03fb9720d46c38ebbb7b": {
+      "slug": "codos-coffee-muehlenkamp",
+      "includeInSitemap": true
+    },
+    "6668001ca635cdc13c73bffb": {
+      "slug": "bangkok-piccolo-vicolo-cafe",
+      "includeInSitemap": true
+    },
+    "6668001c12cc74f3b0e70dc3": {
+      "slug": "open-house",
+      "includeInSitemap": true
+    },
+    "6668001c89ed7ce9f6a92243": {
+      "slug": "ceresia-coffee-roasters",
+      "includeInSitemap": true
+    },
+    "6667f39f541a6794de3c60c5": {
+      "slug": "one-cowork-catedral",
+      "includeInSitemap": true
+    },
+    "6667f39dfc62869767822cd0": {
+      "slug": "itnig-coworking",
+      "includeInSitemap": true
+    },
+    "6667f39d6a52d785ab6f46df": {
+      "slug": "itnig-cafe",
+      "includeInSitemap": true
+    },
+    "6667f39d4620266c4db3b397": {
+      "slug": "torst",
+      "includeInSitemap": true
+    },
+    "6667f39d5c334145f794c84f": {
+      "slug": "one-cowork-placa-catalunya",
+      "includeInSitemap": true
+    },
+    "6667f39d468c623366b68c64": {
+      "slug": "libertine-cocktail-bar-at-casa-bonay",
+      "includeInSitemap": true
+    },
+    "6667f39d1b019af7ef755fa6": {
+      "slug": "laie-llibreria-cafe",
+      "includeInSitemap": true
+    },
+    "6667f39dd7a7ebd13f0f01ed": {
+      "slug": "my-bali-coffee",
+      "includeInSitemap": true
+    },
+    "6666b1c8833ca0d65274c66f": {
+      "slug": "cafe-knuth",
+      "includeInSitemap": true
+    },
+    "6666b10cbdb5c245d1fcc29c": {
+      "slug": "zentralbibliothek-hamburg",
+      "includeInSitemap": true
+    },
+    "6666b0d0d81191c395dfb918": {
+      "slug": "the-charivari-drinkery",
+      "includeInSitemap": true
+    },
+    "6666b0c9475bacb265fd9237": {
+      "slug": "eleven-11-11-eleven",
+      "includeInSitemap": true
+    },
+    "6666b048f8fc2b590fb950c6": {
+      "slug": "danasol---eatery-cafe-workspace",
+      "includeInSitemap": true
+    },
+    "6666b0484ddea593c1fcc797": {
+      "slug": "the-hideout-cafe",
+      "includeInSitemap": true
+    },
+    "6666b048ec480c4d81649b60": {
+      "slug": "dng-coffee",
+      "includeInSitemap": true
+    },
+    "6666b048562f1e37d4f78b25": {
+      "slug": "phe-coffee---the-garden",
+      "includeInSitemap": true
+    },
+    "665ed1a52e16798a3c6abf1f": {
+      "slug": "hedonist",
+      "includeInSitemap": true
+    },
+    "665ed1a52920d92b2630f77e": {
+      "slug": "nebula",
+      "includeInSitemap": true
+    },
+    "665ed1a567f91d7e7438583b": {
+      "slug": "gowork-park23",
+      "includeInSitemap": true
+    },
+    "665ed1a5ef98fb50f4c1e618": {
+      "slug": "coffee-shop-berawa",
+      "includeInSitemap": true
+    },
+    "665ed1a567f91d7e74385813": {
+      "slug": "old-muse-canggu",
+      "includeInSitemap": true
+    },
+    "665eca884b52d264879a89f7": {
+      "slug": "roots-plant-based-cafe",
+      "includeInSitemap": true
+    },
+    "665eca880b357e0950b1bef7": {
+      "slug": "golo-coffee-ap",
+      "includeInSitemap": true
+    },
+    "664fb8985043bf3daf5dd16e": {
+      "slug": "art-food-corner",
+      "includeInSitemap": true
+    },
+    "664fb898b68f409634585694": {
+      "slug": "maia-coffee-shop",
+      "includeInSitemap": true
+    },
+    "664fb8980d7d14d3e11a8b66": {
+      "slug": "cowork-funchal",
+      "includeInSitemap": true
+    },
+    "664fb8982673479a5d6dcc4d": {
+      "slug": "the-workspace-by-amparo",
+      "includeInSitemap": true
+    },
+    "664fb898e38eec241d3ce301": {
+      "slug": "sangha-cowork-funchal",
+      "includeInSitemap": true
+    },
+    "664d020b64a89e11b9bc2595": {
+      "slug": "vcr",
+      "includeInSitemap": true
+    },
+    "664d020123feb877d95564c8": {
+      "slug": "feeka-coffee-roasters",
+      "includeInSitemap": true
+    },
+    "664d01f9ebf0715a6b27df3e": {
+      "slug": "kaffe-16",
+      "includeInSitemap": true
+    },
+    "664d01f9a847e150fcf8b603": {
+      "slug": "lost-x-found",
+      "includeInSitemap": true
+    },
+    "664d01f9b6e884482db2d9b3": {
+      "slug": "mingle-cafe",
+      "includeInSitemap": true
+    },
+    "66428dc52c8f91f5c0e69bad": {
+      "slug": "paper-plane-project",
+      "includeInSitemap": true
+    },
+    "66428dc544d81e3a3f30c255": {
+      "slug": "sarnies-cafe-sukhumvit",
+      "includeInSitemap": true
+    },
+    "66428dc593fa7c845cd1391e": {
+      "slug": "cafe-eiles",
+      "includeInSitemap": true
+    },
+    "66428dc5c6067cca9a7b7d8c": {
+      "slug": "mother",
+      "includeInSitemap": true
+    },
+    "66428dc59256d96271f1d88d": {
+      "slug": "cum-coffee-the-office-thonglor",
+      "includeInSitemap": true
+    },
+    "663e5f59a0f8e5b78189a85f": {
+      "slug": "dear-breakfast-bica",
+      "includeInSitemap": true
+    },
+    "663e5f5927465035403b1f29": {
+      "slug": "hello-kristof",
+      "includeInSitemap": true
+    },
+    "663e5f59095083a5889f7b68": {
+      "slug": "selina-secret-garden-cowork",
+      "includeInSitemap": true
+    },
+    "663e5f599ac03722a769ae5b": {
+      "slug": "comoba",
+      "includeInSitemap": true
+    },
+    "663e5f5923b1080c14f756bd": {
+      "slug": "copenhagen-coffee-lab---santa-clara",
+      "includeInSitemap": true
+    },
+    "66329147b18df8fdb48f6374": {
+      "slug": "laut-cafe",
+      "includeInSitemap": true
+    },
+    "66329147330996152baca6e7": {
+      "slug": "halokedungu",
+      "includeInSitemap": true
+    },
+    "663291477cbacb36233e7c58": {
+      "slug": "tmo-coffee-bali-kedungu-beach",
+      "includeInSitemap": true
+    },
+    "663291471cab4554c2878fce": {
+      "slug": "downtown",
+      "includeInSitemap": true
+    },
+    "66329147d668e0e191b0d61d": {
+      "slug": "life-between",
+      "includeInSitemap": true
+    },
+    "66329146b0f77cf9fe43cd3d": {
+      "slug": "the-solimans",
+      "includeInSitemap": true
+    },
+    "66329146445ac40030a97b5d": {
+      "slug": "pura-vida-seseh",
+      "includeInSitemap": true
+    },
+    "663291465aa0a1ffc93012e0": {
+      "slug": "clove",
+      "includeInSitemap": true
+    },
+    "663291462f3606ae84b835c6": {
+      "slug": "r-coffee",
+      "includeInSitemap": true
+    },
+    "663291466a35f48bfee85a1a": {
+      "slug": "the-lodge",
+      "includeInSitemap": true
+    },
+    "6632914636097d417f6772fa": {
+      "slug": "mustache-cafe-bali",
+      "includeInSitemap": true
+    },
+    "66329146d668e0e191b0d5ba": {
+      "slug": "macro-kitchen",
+      "includeInSitemap": true
+    },
+    "6631cb0d5be6e2bfb1874f04": {
+      "slug": "bali-bustle-coworking-coliving",
+      "includeInSitemap": true
+    },
+    "6631cb0dbdcb81d0e34d99ed": {
+      "slug": "biliq-sunset",
+      "includeInSitemap": true
+    },
+    "6631cb0da256acf959355935": {
+      "slug": "hub-bali",
+      "includeInSitemap": true
+    },
+    "6631c9dba256acf959346886": {
+      "slug": "libera-space",
+      "includeInSitemap": true
+    },
+    "6631c9dbe6fb8f41e96a69e4": {
+      "slug": "front-cafe",
+      "includeInSitemap": true
+    },
+    "6631c9dbb3a10a2206c208b3": {
+      "slug": "moonface",
+      "includeInSitemap": true
+    },
+    "6631c9dbcd830ff47f64b1cf": {
+      "slug": "two-face-coffee-brunch",
+      "includeInSitemap": true
+    },
+    "6631c9da9facf5b27d131d77": {
+      "slug": "the-daun-coworking",
+      "includeInSitemap": true
+    },
+    "6631c9dab3a10a2206c20839": {
+      "slug": "kembali-innovation-hub",
+      "includeInSitemap": true
+    },
+    "6631c9da9377358b028c2fb2": {
+      "slug": "biliq-seminyak",
+      "includeInSitemap": true
+    },
+    "6631c9dae78668b308db9949": {
+      "slug": "neighbourhood-food",
+      "includeInSitemap": true
+    },
+    "661b191f0e5f306f0b0f1eb4": {
+      "slug": "gerupuk-cafe-fin",
+      "includeInSitemap": true
+    },
+    "661b191fca5426d279065b23": {
+      "slug": "dome-lombok-restaurant",
+      "includeInSitemap": true
+    },
+    "6619cfaca457f12b5e659e34": {
+      "slug": "the-breakery",
+      "includeInSitemap": true
+    },
+    "6619cfac606efa5309eaa20b": {
+      "slug": "mango-rooftop",
+      "includeInSitemap": true
+    },
+    "6619cfab6754354f62add829": {
+      "slug": "driftwood-cafe",
+      "includeInSitemap": true
+    },
+    "6619cfabfac8bec5e7ddb491": {
+      "slug": "recharge-bar-and-restaurant",
+      "includeInSitemap": true
+    },
+    "6619cfabb0e7d37fe24f9224": {
+      "slug": "jelajah-coffee-kuta",
+      "includeInSitemap": true
+    },
+    "6619cfabd8e053c19e4af23c": {
+      "slug": "surf-kitchen",
+      "includeInSitemap": true
+    },
+    "6619cfabccb74532b4537edb": {
+      "slug": "dream-cowork-hotel-lombok",
+      "includeInSitemap": true
+    },
+    "6619cfaba457f12b5e659d47": {
+      "slug": "the-spot-coworking-space",
+      "includeInSitemap": true
+    },
+    "661751ac84aa1260b7bb8a82": {
+      "slug": "nohi",
+      "includeInSitemap": true
+    },
+    "661735cc1a986db2aa2f6974": {
+      "slug": "bush-radio",
+      "includeInSitemap": true
+    },
+    "661735ca83429e4222ae827b": {
+      "slug": "gecko-kuta-lombok",
+      "includeInSitemap": true
+    },
+    "661735cac336e9d49efc2cb4": {
+      "slug": "munchies",
+      "includeInSitemap": true
+    },
+    "6613fb83428d9ba62b16bb12": {
+      "slug": "puri-rai-restaurant",
+      "includeInSitemap": true
+    },
+    "6613fb823b8a53c412f490d0": {
+      "slug": "terra---plant-based-food",
+      "includeInSitemap": true
+    },
+    "6613fb82df1c6ff3e73f0c96": {
+      "slug": "milk-espresso",
+      "includeInSitemap": true
+    },
+    "6613fb82988813fc04886269": {
+      "slug": "kenza-cafe-restaurant",
+      "includeInSitemap": true
+    },
+    "6613fb823251d290b2da8a93": {
+      "slug": "pachamama-organic-cafe",
+      "includeInSitemap": true
+    },
+    "6613fb813e12203aa057311a": {
+      "slug": "kopi-susu",
+      "includeInSitemap": true
+    },
+    "6613fb8149a091e1a4d49da8": {
+      "slug": "working-on-air",
+      "includeInSitemap": true
+    },
+    "6613fb81a2e2f00e648eda44": {
+      "slug": "mowies-gili-air",
+      "includeInSitemap": true
+    },
+    "6613fb81b2bbc8244697e86d": {
+      "slug": "sharkbites",
+      "includeInSitemap": true
+    },
+    "6613fb81df1c6ff3e73f0c3b": {
+      "slug": "gili-coffee-roasters",
+      "includeInSitemap": true
+    },
+    "6613fb81b431f33cf8cd5273": {
+      "slug": "andaliman-gili-air",
+      "includeInSitemap": true
+    },
+    "6613fb81dda321d23ab5d00f": {
+      "slug": "kayu-cafe-and-restaurant",
+      "includeInSitemap": true
+    },
+    "6613fb81f6f34366981baf0f": {
+      "slug": "coco-cafe-ice-cream",
+      "includeInSitemap": true
+    },
+    "6613fb804ce2334be5517dd0": {
+      "slug": "gilis-rock-creative-studios",
+      "includeInSitemap": true
+    },
+    "6613fb812294e555467c2e00": {
+      "slug": "chappies-bar",
+      "includeInSitemap": true
+    },
+    "6613fb8033b66fff075099d2": {
+      "slug": "the-banyan-tree",
+      "includeInSitemap": true
+    },
+    "6613fb7f500c8e2486eee2e4": {
+      "slug": "hellocapitano-lifestyle-cafe",
+      "includeInSitemap": true
+    },
+    "6613fb7fc72435975960ab0a": {
+      "slug": "coffee-thyme-gili-trawangan",
+      "includeInSitemap": true
+    },
+    "6613fb7fd0695b597ed3f3e6": {
+      "slug": "bliss-casa",
+      "includeInSitemap": true
+    },
+    "6613fb7f1e3567ebe829cd12": {
+      "slug": "jelajah-coffee-gili-trawangan",
+      "includeInSitemap": true
+    },
+    "6613fb7fdf1c6ff3e73f0b86": {
+      "slug": "genius-cafe-sanur",
+      "includeInSitemap": true
+    },
+    "6613fb7f7e56a77ee72e1d72": {
+      "slug": "kinoa-clean-eating",
+      "includeInSitemap": true
+    },
+    "660f6e1be9567132909c3cbe": {
+      "slug": "merch-cafe-amsterdam",
+      "includeInSitemap": true
+    },
+    "660f6e1b495c0226b2266fe9": {
+      "slug": "lemanja-uluwatu",
+      "includeInSitemap": true
+    },
+    "660f6e1b5593e3cece07071a": {
+      "slug": "lokl-coffee-co",
+      "includeInSitemap": true
+    },
+    "660f6e1b44ab603706fd0baa": {
+      "slug": "bukithub",
+      "includeInSitemap": true
+    },
+    "660f6e1bc567e77fd0c49351": {
+      "slug": "daily-hub-cafe-co-work",
+      "includeInSitemap": true
+    },
+    "660f6e1ab2c6a776eb2f4b93": {
+      "slug": "medin-bali-cafe-coffee",
+      "includeInSitemap": true
+    },
+    "660f6e192e7f00724dc06856": {
+      "slug": "mowie-s-berawa",
+      "includeInSitemap": true
+    },
+    "660ca83efdd0e5b112e8fabe": {
+      "slug": "the-living-room",
+      "includeInSitemap": true
+    },
+    "660a66379d538bd994550e86": {
+      "slug": "brain-awake",
+      "includeInSitemap": true
+    },
+    "660a6637166465e32ed8e90b": {
+      "slug": "heartwork-chiang-mai",
+      "includeInSitemap": true
+    },
+    "660a6637b397cf1a2392d7ea": {
+      "slug": "buri-siri-cafe-coworking-space",
+      "includeInSitemap": true
+    },
+    "660a6637a2dd5862e976dbfd": {
+      "slug": "norn-nee-nor",
+      "includeInSitemap": true
+    },
+    "660a6637d4cb0876d097f85c": {
+      "slug": "ombra-cafe",
+      "includeInSitemap": true
+    },
+    "660a6636ad8b19263359afc9": {
+      "slug": "roast8ry-lab",
+      "includeInSitemap": true
+    },
+    "660a66367197f3107c46168b": {
+      "slug": "ristr8to-original",
+      "includeInSitemap": true
+    },
+    "660a6636ba6cc2370a21deef": {
+      "slug": "mingmitr-tha-phae",
+      "includeInSitemap": true
+    },
+    "660a6636d708a5ea159e49f8": {
+      "slug": "yellow-coworking-space",
+      "includeInSitemap": true
+    },
+    "660a66362a8dcb3854441668": {
+      "slug": "camp-creative-and-meeting-place",
+      "includeInSitemap": true
+    },
+    "660a663675d51e3272f5c3ab": {
+      "slug": "w8-x-viangpha-cafe",
+      "includeInSitemap": true
+    },
+    "660a66360b296d0efa127533": {
+      "slug": "carrot-cafe",
+      "includeInSitemap": true
+    },
+    "660a6636dcbe8e82168d0d35": {
+      "slug": "stories",
+      "includeInSitemap": true
+    },
+    "660a663590a05eb56f0ebadc": {
+      "slug": "punspace-tha-phae-gate",
+      "includeInSitemap": true
+    },
+    "660a66350b296d0efa1274b5": {
+      "slug": "the-story-106",
+      "includeInSitemap": true
+    },
+    "660a66353df4a74b7e6752ea": {
+      "slug": "zohng-coffee",
+      "includeInSitemap": true
+    },
+    "660a6635f34b5aa2d29f0d68": {
+      "slug": "coolmuang-coffee",
+      "includeInSitemap": true
+    },
+    "660a6635ba6cc2370a21dc5c": {
+      "slug": "akha-ama-phrasingh",
+      "includeInSitemap": true
+    },
+    "660a351143bf1e4a02e97799": {
+      "slug": "bali-ranjana-cafe-coworking-space",
+      "includeInSitemap": true
+    },
+    "6600e81807fad7c7a15f2788": {
+      "slug": "the-spell-creperie",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d5247c0": {
+      "slug": "seniman-coffee-studio",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d5247bd": {
+      "slug": "canteen-cafe",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d5247bc": {
+      "slug": "ivy-cafe",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d5247be": {
+      "slug": "kismet",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d5247bf": {
+      "slug": "kopi-pangeran",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d5247b7": {
+      "slug": "zest-ubud",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d5247b4": {
+      "slug": "lazy-cats-cafe",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d5247b8": {
+      "slug": "cafe-pomegranate",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d5247ba": {
+      "slug": "watercress-cafe",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d5247b6": {
+      "slug": "clear-cafe-ubud",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d5247b9": {
+      "slug": "gangga-coffee-roastery-ubud",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d5247b1": {
+      "slug": "littletalks-ubud",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d5247af": {
+      "slug": "aletheia-back-house",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d5247b0": {
+      "slug": "ubud-coffee-roastery",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d5247b2": {
+      "slug": "sayuri-healing-food",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d5247b3": {
+      "slug": "rusters",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d5247a6": {
+      "slug": "ubud-space-coworking-and-cafe",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d5247a8": {
+      "slug": "outpost-ubud-penestanan",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d5247ae": {
+      "slug": "ulu-garden",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d5247ad": {
+      "slug": "ulu-artisan-ungasan",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d5247a7": {
+      "slug": "the-place-with-no-name",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d5247ab": {
+      "slug": "the-cashew-tree",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d5247a5": {
+      "slug": "the-loft",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d5247a9": {
+      "slug": "shortcut-coffee-jimbaran",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d5247a1": {
+      "slug": "nourish-cafe-ungasan",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d5247a0": {
+      "slug": "nourish-cafe-uluwatu",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d52478e": {
+      "slug": "nagara-boutique-hotel-and-coworking",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d5247a4": {
+      "slug": "mapogu-bali",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d52478d": {
+      "slug": "monday",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d5247a3": {
+      "slug": "cuppa-espresso-bar",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d5247a2": {
+      "slug": "colabo-cafe",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d52478c": {
+      "slug": "acme-pererenan",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d52478a": {
+      "slug": "alchemy-ubud",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d52469e": {
+      "slug": "the-space-bali",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d52469c": {
+      "slug": "son-of-a-baker",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d52469b": {
+      "slug": "alchemy-uluwatu",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d52468d": {
+      "slug": "tropical-nomad-non-members-area",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d5245ba": {
+      "slug": "melograno-cafe",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d5245b9": {
+      "slug": "mandatina-cafe",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d5245b8": {
+      "slug": "livit-hub-bali",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d5245b7": {
+      "slug": "indonesia-bali-pererenan-camp-308-by-ize",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d5245b6": {
+      "slug": "rabbit-hole",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d5245b5": {
+      "slug": "sangkala",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d5245b4": {
+      "slug": "noah-cafe",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d5245b3": {
+      "slug": "bali-canggu-at-06",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d5245b2": {
+      "slug": "expat-roasters",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d5245b1": {
+      "slug": "karya-coworking",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d5245b0": {
+      "slug": "blacklist-coffee-roasters",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d5245af": {
+      "slug": "bulls-coffee",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d5245ae": {
+      "slug": "urban-bites",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d5245ad": {
+      "slug": "loko-cafe",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d5245ac": {
+      "slug": "baked-berawa",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d5245ab": {
+      "slug": "honey",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d5245a9": {
+      "slug": "rize-cafe",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d5245a8": {
+      "slug": "superfood-canggu",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d5245a7": {
+      "slug": "motion-cafe",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d5245a6": {
+      "slug": "bwork-cafe",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d5245a5": {
+      "slug": "nirvana-kitchen",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d5245a4": {
+      "slug": "saya-work",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d5245a3": {
+      "slug": "draper",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d5245a2": {
+      "slug": "kynd-canggu",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d5245a1": {
+      "slug": "shortcut-cafe",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d5245a0": {
+      "slug": "milk-madu-berawa",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d52459f": {
+      "slug": "lusa-by-suka",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d52458b": {
+      "slug": "i-am-vegan-babe",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d524589": {
+      "slug": "doppio",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d524588": {
+      "slug": "the-daun-cafe",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d524587": {
+      "slug": "miel",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d524583": {
+      "slug": "sari-kitchen",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d524582": {
+      "slug": "nyom-nyom",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d524581": {
+      "slug": "satusatu-berawa",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d524580": {
+      "slug": "indonesia-bali-almond",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d52457f": {
+      "slug": "the-common",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d52457e": {
+      "slug": "zin-cafe",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d52457d": {
+      "slug": "nude-cafe-berawa",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d52457c": {
+      "slug": "nude-cafe-babakan",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d52457b": {
+      "slug": "gron",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d52457a": {
+      "slug": "touche",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d524579": {
+      "slug": "ring-djinar",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d524578": {
+      "slug": "setter-coworking",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d524577": {
+      "slug": "puco-rooftop",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d524576": {
+      "slug": "revolver-canggu",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d524575": {
+      "slug": "boheme",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d524574": {
+      "slug": "amolas-cafe",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d52453b": {
+      "slug": "milu-by-nook",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d52451e": {
+      "slug": "awan-connection",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d524505": {
+      "slug": "cafe-coach",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d5244d6": {
+      "slug": "tribal-bali",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d5244af": {
+      "slug": "tropical-nomad-members-area",
+      "includeInSitemap": true
+    },
+    "65fa86d0e0379bf78d524490": {
+      "slug": "bwork-members-area",
+      "includeInSitemap": true
+    }
+  }
+}

@@ -306,6 +306,29 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
                     ),
                   ),
                 ]),
+
+                // ---- the space's page on nomadwise.io ----
+                // Kept in step by the nightly Webflow sync; only shown
+                // while the page is live.
+                if (venue.websitePage != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton.icon(
+                        onPressed: () {
+                          Analytics.capture('website_link_tap', {
+                            'venue': venue.name,
+                            'slug': venue.webflowSlug,
+                          });
+                          launchUrl(venue.websitePage!,
+                              mode: LaunchMode.externalApplication);
+                        },
+                        icon: const Icon(Icons.open_in_new, size: 18),
+                        label: const Text('See the full guide on nomadwise.io'),
+                      ),
+                    ),
+                  ),
                 const SizedBox(height: 16),
 
                 // ---- wifi hero + login + in-place speed test ----
