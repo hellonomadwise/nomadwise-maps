@@ -190,6 +190,15 @@ def num(v):
         return None
 
 
+EDITORIAL_KEYS = [
+    'name', 'type', 'website', 'instagram', 'neighbourhood',
+    'google_rating_snapshot', 'google_reviews_snapshot', 'opening_hours',
+    'power_outlets', 'aircon', 'comfortable_seating', 'cozy', 'quiet_space',
+    'good_for_calls', 'call_room', 'monitor', 'office_chairs', 'access_24h',
+    'wifi_speed_mbps',
+]
+
+
 def editorial_fields(f, existing_type=None):
     """The columns Webflow owns. Only keys with a value are returned,
     so an empty Webflow field never blanks a venue."""
@@ -281,9 +290,9 @@ def status_of(item):
 
 # ----------------------------------------------------------- supabase
 try:
-    venues = sb_all('venues?select=id,name,type,google_place_id,'
-                    'webflow_cms_id,webflow_slug,website_status,source,'
-                    'wifi_speed_mbps')
+    venues = sb_all('venues?select=id,google_place_id,webflow_cms_id,'
+                    'webflow_slug,website_status,source,'
+                    + ','.join(EDITORIAL_KEYS))
 except urllib.error.HTTPError as e:
     detail = e.read().decode()[:300]
     report['errors'].append(
@@ -335,12 +344,15 @@ for item in items:
     if venue:
         claimed.add(venue['id'])
         report[how] += 1
-        row = {'id': venue['id'],
-               'name': venue['name'], 'type': venue['type'],
-               'webflow_cms_id': cms_id,
-               'webflow_slug': slug,
-               'website_status': status,
-               'website_synced_at': now}
+        # Same key set for every row (the API insists), starting from
+        # what the venue holds now so an empty Webflow field never
+        # blanks anything.
+        row = {k: venue.get(k) for k in EDITORIAL_KEYS}
+        row.update({'id': venue['id'],
+                    'webflow_cms_id': cms_id,
+                    'webflow_slug': slug,
+                    'website_status': status,
+                    'website_synced_at': now})
         row.update(editorial_fields(f, venue['type']))
         wifi = num(f.get('average-internet-speed'))
         if venue['id'] not in tested and wifi and wifi > 0:
@@ -360,7 +372,8 @@ for item in items:
     if pid in discovered:
         # Known as a candidate; the screening flow promotes it. Leave.
         continue
-    row = {
+    row = {k: None for k in EDITORIAL_KEYS}
+    row.update({
         'name': f.get('name'),
         'type': venue_type(f, 'cafe'),
         'city': '',
@@ -372,7 +385,7 @@ for item in items:
         'website_synced_at': now,
         'status': 'verified',
         'source': SOURCE_TAG,
-    }
+    })
     row.update(editorial_fields(f))
     wifi = num(f.get('average-internet-speed'))
     if wifi and wifi > 0:
