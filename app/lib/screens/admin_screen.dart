@@ -630,7 +630,7 @@ class _SubmissionCardState extends State<_SubmissionCard> {
 
   static String _websiteLabel(String? status) => switch (status) {
         'released' => 'Released',
-        'published_hidden' => 'Published, hidden from sitemap',
+        'published_hidden' => 'On nomadwise.io, not released yet',
         'queued' => 'Queued for the site',
         'removed' => 'Removed from the site',
         _ => 'Not on the site',

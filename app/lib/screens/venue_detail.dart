@@ -156,6 +156,34 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
 
   bool _sharing = false;
 
+  // Founders queue a space for nomadwise.io from here; the nightly
+  // sync then creates the draft page. Mirrors venues.website_status.
+  late String _websiteStatus = venue.websiteStatus ?? 'not_on_site';
+  bool _queueBusy = false;
+
+  Future<void> _setWebsiteStatus(String status) async {
+    setState(() => _queueBusy = true);
+    try {
+      await _supabase.updateVenueFields(venue.id, {'website_status': status});
+      if (mounted) setState(() => _websiteStatus = status);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Could not update the website status')));
+      }
+    } finally {
+      if (mounted) setState(() => _queueBusy = false);
+    }
+  }
+
+  static String _websiteLabel(String? status) => switch (status) {
+        'released' => 'Released',
+        'published_hidden' => 'On nomadwise.io, not released yet',
+        'queued' => 'Queued for the site',
+        'removed' => 'Removed from the site',
+        _ => 'Not on the site',
+      };
+
   /// Build the story card and hand it to the phone's share sheet
   /// (Instagram Stories, WhatsApp, wherever they like).
   Future<void> _share() async {
@@ -328,6 +356,41 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
                         label: const Text('See the full guide on nomadwise.io'),
                       ),
                     ),
+                  ),
+
+                // ---- founders only: where this space stands on the
+                // site, and the switch that queues it for a page ----
+                if (_isAdmin)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Row(children: [
+                      Icon(Icons.public,
+                          size: 14, color: Colors.grey.shade500),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                            'nomadwise.io: ${_websiteLabel(_websiteStatus)}',
+                            style: TextStyle(
+                                fontSize: 12, color: Colors.grey.shade600)),
+                      ),
+                      if (_websiteStatus == 'not_on_site' ||
+                          _websiteStatus == 'removed')
+                        TextButton(
+                          onPressed: _queueBusy || venue.googlePlaceId == null
+                              ? null
+                              : () => _setWebsiteStatus('queued'),
+                          child: Text(venue.googlePlaceId == null
+                              ? 'Needs a Google match first'
+                              : 'Queue for the site'),
+                        ),
+                      if (_websiteStatus == 'queued')
+                        TextButton(
+                          onPressed: _queueBusy
+                              ? null
+                              : () => _setWebsiteStatus('not_on_site'),
+                          child: const Text('Remove from queue'),
+                        ),
+                    ]),
                   ),
                 const SizedBox(height: 16),
 
