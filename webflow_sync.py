@@ -560,44 +560,48 @@ if queued:
             break
 
     def resolve_place(v):
-        """Location item for a venue, by neighbourhood then city; else
-        the region's own namesake location. None if nothing fits."""
+        """(region, location or None) for a venue. A Location is a
+        neighbourhood inside a Region and is optional (many listings
+        only have a Region); the Region is what a page needs."""
+        loc = None
         for cand in (v.get('neighbourhood'), v.get('city')):
             loc = loc_by_label.get(_norm(cand))
             if loc:
-                return loc
-        region = region_by_label.get(_norm(v.get('city')))
-        if region:
-            for loc in locations:
-                f = loc['fieldData']
-                if (f.get('region-3') == region['id'] and
-                        _norm(f.get('name-label')) ==
-                        _norm(region['fieldData'].get('name-label'))):
-                    return loc
-        return None
+                break
+        if loc:
+            lf = loc['fieldData']
+            region = region_by_id.get(lf.get('region-3')) or region_by_id.get(
+                (lf.get('region-2') or [None])[0])
+            return region, loc
+        for cand in (v.get('city'), v.get('neighbourhood')):
+            region = region_by_label.get(_norm(cand))
+            if region:
+                return region, None
+        return None, None
 
     for v in queued:
         if not v.get('google_place_id'):
             report['needs_location'].append(
                 {'name': v['name'], 'why': 'no Google Place ID'})
             continue
-        loc = resolve_place(v)
-        if not loc:
+        region, loc = resolve_place(v)
+        if not region:
             report['needs_location'].append(
                 {'name': v['name'], 'city': v.get('city'),
                  'neighbourhood': v.get('neighbourhood'),
-                 'why': 'no matching Location in Webflow'})
+                 'why': 'no Webflow Region or Location matches its '
+                        'city or neighbourhood'})
             continue
-        lf = loc['fieldData']
-        region = region_by_id.get(lf.get('region-3')) or region_by_id.get(
-            (lf.get('region-2') or [None])[0])
-        country = country_by_id.get(lf.get('country'))
-        if not region or not country:
+        rf = region['fieldData']
+        lf = loc['fieldData'] if loc else {}
+        country = country_by_id.get(rf.get('country') or lf.get('country'))
+        if not country:
             report['needs_location'].append(
-                {'name': v['name'], 'location': lf.get('name'),
-                 'why': 'Location has no Region or Country'})
+                {'name': v['name'], 'region': rf.get('name'),
+                 'why': 'Region has no Country'})
             continue
-        rf, cf = region['fieldData'], country['fieldData']
+        cf = country['fieldData']
+        where = lf.get('name-label') or rf.get('name-label')
         is_cow = v.get('type') == 'coworking'
         kind = 'Coworking Space' if is_cow else 'Cafe'
         pid = v['google_place_id']
@@ -616,7 +620,7 @@ if queued:
             'cafe-or-coworking': OPTION_COWORKING if is_cow else OPTION_CAFE,
             'country': country['id'],
             'region-2': region['id'],
-            'locations': loc['id'],
+            'locations': loc['id'] if loc else None,
             'locations-label': lf.get('name-label'),
             'region-label': rf.get('name-label'),
             'place-added-by': ADDED_BY_NOMADWISE,
@@ -645,7 +649,8 @@ if queued:
             '24hr-member-access': word(v.get('access_24h'), '24 Hour Access'),
             'membership-plans-available': 'Pass Required' if is_cow else 'No',
             'h1-label': (f"{v['name']} in {lf.get('name-label')} - "
-                         f"{rf.get('name-label')}"),
+                         f"{rf.get('name-label')}" if loc
+                         else f"{v['name']} in {rf.get('name-label')}"),
             'title-tag': f"{v['name']}: {kind} with WiFi in "
                          f"{rf.get('name-label')}",
             'meta-description': DESCRIPTION + v['name'],
@@ -668,7 +673,7 @@ if queued:
             # even when there are no photos yet, so the founders only
             # have to drop pictures in, not build the entry.
             photos = approved_photos(v['id'])
-            caption = f"{v['name']} in {rf.get('name-label')}"
+            caption = f"{v['name']} in {where}"
             img = {'name': f"{v['name']} 1", 'slug': f'{slug_}-1',
                    'coworking-space': new_id,
                    'coworking-spaces-multi-ref': [new_id],
