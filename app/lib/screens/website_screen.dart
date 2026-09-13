@@ -5,9 +5,11 @@ import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../models/venue.dart';
 import '../services/supabase_service.dart';
 import '../theme.dart';
 import '../widgets/ui.dart';
+import 'venue_detail.dart';
 
 /// Admin-only: the nomadwise.io control centre.
 ///
@@ -223,6 +225,54 @@ class _WebsiteScreenState extends State<WebsiteScreen>
           'website_prepared': null,
         },
         '${picked['name']} chosen. The proposal is prepared tonight.');
+  }
+
+  /// The full space page (photos, WiFi tests, facts, hours, who
+  /// added it), the same one nomads see, plus the admin rows.
+  Future<void> _openVenue(Map<String, dynamic> v) async {
+    final venue = await _supabase.venueById(v['id']);
+    if (!mounted) return;
+    if (venue == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not load that space.')));
+      return;
+    }
+    await Navigator.push(
+        context,
+        MaterialPageRoute(
+            builder: (_) => VenueDetailScreen(
+                venue: venue,
+                onConfirm: () {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text(
+                          'To review a space as a nomad, open it from the '
+                          'map.')));
+                })));
+    await _load(); // it may have been queued or edited in there
+  }
+
+  /// Review and correct everything the app knows about a space before
+  /// it goes to the site: names, place, links, facts and hours.
+  Future<void> _editVenue(Map<String, dynamic> v) async {
+    final venue = await _supabase.venueById(v['id']);
+    if (!mounted) return;
+    if (venue == null) return;
+    final changed = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(
+            builder: (_) => _EditVenuePage(venue: venue, supabase: _supabase)));
+    if (changed == true) {
+      // A prepared proposal stays approvable: the page is built from
+      // the latest details on the night it is created.
+      final p = _prepared(v);
+      if (p.isNotEmpty && p['error'] == null) {
+        await _supabase.updateVenueFields(v['id'], {
+          'website_prepared': (Map<String, dynamic>.from(p)
+            ..['edited_at'] = DateTime.now().toUtc().toIso8601String())
+        });
+      }
+      await _load();
+    }
   }
 
   Future<void> _copy(String text, String toast) async {
@@ -501,34 +551,48 @@ class _WebsiteScreenState extends State<WebsiteScreen>
         child: Padding(padding: const EdgeInsets.all(14), child: child),
       );
 
+  /// Card header. Tapping it opens the full space page.
   Widget _title(Map<String, dynamic> v, {String? badge, Color? badgeColor}) =>
-      Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        if (badge != null) ...[
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
-            decoration: BoxDecoration(
-                color: badgeColor ?? Brand.accent,
-                borderRadius: BorderRadius.circular(10)),
-            child: Text(badge,
-                style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w900)),
-          ),
-          const SizedBox(width: 8),
-        ],
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(v['name'] ?? 'Unnamed',
-                style: const TextStyle(
-                    fontWeight: FontWeight.w700, fontSize: 15)),
-            Text(
-                '${v['type'] == 'coworking' ? 'Coworking space' : 'Cafe'}'
-                '${_where(v).isNotEmpty ? ' · ${_where(v)}' : ''}',
-                style: const TextStyle(fontSize: 12, color: Brand.inkMuted)),
+      InkWell(
+        onTap: () => _openVenue(v),
+        borderRadius: BorderRadius.circular(10),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 2),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+            if (badge != null) ...[
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                decoration: BoxDecoration(
+                    color: badgeColor ?? Brand.accent,
+                    borderRadius: BorderRadius.circular(10)),
+                child: Text(badge,
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w900)),
+              ),
+              const SizedBox(width: 8),
+            ],
+            Expanded(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(v['name'] ?? 'Unnamed',
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w700, fontSize: 15)),
+                    Text(
+                        '${v['type'] == 'coworking' ? 'Coworking space' : 'Cafe'}'
+                        '${_where(v).isNotEmpty ? ' · ${_where(v)}' : ''}'
+                        '  ·  tap to open',
+                        style: const TextStyle(
+                            fontSize: 12, color: Brand.inkMuted)),
+                  ]),
+            ),
+            const Icon(Icons.chevron_right, color: Brand.inkMuted),
           ]),
         ),
-      ]);
+      );
 
   Widget _freshCard(Map<String, dynamic> v) {
     final hasPlace = v['google_place_id'] != null;
@@ -549,12 +613,20 @@ class _WebsiteScreenState extends State<WebsiteScreen>
               dotColor: hasPlace ? Brand.success : Brand.red),
         ]),
         const SizedBox(height: 10),
-        Row(children: [
+        Wrap(
+            spacing: 4,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            alignment: WrapAlignment.end,
+            children: [
+          TextButton.icon(
+              onPressed: () => _editVenue(v),
+              icon: const Icon(Icons.edit_outlined, size: 16),
+              label: const Text('Edit')),
           TextButton(
               onPressed: () => _dismiss(v),
               style: TextButton.styleFrom(foregroundColor: Brand.inkSecondary),
               child: const Text('Not for the site')),
-          const Spacer(),
           ElevatedButton.icon(
               onPressed: hasPlace ? () => _queue(v) : null,
               icon: const Icon(Icons.add_to_queue_outlined, size: 18),
@@ -583,12 +655,20 @@ class _WebsiteScreenState extends State<WebsiteScreen>
               style: const TextStyle(fontSize: 12, color: Brand.inkSecondary)),
         ],
         const SizedBox(height: 10),
-        Row(children: [
+        Wrap(
+            spacing: 4,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            alignment: WrapAlignment.end,
+            children: [
+          TextButton.icon(
+              onPressed: () => _editVenue(v),
+              icon: const Icon(Icons.edit_outlined, size: 16),
+              label: const Text('Edit')),
           TextButton(
               onPressed: () => _unqueue(v),
               style: TextButton.styleFrom(foregroundColor: Brand.inkSecondary),
-              child: const Text('Remove from queue')),
-          const Spacer(),
+              child: const Text('Remove')),
           if (error == 'no_place_id')
             const Text('Add a Google match in the space first',
                 style: TextStyle(fontSize: 12, color: Brand.inkMuted))
@@ -669,13 +749,31 @@ class _WebsiteScreenState extends State<WebsiteScreen>
             StatusChip('${p['wifi_mbps']} Mbps', dotColor: Brand.success),
           StatusChip(p['kind'] ?? '', dotColor: Brand.inkMuted),
         ]),
+        if (p['edited_at'] != null)
+          const Padding(
+            padding: EdgeInsets.only(top: 6),
+            child: Text(
+                'Edited since this proposal was prepared. The page is built '
+                'from the latest details, so approving is safe; the summary '
+                'above refreshes tonight.',
+                style: TextStyle(
+                    fontSize: 11.5, color: Brand.goldTextDark, height: 1.4)),
+          ),
         const SizedBox(height: 10),
-        Row(children: [
+        Wrap(
+            spacing: 4,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            alignment: WrapAlignment.end,
+            children: [
+          TextButton.icon(
+              onPressed: () => _editVenue(v),
+              icon: const Icon(Icons.edit_outlined, size: 16),
+              label: const Text('Edit')),
           TextButton(
               onPressed: () => _unqueue(v),
               style: TextButton.styleFrom(foregroundColor: Brand.inkSecondary),
               child: const Text('Send back')),
-          const Spacer(),
           ElevatedButton.icon(
               onPressed: () => _approve(v),
               icon: const Icon(Icons.check, size: 18),
@@ -885,6 +983,269 @@ class _WebsiteScreenState extends State<WebsiteScreen>
                   fontSize: 13.5, color: Brand.inkMuted, height: 1.5)),
         ],
       );
+}
+
+// --------------------------------------------------------------- edit page
+
+/// Everything the app knows about a space, editable in one place.
+/// Saves straight to the venue; the nightly sync carries changes to
+/// nomadwise.io for queued spaces.
+class _EditVenuePage extends StatefulWidget {
+  final Venue venue;
+  final SupabaseService supabase;
+  const _EditVenuePage({required this.venue, required this.supabase});
+  @override
+  State<_EditVenuePage> createState() => _EditVenuePageState();
+}
+
+class _EditVenuePageState extends State<_EditVenuePage> {
+  late final _name = TextEditingController(text: widget.venue.name);
+  late final _hood =
+      TextEditingController(text: widget.venue.neighbourhood ?? '');
+  late final _city = TextEditingController(text: widget.venue.city ?? '');
+  late final _website = TextEditingController(text: widget.venue.website ?? '');
+  late final _instagram =
+      TextEditingController(text: widget.venue.instagram ?? '');
+  late final _wifi = TextEditingController(
+      text: widget.venue.wifiSpeedMbps?.toString() ?? '');
+  late String _type = widget.venue.type;
+  late final Map<String, bool?> _facts = {
+    'laptops_allowed': widget.venue.laptopsAllowed,
+    'power_outlets': widget.venue.powerOutlets,
+    'aircon': widget.venue.aircon,
+    'comfortable_seating': widget.venue.comfortableSeating,
+    'cozy': widget.venue.cozy,
+    'quiet_space': widget.venue.quietSpace,
+    'good_for_calls': widget.venue.goodForCalls,
+    'call_room': widget.venue.callRoom,
+    'monitor': widget.venue.monitorAvailable,
+    'office_chairs': widget.venue.officeChairs,
+    'access_24h': widget.venue.access24h,
+    'serves_food': widget.venue.servesFood,
+  };
+  static const _factLabels = {
+    'laptops_allowed': 'Laptops welcome',
+    'power_outlets': 'Plug sockets',
+    'aircon': 'Aircon',
+    'comfortable_seating': 'Comfortable seating',
+    'cozy': 'Cozy',
+    'quiet_space': 'Quiet space',
+    'good_for_calls': 'Good for calls',
+    'call_room': 'Call room',
+    'monitor': 'Monitor available',
+    'office_chairs': 'Office chairs',
+    'access_24h': '24 hour access',
+    'serves_food': 'Serves food',
+  };
+  static const _days = [
+    ('mon', 'Monday'), ('tue', 'Tuesday'), ('wed', 'Wednesday'),
+    ('thu', 'Thursday'), ('fri', 'Friday'), ('sat', 'Saturday'),
+    ('sun', 'Sunday'),
+  ];
+  late final Map<String, TextEditingController> _hours = {
+    for (final d in _days)
+      d.$1: TextEditingController(
+          text: (widget.venue.fallbackHours?[d.$1] ?? '').toString())
+  };
+  bool _busy = false;
+
+  @override
+  void dispose() {
+    for (final c in [_name, _hood, _city, _website, _instagram, _wifi]) {
+      c.dispose();
+    }
+    for (final c in _hours.values) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  /// House style for hours: "8:00 AM - 6:00 PM" with a plain hyphen.
+  static String _plainHours(String t) {
+    var x = t.replaceAll(
+        RegExp('[\\u2010\\u2011\\u2012\\u2013\\u2014\\u2015\\u2212]'), '-');
+    x = x.replaceAll(RegExp('[\\u00a0\\u2009\\u202f\\u2007]'), ' ');
+    x = x.replaceAll(RegExp(r'\s*-\s*'), ' - ');
+    return x.replaceAll(RegExp(r'\s{2,}'), ' ').trim();
+  }
+
+  String? _nullIfEmpty(String s) => s.trim().isEmpty ? null : s.trim();
+
+  Future<void> _save() async {
+    setState(() => _busy = true);
+    try {
+      final hours = <String, String>{};
+      for (final d in _days) {
+        final t = _plainHours(_hours[d.$1]!.text);
+        if (t.isNotEmpty) hours[d.$1] = t;
+      }
+      // Google's live hours are the source when the app has none; an
+      // empty form means "leave it to Google", not "closed all week".
+      await widget.supabase.updateVenueFields(widget.venue.id, {
+        'name': _name.text.trim(),
+        'type': _type,
+        'neighbourhood': _nullIfEmpty(_hood.text),
+        'city': _nullIfEmpty(_city.text),
+        'website': _nullIfEmpty(_website.text),
+        'instagram': _nullIfEmpty(_instagram.text),
+        'wifi_speed_mbps': num.tryParse(_wifi.text.trim()),
+        'opening_hours': hours.isEmpty ? null : hours,
+        ..._facts,
+      });
+      if (mounted) Navigator.pop(context, true);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('That did not save: $e'),
+            backgroundColor: Brand.red));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Widget _field(TextEditingController c, String label,
+          {String? hint, TextInputType? keyboard}) =>
+      Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: TextField(
+            controller: c,
+            keyboardType: keyboard,
+            decoration: InputDecoration(
+                labelText: label,
+                hintText: hint,
+                filled: true,
+                fillColor: Brand.field,
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none))),
+      );
+
+  Widget _heading(String t) => Padding(
+        padding: const EdgeInsets.fromLTRB(2, 14, 2, 10),
+        child: SectionLabel(t),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final v = widget.venue;
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(v.name, overflow: TextOverflow.ellipsis),
+        actions: [
+          TextButton(
+              onPressed: _busy ? null : _save,
+              child: const Text('Save',
+                  style: TextStyle(fontWeight: FontWeight.w700))),
+        ],
+      ),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 760),
+          child: ListView(padding: const EdgeInsets.all(14), children: [
+            // What Google says, for reference while editing.
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                  color: Brand.field, borderRadius: BorderRadius.circular(12)),
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('From Google',
+                        style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: .8,
+                            color: Brand.inkSecondary)),
+                    const SizedBox(height: 4),
+                    Text(
+                        v.googlePlaceId == null
+                            ? 'No Google match yet.'
+                            : [
+                                if (v.live?.displayName != null)
+                                  v.live!.displayName!,
+                                if (v.live?.address != null) v.live!.address!,
+                                if (v.live?.rating != null)
+                                  '★ ${v.live!.rating} (${v.live!.userRatingCount ?? 0} reviews)',
+                                if (v.live?.primaryType != null)
+                                  v.live!.primaryType!,
+                              ].join('  ·  '),
+                        style: const TextStyle(fontSize: 12.5, height: 1.4)),
+                    if ((v.live?.weekdayDescriptions ?? []).isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text(v.live!.weekdayDescriptions!.join('\n'),
+                          style: const TextStyle(
+                              fontSize: 11.5,
+                              color: Brand.inkSecondary,
+                              height: 1.4)),
+                    ],
+                  ]),
+            ),
+            _heading('THE SPACE'),
+            _field(_name, 'Name'),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: SegmentedButton<String>(
+                segments: const [
+                  ButtonSegment(value: 'cafe', label: Text('Cafe')),
+                  ButtonSegment(
+                      value: 'coworking', label: Text('Coworking space')),
+                ],
+                selected: {_type},
+                onSelectionChanged: (s) => setState(() => _type = s.first),
+              ),
+            ),
+            _field(_hood, 'Neighbourhood', hint: 'Used to find the Location'),
+            _field(_city, 'City', hint: 'Used to find the Region'),
+            _heading('LINKS AND WIFI'),
+            _field(_website, 'Website', keyboard: TextInputType.url),
+            _field(_instagram, 'Instagram', hint: 'Full link or @handle'),
+            _field(_wifi, 'WiFi speed (Mbps)',
+                hint: 'Leave empty if untested',
+                keyboard: TextInputType.number),
+            _heading('FACTS'),
+            const Text('Tap to cycle: unknown, yes, no.',
+                style: TextStyle(fontSize: 12, color: Brand.inkMuted)),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: _facts.keys.map((k) {
+                final val = _facts[k];
+                final (color, icon) = switch (val) {
+                  true => (Brand.success, Icons.check),
+                  false => (Brand.red, Icons.close),
+                  null => (Brand.inkFaint, Icons.help_outline),
+                };
+                return ActionChip(
+                  onPressed: () => setState(() => _facts[k] =
+                      val == null ? true : (val == true ? false : null)),
+                  avatar: Icon(icon, size: 15, color: color),
+                  label: Text(_factLabels[k]!,
+                      style: const TextStyle(fontSize: 12)),
+                  side: BorderSide(color: color.withValues(alpha: .5)),
+                  backgroundColor: color.withValues(alpha: .07),
+                );
+              }).toList(),
+            ),
+            _heading('OPENING HOURS'),
+            const Text(
+                'Optional. Leave empty and the site uses Google\'s hours. '
+                'Write times like 8:00 AM - 6:00 PM, or Closed.',
+                style: TextStyle(fontSize: 12, color: Brand.inkMuted)),
+            const SizedBox(height: 8),
+            for (final d in _days) _field(_hours[d.$1]!, d.$2),
+            const SizedBox(height: 8),
+            ElevatedButton.icon(
+                onPressed: _busy ? null : _save,
+                icon: const Icon(Icons.check, size: 18),
+                label: const Text('Save changes')),
+            const SizedBox(height: 40),
+          ]),
+        ),
+      ),
+    );
+  }
 }
 
 // ------------------------------------------------------------ region picker
