@@ -493,7 +493,12 @@ NEAREST_REGION_KM = 30
 
 
 def slugify(x):
-    x = re.sub(r'[^a-z0-9]+', '-', (x or '').lower()).strip('-')
+    """URL slug with accents folded (pa, not p, for 'på')."""
+    x = unicodedata.normalize('NFKD', x or '')
+    x = ''.join(c for c in x if not unicodedata.combining(c))
+    x = (x.replace('ø', 'o').replace('Ø', 'o').replace('ß', 'ss')
+          .replace('æ', 'ae').replace('Æ', 'ae').replace('œ', 'oe'))
+    x = re.sub(r'[^a-z0-9]+', '-', x.lower()).strip('-')
     return re.sub(r'-{2,}', '-', x)
 
 
@@ -524,6 +529,17 @@ def wf_write(path, method, body):
                  method=method, body=body)
 
 
+def plain_hours(text):
+    """House style for opening hours: a plain hyphen with a space either
+    side ('8:00 AM - 6:00 PM'). Google sends en dashes wrapped in narrow
+    no-break spaces; those never reach Webflow."""
+    t = str(text or '')
+    t = re.sub('[\u2010\u2011\u2012\u2013\u2014\u2015\u2212]', '-', t)
+    t = re.sub('[\u00a0\u2009\u202f\u2007]', ' ', t)
+    t = re.sub(r'\s*-\s*', ' - ', t)
+    return re.sub(r'\s{2,}', ' ', t).strip()
+
+
 def day_fields(v):
     """Monday..Sunday text from the venue's own hours, else from the
     cached Google details ('Monday: 9:00 AM - 5:00 PM')."""
@@ -535,14 +551,14 @@ def day_fields(v):
     if h:
         for k, slug_ in zip(keys, slugs):
             if h.get(k):
-                out[slug_] = h[k]
+                out[slug_] = plain_hours(h[k])
         return out
     g = v.get('g_details') or {}
     desc = ((g.get('regularOpeningHours') or {})
             .get('weekdayDescriptions') or [])
     for line, slug_ in zip(desc, slugs):
         if ':' in line:
-            out[slug_] = line.split(':', 1)[1].strip()
+            out[slug_] = plain_hours(line.split(':', 1)[1])
     return out
 
 
