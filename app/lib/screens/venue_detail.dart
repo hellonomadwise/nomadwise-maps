@@ -164,7 +164,17 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
   Future<void> _setWebsiteStatus(String status) async {
     setState(() => _queueBusy = true);
     try {
-      await _supabase.updateVenueFields(venue.id, {'website_status': status});
+      // Queueing starts the proposal afresh (the control centre shows
+      // it once the nightly sync has prepared it); un-queueing clears
+      // everything so the space can be queued again cleanly later.
+      await _supabase.updateVenueFields(venue.id, {
+        'website_status': status,
+        'website_prepared': null,
+        'website_approved_at': null,
+        'website_dismissed_at': null,
+        if (status != 'queued') 'website_region_override': null,
+        if (status != 'queued') 'website_slug_override': null,
+      });
       if (mounted) setState(() => _websiteStatus = status);
     } catch (_) {
       if (mounted) {

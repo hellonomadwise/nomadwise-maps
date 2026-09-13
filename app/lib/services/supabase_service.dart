@@ -727,6 +727,106 @@ class SupabaseService {
           String venueId, Map<String, dynamic> fields) =>
       _db.from('venues').update(fields).eq('id', venueId);
 
+  // ---------- website control centre (nomadwise.io) ----------
+
+  static const _websiteCols =
+      'id, name, type, city, neighbourhood, google_place_id, status, '
+      'website_status, webflow_slug, webflow_cms_id, website_synced_at, '
+      'website_prepared, website_prepared_at, website_approved_at, '
+      'website_dismissed_at, website_region_override, '
+      'website_slug_override, sitemap_added_at, created_at, '
+      'google_rating_snapshot, google_reviews_snapshot, wifi_speed_mbps';
+
+  /// Everything that needs a founder's decision about the site: new
+  /// verified spaces not yet on nomadwise.io (unless dismissed) and
+  /// spaces already queued (waiting for a proposal, a Region, or an
+  /// approval). Ordering is done by the screen.
+  Future<List<Map<String, dynamic>>> websiteInbox() async {
+    final rows = await _db
+        .from('venues')
+        .select(_websiteCols)
+        .eq('status', 'verified')
+        .inFilter('website_status', ['not_on_site', 'queued'])
+        .isFilter('website_dismissed_at', null)
+        .order('created_at', ascending: false);
+    return (rows as List).map((r) => Map<String, dynamic>.from(r)).toList();
+  }
+
+  /// Quick badge count for the menu; same rule as [websiteInbox].
+  Future<int> websiteInboxCount() async {
+    try {
+      final rows = await _db
+          .from('venues')
+          .select('id')
+          .eq('status', 'verified')
+          .inFilter('website_status', ['not_on_site', 'queued'])
+          .isFilter('website_dismissed_at', null);
+      return (rows as List).length;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  /// Spaces with a Webflow page that is not released yet (drafts the
+  /// founders still have to finish and publish in Webflow).
+  Future<List<Map<String, dynamic>>> websiteDrafts() async {
+    final rows = await _db
+        .from('venues')
+        .select(_websiteCols)
+        .eq('website_status', 'published_hidden')
+        .order('website_synced_at', ascending: false);
+    return (rows as List).map((r) => Map<String, dynamic>.from(r)).toList();
+  }
+
+  /// Released pages, newest release first.
+  Future<List<Map<String, dynamic>>> websiteReleased(
+      {int limit = 300}) async {
+    final rows = await _db
+        .from('venues')
+        .select(_websiteCols)
+        .eq('website_status', 'released')
+        .order('website_synced_at', ascending: false)
+        .limit(limit);
+    return (rows as List).map((r) => Map<String, dynamic>.from(r)).toList();
+  }
+
+  /// Released pages whose entry has not gone into the custom sitemap.
+  Future<List<Map<String, dynamic>>> sitemapPending() async {
+    final rows = await _db
+        .from('venues')
+        .select(_websiteCols)
+        .eq('website_status', 'released')
+        .isFilter('sitemap_added_at', null)
+        .not('webflow_slug', 'is', null)
+        .order('name', ascending: true);
+    return (rows as List).map((r) => Map<String, dynamic>.from(r)).toList();
+  }
+
+  /// The nightly copy of the Webflow Regions collection.
+  Future<List<Map<String, dynamic>>> webflowRegions() async {
+    try {
+      final rows = await _db
+          .from('webflow_regions')
+          .select('id, name, slug, country')
+          .order('name', ascending: true);
+      return (rows as List)
+          .map((r) => Map<String, dynamic>.from(r))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Sitemap tab: which released pages have already been pasted into
+  /// the custom sitemap. Also dismissed venues that were released
+  /// anyway keep working, since this only touches sitemap_added_at.
+  Future<void> markSitemapAdded(List<String> venueIds) async {
+    if (venueIds.isEmpty) return;
+    await _db.from('venues').update({
+      'sitemap_added_at': DateTime.now().toUtc().toIso8601String()
+    }).inFilter('id', venueIds);
+  }
+
   Future<void> setSubmissionStatus(String submissionId, String status) =>
       _db.from('submissions').update({
         'status': status,

@@ -129,3 +129,39 @@ monthly stats email, a live read of Webflow's sitemap flag (the sync
 uses a snapshot from 12 September until the endpoint is confirmed).
 The optional "Open in Nomad Maps" button on the website is a joint
 decision.
+
+## Shipped: the nomadwise.io control centre (13 September 2026)
+
+An admin screen in the app ("nomadwise.io" in the menu, phone and
+laptop) that works like an inbox: everything needing a decision about
+the site sits in one list, each card has one or two actions, acting on
+it moves it out, and an empty inbox says so. Tabs: Inbox, Drafts,
+Released, Sitemap.
+
+- Queueing no longer creates the Webflow draft straight away. The
+  nightly sync PREPARES a proposal first (slug, Region, Location,
+  Country, hours, facts, photo count; migration 50, venues.
+  website_prepared) and the inbox shows it. The founder can change the
+  slug there, the last chance before it is fixed, and taps Approve;
+  the next run creates the draft and its Images entry with exactly
+  that slug. Decided: no slug renames after creation, ever (they need
+  redirects), so the slug is seen before it is born.
+- A space whose city matches no Region lands in "Needs a Region" with
+  a dropdown of the site's Regions (copied nightly into
+  webflow_regions). Copenhagen is a Region, not a Location; pages may
+  have a Region only.
+- "Not for the site" hides a space from the inbox without changing
+  anything else (website_dismissed_at).
+- Sitemap tab: released pages missing from the custom sitemap become
+  the exact <url> blocks to paste (priority 0.80, randomised lastmod
+  no later than yesterday), with a "mark as added" step.
+- Opening hours written to Webflow use a plain hyphen with spaces
+  ("8:00 AM - 6:00 PM"), never Google's en dash. Slugs fold accents
+  (pa, not p, for "på").
+- The existing Kaffebaren på Amager draft keeps its slug
+  (denmark-copenhagen-kaffebaren-p-amager); the fix is for future
+  spaces only.
+
+Still to come: moderation of business-written descriptions (a
+"words waiting for review" tab in the same inbox), the live read of
+Webflow's sitemap flag, and the closed-listings cleanup.

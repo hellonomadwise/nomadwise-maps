@@ -30,6 +30,7 @@ import 'auth_screen.dart';
 import 'leaderboard_screen.dart';
 import 'venue_detail.dart';
 import 'wallet_screen.dart';
+import 'website_screen.dart';
 
 enum VenueFilter { openNow, openLate, open24h, workFriendly, food }
 
@@ -97,6 +98,7 @@ class _MapScreenState extends State<MapScreen> {
 
   int? _walletTotal;
   int _pendingCount = 0;
+  int _websiteInboxCount = 0;
 
   Future<void> _loadProfileBits() async {
     final p = await _supabase.myProfile();
@@ -232,6 +234,8 @@ class _MapScreenState extends State<MapScreen> {
         final pending = await _supabase.pendingSubmissions();
         if (mounted) setState(() => _pendingCount = pending.length);
       } catch (_) {}
+      final inbox = await _supabase.websiteInboxCount();
+      if (mounted) setState(() => _websiteInboxCount = inbox);
     }
     if (mounted) setState(() {}); // refresh signed-in state in the menu
   }
@@ -1582,6 +1586,36 @@ class _MapScreenState extends State<MapScreen> {
                     setState(() => _pendingCount = pending.length);
                   }
                 } catch (_) {}
+              },
+            ),
+            _menuRow(
+              icon: Icons.language_outlined,
+              label: 'nomadwise.io',
+              sub: 'Inbox, drafts, released pages, sitemap',
+              trailing: _websiteInboxCount > 0
+                  ? Container(
+                      width: 22,
+                      height: 22,
+                      alignment: Alignment.center,
+                      decoration: const BoxDecoration(
+                          color: Brand.accent, shape: BoxShape.circle),
+                      child: Text('$_websiteInboxCount',
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700)),
+                    )
+                  : null,
+              onTap: () async {
+                Navigator.pop(context);
+                await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const WebsiteScreen()));
+                final inbox = await _supabase.websiteInboxCount();
+                if (mounted) {
+                  setState(() => _websiteInboxCount = inbox);
+                }
               },
             ),
             _menuRow(
