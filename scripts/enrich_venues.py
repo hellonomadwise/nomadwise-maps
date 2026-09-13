@@ -37,8 +37,10 @@ def sb_headers(extra=None):
 
 
 def place_details(place_id):
+    # English names, so cities match the site's regions (Copenhagen,
+    # not Kobenhavn; Munich, not Muenchen).
     return req(
-        f'https://places.googleapis.com/v1/places/{place_id}',
+        f'https://places.googleapis.com/v1/places/{place_id}?languageCode=en',
         headers={
             'X-Goog-Api-Key': PLACES_KEY,
             'X-Goog-FieldMask': 'location,displayName,addressComponents',

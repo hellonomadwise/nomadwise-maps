@@ -52,6 +52,7 @@ import urllib.request
 SUPABASE_URL = os.environ.get('SUPABASE_URL', '').rstrip('/')
 SERVICE_KEY = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
 WEBFLOW_TOKEN = os.environ.get('WEBFLOW_API_TOKEN', '')
+PLACES_KEY = os.environ.get('GOOGLE_PLACES_KEY', '')
 
 WEBFLOW_API = 'https://api.webflow.com'
 COLLECTION_ID = '65fa86d0e0379bf78d52448d'
@@ -559,21 +560,49 @@ if queued:
             embed_key = m.group(1)
             break
 
+    def google_names(pid):
+        """English place names for a venue, most specific first:
+        neighbourhood, district, town, county. Empty if no key."""
+        if not (PLACES_KEY and pid):
+            return []
+        try:
+            d = _call(f'https://places.googleapis.com/v1/places/{pid}'
+                      '?languageCode=en',
+                      {'X-Goog-Api-Key': PLACES_KEY,
+                       'X-Goog-FieldMask': 'addressComponents'})
+        except Exception:  # noqa: BLE001
+            return []
+        comps = (d or {}).get('addressComponents') or []
+        order = ['neighborhood', 'sublocality_level_1', 'sublocality',
+                 'locality', 'postal_town', 'administrative_area_level_2',
+                 'administrative_area_level_1']
+        out = []
+        for wanted in order:
+            for c in comps:
+                if wanted in (c.get('types') or []):
+                    for name in (c.get('longText'), c.get('shortText')):
+                        if name and name not in out:
+                            out.append(name)
+        return out
+
     def resolve_place(v):
         """(region, location or None) for a venue. A Location is a
         neighbourhood inside a Region and is optional (many listings
         only have a Region); the Region is what a page needs."""
-        loc = None
-        for cand in (v.get('neighbourhood'), v.get('city')):
+        # The app's own names first, then Google's English names
+        # (the app may hold a local-language city like Kobenhavn).
+        names = [v.get('neighbourhood'), v.get('city')]
+        names += google_names(v.get('google_place_id'))
+        names = [n for n in names if n]
+        for cand in names:
             loc = loc_by_label.get(_norm(cand))
             if loc:
-                break
-        if loc:
-            lf = loc['fieldData']
-            region = region_by_id.get(lf.get('region-3')) or region_by_id.get(
-                (lf.get('region-2') or [None])[0])
-            return region, loc
-        for cand in (v.get('city'), v.get('neighbourhood')):
+                lf = loc['fieldData']
+                region = (region_by_id.get(lf.get('region-3')) or
+                          region_by_id.get((lf.get('region-2') or [None])[0]))
+                if region:
+                    return region, loc
+        for cand in names:
             region = region_by_label.get(_norm(cand))
             if region:
                 return region, None
@@ -589,6 +618,7 @@ if queued:
             report['needs_location'].append(
                 {'name': v['name'], 'city': v.get('city'),
                  'neighbourhood': v.get('neighbourhood'),
+                 'google_names': google_names(v.get('google_place_id')),
                  'why': 'no Webflow Region or Location matches its '
                         'city or neighbourhood'})
             continue
