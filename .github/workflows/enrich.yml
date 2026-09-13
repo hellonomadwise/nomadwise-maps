@@ -11,6 +11,12 @@ on:
   schedule:
     - cron: '23 4 * * *'
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/webflow_sync.py'
+      - 'scripts/enrich_venues.py'
+      - '.github/workflows/enrich.yml'
 
 permissions:
   contents: write
