@@ -153,8 +153,9 @@ Released, Sitemap.
 - "Not for the site" hides a space from the inbox without changing
   anything else (website_dismissed_at).
 - Sitemap tab: released pages missing from the custom sitemap become
-  the exact <url> blocks to paste (priority 0.80, randomised lastmod
-  no later than yesterday), with a "mark as added" step.
+  the exact <url> blocks to paste (priority 0.80, lastmod always dated
+  yesterday with a randomised time of day), with a "mark as added"
+  step.
 - Opening hours written to Webflow use a plain hyphen with spaces
   ("8:00 AM - 6:00 PM"), never Google's en dash. Slugs fold accents
   (pa, not p, for "på").

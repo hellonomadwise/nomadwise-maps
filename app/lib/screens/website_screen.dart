@@ -965,8 +965,8 @@ class _RegionPickerState extends State<_RegionPicker> {
 // ---------------------------------------------------------------- sitemap
 
 /// Released pages not yet in the custom sitemap, turned into the exact
-/// <url> blocks Jonathan pastes into it: priority 0.80, a randomised
-/// lastmod no later than yesterday, oldest first.
+/// <url> blocks Jonathan pastes into it: priority 0.80, lastmod dated
+/// yesterday with a randomised time of day, earliest first.
 class _SitemapTab extends StatefulWidget {
   final List<Map<String, dynamic>> pending;
   final Future<void> Function(List<String> ids) onMarked;
@@ -986,15 +986,14 @@ class _SitemapTabState extends State<_SitemapTab> {
       widget.pending.where((v) => !_excluded.contains(v['id'])).toList();
 
   String _generate() {
+    // Always yesterday's date; only the time of day is randomised.
     final rnd = Random();
-    final end = DateTime.now().toUtc().subtract(const Duration(days: 1));
-    final latest = DateTime.utc(end.year, end.month, end.day, 23, 59, 59);
-    final earliest = latest.subtract(const Duration(days: 45));
-    final span = latest.difference(earliest).inSeconds;
+    final y = DateTime.now().toUtc().subtract(const Duration(days: 1));
+    final dayStart = DateTime.utc(y.year, y.month, y.day);
     final stamps = _chosen
         .map((v) => (
               slug: v['webflow_slug'] as String,
-              at: earliest.add(Duration(seconds: rnd.nextInt(span)))
+              at: dayStart.add(Duration(seconds: rnd.nextInt(86400)))
             ))
         .toList()
       ..sort((a, b) => a.at.compareTo(b.at));
@@ -1099,8 +1098,8 @@ class _SitemapTabState extends State<_SitemapTab> {
         ]),
         const SizedBox(height: 6),
         const Text(
-            'Timestamps are randomised over the last few weeks, none '
-            'later than yesterday, oldest first.',
+            'Every entry is dated yesterday with a randomised time of '
+            'day, earliest first.',
             style: TextStyle(fontSize: 11.5, color: Brand.inkMuted)),
       ],
       const SizedBox(height: 30),
