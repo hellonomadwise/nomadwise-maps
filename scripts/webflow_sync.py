@@ -456,8 +456,40 @@ DESCRIPTION = ('Find cafes & coworking spaces for digital nomads with '
                'plugs, and quiet spots. | ')
 
 
+import math  # noqa: E402
+import unicodedata  # noqa: E402
+
+# Local spellings Google may return even in English.
+CITY_ALIASES = {
+    'kobenhavn': 'copenhagen', 'wien': 'vienna', 'munchen': 'munich',
+    'lisboa': 'lisbon', 'firenze': 'florence', 'roma': 'rome',
+    'milano': 'milan', 'napoli': 'naples', 'torino': 'turin',
+    'venezia': 'venice', 'praha': 'prague', 'warszawa': 'warsaw',
+    'krakow': 'krakow', 'athina': 'athens', 'sevilla': 'seville',
+    'koln': 'cologne', 'bruxelles': 'brussels', 'brussel': 'brussels',
+    'antwerpen': 'antwerp', 'den haag': 'the hague', 'geneve': 'geneva',
+    'zurich': 'zurich', 'goteborg': 'gothenburg', 'bucuresti': 'bucharest',
+    'beograd': 'belgrade', 'kyiv': 'kyiv', 'ho chi minh city': 'saigon',
+}
+
+
 def _norm(x):
-    return re.sub(r'[^a-z0-9]+', ' ', (x or '').lower()).strip()
+    x = unicodedata.normalize('NFKD', x or '')
+    x = ''.join(c for c in x if not unicodedata.combining(c))
+    x = x.replace('ø', 'o').replace('Ø', 'o').replace('ß', 'ss')
+    x = re.sub(r'[^a-z0-9]+', ' ', x.lower()).strip()
+    return CITY_ALIASES.get(x, x)
+
+
+def _km(lat1, lng1, lat2, lng2):
+    rad = math.pi / 180
+    dlat, dlng = (lat2 - lat1) * rad, (lng2 - lng1) * rad
+    a = (math.sin(dlat / 2) ** 2 + math.cos(lat1 * rad) *
+         math.cos(lat2 * rad) * math.sin(dlng / 2) ** 2)
+    return 6371 * 2 * math.asin(math.sqrt(a))
+
+
+NEAREST_REGION_KM = 30
 
 
 def slugify(x):
@@ -517,7 +549,8 @@ def day_fields(v):
 try:
     queued = sb_all(
         'venues?website_status=eq.queued&webflow_cms_id=is.null'
-        '&select=id,name,type,city,neighbourhood,google_place_id,website,'
+        '&select=id,name,type,city,neighbourhood,google_place_id,lat,lng,'
+        'website,'
         'instagram,wifi_speed_mbps,google_rating_snapshot,'
         'google_reviews_snapshot,opening_hours,g_details,power_outlets,'
         'aircon,comfortable_seating,cozy,quiet_space,good_for_calls,'
@@ -606,6 +639,22 @@ if queued:
             region = region_by_label.get(_norm(cand))
             if region:
                 return region, None
+        # Names failed (a local spelling, say): the nearest Region on
+        # the map wins, if it is close enough to be the same city.
+        lat, lng = v.get('lat'), v.get('lng')
+        if lat is not None and lng is not None:
+            best, best_km = None, None
+            for r in regions:
+                rf = r['fieldData']
+                if (r.get('isArchived') or r.get('isDraft') or
+                        rf.get('latitude') is None or
+                        rf.get('longitude') is None):
+                    continue
+                d = _km(lat, lng, rf['latitude'], rf['longitude'])
+                if best is None or d < best_km:
+                    best, best_km = r, d
+            if best is not None and best_km <= NEAREST_REGION_KM:
+                return best, None
         return None, None
 
     for v in queued:
