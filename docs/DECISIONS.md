@@ -150,6 +150,11 @@ Released, Sitemap.
   a dropdown of the site's Regions (copied nightly into
   webflow_regions). Copenhagen is a Region, not a Location; pages may
   have a Region only.
+- Every inbox card opens the full space page (tap the name) and has
+  an Edit button: name, type, neighbourhood, city, links, WiFi, the
+  yes/no facts and opening hours, saved straight to the venue. A
+  prepared proposal stays approvable after an edit because the page
+  is built from the latest details on the night it is created.
 - "Not for the site" hides a space from the inbox without changing
   anything else (website_dismissed_at).
 - Sitemap tab: released pages missing from the custom sitemap become
