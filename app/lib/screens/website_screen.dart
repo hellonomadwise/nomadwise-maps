@@ -953,6 +953,33 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         v['city']
       ].where((x) => x != null && '$x'.isNotEmpty).join(', ');
 
+  /// The country, from Google's address parts (cached on the venue),
+  /// else from the Region the space matched. Never left to guesswork
+  /// on the card: a founder should not have to open a space to learn
+  /// which country it is in.
+  String? _countryOf(Map<String, dynamic> v) {
+    final comps = v['address_components'];
+    if (comps is List) {
+      for (final c in comps) {
+        if (c is Map && (c['types'] as List?)?.contains('country') == true) {
+          final name = c['longText'] ?? c['shortText'];
+          if (name != null) return '$name';
+        }
+      }
+    }
+    final region = _regionFor(v);
+    return region?['country'] as String?;
+  }
+
+  /// "Anjos, Lisbon, Portugal" for the card header.
+  String _placeLine(Map<String, dynamic> v) {
+    final where = _where(v);
+    final country = _countryOf(v);
+    if (country == null) return where;
+    if (where.toLowerCase().contains(country.toLowerCase())) return where;
+    return where.isEmpty ? country : '$where, $country';
+  }
+
   Widget _card({required Widget child, Color? tint}) => Card(
         margin: const EdgeInsets.only(bottom: 12),
         elevation: 1.5,
@@ -994,7 +1021,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                             fontWeight: FontWeight.w700, fontSize: 15)),
                     Text(
                         '${v['type'] == 'coworking' ? 'Coworking space' : 'Cafe'}'
-                        '${_where(v).isNotEmpty ? ' · ${_where(v)}' : ''}'
+                        '${_placeLine(v).isNotEmpty ? ' · ${_placeLine(v)}' : ''}'
                         '  ·  tap to open',
                         style: const TextStyle(
                             fontSize: 12, color: Brand.inkMuted)),
