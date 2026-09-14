@@ -1,0 +1,36 @@
+name: Website push (queued spaces)
+
+# The control centre's quick lane. Every ten minutes: prepare the
+# proposal for newly queued spaces and create the Webflow draft for
+# approved ones. Exits in about a second when nothing is queued, so it
+# costs nothing to run often. The nightly run (enrich.yml) still does
+# the full pull from Webflow and the Region and Location copies.
+#
+# GitHub schedules are best-effort: a run can start a few minutes late
+# at busy times of day. "Run workflow" forces one straight away.
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: enrich
+  cancel-in-progress: false
+
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare and create queued spaces
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          WEBFLOW_API_TOKEN: ${{ secrets.WEBFLOW_API_TOKEN }}
+          GOOGLE_PLACES_KEY: ${{ secrets.GOOGLE_PLACES_SERVER_KEY || secrets.GOOGLE_PLACES_KEY }}
+        run: |
+          python3 scripts/webflow_sync.py --push-only
