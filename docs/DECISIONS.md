@@ -184,6 +184,13 @@ Released, Sitemap.
   (denmark-copenhagen-kaffebaren-p-amager); the fix is for future
   spaces only.
 
+- Quick lane (14 Sep): webflow_push.yml runs the sync in --push-only
+  mode every ten minutes, so a queued space has its proposal within
+  minutes and an approved one its Webflow draft within minutes. The
+  nightly run keeps the full pull and the Region/Location copies.
+  Approving locks the slug: it is used exactly, and if it is taken the
+  space comes back as Blocked (slug taken) rather than being renamed.
+
 Still to come: moderation of business-written descriptions (a
 "words waiting for review" tab in the same inbox), the live read of
 Webflow's sitemap flag, and the closed-listings cleanup.

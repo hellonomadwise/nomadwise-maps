@@ -30,10 +30,8 @@ class WebsiteScreen extends StatefulWidget {
   State<WebsiteScreen> createState() => _WebsiteScreenState();
 }
 
-class _WebsiteScreenState extends State<WebsiteScreen>
-    with SingleTickerProviderStateMixin {
+class _WebsiteScreenState extends State<WebsiteScreen> {
   final _supabase = SupabaseService();
-  late final TabController _tabs = TabController(length: 4, vsync: this);
 
   List<Map<String, dynamic>>? _inbox;
   List<Map<String, dynamic>> _drafts = [];
@@ -48,12 +46,6 @@ class _WebsiteScreenState extends State<WebsiteScreen>
   void initState() {
     super.initState();
     _load();
-  }
-
-  @override
-  void dispose() {
-    _tabs.dispose();
-    super.dispose();
   }
 
   Future<void> _load() async {
@@ -110,7 +102,7 @@ class _WebsiteScreenState extends State<WebsiteScreen>
         'website_approved_at': null,
         'website_dismissed_at': null,
       },
-      '${v['name']} queued. Its proposal will be ready tomorrow.');
+      '${v['name']} queued. The full proposal is ready in a few minutes.');
 
   static const dismissReasons = [
     'Not really a place to work from',
@@ -213,16 +205,27 @@ class _WebsiteScreenState extends State<WebsiteScreen>
   /// with exactly the slug shown on the card.
   Future<void> _approve(Map<String, dynamic> v) async {
     final p = _prepared(v);
+    final region = _regionFor(v);
+    final slug = p['slug'] ?? (region != null ? _slugPreview(v, region) : null);
+    final regionName = p['region'] ?? region?['name'];
+    if (slug == null || regionName == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Pick a Region first; the slug is built from it.')));
+      return;
+    }
     final ok = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
               title: const Text('Approve for nomadwise.io?'),
               content: Text(
-                  'Tonight a draft page will be created in Webflow at\n\n'
-                  '/coworking/${p['slug']}\n\n'
-                  'under ${p['region']}. The slug cannot be changed '
-                  'afterwards without a redirect. You then add the '
-                  'photos and words in Webflow and publish.',
+                  'Within about ten minutes a draft page will be created '
+                  'in Webflow at\n\n'
+                  '/coworking/$slug\n\n'
+                  'under $regionName. This exact slug is used; if it turns '
+                  'out to be taken the space comes back to you instead of '
+                  'being renamed. The slug cannot be changed afterwards '
+                  'without a redirect. You then add the photos and words '
+                  'in Webflow and publish.',
                   style: const TextStyle(height: 1.45)),
               actions: [
                 TextButton(
@@ -237,16 +240,21 @@ class _WebsiteScreenState extends State<WebsiteScreen>
       await _update(
           v,
           {
-            'website_approved_at':
-                DateTime.now().toUtc().toIso8601String()
+            'website_approved_at': DateTime.now().toUtc().toIso8601String(),
+            // Lock the slug you approved so it is used exactly.
+            'website_slug_override': slug,
+            if (region != null) 'website_region_override': region['id'],
           },
-          '${v['name']} approved. The draft is created tonight.');
+          '${v['name']} approved. The draft is created within minutes.');
     }
   }
 
   Future<void> _editSlug(Map<String, dynamic> v) async {
     final p = _prepared(v);
-    final ctl = TextEditingController(text: p['slug'] ?? '');
+    final region = _regionFor(v);
+    final current = p['slug'] ??
+        (region != null ? _slugPreview(v, region) : v['website_slug_override']);
+    final ctl = TextEditingController(text: current ?? '');
     final saved = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
@@ -281,16 +289,20 @@ class _WebsiteScreenState extends State<WebsiteScreen>
     final next = Map<String, dynamic>.from(p)
       ..['slug'] = slug
       ..['url'] = 'https://www.nomadwise.io/coworking/$slug';
+    if (p['error'] == 'slug_taken') next.remove('error');
     await _update(
         v,
-        {'website_slug_override': slug, 'website_prepared': next},
-        'Slug saved.');
+        {
+          'website_slug_override': slug,
+          'website_prepared': p['error'] == 'slug_taken' ? null : (p.isNotEmpty ? next : null),
+        },
+        'Slug saved: /coworking/$slug');
   }
 
   Future<void> _pickRegion(Map<String, dynamic> v) async {
     if (_regions.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('The list of Regions arrives with tonight\'s '
+          content: Text('The list of Regions is copied by the nightly '
               'sync. Try again tomorrow.')));
       return;
     }
@@ -305,10 +317,10 @@ class _WebsiteScreenState extends State<WebsiteScreen>
         v,
         {
           'website_region_override': picked['id'],
-          // Cleared so the card moves to "preparing tonight".
+          // Cleared so the card moves back to Queued with the new Region.
           'website_prepared': null,
         },
-        '${picked['name']} chosen. The proposal is prepared tonight.');
+        '${picked['name']} chosen. The proposal is prepared in a few minutes.');
   }
 
   /// The full space page (photos, WiFi tests, facts, hours, who
@@ -549,59 +561,30 @@ class _WebsiteScreenState extends State<WebsiteScreen>
     final inbox = _inbox;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('nomadwise.io'),
-        bottom: TabBar(
-          controller: _tabs,
-          isScrollable: true,
-          tabAlignment: TabAlignment.start,
-          labelStyle: const TextStyle(fontWeight: FontWeight.w700),
-          tabs: [
-            Tab(child: _tabLabel('Inbox', inbox == null ? null : _inboxCount)),
-            Tab(
-                child: _tabLabel(
-                    'Drafts', _drafts.length + _approvedTonight.length)),
-            Tab(child: _tabLabel('Released', _released.length)),
-            Tab(child: _tabLabel('Sitemap', _sitemap.length)),
+        title: Row(mainAxisSize: MainAxisSize.min, children: [
+          const Text('nomadwise.io'),
+          if (inbox != null && _inboxCount > 0) ...[
+            const SizedBox(width: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                  color: Brand.accent, borderRadius: BorderRadius.circular(10)),
+              child: Text('$_inboxCount to do',
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w800)),
+            ),
           ],
-        ),
+        ]),
       ),
       body: inbox == null && _error == null
           ? const Center(child: CircularProgressIndicator(color: Brand.red))
           : _error != null
               ? _errorView()
-              : TabBarView(controller: _tabs, children: [
-                  _wrap(_inboxTab()),
-                  _wrap(_draftsTab()),
-                  _wrap(_releasedTab()),
-                  _wrap(_SitemapTab(
-                      pending: _sitemap,
-                      onMarked: (ids) async {
-                        await _supabase.markSitemapAdded(ids);
-                        await _load();
-                      },
-                      copy: _copy)),
-                ]),
+              : _wrap(_pipeline()),
     );
   }
-
-  Widget _tabLabel(String text, int? count) =>
-      Row(mainAxisSize: MainAxisSize.min, children: [
-        Text(text),
-        if (count != null && count > 0) ...[
-          const SizedBox(width: 6),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-            decoration: BoxDecoration(
-                color: text == 'Inbox' ? Brand.accent : Brand.field,
-                borderRadius: BorderRadius.circular(10)),
-            child: Text('$count',
-                style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                    color: text == 'Inbox' ? Colors.white : Brand.inkSecondary)),
-          ),
-        ],
-      ]);
 
   /// Phone: full width. Laptop: a comfortable reading column.
   Widget _wrap(Widget child) => RefreshIndicator(
@@ -638,32 +621,13 @@ class _WebsiteScreenState extends State<WebsiteScreen>
   /// Which inbox group is showing. null = the first one with work in it.
   String? _groupKey;
 
-  Widget _inboxTab() {
+  Widget _pipeline() {
     final g = _groups();
     final groups = <({String key, String label, int count, Color color,
         String hint, String empty})>[
       (
-        key: 'ready',
-        label: 'Ready to approve',
-        count: g.ready.length,
-        color: Brand.accent,
-        hint: 'Check the proposal, then Approve. Tonight it becomes a '
-            'draft in Webflow.',
-        empty: 'Nothing to approve. Queue a space and its proposal '
-            'appears here the next morning.'
-      ),
-      (
-        key: 'region',
-        label: 'Needs a region',
-        count: g.needsRegion.length,
-        color: Brand.goldTextDark,
-        hint: 'Blocked: a page needs a Country and a Region before it can '
-            'be prepared or created. Pick the Region to unblock.',
-        empty: 'Every queued space has found its Region.'
-      ),
-      (
         key: 'fresh',
-        label: 'New spaces',
+        label: '1 New spaces',
         count: g.fresh.length,
         color: Brand.violet,
         hint: 'Verified in the app, not on the site. Queue the ones '
@@ -673,13 +637,58 @@ class _WebsiteScreenState extends State<WebsiteScreen>
       ),
       (
         key: 'preparing',
-        label: 'Preparing tonight',
+        label: '2 Queued',
         count: g.preparing.length,
         color: Brand.inkSecondary,
-        hint: 'Queued, with a Region known. Tonight the sync writes the '
-            'full proposal. Nothing reaches Webflow until you approve it '
-            'tomorrow.',
-        empty: 'Nothing queued for tonight.'
+        hint: 'Queued, with a Region known. Approve the slug here to create '
+            'the draft within about ten minutes, or wait a few minutes for '
+            'the full proposal under Ready to approve. Nothing reaches '
+            'Webflow without your Approve.',
+        empty: 'Nothing queued.'
+      ),
+      (
+        key: 'ready',
+        label: '3 Ready to approve',
+        count: g.ready.length,
+        color: Brand.accent,
+        hint: 'Check the proposal, then Approve. Within about ten minutes '
+            'it becomes a draft in Webflow.',
+        empty: 'Nothing to approve. Queue a space and its full proposal '
+            'appears here within a few minutes.'
+      ),
+      (
+        key: 'drafts',
+        label: '4 In Webflow',
+        count: _drafts.length + _approvedTonight.length,
+        color: Brand.inkSecondary,
+        hint: 'Approved. The draft is created within minutes, then it is '
+            'yours to finish in Webflow: photos, words, publish.',
+        empty: 'No drafts waiting in Webflow.'
+      ),
+      (
+        key: 'released',
+        label: '5 Released',
+        count: _released.length,
+        color: Brand.success,
+        hint: 'Live on nomadwise.io.',
+        empty: 'Nothing released yet.'
+      ),
+      (
+        key: 'sitemap',
+        label: '6 Sitemap',
+        count: _sitemap.length,
+        color: Brand.goldTextDark,
+        hint: 'Released pages that still need their sitemap entry.',
+        empty: 'Sitemap is up to date.'
+      ),
+      (
+        key: 'region',
+        label: 'Blocked',
+        count: g.needsRegion.length,
+        color: Brand.goldTextDark,
+        hint: 'Blocked: a page needs a Country and a Region, and a slug no '
+            'other listing uses. Fix the item to unblock.',
+        empty: 'Nothing is blocked.'
       ),
       (
         key: 'hidden',
@@ -693,8 +702,10 @@ class _WebsiteScreenState extends State<WebsiteScreen>
     ];
     var key = _groupKey;
     if (key == null || groups.firstWhere((x) => x.key == key).count == 0) {
+      const steps = ['fresh', 'preparing', 'ready', 'region'];
       key = groups
-          .firstWhere((x) => x.count > 0, orElse: () => groups[2])
+          .firstWhere((x) => steps.contains(x.key) && x.count > 0,
+              orElse: () => groups[0])
           .key;
     }
     final current = groups.firstWhere((x) => x.key == key);
@@ -704,7 +715,21 @@ class _WebsiteScreenState extends State<WebsiteScreen>
       'region' => g.needsRegion.map(_needsRegionCard).toList(),
       'fresh' => g.fresh.map(_freshCard).toList(),
       'preparing' => g.preparing.map(_preparingTile).toList(),
-      _ => _hidden.map(_hiddenTile).toList(),
+      'hidden' => _hidden.map(_hiddenTile).toList(),
+      _ => <Widget>[],
+    };
+    // The later stages have their own list screens.
+    final Widget? whole = switch (key) {
+      'drafts' => _draftsTab(),
+      'released' => _releasedTab(),
+      'sitemap' => _SitemapTab(
+          pending: _sitemap,
+          onMarked: (ids) async {
+            await _supabase.markSitemapAdded(ids);
+            await _load();
+          },
+          copy: _copy),
+      _ => null,
     };
 
     return Column(children: [
@@ -755,19 +780,23 @@ class _WebsiteScreenState extends State<WebsiteScreen>
         ),
       ),
       Expanded(
-        child: ListView(padding: const EdgeInsets.fromLTRB(14, 4, 14, 30),
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(2, 0, 2, 10),
-                child: Text(current.hint,
-                    style: const TextStyle(
-                        fontSize: 12, color: Brand.inkMuted, height: 1.4)),
-              ),
-              if (cards.isEmpty)
-                _inboxCount == 0 ? _inboxZero() : _groupEmpty(current.empty)
-              else
-                ...cards,
-            ]),
+        child: whole ??
+            ListView(
+                padding: const EdgeInsets.fromLTRB(14, 4, 14, 30),
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(2, 0, 2, 10),
+                    child: Text(current.hint,
+                        style: const TextStyle(
+                            fontSize: 12, color: Brand.inkMuted, height: 1.4)),
+                  ),
+                  if (cards.isEmpty)
+                    _inboxCount == 0
+                        ? _inboxZero()
+                        : _groupEmpty(current.empty)
+                  else
+                    ...cards,
+                ]),
       ),
     ]);
   }
@@ -819,9 +848,36 @@ class _WebsiteScreenState extends State<WebsiteScreen>
           _kv(Icons.place_outlined,
               '${region['name']}${region['country'] != null ? ', ${region['country']}' : ''}'
               '${chosen ? '' : '  (matched from the city; change it if wrong)'}'),
-          _kv(Icons.link,
-              '/coworking/${_slugPreview(v, region)}   (expected slug; '
-              'confirmed in the morning, editable until you approve)'),
+          InkWell(
+            onTap: () => _editSlug(v),
+            borderRadius: BorderRadius.circular(10),
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                  color: Brand.surface,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Brand.border)),
+              child: Row(children: [
+                const Icon(Icons.link, size: 16, color: Brand.inkSecondary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text('/coworking/${_slugPreview(v, region)}',
+                      style: const TextStyle(
+                          fontSize: 13, fontWeight: FontWeight.w600)),
+                ),
+                const Icon(Icons.edit_outlined,
+                    size: 16, color: Brand.inkMuted),
+              ]),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+              v['website_slug_override'] != null
+                  ? 'Your slug. It is used exactly as written.'
+                  : 'Expected slug (Region + name). Tap it to change. Approving '
+                      'locks it; if it is taken you are asked, never renamed.',
+              style: const TextStyle(fontSize: 11.5, color: Brand.inkMuted)),
         ],
         const SizedBox(height: 6),
         Wrap(
@@ -843,6 +899,11 @@ class _WebsiteScreenState extends State<WebsiteScreen>
                   style:
                       TextButton.styleFrom(foregroundColor: Brand.inkSecondary),
                   child: const Text('Remove from queue')),
+              if (region != null)
+                ElevatedButton.icon(
+                    onPressed: () => _approve(v),
+                    icon: const Icon(Icons.check, size: 18),
+                    label: const Text('Approve slug and create')),
             ]),
       ]),
     );
@@ -1026,6 +1087,11 @@ class _WebsiteScreenState extends State<WebsiteScreen>
           if (error == 'no_place_id')
             const Text('Add a Google match in the space first',
                 style: TextStyle(fontSize: 12, color: Brand.inkMuted))
+          else if (error == 'slug_taken')
+            ElevatedButton.icon(
+                onPressed: () => _editSlug(v),
+                icon: const Icon(Icons.link, size: 18),
+                label: const Text('Change the slug'))
           else
             ElevatedButton.icon(
                 onPressed: () => _pickRegion(v),
@@ -1123,7 +1189,7 @@ class _WebsiteScreenState extends State<WebsiteScreen>
             child: Text(
                 'Edited since this proposal was prepared. The page is built '
                 'from the latest details, so approving is safe; the summary '
-                'above refreshes tonight.',
+                'above refreshes in a few minutes.',
                 style: TextStyle(
                     fontSize: 11.5, color: Brand.goldTextDark, height: 1.4)),
           ),
@@ -1141,7 +1207,7 @@ class _WebsiteScreenState extends State<WebsiteScreen>
           TextButton(
               onPressed: () => _unqueue(v),
               style: TextButton.styleFrom(foregroundColor: Brand.inkSecondary),
-              child: const Text('Send back')),
+              child: const Text('Remove from queue')),
           ElevatedButton.icon(
               onPressed: () => _approve(v),
               icon: const Icon(Icons.check, size: 18),
@@ -1201,9 +1267,9 @@ class _WebsiteScreenState extends State<WebsiteScreen>
     }
     return ListView(padding: const EdgeInsets.all(14), children: [
       if (approved.isNotEmpty) ...[
-        _section('APPROVED, CREATED TONIGHT', approved.length,
-            'The nightly sync builds the Webflow draft and its Images '
-            'entry.'),
+        _section('APPROVED, BEING CREATED', approved.length,
+            'The Webflow draft and its Images entry are built within '
+            'about ten minutes. Pull down to refresh.'),
         ...approved.map((v) => _card(
               tint: Brand.successTint,
               child: Row(children: [

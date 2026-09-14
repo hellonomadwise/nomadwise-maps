@@ -1,0 +1,20 @@
+Quick lane for the control centre (14 September 2026)
+
+FOUR FILES:
+  app/lib/screens/website_screen.dart      one left-to-right pipeline (1 to 6), approve from Queued, slug locked
+  scripts/webflow_sync.py                  --push-only mode, strict slug handling
+  .github/workflows/webflow_push.yml       NEW: runs the push every 10 minutes
+  docs/DECISIONS.md                        the note
+
+HOW (two uploads, because .github is a hidden folder):
+  1. Repo page > Add file > Upload files: drag the folders app, scripts
+     and docs. Commit.
+  2. Open the .github/workflows folder in the repo (click ".github/workflows"
+     in the file list). Then Add file > Upload files there, and drag
+     webflow_push.yml from this zip's .github/workflows folder. Commit.
+     (It must land at .github/workflows/webflow_push.yml.)
+
+AFTER:
+  - Actions shows a new workflow "Website push (queued spaces)". It runs
+    every ten minutes and finishes in seconds when nothing is queued.
+  - "Run workflow" on it forces an immediate run.

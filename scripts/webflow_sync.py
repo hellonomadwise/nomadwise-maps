@@ -54,6 +54,12 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+# --push-only: skip the nightly pull and only prepare / create the
+# queued spaces. Run every few minutes by webflow_push.yml so the
+# control centre feels immediate; exits in a second when nothing is
+# queued.
+PUSH_ONLY = '--push-only' in sys.argv
+
 SUPABASE_URL = os.environ.get('SUPABASE_URL', '').rstrip('/')
 SERVICE_KEY = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
 WEBFLOW_TOKEN = os.environ.get('WEBFLOW_API_TOKEN', '')
@@ -256,195 +262,201 @@ def _unexpected(exc_type, exc, tb):
 sys.excepthook = _unexpected
 
 
-# ------------------------------------------------------------ webflow
-try:
-    items = wf_all(f'/v2/collections/{COLLECTION_ID}/items')
-except Exception as e:  # noqa: BLE001
-    report['errors'].append(f'webflow items: {e}')
-    finish(1)
-report['items_read'] = len(items)
-
-# Which items have a live page? The live endpoint lists only those.
-try:
-    live_items = wf_all(f'/v2/collections/{COLLECTION_ID}/items/live')
-    live_ids = {i['id'] for i in live_items}
-except Exception as e:  # noqa: BLE001
-    report['errors'].append(f'webflow live items: {e}')
-    live_ids = {i['id'] for i in items
-                if i.get('lastPublished') and not i.get('isArchived')
-                and not i.get('isDraft')}
-report['live_items'] = len(live_ids)
-
-# Sitemap flag (the release switch). The beta endpoint path has moved
-# before, so try the known spellings, then fall back to the snapshot
-# committed with the repo, then to "every live page is released".
-sitemap = None
-for path in (f'/v2/beta/collections/{COLLECTION_ID}/items/sitemap',
-             f'/beta/collections/{COLLECTION_ID}/items/sitemap'):
+if not PUSH_ONLY:
+    # ------------------------------------------------------------ webflow
     try:
-        rows = wf_all(path, {'type': 'live'})
-        sitemap = {r['id']: bool(r.get('includeInSitemap'))
-                   for r in rows if r.get('id')}
-        report['sitemap_source'] = path
-        break
-    except Exception:  # noqa: BLE001
-        continue
-if sitemap is None and os.path.exists(SNAPSHOT):
-    snap = json.load(open(SNAPSHOT))
-    sitemap = {k: bool(v.get('includeInSitemap'))
-               for k, v in (snap.get('items') or {}).items()}
-    report['sitemap_source'] = 'snapshot ' + str(snap.get('generated'))
-if sitemap is None:
-    sitemap = {}
-    report['sitemap_source'] = 'none (all live pages treated as released)'
+        items = wf_all(f'/v2/collections/{COLLECTION_ID}/items')
+    except Exception as e:  # noqa: BLE001
+        report['errors'].append(f'webflow items: {e}')
+        finish(1)
+    report['items_read'] = len(items)
+
+    # Which items have a live page? The live endpoint lists only those.
+    try:
+        live_items = wf_all(f'/v2/collections/{COLLECTION_ID}/items/live')
+        live_ids = {i['id'] for i in live_items}
+    except Exception as e:  # noqa: BLE001
+        report['errors'].append(f'webflow live items: {e}')
+        live_ids = {i['id'] for i in items
+                    if i.get('lastPublished') and not i.get('isArchived')
+                    and not i.get('isDraft')}
+    report['live_items'] = len(live_ids)
+
+    # Sitemap flag (the release switch). The beta endpoint path has moved
+    # before, so try the known spellings, then fall back to the snapshot
+    # committed with the repo, then to "every live page is released".
+    sitemap = None
+    for path in (f'/v2/beta/collections/{COLLECTION_ID}/items/sitemap',
+                 f'/beta/collections/{COLLECTION_ID}/items/sitemap'):
+        try:
+            rows = wf_all(path, {'type': 'live'})
+            sitemap = {r['id']: bool(r.get('includeInSitemap'))
+                       for r in rows if r.get('id')}
+            report['sitemap_source'] = path
+            break
+        except Exception:  # noqa: BLE001
+            continue
+    if sitemap is None and os.path.exists(SNAPSHOT):
+        snap = json.load(open(SNAPSHOT))
+        sitemap = {k: bool(v.get('includeInSitemap'))
+                   for k, v in (snap.get('items') or {}).items()}
+        report['sitemap_source'] = 'snapshot ' + str(snap.get('generated'))
+    if sitemap is None:
+        sitemap = {}
+        report['sitemap_source'] = 'none (all live pages treated as released)'
 
 
-def status_of(item):
-    if item.get('isArchived'):
-        return 'removed'
-    if item.get('isDraft'):
-        # A draft that has never been live is a page in the making;
-        # a draft that used to be live has been taken down.
-        return 'removed' if item.get('lastPublished') else 'published_hidden'
-    if item['id'] not in live_ids:
-        return 'removed'
-    return 'released' if sitemap.get(item['id'], True) else 'published_hidden'
+    def status_of(item):
+        if item.get('isArchived'):
+            return 'removed'
+        if item.get('isDraft'):
+            # A draft that has never been live is a page in the making;
+            # a draft that used to be live has been taken down.
+            return 'removed' if item.get('lastPublished') else 'published_hidden'
+        if item['id'] not in live_ids:
+            return 'removed'
+        return 'released' if sitemap.get(item['id'], True) else 'published_hidden'
 
 
-# ----------------------------------------------------------- supabase
-try:
-    venues = sb_all('venues?select=id,google_place_id,webflow_cms_id,'
-                    'webflow_slug,website_status,source,'
-                    + ','.join(EDITORIAL_KEYS))
-except urllib.error.HTTPError as e:
-    detail = e.read().decode()[:300]
-    report['errors'].append(
-        'venues read failed (migration 49 not applied yet?): ' + detail)
-    finish(0)
+    # ----------------------------------------------------------- supabase
+    try:
+        venues = sb_all('venues?select=id,google_place_id,webflow_cms_id,'
+                        'webflow_slug,website_status,source,'
+                        + ','.join(EDITORIAL_KEYS))
+    except urllib.error.HTTPError as e:
+        detail = e.read().decode()[:300]
+        report['errors'].append(
+            'venues read failed (migration 49 not applied yet?): ' + detail)
+        finish(0)
 
-by_pid = {v['google_place_id']: v for v in venues if v.get('google_place_id')}
-by_cms = {v['webflow_cms_id']: v for v in venues if v.get('webflow_cms_id')}
+    by_pid = {v['google_place_id']: v for v in venues if v.get('google_place_id')}
+    by_cms = {v['webflow_cms_id']: v for v in venues if v.get('webflow_cms_id')}
 
-tested = set()
-try:
-    for s in sb_all('submissions?select=venue_id&kind=eq.wifi_test'
-                    '&status=eq.verified'):
-        if s.get('venue_id'):
-            tested.add(s['venue_id'])
-except Exception as e:  # noqa: BLE001
-    report['errors'].append(f'wifi tests read: {e}')
+    tested = set()
+    try:
+        for s in sb_all('submissions?select=venue_id&kind=eq.wifi_test'
+                        '&status=eq.verified'):
+            if s.get('venue_id'):
+                tested.add(s['venue_id'])
+    except Exception as e:  # noqa: BLE001
+        report['errors'].append(f'wifi tests read: {e}')
 
-discovered = set()
-try:
-    for d in sb_all('discovered_places?select=google_place_id'):
-        discovered.add(d['google_place_id'])
-except Exception as e:  # noqa: BLE001
-    report['errors'].append(f'discovered read: {e}')
+    discovered = set()
+    try:
+        for d in sb_all('discovered_places?select=google_place_id'):
+            discovered.add(d['google_place_id'])
+    except Exception as e:  # noqa: BLE001
+        report['errors'].append(f'discovered read: {e}')
 
-now = datetime.datetime.now(datetime.timezone.utc).isoformat()
-updates, inserts = [], []
-seen_cms = set()
-claimed = set()   # a venue is written once even if two items point at it
+    now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    updates, inserts = [], []
+    seen_cms = set()
+    claimed = set()   # a venue is written once even if two items point at it
 
-for item in items:
-    f = item.get('fieldData') or {}
-    cms_id = item['id']
-    seen_cms.add(cms_id)
-    pid = (f.get('google-place-id') or '').strip() or None
-    slug = (f.get('slug') or '').strip() or None
-    status = status_of(item)
+    for item in items:
+        f = item.get('fieldData') or {}
+        cms_id = item['id']
+        seen_cms.add(cms_id)
+        pid = (f.get('google-place-id') or '').strip() or None
+        slug = (f.get('slug') or '').strip() or None
+        status = status_of(item)
 
-    venue, how = None, None
-    if pid and pid in by_pid:
-        venue, how = by_pid[pid], 'matched_by_place_id'
-    elif cms_id in by_cms:
-        venue, how = by_cms[cms_id], 'matched_by_cms_id'
+        venue, how = None, None
+        if pid and pid in by_pid:
+            venue, how = by_pid[pid], 'matched_by_place_id'
+        elif cms_id in by_cms:
+            venue, how = by_cms[cms_id], 'matched_by_cms_id'
 
-    if venue and (venue.get('id') is None or venue['id'] in claimed):
-        # Already handled this run (a second Webflow item pointing at
-        # the same place, or a place queued for insertion just above).
-        continue
-    if venue:
-        claimed.add(venue['id'])
-        report[how] += 1
-        # Same key set for every row (the API insists), starting from
-        # what the venue holds now so an empty Webflow field never
-        # blanks anything.
-        row = {k: venue.get(k) for k in EDITORIAL_KEYS}
-        row.update({'id': venue['id'],
-                    'webflow_cms_id': cms_id,
-                    'webflow_slug': slug,
-                    'website_status': status,
-                    'website_synced_at': now})
-        row.update(editorial_fields(f, venue['type']))
+        if venue and (venue.get('id') is None or venue['id'] in claimed):
+            # Already handled this run (a second Webflow item pointing at
+            # the same place, or a place queued for insertion just above).
+            continue
+        if venue:
+            claimed.add(venue['id'])
+            report[how] += 1
+            # Same key set for every row (the API insists), starting from
+            # what the venue holds now so an empty Webflow field never
+            # blanks anything.
+            row = {k: venue.get(k) for k in EDITORIAL_KEYS}
+            row.update({'id': venue['id'],
+                        'webflow_cms_id': cms_id,
+                        'webflow_slug': slug,
+                        'website_status': status,
+                        'website_synced_at': now})
+            row.update(editorial_fields(f, venue['type']))
+            wifi = num(f.get('average-internet-speed'))
+            if venue['id'] not in tested and wifi and wifi > 0:
+                row['wifi_speed_mbps'] = wifi
+            updates.append(row)
+            report['status_counts'][status] = \
+                report['status_counts'].get(status, 0) + 1
+            continue
+
+        # No venue yet.
+        if not pid:
+            report['no_place_id'].append(f.get('name'))
+            continue
+        if status == 'removed':
+            report['skipped_not_live_new'] += 1
+            continue
+        if pid in discovered:
+            # Known as a candidate; the screening flow promotes it. Leave.
+            continue
+        row = {k: None for k in EDITORIAL_KEYS}
+        row.update({
+            'name': f.get('name'),
+            'type': venue_type(f, 'cafe'),
+            'city': '',
+            'google_place_id': pid,
+            'laptops_allowed': True,
+            'webflow_cms_id': cms_id,
+            'webflow_slug': slug,
+            'website_status': status,
+            'website_synced_at': now,
+            'status': 'verified',
+            'source': SOURCE_TAG,
+        })
+        row.update(editorial_fields(f))
         wifi = num(f.get('average-internet-speed'))
-        if venue['id'] not in tested and wifi and wifi > 0:
+        if wifi and wifi > 0:
             row['wifi_speed_mbps'] = wifi
-        updates.append(row)
+        inserts.append(row)
+        report['inserted_names'].append(row['name'])
+        by_pid[pid] = row
         report['status_counts'][status] = \
             report['status_counts'].get(status, 0) + 1
-        continue
 
-    # No venue yet.
-    if not pid:
-        report['no_place_id'].append(f.get('name'))
-        continue
-    if status == 'removed':
-        report['skipped_not_live_new'] += 1
-        continue
-    if pid in discovered:
-        # Known as a candidate; the screening flow promotes it. Leave.
-        continue
-    row = {k: None for k in EDITORIAL_KEYS}
-    row.update({
-        'name': f.get('name'),
-        'type': venue_type(f, 'cafe'),
-        'city': '',
-        'google_place_id': pid,
-        'laptops_allowed': True,
-        'webflow_cms_id': cms_id,
-        'webflow_slug': slug,
-        'website_status': status,
-        'website_synced_at': now,
-        'status': 'verified',
-        'source': SOURCE_TAG,
-    })
-    row.update(editorial_fields(f))
-    wifi = num(f.get('average-internet-speed'))
-    if wifi and wifi > 0:
-        row['wifi_speed_mbps'] = wifi
-    inserts.append(row)
-    report['inserted_names'].append(row['name'])
-    by_pid[pid] = row
-    report['status_counts'][status] = \
-        report['status_counts'].get(status, 0) + 1
+    # Previously imported venues whose Webflow item is gone entirely.
+    gone = [v for v in venues
+            if v.get('webflow_cms_id') and v['webflow_cms_id'] not in seen_cms
+            and v.get('website_status') != 'removed']
 
-# Previously imported venues whose Webflow item is gone entirely.
-gone = [v for v in venues
-        if v.get('webflow_cms_id') and v['webflow_cms_id'] not in seen_cms
-        and v.get('website_status') != 'removed']
+    # ------------------------------------------------------------- writes
+    try:
+        for i in range(0, len(updates), 200):
+            sb('venues?on_conflict=id', method='POST', body=updates[i:i + 200],
+               prefer='resolution=merge-duplicates,return=minimal')
+            report['updated'] += len(updates[i:i + 200])
+        for i in range(0, len(inserts), 200):
+            got = sb('venues?on_conflict=google_place_id&select=id',
+                     method='POST', body=inserts[i:i + 200],
+                     prefer='resolution=ignore-duplicates,'
+                            'return=representation')
+            report['inserted'] += len(got or [])
+        for v in gone:
+            sb(f"venues?id=eq.{v['id']}", method='PATCH',
+               body={'website_status': 'removed', 'website_synced_at': now},
+               prefer='return=minimal')
+            report['marked_removed'] += 1
+    except urllib.error.HTTPError as e:
+        report['errors'].append('write failed: ' + e.read().decode()[:400])
+        finish(1)
 
-# ------------------------------------------------------------- writes
-try:
-    for i in range(0, len(updates), 200):
-        sb('venues?on_conflict=id', method='POST', body=updates[i:i + 200],
-           prefer='resolution=merge-duplicates,return=minimal')
-        report['updated'] += len(updates[i:i + 200])
-    for i in range(0, len(inserts), 200):
-        got = sb('venues?on_conflict=google_place_id&select=id',
-                 method='POST', body=inserts[i:i + 200],
-                 prefer='resolution=ignore-duplicates,'
-                        'return=representation')
-        report['inserted'] += len(got or [])
-    for v in gone:
-        sb(f"venues?id=eq.{v['id']}", method='PATCH',
-           body={'website_status': 'removed', 'website_synced_at': now},
-           prefer='return=minimal')
-        report['marked_removed'] += 1
-except urllib.error.HTTPError as e:
-    report['errors'].append('write failed: ' + e.read().decode()[:400])
-    finish(1)
 
+else:
+    # Push-only run (every few minutes): no pull, no writes to venues.
+    items = []
+    now = datetime.datetime.now(datetime.timezone.utc).isoformat()
 
 # ---------------------------------------------------------------- push
 # Venues the founders queued for the site become Webflow DRAFTS.
@@ -707,6 +719,18 @@ report['queued_for_site'] = len(queued)
 report['prepared'] = []
 report['awaiting_approval'] = []
 
+if PUSH_ONLY and not queued:
+    finish(0)   # nothing to do: the common case, a second of runtime
+
+if PUSH_ONLY:
+    # Existing slugs (uniqueness) and the Maps embed key come from the
+    # collection itself; read it only when there is work to do.
+    try:
+        items = wf_all(f'/v2/collections/{COLLECTION_ID}/items')
+    except Exception as e:  # noqa: BLE001
+        report['errors'].append(f'webflow items: {e}')
+        finish(1)
+
 # The Webflow places are read every night, even with nothing queued,
 # because the app's Region dropdown is a copy of them.
 try:
@@ -719,7 +743,7 @@ except Exception as e:  # noqa: BLE001
 country_by_id = {c['id']: c for c in countries}
 
 rows = region_rows(regions, country_by_id)
-if rows:
+if rows and not PUSH_ONLY:
     try:
         sb('webflow_regions?on_conflict=id', method='POST', body=rows,
            prefer='resolution=merge-duplicates,return=minimal')
@@ -740,7 +764,7 @@ for loc in locations:
         'region_id': lf.get('region-3') or (lf.get('region-2') or [None])[0],
         'country': (c.get('fieldData') or {}).get('name'),
         'updated_at': now})
-if loc_rows:
+if loc_rows and not PUSH_ONLY:
     try:
         sb('webflow_locations?on_conflict=id', method='POST', body=loc_rows,
            prefer='resolution=merge-duplicates,return=minimal')
@@ -857,13 +881,18 @@ if queued:
         return None, None
 
     def pick_slug(v, region, prepared):
-        """The slug the founder saw (or typed) stays; a new proposal
-        gets the region's slug plus the name, made unique."""
-        if prepared and prepared.get('slug') and not v.get(
-                'website_slug_override'):
-            return prepared['slug']
+        """The slug the founder saw or typed is used exactly, or not at
+        all: if it turns out to be taken, None comes back and the space
+        is flagged rather than quietly renamed. Only a fresh proposal
+        (nothing seen yet) gets a -2 added to be unique."""
         typed = slugify(v.get('website_slug_override') or '')
-        base = typed or f"{region['fieldData'].get('slug')}-{slugify(v['name'])}"
+        fixed = typed or (prepared or {}).get('slug')
+        if fixed:
+            if fixed in taken_slugs:
+                return None
+            taken_slugs.add(fixed)
+            return fixed
+        base = f"{region['fieldData'].get('slug')}-{slugify(v['name'])}"
         slug_ = base
         n = 2
         while slug_ in taken_slugs:
@@ -954,6 +983,18 @@ if queued:
             continue
 
         slug_ = pick_slug(v, region, old if not old.get('error') else None)
+        if slug_ is None:
+            wanted = (slugify(v.get('website_slug_override') or '')
+                      or old.get('slug'))
+            save_prepared(v, {'error': 'slug_taken', 'slug': wanted,
+                              'region': rf.get('name-label'),
+                              'region_id': region['id'],
+                              'why': f'The slug "{wanted}" is already used '
+                                     'by another listing. Choose a '
+                                     'different one.'})
+            report['needs_location'].append(
+                {'name': v['name'], 'why': f'slug taken: {wanted}'})
+            continue
         fields, where, kind, country_name = build_fields(
             v, region, loc, country, slug_, embed_key)
         photos = approved_photos(v['id'])
