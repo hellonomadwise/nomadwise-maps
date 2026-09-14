@@ -627,7 +627,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         String hint, String empty})>[
       (
         key: 'fresh',
-        label: '1 New spaces',
+        label: 'New spaces',
         count: g.fresh.length,
         color: Brand.violet,
         hint: 'Verified in the app, not on the site. Queue the ones '
@@ -637,7 +637,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       ),
       (
         key: 'preparing',
-        label: '2 Queued',
+        label: 'Queued',
         count: g.preparing.length,
         color: Brand.inkSecondary,
         hint: 'Queued, with a Region known. Approve the slug here to create '
@@ -648,7 +648,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       ),
       (
         key: 'ready',
-        label: '3 Ready to approve',
+        label: 'Ready to approve',
         count: g.ready.length,
         color: Brand.accent,
         hint: 'Check the proposal, then Approve. Within about ten minutes '
@@ -658,7 +658,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       ),
       (
         key: 'drafts',
-        label: '4 In Webflow',
+        label: 'In Webflow',
         count: _drafts.length + _approvedTonight.length,
         color: Brand.inkSecondary,
         hint: 'Approved. The draft is created within minutes, then it is '
@@ -667,7 +667,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       ),
       (
         key: 'released',
-        label: '5 Released',
+        label: 'Released',
         count: _released.length,
         color: Brand.success,
         hint: 'Live on nomadwise.io.',
@@ -675,7 +675,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       ),
       (
         key: 'sitemap',
-        label: '6 Sitemap',
+        label: 'Sitemap',
         count: _sitemap.length,
         color: Brand.goldTextDark,
         hint: 'Released pages that still need their sitemap entry.',
