@@ -1016,7 +1016,13 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     final saved = await Navigator.push<List<String>>(
         context,
         MaterialPageRoute(
-            builder: (_) => _PhotosPage(name: v['name'] ?? '', initial: _pasted(v))));
+            builder: (_) => _PhotosPage(
+                name: v['name'] ?? '',
+                searchText: [v['name'], _where(v), _countryOf(v)]
+                    .where((x) => x != null && '$x'.isNotEmpty)
+                    .join(' '),
+                placeId: v['google_place_id'],
+                initial: _pasted(v))));
     if (saved == null) return;
     final p = _prepared(v);
     final next = Map<String, dynamic>.from(p);
@@ -1845,8 +1851,14 @@ class _EditVenuePageState extends State<_EditVenuePage> {
 /// on Google, right-click a photo, copy the image address, paste.
 class _PhotosPage extends StatefulWidget {
   final String name;
+  final String searchText;
+  final String? placeId;
   final List<String> initial;
-  const _PhotosPage({required this.name, required this.initial});
+  const _PhotosPage(
+      {required this.name,
+      required this.searchText,
+      required this.initial,
+      this.placeId});
   @override
   State<_PhotosPage> createState() => _PhotosPageState();
 }
@@ -1898,6 +1910,26 @@ class _PhotosPageState extends State<_PhotosPage> {
                   'the Images entry when the draft is created.',
                   style: TextStyle(fontSize: 12.5, height: 1.45)),
             ),
+            const SizedBox(height: 10),
+            // Straight to the place on Google (its panel with the
+            // photos), not the directions page.
+            Wrap(spacing: 8, runSpacing: 8, children: [
+              OutlinedButton.icon(
+                  onPressed: () => launchUrl(
+                      Uri.https('www.google.com', '/search',
+                          {'q': widget.searchText}),
+                      mode: LaunchMode.externalApplication),
+                  icon: const Icon(Icons.travel_explore, size: 18),
+                  label: const Text('Open on Google')),
+              if (widget.placeId != null)
+                OutlinedButton.icon(
+                    onPressed: () => launchUrl(
+                        Uri.https('www.google.com', '/maps/place/',
+                            {'q': 'place_id:${widget.placeId}'}),
+                        mode: LaunchMode.externalApplication),
+                    icon: const Icon(Icons.photo_outlined, size: 18),
+                    label: const Text('Photos on Google Maps')),
+            ]),
             const SizedBox(height: 12),
             for (var i = 0; i < 5; i++) ...[
               Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
