@@ -736,7 +736,11 @@ class SupabaseService {
       'website_dismissed_at, website_dismiss_reason, website_dismiss_note, '
       'website_region_override, website_location_override, '
       'website_slug_override, sitemap_added_at, created_at, '
-      'google_rating_snapshot, google_reviews_snapshot, wifi_speed_mbps';
+      'google_rating_snapshot, google_reviews_snapshot, wifi_speed_mbps, '
+      // Just the address parts of the cached Google details, so the
+      // inbox can show the country without loading the whole record.
+      'address_components:g_details->addressComponents, '
+      'short_address:g_details->>shortFormattedAddress';
 
   /// Everything that needs a founder's decision about the site: new
   /// verified spaces not yet on nomadwise.io (unless dismissed) and
