@@ -156,7 +156,12 @@ Released, Sitemap.
   prepared proposal stays approvable after an edit because the page
   is built from the latest details on the night it is created.
 - "Not for the site" hides a space from the inbox without changing
-  anything else (website_dismissed_at).
+  anything else, and records why (migration 51: a reason from a fixed
+  list plus an optional note). Hidden spaces stay listed at the bottom
+  of the inbox with their reason and a Bring back button, so it is
+  always clear why something is on Nomad Maps but not on the site.
+- Removing a space from the queue returns it to New spaces; it never
+  hides it.
 - Sitemap tab: released pages missing from the custom sitemap become
   the exact <url> blocks to paste (priority 0.80, lastmod always dated
   yesterday with a randomised time of day), with a "mark as added"

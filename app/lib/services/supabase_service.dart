@@ -733,7 +733,8 @@ class SupabaseService {
       'id, name, type, city, neighbourhood, google_place_id, status, '
       'website_status, webflow_slug, webflow_cms_id, website_synced_at, '
       'website_prepared, website_prepared_at, website_approved_at, '
-      'website_dismissed_at, website_region_override, '
+      'website_dismissed_at, website_dismiss_reason, website_dismiss_note, '
+      'website_region_override, '
       'website_slug_override, sitemap_added_at, created_at, '
       'google_rating_snapshot, google_reviews_snapshot, wifi_speed_mbps';
 

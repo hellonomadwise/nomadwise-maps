@@ -109,11 +109,78 @@ class _WebsiteScreenState extends State<WebsiteScreen>
       },
       '${v['name']} queued. Its proposal will be ready tomorrow.');
 
-  /// Not for the site: leaves the inbox for good (status unchanged).
-  Future<void> _dismiss(Map<String, dynamic> v) => _update(
-      v,
-      {'website_dismissed_at': DateTime.now().toUtc().toIso8601String()},
-      '${v['name']} marked as not for the site.');
+  static const dismissReasons = [
+    'Not really a place to work from',
+    'Closed, closing or unreliable',
+    'Too small or a locals-only gem',
+    'Chain or not on brand',
+    'Duplicate of a space already on the site',
+    'City has no page on nomadwise.io yet',
+    'Waiting for photos or more info',
+    'Other',
+  ];
+
+  /// Not for the site: leaves the inbox (status unchanged), with the
+  /// reason kept so the decision makes sense later.
+  Future<void> _dismiss(Map<String, dynamic> v) async {
+    String? reason = v['website_dismiss_reason'];
+    final note = TextEditingController(text: v['website_dismiss_note'] ?? '');
+    final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => StatefulBuilder(
+              builder: (ctx, setLocal) => AlertDialog(
+                title: Text('Why not ${v['name']}?'),
+                content: SingleChildScrollView(
+                  child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                            'Kept with the space, so it is clear later why '
+                            'it is on Nomad Maps but not on nomadwise.io.',
+                            style: TextStyle(fontSize: 12.5, height: 1.4)),
+                        const SizedBox(height: 8),
+                        ...dismissReasons.map((r) => RadioListTile<String>(
+                              dense: true,
+                              contentPadding: EdgeInsets.zero,
+                              title: Text(r,
+                                  style: const TextStyle(fontSize: 13.5)),
+                              value: r,
+                              groupValue: reason,
+                              onChanged: (x) => setLocal(() => reason = x),
+                            )),
+                        const SizedBox(height: 6),
+                        TextField(
+                            controller: note,
+                            minLines: 1,
+                            maxLines: 3,
+                            decoration: const InputDecoration(
+                                labelText: 'Note (optional)',
+                                hintText: 'Anything worth remembering')),
+                      ]),
+                ),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text('Cancel')),
+                  ElevatedButton(
+                      onPressed:
+                          reason == null ? null : () => Navigator.pop(ctx, true),
+                      child: const Text('Not for the site')),
+                ],
+              ),
+            ));
+    if (ok != true) return;
+    await _update(
+        v,
+        {
+          'website_dismissed_at': DateTime.now().toUtc().toIso8601String(),
+          'website_dismiss_reason': reason,
+          'website_dismiss_note':
+              note.text.trim().isEmpty ? null : note.text.trim(),
+        },
+        '${v['name']} marked as not for the site.');
+  }
 
   /// Queued -> back to "New spaces" in the inbox, so it can be
   /// edited and queued again.
@@ -132,7 +199,11 @@ class _WebsiteScreenState extends State<WebsiteScreen>
   /// Undo "Not for the site".
   Future<void> _restore(Map<String, dynamic> v) => _update(
       v,
-      {'website_dismissed_at': null},
+      {
+        'website_dismissed_at': null,
+        'website_dismiss_reason': null,
+        'website_dismiss_note': null,
+      },
       '${v['name']} is back in the inbox.');
 
   /// Approve the proposal: the draft is created in Webflow tonight,
@@ -526,7 +597,7 @@ class _WebsiteScreenState extends State<WebsiteScreen>
                   fontWeight: FontWeight.w700,
                   fontSize: 12,
                   letterSpacing: 1.2)),
-          subtitle: const Text('Hidden from the inbox. Tap to see them.',
+          subtitle: const Text('Hidden from the inbox, each with its reason. Tap to see them.',
               style: TextStyle(fontSize: 12, color: Brand.inkMuted)),
           children: _hidden
               .map((v) => ListTile(
@@ -534,8 +605,16 @@ class _WebsiteScreenState extends State<WebsiteScreen>
                     contentPadding: const EdgeInsets.symmetric(horizontal: 4),
                     title: Text(v['name'] ?? '',
                         style: const TextStyle(fontWeight: FontWeight.w600)),
-                    subtitle: Text(_where(v),
-                        style: const TextStyle(fontSize: 12)),
+                    subtitle: Text(
+                        [
+                          v['website_dismiss_reason'] ?? 'No reason recorded',
+                          if (v['website_dismiss_note'] != null)
+                            v['website_dismiss_note'],
+                          if (_where(v).isNotEmpty) _where(v),
+                          'hidden ${_ago(v['website_dismissed_at'])}',
+                        ].join('  ·  '),
+                        style: const TextStyle(fontSize: 12, height: 1.4)),
+                    isThreeLine: true,
                     trailing: TextButton(
                         onPressed: () => _restore(v),
                         child: const Text('Bring back')),
