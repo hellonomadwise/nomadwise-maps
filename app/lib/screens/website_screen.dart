@@ -520,20 +520,151 @@ class _WebsiteScreenState extends State<WebsiteScreen>
 
   // --------------------------------------------------------------- inbox
 
+  /// Which inbox group is showing. null = the first one with work in it.
+  String? _groupKey;
+
   Widget _inboxTab() {
     final g = _groups();
-    if (_inboxCount == 0) {
-      return ListView(padding: const EdgeInsets.all(14), children: [
-        const SizedBox(height: 48),
-        Center(
-          child: Container(
-            width: 76,
-            height: 76,
-            decoration: const BoxDecoration(
-                color: Brand.successTint, shape: BoxShape.circle),
-            child: const Icon(Icons.check_circle_outline,
-                size: 36, color: Brand.success),
-          ),
+    final groups = <({String key, String label, int count, Color color,
+        String hint, String empty})>[
+      (
+        key: 'ready',
+        label: 'Ready to approve',
+        count: g.ready.length,
+        color: Brand.accent,
+        hint: 'Check the proposal, then Approve. Tonight it becomes a '
+            'draft in Webflow.',
+        empty: 'Nothing to approve. Queue a space and its proposal '
+            'appears here the next morning.'
+      ),
+      (
+        key: 'region',
+        label: 'Needs a region',
+        count: g.needsRegion.length,
+        color: Brand.goldTextDark,
+        hint: 'The sync could not tell which nomadwise.io Region these '
+            'spaces belong to.',
+        empty: 'Every queued space has found its Region.'
+      ),
+      (
+        key: 'fresh',
+        label: 'New spaces',
+        count: g.fresh.length,
+        color: Brand.violet,
+        hint: 'Verified in the app, not on the site. Queue the ones '
+            'worth a page.',
+        empty: 'No new spaces waiting. Anything nomads add and you '
+            'verify lands here.'
+      ),
+      (
+        key: 'preparing',
+        label: 'Preparing tonight',
+        count: g.preparing.length,
+        color: Brand.inkSecondary,
+        hint: 'Queued. The nightly sync writes the proposal; nothing to '
+            'do until then.',
+        empty: 'Nothing queued for tonight.'
+      ),
+      (
+        key: 'hidden',
+        label: 'Not for the site',
+        count: _hidden.length,
+        color: Brand.inkMuted,
+        hint: 'On Nomad Maps but kept off nomadwise.io, each with its '
+            'reason. Bring back any of them at any time.',
+        empty: 'Nothing has been marked as not for the site.'
+      ),
+    ];
+    var key = _groupKey;
+    if (key == null || groups.firstWhere((x) => x.key == key).count == 0) {
+      key = groups
+          .firstWhere((x) => x.count > 0, orElse: () => groups[2])
+          .key;
+    }
+    final current = groups.firstWhere((x) => x.key == key);
+
+    final cards = switch (key) {
+      'ready' => g.ready.map(_readyCard).toList(),
+      'region' => g.needsRegion.map(_needsRegionCard).toList(),
+      'fresh' => g.fresh.map(_freshCard).toList(),
+      'preparing' => g.preparing.map(_preparingTile).toList(),
+      _ => _hidden.map(_hiddenTile).toList(),
+    };
+
+    return Column(children: [
+      // The groups, side by side, scrollable on a phone. Tap to switch.
+      SizedBox(
+        height: 54,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
+          itemCount: groups.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 6),
+          itemBuilder: (_, i) {
+            final x = groups[i];
+            final on = x.key == key;
+            return ChoiceChip(
+              selected: on,
+              showCheckmark: false,
+              onSelected: (_) => setState(() => _groupKey = x.key),
+              selectedColor: x.color,
+              backgroundColor: Brand.surface,
+              side: BorderSide(color: on ? x.color : Brand.border),
+              labelStyle: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: on ? Colors.white : Brand.inkSecondary),
+              label: Row(mainAxisSize: MainAxisSize.min, children: [
+                Text(x.label),
+                if (x.count > 0) ...[
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 6, vertical: 1),
+                    decoration: BoxDecoration(
+                        color: on
+                            ? Colors.white.withValues(alpha: .25)
+                            : Brand.field,
+                        borderRadius: BorderRadius.circular(9)),
+                    child: Text('${x.count}',
+                        style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            color: on ? Colors.white : Brand.inkSecondary)),
+                  ),
+                ],
+              ]),
+            );
+          },
+        ),
+      ),
+      Expanded(
+        child: ListView(padding: const EdgeInsets.fromLTRB(14, 4, 14, 30),
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(2, 0, 2, 10),
+                child: Text(current.hint,
+                    style: const TextStyle(
+                        fontSize: 12, color: Brand.inkMuted, height: 1.4)),
+              ),
+              if (cards.isEmpty)
+                _inboxCount == 0 ? _inboxZero() : _groupEmpty(current.empty)
+              else
+                ...cards,
+            ]),
+      ),
+    ]);
+  }
+
+  Widget _inboxZero() => Column(children: [
+        const SizedBox(height: 40),
+        Container(
+          width: 76,
+          height: 76,
+          decoration: const BoxDecoration(
+              color: Brand.successTint, shape: BoxShape.circle),
+          child: const Icon(Icons.check_circle_outline,
+              size: 36, color: Brand.success),
         ),
         const SizedBox(height: 16),
         const Text('Inbox zero',
@@ -550,81 +681,61 @@ class _WebsiteScreenState extends State<WebsiteScreen>
               style: TextStyle(
                   fontSize: 13.5, color: Brand.inkMuted, height: 1.5)),
         ),
-        if (g.preparing.isNotEmpty) ...[
-          const SizedBox(height: 28),
-          _preparingSection(g.preparing),
-        ],
-        _hiddenSection(),
       ]);
-    }
-    return ListView(padding: const EdgeInsets.all(14), children: [
-      if (g.ready.isNotEmpty) ...[
-        _section('READY TO APPROVE', g.ready.length,
-            'Check the proposal, then Approve. Tonight it becomes a '
-            'draft in Webflow.'),
-        ...g.ready.map(_readyCard),
-      ],
-      if (g.needsRegion.isNotEmpty) ...[
-        _section('NEEDS A REGION', g.needsRegion.length,
-            'The sync could not tell which nomadwise.io Region this '
-            'space belongs to.'),
-        ...g.needsRegion.map(_needsRegionCard),
-      ],
-      if (g.fresh.isNotEmpty) ...[
-        _section('NEW SPACES, NOT ON THE SITE', g.fresh.length,
-            'Verified in the app. Queue the ones worth a page.'),
-        ...g.fresh.map(_freshCard),
-      ],
-      if (g.preparing.isNotEmpty) _preparingSection(g.preparing),
-      _hiddenSection(),
-      const SizedBox(height: 30),
-    ]);
-  }
 
-  /// Spaces marked "Not for the site", folded away so the inbox stays
-  /// short but nothing is ever lost: any of them can be brought back.
-  Widget _hiddenSection() {
-    if (_hidden.isEmpty) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.only(top: 18),
-      child: Theme(
-        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
-          tilePadding: const EdgeInsets.symmetric(horizontal: 2),
-          title: Text('Not for the site  ·  ${_hidden.length}',
-              style: const TextStyle(
-                  color: Brand.inkSecondary,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 12,
-                  letterSpacing: 1.2)),
-          subtitle: const Text('Hidden from the inbox, each with its reason. Tap to see them.',
-              style: TextStyle(fontSize: 12, color: Brand.inkMuted)),
-          children: _hidden
-              .map((v) => ListTile(
-                    dense: true,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-                    title: Text(v['name'] ?? '',
-                        style: const TextStyle(fontWeight: FontWeight.w600)),
-                    subtitle: Text(
-                        [
-                          v['website_dismiss_reason'] ?? 'No reason recorded',
-                          if (v['website_dismiss_note'] != null)
-                            v['website_dismiss_note'],
-                          if (_where(v).isNotEmpty) _where(v),
-                          'hidden ${_ago(v['website_dismissed_at'])}',
-                        ].join('  ·  '),
-                        style: const TextStyle(fontSize: 12, height: 1.4)),
-                    isThreeLine: true,
-                    trailing: TextButton(
-                        onPressed: () => _restore(v),
-                        child: const Text('Bring back')),
-                    onTap: () => _openVenue(v),
-                  ))
-              .toList(),
+  Widget _groupEmpty(String text) => Padding(
+        padding: const EdgeInsets.fromLTRB(30, 40, 30, 0),
+        child: Text(text,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+                fontSize: 13.5, color: Brand.inkMuted, height: 1.5)),
+      );
+
+  Widget _preparingTile(Map<String, dynamic> v) => Card(
+        margin: const EdgeInsets.only(bottom: 10),
+        elevation: 0,
+        color: Brand.field,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        child: ListTile(
+          dense: true,
+          leading:
+              const Icon(Icons.nightlight_outlined, color: Brand.inkMuted),
+          title: Text(v['name'] ?? '',
+              style: const TextStyle(fontWeight: FontWeight.w600)),
+          subtitle: Text(_where(v), style: const TextStyle(fontSize: 12)),
+          trailing: TextButton(
+              onPressed: () => _unqueue(v), child: const Text('Remove')),
+          onTap: () => _openVenue(v),
         ),
-      ),
-    );
-  }
+      );
+
+  /// A space marked "Not for the site": its reason, and a way back.
+  Widget _hiddenTile(Map<String, dynamic> v) => Card(
+        margin: const EdgeInsets.only(bottom: 10),
+        elevation: 0,
+        color: Brand.field,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        child: ListTile(
+          dense: true,
+          leading: const Icon(Icons.visibility_off_outlined,
+              color: Brand.inkMuted),
+          title: Text(v['name'] ?? '',
+              style: const TextStyle(fontWeight: FontWeight.w600)),
+          subtitle: Text(
+              [
+                v['website_dismiss_reason'] ?? 'No reason recorded',
+                if (v['website_dismiss_note'] != null)
+                  v['website_dismiss_note'],
+                if (_where(v).isNotEmpty) _where(v),
+                'hidden ${_ago(v['website_dismissed_at'])}',
+              ].join('  ·  '),
+              style: const TextStyle(fontSize: 12, height: 1.4)),
+          isThreeLine: true,
+          trailing: TextButton(
+              onPressed: () => _restore(v), child: const Text('Bring back')),
+          onTap: () => _openVenue(v),
+        ),
+      );
 
   Widget _section(String title, int count, String hint) => Padding(
         padding: const EdgeInsets.fromLTRB(2, 14, 2, 10),
@@ -635,34 +746,6 @@ class _WebsiteScreenState extends State<WebsiteScreen>
               style: const TextStyle(
                   fontSize: 12, color: Brand.inkMuted, height: 1.4)),
         ]),
-      );
-
-  Widget _preparingSection(List<Map<String, dynamic>> rows) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _section('PREPARING TONIGHT', rows.length,
-              'Queued. The nightly sync writes the proposal; nothing to '
-              'do until then.'),
-          ...rows.map((v) => Card(
-                margin: const EdgeInsets.only(bottom: 10),
-                elevation: 0,
-                color: Brand.field,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14)),
-                child: ListTile(
-                  dense: true,
-                  leading: const Icon(Icons.nightlight_outlined,
-                      color: Brand.inkMuted),
-                  title: Text(v['name'] ?? '',
-                      style: const TextStyle(fontWeight: FontWeight.w600)),
-                  subtitle: Text(_where(v),
-                      style: const TextStyle(fontSize: 12)),
-                  trailing: TextButton(
-                      onPressed: () => _unqueue(v),
-                      child: const Text('Remove')),
-                ),
-              )),
-        ],
       );
 
   static String _where(Map<String, dynamic> v) => [
