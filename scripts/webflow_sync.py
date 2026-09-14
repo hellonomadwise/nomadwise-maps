@@ -526,6 +526,24 @@ def word(flag, label):
     return label if flag else 'No'
 
 
+MIN_PHOTOS = 3
+
+
+def page_photos(v, limit=5):
+    """The pictures for the page: the links the founder pasted, then
+    approved community photos, five at most."""
+    pasted = [str(u).strip() for u in (v.get('website_photos') or [])
+              if str(u).strip().startswith('http')]
+    out = list(dict.fromkeys(pasted))[:limit]
+    if len(out) < limit:
+        for u in approved_photos(v['id'], limit=limit):
+            if u not in out:
+                out.append(u)
+            if len(out) >= limit:
+                break
+    return out
+
+
 def approved_photos(venue_id, limit=5):
     """Public URLs of the community photos an admin has approved,
     oldest first (Google's photos may not be copied to the site)."""
@@ -711,7 +729,7 @@ try:
         'aircon,comfortable_seating,cozy,quiet_space,good_for_calls,'
         'call_room,monitor,office_chairs,access_24h,'
         'website_approved_at,website_region_override,website_slug_override,'
-        'website_location_override,website_prepared,country')
+        'website_location_override,website_prepared,country,website_photos')
 except Exception as e:  # noqa: BLE001
     report['errors'].append(f'queued read: {e}')
     queued = []
@@ -929,7 +947,7 @@ if queued:
         # the alt and title text the other entries use. Created
         # even when there are no photos yet, so the founders only
         # have to drop pictures in, not build the entry.
-        photos = approved_photos(v['id'])
+        photos = page_photos(v)
         caption = f"{v['name']} in {where}"
         img = {'name': f"{v['name']} 1", 'slug': f'{slug_}-1',
                'coworking-space': new_id,
@@ -1013,9 +1031,10 @@ if queued:
             continue
         fields, where, kind, country_name = build_fields(
             v, region, loc, country, slug_, embed_key)
-        photos = approved_photos(v['id'])
+        photos = page_photos(v)
         prepared = preview_of(v, fields, region, loc, country_name, kind,
                               len(photos))
+        prepared['photo_urls'] = photos
 
         if v.get('website_approved_at'):
             # Approved in the app: what the founder saw is what is
@@ -1026,6 +1045,15 @@ if queued:
                     and fields.get('country')):
                 report['errors'].append(
                     f"refused {v['name']}: no Region or Country")
+                continue
+            if len(photos) < MIN_PHOTOS:
+                save_prepared(v, dict(prepared, error='needs_photos',
+                                      why=f'Only {len(photos)} picture(s). '
+                                          f'At least {MIN_PHOTOS} are '
+                                          'needed before the page is '
+                                          'created.'))
+                report['needs_location'].append(
+                    {'name': v['name'], 'why': 'fewer than 3 photos'})
                 continue
             try:
                 create_listing(v, fields, slug_, where)

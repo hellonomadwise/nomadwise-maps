@@ -213,6 +213,11 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
           content: Text('Pick a Region first; the slug is built from it.')));
       return;
     }
+    if (_photoCount(v) < minPhotos) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Add at least $minPhotos photos first.')));
+      return;
+    }
     final ok = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
@@ -224,8 +229,8 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                   'under $regionName. This exact slug is used; if it turns '
                   'out to be taken the space comes back to you instead of '
                   'being renamed. The slug cannot be changed afterwards '
-                  'without a redirect. You then add the photos and words '
-                  'in Webflow and publish.',
+                  'without a redirect. Your photos go in with it; you then '
+                  'add the words in Webflow and publish.',
                   style: const TextStyle(height: 1.45)),
               actions: [
                 TextButton(
@@ -670,8 +675,8 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         label: 'In Webflow',
         count: _drafts.length + _approvedTonight.length,
         color: Brand.inkSecondary,
-        hint: 'Approved. The draft is created within minutes, then it is '
-            'yours to finish in Webflow: photos, words, publish.',
+        hint: 'Approved. The draft and its Images entry are created within '
+            'minutes, then it is yours to finish in Webflow: words, publish.',
         empty: 'No drafts waiting in Webflow.'
       ),
       (
@@ -884,9 +889,11 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
           Text(
               v['website_slug_override'] != null
                   ? 'Your slug. It is used exactly as written.'
-                  : 'Expected slug (Region + name). Tap it to change. Approving '
-                      'locks it; if it is taken you are asked, never renamed.',
+                  : 'Expected slug (country-region-name). Tap it to change. '
+                      'Approving locks it; if it is taken you are asked, '
+                      'never renamed.',
               style: const TextStyle(fontSize: 11.5, color: Brand.inkMuted)),
+          _photosRow(v),
         ],
         const SizedBox(height: 6),
         Wrap(
@@ -910,9 +917,12 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                   child: const Text('Remove from queue')),
               if (region != null)
                 ElevatedButton.icon(
-                    onPressed: () => _approve(v),
+                    onPressed:
+                        _photoCount(v) >= minPhotos ? () => _approve(v) : null,
                     icon: const Icon(Icons.check, size: 18),
-                    label: const Text('Approve slug and create')),
+                    label: Text(_photoCount(v) >= minPhotos
+                        ? 'Approve slug and create'
+                        : 'Add $minPhotos photos to approve')),
             ]),
       ]),
     );
@@ -980,6 +990,104 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     }
     final region = _regionFor(v);
     return region?['country'] as String?;
+  }
+
+  static const minPhotos = 3;
+
+  /// Links the founder pasted for the page.
+  static List<String> _pasted(Map<String, dynamic> v) =>
+      ((v['website_photos'] as List?) ?? const [])
+          .map((u) => '$u'.trim())
+          .where((u) => u.startsWith('http'))
+          .toList();
+
+  /// Pictures the page would get: pasted links plus approved community
+  /// photos the sync counted. At least [minPhotos] before Approve.
+  int _photoCount(Map<String, dynamic> v) {
+    final p = _prepared(v);
+    final counted = (p['photos'] as num?)?.toInt() ?? 0;
+    final pasted = _pasted(v).length;
+    return pasted > counted ? pasted : counted;
+  }
+
+  /// Paste up to five image links; saved on the venue, used by the
+  /// sync for the Images entry when the draft is created.
+  Future<void> _editPhotos(Map<String, dynamic> v) async {
+    final saved = await Navigator.push<List<String>>(
+        context,
+        MaterialPageRoute(
+            builder: (_) => _PhotosPage(name: v['name'] ?? '', initial: _pasted(v))));
+    if (saved == null) return;
+    final p = _prepared(v);
+    final next = Map<String, dynamic>.from(p);
+    if (p.isNotEmpty) {
+      final counted = (p['photos'] as num?)?.toInt() ?? 0;
+      next['photos'] = saved.length > counted ? saved.length : counted;
+      if (p['error'] == 'needs_photos' && saved.length >= minPhotos) {
+        next.remove('error');
+        next.remove('why');
+      }
+    }
+    await _update(
+        v,
+        {
+          'website_photos': saved,
+          if (p.isNotEmpty) 'website_prepared': next,
+        },
+        '${saved.length} photo${saved.length == 1 ? '' : 's'} saved.');
+  }
+
+  /// The photos row on a card: thumbnails, the count, and the button.
+  Widget _photosRow(Map<String, dynamic> v) {
+    final urls = _pasted(v);
+    final count = _photoCount(v);
+    final enough = count >= minPhotos;
+    return Padding(
+      padding: const EdgeInsets.only(top: 6, bottom: 4),
+      child: Row(children: [
+        if (urls.isNotEmpty)
+          SizedBox(
+            height: 44,
+            child: ListView.separated(
+              shrinkWrap: true,
+              scrollDirection: Axis.horizontal,
+              itemCount: urls.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 4),
+              itemBuilder: (_, i) => ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: Image.network(urls[i],
+                    width: 58,
+                    height: 44,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                        width: 58,
+                        height: 44,
+                        color: Brand.field,
+                        child: const Icon(Icons.broken_image_outlined,
+                            size: 18, color: Brand.inkMuted))),
+              ),
+            ),
+          )
+        else
+          const Icon(Icons.photo_library_outlined,
+              size: 18, color: Brand.inkMuted),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+              enough
+                  ? '$count photo${count == 1 ? '' : 's'} ready for the page'
+                  : '$count of $minPhotos photos needed before Approve',
+              style: TextStyle(
+                  fontSize: 12.5,
+                  color: enough ? Brand.success : Brand.goldTextDark,
+                  fontWeight: FontWeight.w600)),
+        ),
+        TextButton.icon(
+            onPressed: () => _editPhotos(v),
+            icon: const Icon(Icons.add_photo_alternate_outlined, size: 16),
+            label: Text(urls.isEmpty ? 'Add photos' : 'Edit photos')),
+      ]),
+    );
   }
 
   /// "Anjos, Lisbon, Portugal" for the card header.
@@ -1130,6 +1238,11 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                 onPressed: () => _editSlug(v),
                 icon: const Icon(Icons.link, size: 18),
                 label: const Text('Change the slug'))
+          else if (error == 'needs_photos')
+            ElevatedButton.icon(
+                onPressed: () => _editPhotos(v),
+                icon: const Icon(Icons.add_photo_alternate_outlined, size: 18),
+                label: const Text('Add photos'))
           else
             ElevatedButton.icon(
                 onPressed: () => _pickRegion(v),
@@ -1144,7 +1257,6 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     final p = _prepared(v);
     final hours = Map<String, dynamic>.from(p['hours'] as Map? ?? {});
     final facts = Map<String, dynamic>.from(p['facts'] as Map? ?? {});
-    final photos = (p['photos'] as num?)?.toInt() ?? 0;
     final place = [p['location'], p['region'], p['country']]
         .where((x) => x != null)
         .join(' · ');
@@ -1195,12 +1307,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         else
           _kv(Icons.schedule_outlined, 'No opening hours known',
               muted: true),
-        _kv(
-            Icons.photo_library_outlined,
-            photos == 0
-                ? 'No approved community photos yet: add pictures in Webflow'
-                : '$photos approved community photo${photos == 1 ? '' : 's'} go in',
-            muted: photos == 0),
+        _photosRow(v),
         if (facts.isNotEmpty) ...[
           const SizedBox(height: 8),
           Wrap(
@@ -1247,9 +1354,12 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
               style: TextButton.styleFrom(foregroundColor: Brand.inkSecondary),
               child: const Text('Remove from queue')),
           ElevatedButton.icon(
-              onPressed: () => _approve(v),
+              onPressed:
+                  _photoCount(v) >= minPhotos ? () => _approve(v) : null,
               icon: const Icon(Icons.check, size: 18),
-              label: const Text('Approve')),
+              label: Text(_photoCount(v) >= minPhotos
+                  ? 'Approve'
+                  : 'Add $minPhotos photos to approve')),
         ]),
       ]),
     );
@@ -1721,6 +1831,141 @@ class _EditVenuePageState extends State<_EditVenuePage> {
                 onPressed: _busy ? null : _save,
                 icon: const Icon(Icons.check, size: 18),
                 label: const Text('Save changes')),
+            const SizedBox(height: 40),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+// -------------------------------------------------------------- photos page
+
+/// Up to five image links for the page. The usual way: open the place
+/// on Google, right-click a photo, copy the image address, paste.
+class _PhotosPage extends StatefulWidget {
+  final String name;
+  final List<String> initial;
+  const _PhotosPage({required this.name, required this.initial});
+  @override
+  State<_PhotosPage> createState() => _PhotosPageState();
+}
+
+class _PhotosPageState extends State<_PhotosPage> {
+  late final List<TextEditingController> _ctl = List.generate(
+      5,
+      (i) => TextEditingController(
+          text: i < widget.initial.length ? widget.initial[i] : ''));
+
+  @override
+  void dispose() {
+    for (final c in _ctl) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  List<String> get _urls => _ctl
+      .map((c) => c.text.trim())
+      .where((u) => u.startsWith('http'))
+      .toList();
+
+  @override
+  Widget build(BuildContext context) {
+    final n = _urls.length;
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Photos: ${widget.name}', overflow: TextOverflow.ellipsis),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, _urls),
+              child: const Text('Save',
+                  style: TextStyle(fontWeight: FontWeight.w700))),
+        ],
+      ),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 760),
+          child: ListView(padding: const EdgeInsets.all(14), children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                  color: Brand.field, borderRadius: BorderRadius.circular(12)),
+              child: const Text(
+                  'Open the place on Google, right-click a photo, choose '
+                  '"Copy image address", and paste it below. At least three; '
+                  'the first one is the main picture. They go straight into '
+                  'the Images entry when the draft is created.',
+                  style: TextStyle(fontSize: 12.5, height: 1.45)),
+            ),
+            const SizedBox(height: 12),
+            for (var i = 0; i < 5; i++) ...[
+              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: _ctl[i].text.trim().startsWith('http')
+                      ? Image.network(_ctl[i].text.trim(),
+                          width: 72,
+                          height: 54,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                              width: 72,
+                              height: 54,
+                              color: Brand.field,
+                              child: const Icon(Icons.broken_image_outlined,
+                                  color: Brand.inkMuted)))
+                      : Container(
+                          width: 72,
+                          height: 54,
+                          color: Brand.field,
+                          child: Center(
+                              child: Text('${i + 1}',
+                                  style: const TextStyle(
+                                      color: Brand.inkMuted,
+                                      fontWeight: FontWeight.w700)))),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: TextField(
+                    controller: _ctl[i],
+                    maxLines: 2,
+                    minLines: 1,
+                    style: const TextStyle(fontSize: 12),
+                    onChanged: (_) => setState(() {}),
+                    decoration: InputDecoration(
+                        labelText: i == 0 ? 'Main photo link' : 'Photo ${i + 1} link',
+                        hintText: 'https://...',
+                        filled: true,
+                        fillColor: Brand.field,
+                        suffixIcon: _ctl[i].text.isEmpty
+                            ? null
+                            : IconButton(
+                                icon: const Icon(Icons.close, size: 16),
+                                onPressed: () =>
+                                    setState(() => _ctl[i].clear())),
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none)),
+                  ),
+                ),
+              ]),
+              const SizedBox(height: 10),
+            ],
+            Text(
+                n >= _WebsiteScreenState.minPhotos
+                    ? '$n photos. Enough to approve.'
+                    : '$n of ${_WebsiteScreenState.minPhotos} needed.',
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: n >= _WebsiteScreenState.minPhotos
+                        ? Brand.success
+                        : Brand.goldTextDark)),
+            const SizedBox(height: 10),
+            ElevatedButton.icon(
+                onPressed: () => Navigator.pop(context, _urls),
+                icon: const Icon(Icons.check, size: 18),
+                label: const Text('Save photos')),
             const SizedBox(height: 40),
           ]),
         ),

@@ -735,7 +735,7 @@ class SupabaseService {
       'website_prepared, website_prepared_at, website_approved_at, '
       'website_dismissed_at, website_dismiss_reason, website_dismiss_note, '
       'website_region_override, website_location_override, '
-      'website_slug_override, sitemap_added_at, created_at, '
+      'website_slug_override, website_photos, sitemap_added_at, created_at, '
       'google_rating_snapshot, google_reviews_snapshot, wifi_speed_mbps, '
       // Just the address parts of the cached Google details, so the
       // inbox can show the country without loading the whole record.

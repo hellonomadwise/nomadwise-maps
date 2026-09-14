@@ -189,6 +189,13 @@ Released, Sitemap.
   carry the country in theirs, some do not). The country is stored on
   the venue (migration 53), prefilled from Google's address, editable
   in the control centre, and shown on every card.
+- Photos before Webflow (14 Sep): a listing cannot be approved with
+  fewer than three pictures. The founder pastes up to five image links
+  in the control centre (the long-standing method: copy the image
+  address from the place's Google page); they are stored on the venue
+  (migration 54, website_photos) and the sync puts them, then any
+  approved community photos, into the Images entry as the draft is
+  created. The sync refuses to create with fewer than three.
 - Quick lane (14 Sep): webflow_push.yml runs the sync in --push-only
   mode every ten minutes, so a queued space has its proposal within
   minutes and an approved one its Webflow draft within minutes. The
