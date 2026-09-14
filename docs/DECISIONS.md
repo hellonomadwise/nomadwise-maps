@@ -184,6 +184,11 @@ Released, Sitemap.
   (denmark-copenhagen-kaffebaren-p-amager); the fix is for future
   spaces only.
 
+- Slug rule (14 Sep): always country-region-name, for example
+  portugal-lisbon-lacs-anjos, never the Region's own slug (some Regions
+  carry the country in theirs, some do not). The country is stored on
+  the venue (migration 53), prefilled from Google's address, editable
+  in the control centre, and shown on every card.
 - Quick lane (14 Sep): webflow_push.yml runs the sync in --push-only
   mode every ten minutes, so a queued space has its proposal within
   minutes and an approved one its Webflow draft within minutes. The

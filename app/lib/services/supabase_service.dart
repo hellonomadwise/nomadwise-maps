@@ -730,7 +730,7 @@ class SupabaseService {
   // ---------- website control centre (nomadwise.io) ----------
 
   static const _websiteCols =
-      'id, name, type, city, neighbourhood, google_place_id, status, '
+      'id, name, type, city, neighbourhood, country, google_place_id, status, '
       'website_status, webflow_slug, webflow_cms_id, website_synced_at, '
       'website_prepared, website_prepared_at, website_approved_at, '
       'website_dismissed_at, website_dismiss_reason, website_dismiss_note, '

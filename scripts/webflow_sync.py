@@ -711,7 +711,7 @@ try:
         'aircon,comfortable_seating,cozy,quiet_space,good_for_calls,'
         'call_room,monitor,office_chairs,access_24h,'
         'website_approved_at,website_region_override,website_slug_override,'
-        'website_location_override,website_prepared')
+        'website_location_override,website_prepared,country')
 except Exception as e:  # noqa: BLE001
     report['errors'].append(f'queued read: {e}')
     queued = []
@@ -880,19 +880,34 @@ if queued:
                 return best, None
         return None, None
 
-    def pick_slug(v, region, prepared):
-        """The slug the founder saw or typed is used exactly, or not at
-        all: if it turns out to be taken, None comes back and the space
-        is flagged rather than quietly renamed. Only a fresh proposal
+    def country_of(v, country):
+        """The country word for the slug: what the founder typed on the
+        venue, else Google's address, else the Region's Country."""
+        if v.get('country'):
+            return v['country']
+        for c in ((v.get('g_details') or {}).get('addressComponents') or []):
+            if 'country' in (c.get('types') or []):
+                return c.get('longText') or c.get('shortText')
+        return (country.get('fieldData') or {}).get('name') or ''
+
+    def pick_slug(v, region, country, prepared):
+        """Always country-region-name (portugal-lisbon-lacs-anjos). The
+        slug the founder saw or typed is used exactly, or not at all:
+        if it turns out to be taken, None comes back and the space is
+        flagged rather than quietly renamed. Only a fresh proposal
         (nothing seen yet) gets a -2 added to be unique."""
+        prefix = f"{slugify(country_of(v, country))}-"
         typed = slugify(v.get('website_slug_override') or '')
-        fixed = typed or (prepared or {}).get('slug')
+        seen = (prepared or {}).get('slug')
+        # A proposal made under the old rule (no country) is redone.
+        fixed = typed or (seen if seen and seen.startswith(prefix) else None)
         if fixed:
             if fixed in taken_slugs:
                 return None
             taken_slugs.add(fixed)
             return fixed
-        base = f"{region['fieldData'].get('slug')}-{slugify(v['name'])}"
+        base = (f"{prefix}{slugify(region['fieldData'].get('name-label'))}-"
+                f"{slugify(v['name'])}")
         slug_ = base
         n = 2
         while slug_ in taken_slugs:
@@ -982,7 +997,8 @@ if queued:
                  'why': 'Region has no Country'})
             continue
 
-        slug_ = pick_slug(v, region, old if not old.get('error') else None)
+        slug_ = pick_slug(v, region, country,
+                          old if not old.get('error') else None)
         if slug_ is None:
             wanted = (slugify(v.get('website_slug_override') or '')
                       or old.get('slug'))

@@ -356,7 +356,10 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     final changed = await Navigator.push<bool>(
         context,
         MaterialPageRoute(
-            builder: (_) => _EditVenuePage(venue: venue, supabase: _supabase)));
+            builder: (_) => _EditVenuePage(
+                venue: venue,
+                supabase: _supabase,
+                countryGuess: _countryOf(v))));
     if (changed == true) {
       // A prepared proposal stays approvable: the page is built from
       // the latest details on the night it is created.
@@ -498,10 +501,16 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
 
   /// What the slug will be, before the sync confirms it (the sync
   /// only adds -2, -3 if the exact slug is already taken).
+  /// House rule: country-region-name, e.g. portugal-lisbon-lacs-anjos.
   String _slugPreview(Map<String, dynamic> v, Map<String, dynamic> region) {
     final typed = v['website_slug_override'];
     if (typed != null && '$typed'.isNotEmpty) return '$typed';
-    return '${region['slug']}-${_slugify(v['name'] ?? '')}';
+    final country = _countryOf(v) ?? region['country'] ?? '';
+    return [
+      _slugify('$country'),
+      _slugify(region['name'] ?? ''),
+      _slugify(v['name'] ?? ''),
+    ].where((x) => x.isNotEmpty).join('-');
   }
 
   /// Inbox groups, in the order they are worth working through.
@@ -958,6 +967,8 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   /// on the card: a founder should not have to open a space to learn
   /// which country it is in.
   String? _countryOf(Map<String, dynamic> v) {
+    final typed = v['country'];
+    if (typed != null && '$typed'.trim().isNotEmpty) return '$typed'.trim();
     final comps = v['address_components'];
     if (comps is List) {
       for (final c in comps) {
@@ -1454,7 +1465,9 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
 class _EditVenuePage extends StatefulWidget {
   final Venue venue;
   final SupabaseService supabase;
-  const _EditVenuePage({required this.venue, required this.supabase});
+  final String? countryGuess;
+  const _EditVenuePage(
+      {required this.venue, required this.supabase, this.countryGuess});
   @override
   State<_EditVenuePage> createState() => _EditVenuePageState();
 }
@@ -1464,6 +1477,10 @@ class _EditVenuePageState extends State<_EditVenuePage> {
   late final _hood =
       TextEditingController(text: widget.venue.neighbourhood ?? '');
   late final _city = TextEditingController(text: widget.venue.city ?? '');
+  late final _country = TextEditingController(
+      text: (widget.venue.raw['country'] as String?) ??
+          widget.countryGuess ??
+          '');
   late final _website = TextEditingController(text: widget.venue.website ?? '');
   late final _instagram =
       TextEditingController(text: widget.venue.instagram ?? '');
@@ -1512,7 +1529,7 @@ class _EditVenuePageState extends State<_EditVenuePage> {
 
   @override
   void dispose() {
-    for (final c in [_name, _hood, _city, _website, _instagram, _wifi]) {
+    for (final c in [_name, _hood, _city, _country, _website, _instagram, _wifi]) {
       c.dispose();
     }
     for (final c in _hours.values) {
@@ -1547,6 +1564,7 @@ class _EditVenuePageState extends State<_EditVenuePage> {
         'type': _type,
         'neighbourhood': _nullIfEmpty(_hood.text),
         'city': _nullIfEmpty(_city.text),
+        'country': _nullIfEmpty(_country.text),
         'website': _nullIfEmpty(_website.text),
         'instagram': _nullIfEmpty(_instagram.text),
         'wifi_speed_mbps': num.tryParse(_wifi.text.trim()),
@@ -1658,6 +1676,8 @@ class _EditVenuePageState extends State<_EditVenuePage> {
             ),
             _field(_hood, 'Neighbourhood', hint: 'Used to find the Location'),
             _field(_city, 'City', hint: 'Used to find the Region'),
+            _field(_country, 'Country',
+                hint: 'First part of the slug: country-region-name'),
             _heading('LINKS AND WIFI'),
             _field(_website, 'Website', keyboard: TextInputType.url),
             _field(_instagram, 'Instagram', hint: 'Full link or @handle'),
