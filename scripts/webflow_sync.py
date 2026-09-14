@@ -663,6 +663,7 @@ def preview_of(v, fields, region, loc, country_name, kind, photos):
         'region_id': region['id'],
         'location': (loc['fieldData'].get('name-label') if loc else None),
         'location_id': loc['id'] if loc else None,
+        'location_chosen': bool(v.get('website_location_override')),
         'country': country_name,
         'kind': kind,
         'title_tag': fields.get('title-tag'),
@@ -698,7 +699,7 @@ try:
         'aircon,comfortable_seating,cozy,quiet_space,good_for_calls,'
         'call_room,monitor,office_chairs,access_24h,'
         'website_approved_at,website_region_override,website_slug_override,'
-        'website_prepared')
+        'website_location_override,website_prepared')
 except Exception as e:  # noqa: BLE001
     report['errors'].append(f'queued read: {e}')
     queued = []
@@ -711,8 +712,7 @@ report['awaiting_approval'] = []
 try:
     regions = wf_all(f'/v2/collections/{REGIONS_ID}/items')
     countries = wf_all(f'/v2/collections/{COUNTRIES_ID}/items')
-    locations = (wf_all(f'/v2/collections/{LOCATIONS_ID}/items')
-                 if queued else [])
+    locations = wf_all(f'/v2/collections/{LOCATIONS_ID}/items')
 except Exception as e:  # noqa: BLE001
     report['errors'].append(f'webflow places read: {e}')
     locations, regions, countries = [], [], []
@@ -726,6 +726,27 @@ if rows:
         report['regions_copied'] = len(rows)
     except Exception as e:  # noqa: BLE001
         report['errors'].append(f'regions copy: {e}')
+
+loc_rows = []
+for loc in locations:
+    if loc.get('isArchived') or loc.get('isDraft'):
+        continue
+    lf = loc.get('fieldData') or {}
+    c = country_by_id.get(lf.get('country')) or {}
+    loc_rows.append({
+        'id': loc['id'],
+        'name': lf.get('name-label') or lf.get('name') or '',
+        'slug': lf.get('slug'),
+        'region_id': lf.get('region-3') or (lf.get('region-2') or [None])[0],
+        'country': (c.get('fieldData') or {}).get('name'),
+        'updated_at': now})
+if loc_rows:
+    try:
+        sb('webflow_locations?on_conflict=id', method='POST', body=loc_rows,
+           prefer='resolution=merge-duplicates,return=minimal')
+        report['locations_copied'] = len(loc_rows)
+    except Exception as e:  # noqa: BLE001
+        report['errors'].append(f'locations copy: {e}')
 
 if queued:
     loc_by_label = {}
@@ -781,18 +802,31 @@ if queued:
         neighbourhood inside a Region and is optional (many listings
         only have a Region); the Region is what a page needs. A Region
         the founder picked in the app wins over every guess."""
+        loc_by_id = {loc['id']: loc for loc in locations}
+        chosen_loc = v.get('website_location_override')
         chosen = v.get('website_region_override')
+        # A Location the founder picked fixes both the Location and
+        # (unless they also picked a Region) the Region it sits in.
+        if chosen_loc and chosen_loc != 'none' and chosen_loc in loc_by_id:
+            loc = loc_by_id[chosen_loc]
+            lf = loc['fieldData']
+            region = (region_by_id.get(chosen) if chosen else None) or \
+                region_by_id.get(lf.get('region-3')) or \
+                region_by_id.get((lf.get('region-2') or [None])[0])
+            if region:
+                return region, loc
         if chosen:
             region = (region_by_id.get(chosen) or
                       region_by_label.get(_norm(chosen)))
             if region:
                 return region, None
+        no_location = chosen_loc == 'none'
         # The app's own names first, then Google's English names
         # (the app may hold a local-language city like Kobenhavn).
         names = [v.get('neighbourhood'), v.get('city')]
         names += google_names(v.get('google_place_id'))
         names = [n for n in names if n]
-        for cand in names:
+        for cand in ([] if no_location else names):
             loc = loc_by_label.get(_norm(cand))
             if loc:
                 lf = loc['fieldData']
@@ -928,7 +962,14 @@ if queued:
 
         if v.get('website_approved_at'):
             # Approved in the app: what the founder saw is what is
-            # made (fresh facts, the same slug and place).
+            # made (fresh facts, the same slug and place). Never
+            # without a Country and Region: the slug is built from the
+            # Region and cannot be changed afterwards.
+            if not (region and country and fields.get('region-2')
+                    and fields.get('country')):
+                report['errors'].append(
+                    f"refused {v['name']}: no Region or Country")
+                continue
             try:
                 create_listing(v, fields, slug_, where)
             except urllib.error.HTTPError as e:

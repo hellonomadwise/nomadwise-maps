@@ -41,6 +41,7 @@ class _WebsiteScreenState extends State<WebsiteScreen>
   List<Map<String, dynamic>> _sitemap = [];
   List<Map<String, dynamic>> _regions = [];
   List<Map<String, dynamic>> _hidden = [];
+  List<Map<String, dynamic>> _locations = [];
   String? _error;
 
   @override
@@ -64,6 +65,7 @@ class _WebsiteScreenState extends State<WebsiteScreen>
         _supabase.sitemapPending(),
         _supabase.webflowRegions(),
         _supabase.websiteHidden(),
+        _supabase.webflowLocations(),
       ]);
       if (!mounted) return;
       setState(() {
@@ -73,6 +75,7 @@ class _WebsiteScreenState extends State<WebsiteScreen>
         _sitemap = results[3];
         _regions = results[4];
         _hidden = results[5];
+        _locations = results[6];
         _error = null;
       });
     } catch (e) {
@@ -356,6 +359,48 @@ class _WebsiteScreenState extends State<WebsiteScreen>
     }
   }
 
+  /// The Location (neighbourhood page) is optional and easy to guess
+  /// wrong, so the founder confirms it: pick one in the Region, or
+  /// none.
+  Future<void> _pickLocation(Map<String, dynamic> v) async {
+    final p = _prepared(v);
+    final regionId = p['region_id'] ?? _regionFor(v)?['id'];
+    final inRegion =
+        _locations.where((l) => l['region_id'] == regionId).toList();
+    final picked = await showModalBottomSheet<Map<String, dynamic>>(
+        context: context,
+        isScrollControlled: true,
+        shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(18))),
+        builder: (_) => _RegionPicker(
+            regions: [
+              {'id': 'none', 'name': 'No Location (Region page only)',
+                'country': null},
+              ...inRegion,
+            ],
+            forName: v['name'],
+            title: 'Which Location is ${v['name']} in?',
+            subtitle: inRegion.isEmpty
+                ? 'This Region has no Locations on the site yet, so the '
+                    'page will sit under the Region only.'
+                : 'Locations are the neighbourhood pages inside '
+                    '${p['region'] ?? 'the Region'}. Only pick one you are '
+                    'sure of; the Region alone is fine.'));
+    if (picked == null) return;
+    final none = picked['id'] == 'none';
+    final next = Map<String, dynamic>.from(p)
+      ..['location'] = none ? null : picked['name']
+      ..['location_id'] = none ? null : picked['id']
+      ..['location_chosen'] = true;
+    await _update(
+        v,
+        {
+          'website_location_override': picked['id'],
+          if (p.isNotEmpty) 'website_prepared': next,
+        },
+        none ? 'No Location: Region page only.' : '${picked['name']} chosen.');
+  }
+
   Future<void> _copy(String text, String toast) async {
     await Clipboard.setData(ClipboardData(text: text));
     if (!mounted) return;
@@ -383,6 +428,70 @@ class _WebsiteScreenState extends State<WebsiteScreen>
     return x.replaceAll(RegExp(r'^-+|-+$'), '');
   }
 
+  /// Local spellings the app may hold for a city that has an English
+  /// Region name on the site. Same list as the nightly sync.
+  static const _cityAliases = {
+    'kobenhavn': 'copenhagen', 'wien': 'vienna', 'munchen': 'munich',
+    'lisboa': 'lisbon', 'firenze': 'florence', 'roma': 'rome',
+    'milano': 'milan', 'napoli': 'naples', 'torino': 'turin',
+    'venezia': 'venice', 'praha': 'prague', 'warszawa': 'warsaw',
+    'athina': 'athens', 'sevilla': 'seville', 'koln': 'cologne',
+    'bruxelles': 'brussels', 'brussel': 'brussels', 'antwerpen': 'antwerp',
+    'den haag': 'the hague', 'geneve': 'geneva', 'goteborg': 'gothenburg',
+    'bucuresti': 'bucharest', 'beograd': 'belgrade',
+    'ho chi minh city': 'saigon',
+  };
+
+  static String _norm(String? x) {
+    var n = _slugify(x ?? '').replaceAll('-', ' ');
+    return _cityAliases[n] ?? n;
+  }
+
+  /// The Region the founder chose, else the sync's guess if there is
+  /// one, else the app's own best match of city or neighbourhood
+  /// against the site's Regions. Null when nothing matches: the space
+  /// cannot go to the site until a Region is picked.
+  Map<String, dynamic>? _regionFor(Map<String, dynamic> v) {
+    final chosen = v['website_region_override'];
+    if (chosen != null) {
+      for (final r in _regions) {
+        if (r['id'] == chosen || _norm(r['name']) == _norm(chosen)) return r;
+      }
+    }
+    final p = _prepared(v);
+    if (p['region_id'] != null) {
+      for (final r in _regions) {
+        if (r['id'] == p['region_id']) return r;
+      }
+    }
+    final names = [v['neighbourhood'], v['city']]
+        .whereType<String>()
+        .map(_norm)
+        .where((n) => n.isNotEmpty)
+        .toList();
+    for (final n in names) {
+      for (final r in _regions) {
+        if (_norm(r['name']) == n) return r;
+      }
+    }
+    for (final n in names) {
+      if (n.length < 4) continue;
+      for (final r in _regions) {
+        final rn = _norm(r['name']);
+        if (rn.contains(n) || n.contains(rn)) return r;
+      }
+    }
+    return null;
+  }
+
+  /// What the slug will be, before the sync confirms it (the sync
+  /// only adds -2, -3 if the exact slug is already taken).
+  String _slugPreview(Map<String, dynamic> v, Map<String, dynamic> region) {
+    final typed = v['website_slug_override'];
+    if (typed != null && '$typed'.isNotEmpty) return '$typed';
+    return '${region['slug']}-${_slugify(v['name'] ?? '')}';
+  }
+
   /// Inbox groups, in the order they are worth working through.
   ({
     List<Map<String, dynamic>> ready,
@@ -399,7 +508,13 @@ class _WebsiteScreenState extends State<WebsiteScreen>
         if (v['website_approved_at'] != null) continue; // shown in Drafts
         final p = _prepared(v);
         if (p.isEmpty) {
-          preparing.add(v);
+          // Not prepared yet: still show straight away whether a
+          // Region is known, since without one nothing can happen.
+          if (_regionFor(v) == null) {
+            needsRegion.add(v);
+          } else {
+            preparing.add(v);
+          }
         } else if (p['error'] != null) {
           needsRegion.add(v);
         } else {
@@ -542,8 +657,8 @@ class _WebsiteScreenState extends State<WebsiteScreen>
         label: 'Needs a region',
         count: g.needsRegion.length,
         color: Brand.goldTextDark,
-        hint: 'The sync could not tell which nomadwise.io Region these '
-            'spaces belong to.',
+        hint: 'Blocked: a page needs a Country and a Region before it can '
+            'be prepared or created. Pick the Region to unblock.',
         empty: 'Every queued space has found its Region.'
       ),
       (
@@ -561,8 +676,9 @@ class _WebsiteScreenState extends State<WebsiteScreen>
         label: 'Preparing tonight',
         count: g.preparing.length,
         color: Brand.inkSecondary,
-        hint: 'Queued. The nightly sync writes the proposal; nothing to '
-            'do until then.',
+        hint: 'Queued, with a Region known. Tonight the sync writes the '
+            'full proposal. Nothing reaches Webflow until you approve it '
+            'tomorrow.',
         empty: 'Nothing queued for tonight.'
       ),
       (
@@ -691,23 +807,46 @@ class _WebsiteScreenState extends State<WebsiteScreen>
                 fontSize: 13.5, color: Brand.inkMuted, height: 1.5)),
       );
 
-  Widget _preparingTile(Map<String, dynamic> v) => Card(
-        margin: const EdgeInsets.only(bottom: 10),
-        elevation: 0,
-        color: Brand.field,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        child: ListTile(
-          dense: true,
-          leading:
-              const Icon(Icons.nightlight_outlined, color: Brand.inkMuted),
-          title: Text(v['name'] ?? '',
-              style: const TextStyle(fontWeight: FontWeight.w600)),
-          subtitle: Text(_where(v), style: const TextStyle(fontSize: 12)),
-          trailing: TextButton(
-              onPressed: () => _unqueue(v), child: const Text('Remove')),
-          onTap: () => _openVenue(v),
-        ),
-      );
+  Widget _preparingTile(Map<String, dynamic> v) {
+    final region = _regionFor(v);
+    final chosen = v['website_region_override'] != null;
+    return _card(
+      tint: Brand.field,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        _title(v, badge: 'QUEUED', badgeColor: Brand.inkSecondary),
+        const SizedBox(height: 8),
+        if (region != null) ...[
+          _kv(Icons.place_outlined,
+              '${region['name']}${region['country'] != null ? ', ${region['country']}' : ''}'
+              '${chosen ? '' : '  (matched from the city; change it if wrong)'}'),
+          _kv(Icons.link,
+              '/coworking/${_slugPreview(v, region)}   (expected slug; '
+              'confirmed in the morning, editable until you approve)'),
+        ],
+        const SizedBox(height: 6),
+        Wrap(
+            spacing: 4,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            alignment: WrapAlignment.end,
+            children: [
+              TextButton.icon(
+                  onPressed: () => _editVenue(v),
+                  icon: const Icon(Icons.edit_outlined, size: 16),
+                  label: const Text('Edit')),
+              TextButton.icon(
+                  onPressed: () => _pickRegion(v),
+                  icon: const Icon(Icons.place_outlined, size: 16),
+                  label: const Text('Change region')),
+              TextButton(
+                  onPressed: () => _unqueue(v),
+                  style:
+                      TextButton.styleFrom(foregroundColor: Brand.inkSecondary),
+                  child: const Text('Remove from queue')),
+            ]),
+      ]),
+    );
+  }
 
   /// A space marked "Not for the site": its reason, and a way back.
   Widget _hiddenTile(Map<String, dynamic> v) => Card(
@@ -853,13 +992,17 @@ class _WebsiteScreenState extends State<WebsiteScreen>
     final p = _prepared(v);
     final names = (p['google_names'] as List?)?.cast<String>() ?? const [];
     final error = p['error'];
+    final why = p['why'] ??
+        'No Region on nomadwise.io matches "${v['city'] ?? v['neighbourhood'] ?? 'this city'}". '
+            'A page needs a Country and a Region, and the slug is built '
+            'from the Region, so nothing can be prepared or created until '
+            'you pick one.';
     return _card(
       tint: Brand.goldTint,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         _title(v, badge: 'REGION', badgeColor: Brand.goldTextDark),
         const SizedBox(height: 8),
-        Text(p['why'] ?? 'Needs a Region.',
-            style: const TextStyle(fontSize: 13, height: 1.4)),
+        Text(why, style: const TextStyle(fontSize: 13, height: 1.4)),
         if (names.isNotEmpty) ...[
           const SizedBox(height: 4),
           Text('Google calls the area: ${names.join(' · ')}',
@@ -928,6 +1071,20 @@ class _WebsiteScreenState extends State<WebsiteScreen>
         ),
         const SizedBox(height: 8),
         _kv(Icons.place_outlined, place),
+        InkWell(
+          onTap: () => _pickLocation(v),
+          borderRadius: BorderRadius.circular(8),
+          child: _kv(
+              Icons.pin_drop_outlined,
+              p['location'] == null
+                  ? 'No Location (neighbourhood page)'
+                      '${p['location_chosen'] == true ? ', your choice' : ''}'
+                      '  ·  tap to pick one'
+                  : 'Location: ${p['location']}'
+                      '${p['location_chosen'] == true ? ' (your choice)' : ' (guessed, check it)'}'
+                      '  ·  tap to change',
+              muted: p['location'] == null && p['location_chosen'] != true),
+        ),
         _kv(Icons.title, p['h1'] ?? ''),
         if (hours.isNotEmpty)
           _kv(Icons.schedule_outlined, _hoursSummary(hours))
@@ -1464,7 +1621,10 @@ class _EditVenuePageState extends State<_EditVenuePage> {
 class _RegionPicker extends StatefulWidget {
   final List<Map<String, dynamic>> regions;
   final String? forName;
-  const _RegionPicker({required this.regions, this.forName});
+  final String? title;
+  final String? subtitle;
+  const _RegionPicker(
+      {required this.regions, this.forName, this.title, this.subtitle});
   @override
   State<_RegionPicker> createState() => _RegionPickerState();
 }
@@ -1491,14 +1651,17 @@ class _RegionPickerState extends State<_RegionPicker> {
         child: SizedBox(
           height: MediaQuery.of(context).size.height * .7,
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Which Region is ${widget.forName ?? 'this space'} in?',
+            Text(
+                widget.title ??
+                    'Which Region is ${widget.forName ?? 'this space'} in?',
                 style:
                     const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
             const SizedBox(height: 4),
-            const Text(
-                'Regions are the city pages on nomadwise.io. If the city '
-                'has no Region yet, create it in Webflow first.',
-                style: TextStyle(fontSize: 12.5, color: Brand.inkMuted)),
+            Text(
+                widget.subtitle ??
+                    'Regions are the city pages on nomadwise.io. If the city '
+                        'has no Region yet, create it in Webflow first.',
+                style: const TextStyle(fontSize: 12.5, color: Brand.inkMuted)),
             const SizedBox(height: 10),
             TextField(
               autofocus: true,

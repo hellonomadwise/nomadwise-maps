@@ -162,6 +162,17 @@ Released, Sitemap.
   always clear why something is on Nomad Maps but not on the site.
 - Removing a space from the queue returns it to New spaces; it never
   hides it.
+- Hard rule (14 Sep): no page is ever created in Webflow without a
+  Country and a Region, because the slug is built from the Region and
+  cannot be changed afterwards without a redirect. The app shows the
+  Region and the expected slug the moment a space is queued; a queued
+  space with no Region sits in "Needs a region" and cannot be prepared
+  or approved until one is picked. The sync refuses to create anyway
+  if either is missing (belt and braces).
+- The Location (neighbourhood page) is optional and nuanced: the
+  sync's match is shown as a guess and the founder confirms, changes
+  or drops it before approving (migration 52, website_location_override;
+  Locations copied nightly into webflow_locations).
 - Sitemap tab: released pages missing from the custom sitemap become
   the exact <url> blocks to paste (priority 0.80, lastmod always dated
   yesterday with a randomised time of day), with a "mark as added"

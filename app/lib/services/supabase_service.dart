@@ -734,7 +734,7 @@ class SupabaseService {
       'website_status, webflow_slug, webflow_cms_id, website_synced_at, '
       'website_prepared, website_prepared_at, website_approved_at, '
       'website_dismissed_at, website_dismiss_reason, website_dismiss_note, '
-      'website_region_override, '
+      'website_region_override, website_location_override, '
       'website_slug_override, sitemap_added_at, created_at, '
       'google_rating_snapshot, google_reviews_snapshot, wifi_speed_mbps';
 
@@ -827,6 +827,22 @@ class SupabaseService {
       final rows = await _db
           .from('webflow_regions')
           .select('id, name, slug, country')
+          .order('name', ascending: true);
+      return (rows as List)
+          .map((r) => Map<String, dynamic>.from(r))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// The nightly copy of the Webflow Locations collection (the
+  /// neighbourhood pages), each with the Region it belongs to.
+  Future<List<Map<String, dynamic>>> webflowLocations() async {
+    try {
+      final rows = await _db
+          .from('webflow_locations')
+          .select('id, name, slug, region_id, country')
           .order('name', ascending: true);
       return (rows as List)
           .map((r) => Map<String, dynamic>.from(r))
