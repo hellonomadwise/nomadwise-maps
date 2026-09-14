@@ -40,6 +40,7 @@ class _WebsiteScreenState extends State<WebsiteScreen>
   List<Map<String, dynamic>> _released = [];
   List<Map<String, dynamic>> _sitemap = [];
   List<Map<String, dynamic>> _regions = [];
+  List<Map<String, dynamic>> _hidden = [];
   String? _error;
 
   @override
@@ -62,6 +63,7 @@ class _WebsiteScreenState extends State<WebsiteScreen>
         _supabase.websiteReleased(),
         _supabase.sitemapPending(),
         _supabase.webflowRegions(),
+        _supabase.websiteHidden(),
       ]);
       if (!mounted) return;
       setState(() {
@@ -70,6 +72,7 @@ class _WebsiteScreenState extends State<WebsiteScreen>
         _released = results[2];
         _sitemap = results[3];
         _regions = results[4];
+        _hidden = results[5];
         _error = null;
       });
     } catch (e) {
@@ -112,7 +115,8 @@ class _WebsiteScreenState extends State<WebsiteScreen>
       {'website_dismissed_at': DateTime.now().toUtc().toIso8601String()},
       '${v['name']} marked as not for the site.');
 
-  /// Queued -> back to not on the site (and out of the inbox).
+  /// Queued -> back to "New spaces" in the inbox, so it can be
+  /// edited and queued again.
   Future<void> _unqueue(Map<String, dynamic> v) => _update(
       v,
       {
@@ -121,9 +125,15 @@ class _WebsiteScreenState extends State<WebsiteScreen>
         'website_approved_at': null,
         'website_region_override': null,
         'website_slug_override': null,
-        'website_dismissed_at': DateTime.now().toUtc().toIso8601String(),
+        'website_dismissed_at': null,
       },
-      '${v['name']} taken out of the queue.');
+      '${v['name']} is back under New spaces.');
+
+  /// Undo "Not for the site".
+  Future<void> _restore(Map<String, dynamic> v) => _update(
+      v,
+      {'website_dismissed_at': null},
+      '${v['name']} is back in the inbox.');
 
   /// Approve the proposal: the draft is created in Webflow tonight,
   /// with exactly the slug shown on the card.
@@ -473,6 +483,7 @@ class _WebsiteScreenState extends State<WebsiteScreen>
           const SizedBox(height: 28),
           _preparingSection(g.preparing),
         ],
+        _hiddenSection(),
       ]);
     }
     return ListView(padding: const EdgeInsets.all(14), children: [
@@ -494,8 +505,46 @@ class _WebsiteScreenState extends State<WebsiteScreen>
         ...g.fresh.map(_freshCard),
       ],
       if (g.preparing.isNotEmpty) _preparingSection(g.preparing),
+      _hiddenSection(),
       const SizedBox(height: 30),
     ]);
+  }
+
+  /// Spaces marked "Not for the site", folded away so the inbox stays
+  /// short but nothing is ever lost: any of them can be brought back.
+  Widget _hiddenSection() {
+    if (_hidden.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 18),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          tilePadding: const EdgeInsets.symmetric(horizontal: 2),
+          title: Text('Not for the site  ·  ${_hidden.length}',
+              style: const TextStyle(
+                  color: Brand.inkSecondary,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                  letterSpacing: 1.2)),
+          subtitle: const Text('Hidden from the inbox. Tap to see them.',
+              style: TextStyle(fontSize: 12, color: Brand.inkMuted)),
+          children: _hidden
+              .map((v) => ListTile(
+                    dense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                    title: Text(v['name'] ?? '',
+                        style: const TextStyle(fontWeight: FontWeight.w600)),
+                    subtitle: Text(_where(v),
+                        style: const TextStyle(fontSize: 12)),
+                    trailing: TextButton(
+                        onPressed: () => _restore(v),
+                        child: const Text('Bring back')),
+                    onTap: () => _openVenue(v),
+                  ))
+              .toList(),
+        ),
+      ),
+    );
   }
 
   Widget _section(String title, int count, String hint) => Padding(

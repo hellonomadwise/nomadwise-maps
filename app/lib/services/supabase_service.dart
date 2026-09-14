@@ -752,6 +752,24 @@ class SupabaseService {
     return (rows as List).map((r) => Map<String, dynamic>.from(r)).toList();
   }
 
+  /// Spaces a founder marked "Not for the site" (kept, never deleted).
+  Future<List<Map<String, dynamic>>> websiteHidden() async {
+    try {
+      final rows = await _db
+          .from('venues')
+          .select(_websiteCols)
+          .eq('status', 'verified')
+          .eq('website_status', 'not_on_site')
+          .not('website_dismissed_at', 'is', null)
+          .order('website_dismissed_at', ascending: false);
+      return (rows as List)
+          .map((r) => Map<String, dynamic>.from(r))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
   /// Quick badge count for the menu; same rule as [websiteInbox].
   Future<int> websiteInboxCount() async {
     try {

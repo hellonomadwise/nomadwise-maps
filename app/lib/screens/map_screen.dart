@@ -470,14 +470,27 @@ class _MapScreenState extends State<MapScreen> {
 
     // Returning visitor on the web: one gentle install nudge. If they
     // ignore it (timeout), it may return next visit; any tap ends it.
+    // Never for the founders (they live in the admin screens and
+    // the nudge would keep popping over them), and only while the
+    // map itself is on screen.
     if (kIsWeb &&
         visits >= 2 &&
         !(prefs.getBool('install_prompt_done') ?? false) &&
-        mounted) {
+        mounted &&
+        !_isAdmin &&
+        !(await _supabase.isAdmin()) &&
+        mounted &&
+        (ModalRoute.of(context)?.isCurrent ?? true)) {
       Analytics.capture('install_prompt_shown');
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 8),
+        // Explicit rounded shape and a margin clear of the home
+        // indicator, so the corners are never clipped by the edge.
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14)),
+        margin: EdgeInsets.fromLTRB(
+            16, 0, 16, 16 + MediaQuery.of(context).padding.bottom),
         content: const Text('Install Nomad Maps for quick access?'),
         action: SnackBarAction(
           label: 'Install',
