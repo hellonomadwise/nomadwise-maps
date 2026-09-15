@@ -1,0 +1,128 @@
+{
+  "started": "2026-09-15T09:30:11.098194+00:00",
+  "items_read": 1001,
+  "live_items": 969,
+  "sitemap_source": "snapshot 2026-09-12",
+  "matched_by_place_id": 948,
+  "matched_by_cms_id": 16,
+  "inserted": 0,
+  "updated": 964,
+  "marked_removed": 0,
+  "status_counts": {
+    "published_hidden": 3,
+    "released": 960,
+    "removed": 1
+  },
+  "no_place_id": [],
+  "inserted_names": [],
+  "skipped_not_live_new": 28,
+  "queued_for_site": 13,
+  "created_on_site": [],
+  "needs_location": [
+    {
+      "name": "Coffee Fellows - Kaffee, Bagels, Fr\u00fchst\u00fcck",
+      "city": "Ulm",
+      "neighbourhood": "City Center",
+      "google_names": [
+        "Ulm",
+        "T\u00fcbingen",
+        "T\u00dc",
+        "Baden-W\u00fcrttemberg",
+        "BW"
+      ],
+      "why": "no Webflow Region or Location matches its city or neighbourhood"
+    },
+    {
+      "name": "pag\u00f3ni caf\u00e9",
+      "city": "Ulm",
+      "neighbourhood": "Coty Center",
+      "google_names": [
+        "Ulm",
+        "T\u00fcbingen",
+        "T\u00dc",
+        "Baden-W\u00fcrttemberg",
+        "BW"
+      ],
+      "why": "no Webflow Region or Location matches its city or neighbourhood"
+    },
+    {
+      "name": "The Storey",
+      "city": "Lancaster",
+      "neighbourhood": null,
+      "google_names": [
+        "Lancaster",
+        "Lancashire",
+        "England"
+      ],
+      "why": "no Webflow Region or Location matches its city or neighbourhood"
+    }
+  ],
+  "errors": [],
+  "prepared": [
+    {
+      "name": "Copenhagen Coffee Lab - Bica",
+      "slug": "portugal-lisbon-copenhagen-coffee-lab-bica",
+      "region": "Lisbon"
+    },
+    {
+      "name": "Zenith",
+      "slug": "portugal-lisbon-zenith",
+      "region": "Lisbon"
+    },
+    {
+      "name": "Hurley Caf\u00e9, Sourdough Bakery & Restaurant.",
+      "slug": "portugal-ericeira-hurley-cafe-sourdough-bakery-restaurant",
+      "region": "Ericeira"
+    },
+    {
+      "name": "DOMA Portugal",
+      "slug": "portugal-lisbon-doma-portugal",
+      "region": "Lisbon"
+    },
+    {
+      "name": "Cafe Gavlen",
+      "slug": "denmark-copenhagen-cafe-gavlen",
+      "region": "Copenhagen"
+    },
+    {
+      "name": "Fauna & Flora - Anjos",
+      "slug": "portugal-lisbon-fauna-flora-anjos",
+      "region": "Lisbon"
+    },
+    {
+      "name": "LACS Anjos",
+      "slug": "portugal-lisbon-lacs-anjos",
+      "region": "Lisbon"
+    },
+    {
+      "name": "Original Coffee",
+      "slug": "denmark-copenhagen-original-coffee",
+      "region": "Copenhagen"
+    },
+    {
+      "name": "Paludan Bog & Caf\u00e9",
+      "slug": "denmark-copenhagen-paludan-bog-cafe",
+      "region": "Copenhagen"
+    },
+    {
+      "name": "BreakPoint Ericeira",
+      "slug": "portugal-ericeira-breakpoint-ericeira",
+      "region": "Ericeira"
+    }
+  ],
+  "awaiting_approval": [
+    "Copenhagen Coffee Lab - Bica",
+    "Zenith",
+    "Hurley Caf\u00e9, Sourdough Bakery & Restaurant.",
+    "DOMA Portugal",
+    "Cafe Gavlen",
+    "Fauna & Flora - Anjos",
+    "LACS Anjos",
+    "Original Coffee",
+    "Paludan Bog & Caf\u00e9",
+    "BreakPoint Ericeira"
+  ],
+  "regions_copied": 160,
+  "locations_copied": 339,
+  "finished": "2026-09-15T09:30:48.036303+00:00"
+}
