@@ -458,9 +458,50 @@ else:
     items = []
     now = datetime.datetime.now(datetime.timezone.utc).isoformat()
 
+# ------------------------------------------------------------- sitemap
+# The custom sitemap is the truth about which released pages are in it.
+# Read it nightly and keep venues.sitemap_added_at in step, so the
+# control centre's Sitemap tab lists only pages that really are
+# missing (and shows a page again if it ever drops out).
+SITEMAP_URL = 'https://www.nomadwise.io/sitemap.xml'
+import re  # noqa: E402
+
+if not PUSH_ONLY:
+    try:
+        with urllib.request.urlopen(urllib.request.Request(
+                SITEMAP_URL, headers={'User-Agent': 'nomadmaps-sync'}),
+                timeout=60) as r:
+            xml = r.read().decode('utf-8', 'replace')
+        in_map = set(re.findall(
+            r'<loc>\s*https?://(?:www\.)?nomadwise\.io/coworking/([^<\s]+?)\s*</loc>',
+            xml))
+        report['sitemap_entries'] = len(in_map)
+        if in_map:
+            released = sb_all('venues?website_status=eq.released'
+                              '&webflow_slug=not.is.null'
+                              '&select=id,webflow_slug,sitemap_added_at')
+            mark = [v['id'] for v in released
+                    if v['webflow_slug'] in in_map
+                    and not v.get('sitemap_added_at')]
+            unmark = [v['id'] for v in released
+                      if v['webflow_slug'] not in in_map
+                      and v.get('sitemap_added_at')]
+            for i in range(0, len(mark), 100):
+                ids = ','.join(mark[i:i + 100])
+                sb(f'venues?id=in.({ids})', method='PATCH',
+                   body={'sitemap_added_at': now}, prefer='return=minimal')
+            for i in range(0, len(unmark), 100):
+                ids = ','.join(unmark[i:i + 100])
+                sb(f'venues?id=in.({ids})', method='PATCH',
+                   body={'sitemap_added_at': None}, prefer='return=minimal')
+            report['sitemap_marked'] = len(mark)
+            report['sitemap_unmarked'] = len(unmark)
+    except Exception as e:  # noqa: BLE001
+        report['errors'].append(f'sitemap check: {e}')
+
+
 # ---------------------------------------------------------------- push
 # Venues the founders queued for the site become Webflow DRAFTS.
-import re  # noqa: E402
 
 IMAGES_ID = '65fa86d0e0379bf78d52451b'
 IMAGES_TYPE_COWORKING = 'ca9c2f49fd6b2b993833e8563871ff2a'

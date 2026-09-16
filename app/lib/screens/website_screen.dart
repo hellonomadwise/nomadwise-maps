@@ -2156,9 +2156,10 @@ class _SitemapTabState extends State<_SitemapTab> {
       const Padding(
         padding: EdgeInsets.fromLTRB(2, 6, 2, 10),
         child: Text(
-            'Released pages missing from the custom sitemap. Untick any '
-            'you want to leave out, generate, copy, paste into the sitemap '
-            'in Webflow, then mark them as added.',
+            'Released pages missing from the custom sitemap, checked '
+            'against the live sitemap every night. Untick any you want to '
+            'leave out, generate, copy, paste into the sitemap in Webflow, '
+            'then mark them as added.',
             style: TextStyle(fontSize: 12.5, color: Brand.inkMuted, height: 1.4)),
       ),
       ...pending.map((v) => CheckboxListTile(

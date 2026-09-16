@@ -196,6 +196,10 @@ Released, Sitemap.
   (migration 54, website_photos) and the sync puts them, then any
   approved community photos, into the Images entry as the draft is
   created. The sync refuses to create with fewer than three.
+- Sitemap truth (16 Sep): the nightly sync reads the live custom
+  sitemap and sets or clears venues.sitemap_added_at to match, so the
+  Sitemap tab only ever lists pages that really are missing, and a
+  page dropped from the sitemap shows up again.
 - Quick lane (14 Sep): webflow_push.yml runs the sync in --push-only
   mode every ten minutes, so a queued space has its proposal within
   minutes and an approved one its Webflow draft within minutes. The
