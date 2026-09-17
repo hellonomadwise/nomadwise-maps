@@ -1163,9 +1163,15 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     );
   }
 
-  /// "Anjos, Lisbon, Portugal" for the card header.
+  /// "Anjos, Lisbon, Portugal" for the card header. The city is
+  /// spelled the site's way once a Region matches (Lisbon, not Lisboa).
   String _placeLine(Map<String, dynamic> v) {
-    final where = _where(v);
+    final region = _regionFor(v);
+    final where = region != null
+        ? [v['neighbourhood'], region['name']]
+            .where((x) => x != null && '$x'.isNotEmpty)
+            .join(', ')
+        : _where(v);
     final country = _countryOf(v);
     if (country == null) return where;
     if (where.toLowerCase().contains(country.toLowerCase())) return where;

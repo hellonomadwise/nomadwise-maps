@@ -47,6 +47,80 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
 
   final _name = TextEditingController();
   final _neighbourhood = TextEditingController();
+
+  // Neighbourhood suggestions from nomadwise.io's own area pages, so
+  // most submissions arrive using the site's labels. Free text stays
+  // allowed: a genuinely new area is a real thing.
+  List<Map<String, dynamic>> _siteRegions = [];
+  List<Map<String, dynamic>> _siteLocations = [];
+  bool _siteAreasLoaded = false;
+
+  Future<void> _loadSiteAreas() async {
+    if (_siteAreasLoaded) return;
+    _siteAreasLoaded = true;
+    final r = await _supabase.webflowRegions();
+    final l = await _supabase.webflowLocations();
+    if (mounted) setState(() { _siteRegions = r; _siteLocations = l; });
+  }
+
+  static const _cityAliases = {
+    'kobenhavn': 'copenhagen', 'wien': 'vienna', 'munchen': 'munich',
+    'lisboa': 'lisbon', 'firenze': 'florence', 'roma': 'rome',
+    'milano': 'milan', 'napoli': 'naples', 'praha': 'prague',
+    'athina': 'athens', 'sevilla': 'seville', 'koln': 'cologne',
+    'bruxelles': 'brussels', 'antwerpen': 'antwerp',
+    'ho chi minh city': 'saigon',
+  };
+
+  static String _norm(String? x) {
+    var n = (x ?? '').trim().toLowerCase();
+    const folds = {
+      'å': 'a', 'ä': 'a', 'á': 'a', 'à': 'a', 'â': 'a', 'ã': 'a',
+      'ö': 'o', 'ó': 'o', 'ò': 'o', 'ô': 'o', 'õ': 'o', 'ø': 'o',
+      'ü': 'u', 'ú': 'u', 'ù': 'u', 'é': 'e', 'è': 'e', 'ê': 'e',
+      'í': 'i', 'ç': 'c', 'ñ': 'n', 'ß': 'ss', 'æ': 'ae',
+    };
+    folds.forEach((k, v) => n = n.replaceAll(k, v));
+    n = n.replaceAll(RegExp(r'[^a-z0-9]+'), ' ').trim();
+    return _cityAliases[n] ?? n;
+  }
+
+  /// The nomadwise.io Region (city page) for this space's city, if
+  /// there is one. "Lisboa" from Google finds "Lisbon" on the site.
+  Map<String, dynamic>? _siteRegion() {
+    final city = _norm(_placeCity);
+    if (city.isEmpty || _siteRegions.isEmpty) return null;
+    for (final r in _siteRegions) {
+      if (_norm(r['name']) == city) return r;
+    }
+    if (city.length >= 4) {
+      for (final r in _siteRegions) {
+        final n = _norm(r['name']);
+        if (n.contains(city) || city.contains(n)) return r;
+      }
+    }
+    return null;
+  }
+
+  /// The city as the site spells it (Lisbon, not Lisboa), else
+  /// Google's spelling. Saved on the space so the app and the site
+  /// use one name.
+  String? get _cityForSave => _siteRegion()?['name'] as String? ?? _placeCity;
+
+  /// The site's area pages for this space's city, filtered by what
+  /// the nomad has typed so far. Empty when the city has no page.
+  List<String> _siteAreaSuggestions() {
+    final region = _siteRegion();
+    if (region == null) return const [];
+    final typed = _norm(_neighbourhood.text);
+    final names = _siteLocations
+        .where((l) => l['region_id'] == region['id'])
+        .map((l) => '${l['name']}')
+        .where((n) => typed.isEmpty || _norm(n).contains(typed))
+        .toList()
+      ..sort();
+    return names.take(14).toList();
+  }
   final _wifi = TextEditingController();
   final _wifiSsid = TextEditingController();
   String _type = 'cafe';
@@ -131,6 +205,7 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
         _refRating = live.rating;
         _placeCity ??= live.city;
       });
+      _loadSiteAreas();
     }
   }
 
@@ -249,6 +324,7 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
       _placeLat = live?.lat;
       _placeLng = live?.lng;
       _placeCity = live?.city;
+      _loadSiteAreas();
       if (live?.displayName != null) _name.text = live!.displayName!;
       if (live != null) {
         _refNames = live.photoNames.take(6).toList();
@@ -390,7 +466,7 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
           'type': _type,
           'neighbourhood': _neighbourhood.text.trim(),
           'google_place_id': _placeId,
-          'city': _placeCity,
+          'city': _cityForSave,
           // Venue pin sits where Google says the place is.
           'lat': _placeLat ?? pos.latitude,
           'lng': _placeLng ?? pos.longitude,
@@ -588,9 +664,36 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
           const FieldLabel('Neighbourhood', optional: true),
           TextFormField(
             controller: _neighbourhood,
+            onChanged: (_) => setState(() {}),
             decoration:
                 const InputDecoration(hintText: 'e.g. Old town'),
           ),
+          if (_siteAreaSuggestions().isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+                'Areas nomadwise.io already knows in ${_cityForSave ?? 'this city'} '
+                '(tap one, or type your own):',
+                style: const TextStyle(
+                    fontSize: 11.5, color: Brand.inkMuted)),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: _siteAreaSuggestions()
+                  .map((n) => ActionChip(
+                        label: Text(n, style: const TextStyle(fontSize: 12)),
+                        backgroundColor: _neighbourhood.text.trim() == n
+                            ? Brand.accentTint
+                            : null,
+                        onPressed: () => setState(() {
+                          _neighbourhood.text = n;
+                          _neighbourhood.selection = TextSelection.collapsed(
+                              offset: n.length);
+                        }),
+                      ))
+                  .toList(),
+            ),
+          ],
           const SizedBox(height: 24),
           SectionLabel('WIFI',
               trailing: Text(
