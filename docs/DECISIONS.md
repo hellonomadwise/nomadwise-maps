@@ -196,6 +196,13 @@ Released, Sitemap.
   (migration 54, website_photos) and the sync puts them, then any
   approved community photos, into the Images entry as the draft is
   created. The sync refuses to create with fewer than three.
+- Taxonomy is the founders' (16 Sep): in the control centre the
+  Region and Location are chosen from the site's own lists (copied
+  nightly), never typed; what the nomad wrote and what Google says are
+  shown as hints. "Needs a new Region/Location" records the wanted
+  name (migration 55) and parks the space under Blocked; when the
+  founder creates it in Webflow with that exact name, the sync links
+  the space to it. The app never creates Regions or Locations.
 - Sitemap truth (16 Sep): the nightly sync reads the live custom
   sitemap and sets or clears venues.sitemap_added_at to match, so the
   Sitemap tab only ever lists pages that really are missing, and a

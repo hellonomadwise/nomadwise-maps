@@ -770,7 +770,8 @@ try:
         'aircon,comfortable_seating,cozy,quiet_space,good_for_calls,'
         'call_room,monitor,office_chairs,access_24h,'
         'website_approved_at,website_region_override,website_slug_override,'
-        'website_location_override,website_prepared,country,website_photos')
+        'website_location_override,website_prepared,country,website_photos,'
+        'website_new_region,website_new_location')
 except Exception as e:  # noqa: BLE001
     report['errors'].append(f'queued read: {e}')
     queued = []
@@ -888,6 +889,43 @@ if queued:
         loc_by_id = {loc['id']: loc for loc in locations}
         chosen_loc = v.get('website_location_override')
         chosen = v.get('website_region_override')
+        # A Region or Location the founder asked for by name: use it the
+        # moment it exists on the site (exact name), else wait.
+        want_r = (v.get('website_new_region') or '').strip()
+        if want_r and not chosen:
+            hit = region_by_label.get(_norm(want_r))
+            if hit:
+                chosen = hit['id']
+                sb(f"venues?id=eq.{v['id']}", method='PATCH',
+                   body={'website_region_override': hit['id'],
+                         'website_new_region': None},
+                   prefer='return=minimal')
+                report.setdefault('taxonomy_linked', []).append(
+                    f"{v['name']}: Region {want_r}")
+            else:
+                return None, None
+        want_l = (v.get('website_new_location') or '').strip()
+        if want_l and not chosen_loc:
+            hit = None
+            for loc in locations:
+                lf = loc.get('fieldData') or {}
+                same_region = (not chosen) or chosen in (
+                    lf.get('region-3'), *(lf.get('region-2') or []))
+                if (not loc.get('isArchived') and not loc.get('isDraft')
+                        and same_region
+                        and _norm(lf.get('name-label')) == _norm(want_l)):
+                    hit = loc
+                    break
+            if hit:
+                chosen_loc = hit['id']
+                sb(f"venues?id=eq.{v['id']}", method='PATCH',
+                   body={'website_location_override': hit['id'],
+                         'website_new_location': None},
+                   prefer='return=minimal')
+                report.setdefault('taxonomy_linked', []).append(
+                    f"{v['name']}: Location {want_l}")
+            else:
+                return None, None
         # A Location the founder picked fixes both the Location and
         # (unless they also picked a Region) the Region it sits in.
         if chosen_loc and chosen_loc != 'none' and chosen_loc in loc_by_id:
@@ -1029,6 +1067,19 @@ if queued:
                 {'name': v['name'], 'why': 'no Google Place ID'})
             continue
         region, loc = resolve_place(v)
+        if not region and (v.get('website_new_region')
+                           or v.get('website_new_location')):
+            what = ('Region ' + v['website_new_region']
+                    if v.get('website_new_region')
+                    else 'Location ' + v['website_new_location'])
+            save_prepared(v, {'error': 'awaiting_taxonomy',
+                              'why': f'Waiting for {what} to be created in '
+                                     'Webflow. Once it exists with that '
+                                     'exact name, the space is linked to '
+                                     'it automatically.'})
+            report['needs_location'].append(
+                {'name': v['name'], 'why': f'awaiting {what}'})
+            continue
         if not region:
             names = google_names(v.get('google_place_id'))
             save_prepared(v, {'error': 'needs_region',
