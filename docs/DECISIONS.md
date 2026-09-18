@@ -265,3 +265,14 @@ card: the venue is marked released at once and the Sitemap chip
 opens, so a batch of pages can be published and added to the sitemap
 in one sitting. The nightly read still corrects a page that is not
 actually live.
+
+## The database starts the push run (Sep 2026)
+
+GitHub's ten-minute schedule turned out to run every few hours in
+practice (23 runs in two days). Queue, approve and edits while queued
+now nudge GitHub directly: a venues trigger (migration 57) calls the
+workflow_dispatch API through pg_net, at most once every two minutes,
+using a fine-grained GitHub token kept in Supabase Vault under
+github_actions_token. Without the secret the trigger is a no-op and
+the schedule remains the fallback. The app's promise of "within about
+ten minutes" holds again, usually within two.
