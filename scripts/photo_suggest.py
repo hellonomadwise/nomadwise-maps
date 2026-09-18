@@ -451,14 +451,19 @@ def suggest():
             report['errors'].append(f"{v.get('name')}: save {e}")
 
 
-RESOLVE_PER_NIGHT = 150   # venues per night: 6 photos each, inside
-                          # the free 1,000 photo calls a month
+# Existing venues get free photo links a slice a night. Off (0) while
+# the app has no real traffic: photo views cost nothing at that scale
+# and the free photo calls are better spent on the website pipeline.
+# 150 a night clears the backlog in about five nights for about $20;
+# 30 a night stays inside the free allowance and takes a few months.
+RESOLVE_PER_NIGHT = 0
 
 
 def resolve_backlog():
     """Give every venue on the map free photo links, a slice a night.
     Venues whose snapshot has photos but whose links are missing."""
-    if not PLACES_KEY:
+    if not PLACES_KEY or RESOLVE_PER_NIGHT <= 0:
+        report['backlog_venues'] = 'off'
         return
     try:
         rows = sb('venues?google_photo_urls=is.null&g_details=not.is.null'

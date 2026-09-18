@@ -314,3 +314,13 @@ take names from the nightly snapshot instead of their own Details
 call and reuse the stored links, so a queued space usually costs no
 Google calls at all. Estimated at 1,000 spaces a month: about $100
 instead of about $210.
+
+## Backlog of photo links: off for now (Sep 2026)
+
+The nightly resolving of existing venues' photo links exists to stop
+paying per photo view once nomads use the app. Today the app is used
+by the founders alone and the aim is listing throughput into
+nomadwise.io, so it is switched off (RESOLVE_PER_NIGHT = 0) and the
+free photo calls are kept for the website pipeline. The first night
+already covered 150 venues. Turn it to 30 (free, slow) or 150 (about
+$20, five nights) when the app gets real traffic.
