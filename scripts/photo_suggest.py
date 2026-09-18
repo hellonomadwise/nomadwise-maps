@@ -171,6 +171,14 @@ def ensure_model():
         except Exception as e:  # noqa: BLE001
             report['errors'].append(f'model install failed: {e}')
             return None
+        # Packages installed a moment ago land in the user site folder,
+        # which was not on the path when this process started.
+        import importlib
+        import site
+        for d in (site.getusersitepackages(), *site.getsitepackages()):
+            if d and os.path.isdir(d) and d not in sys.path:
+                sys.path.append(d)
+        importlib.invalidate_caches()
     try:
         import torch
         import open_clip
