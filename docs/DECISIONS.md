@@ -241,3 +241,12 @@ under England, Edinburgh under Scotland and Cardiff under Wales, so
 Google's word can only be a fallback when no Region matched. Picking
 a Region in Edit fills the Country field from it, and a note offers
 the site's Country whenever the typed one differs.
+
+## "No laptops" spaces in the inbox (Sep 2026)
+
+A New space whose nomads answered "no" to laptops is almost always
+not for the site. The card shows a "No laptops" chip and a note, and
+its main button becomes a one-tap "Not a place to work", which files
+it under Not for the site with the reason "Not really a place to
+work from" and no dialog. Queueing stays possible ("Queue anyway")
+because the founder, not the flag, decides.

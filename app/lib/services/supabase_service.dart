@@ -738,6 +738,7 @@ class SupabaseService {
       'website_new_region, website_new_location, '
       'website_slug_override, website_photos, sitemap_added_at, created_at, '
       'google_rating_snapshot, google_reviews_snapshot, wifi_speed_mbps, '
+      'laptops_allowed, '
       // Just the address parts of the cached Google details, so the
       // inbox can show the country without loading the whole record.
       'address_components:g_details->addressComponents, '

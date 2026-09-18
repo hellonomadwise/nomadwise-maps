@@ -177,6 +177,17 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         '${v['name']} marked as not for the site.');
   }
 
+  /// One-tap "Not for the site" with a preset reason, for the cases
+  /// that need no thought (nomads said laptops are not welcome).
+  Future<void> _dismissAs(Map<String, dynamic> v, String reason) => _update(
+      v,
+      {
+        'website_dismissed_at': DateTime.now().toUtc().toIso8601String(),
+        'website_dismiss_reason': reason,
+        'website_dismiss_note': null,
+      },
+      '${v['name']} marked as not for the site: ${reason.toLowerCase()}.');
+
   /// Queued -> back to "New spaces" in the inbox, so it can be
   /// edited and queued again.
   Future<void> _unqueue(Map<String, dynamic> v) => _update(
@@ -1240,11 +1251,16 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     final rating = v['google_rating_snapshot'];
     final reviews = v['google_reviews_snapshot'];
     final wifi = v['wifi_speed_mbps'];
+    // Nomads answered "no" to laptops: almost always not for the site,
+    // so the card says so and the one-tap route is the main button.
+    final noLaptops = v['laptops_allowed'] == false;
     return _card(
+      tint: noLaptops ? Brand.field : null,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         _title(v, badge: 'NEW', badgeColor: Brand.violet),
         const SizedBox(height: 8),
         Wrap(spacing: 6, runSpacing: 6, children: [
+          if (noLaptops) const StatusChip('No laptops', dotColor: Brand.red),
           if (rating != null)
             StatusChip('★ $rating${reviews != null ? ' ($reviews)' : ''}',
                 dotColor: Brand.gold),
@@ -1253,6 +1269,13 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
           StatusChip(hasPlace ? 'Google matched' : 'No Google match',
               dotColor: hasPlace ? Brand.success : Brand.red),
         ]),
+        if (noLaptops) ...[
+          const SizedBox(height: 8),
+          const Text(
+              'Nomads say laptops are not welcome here, so it is probably '
+              'not a place to work from. Open it if you want to check.',
+              style: TextStyle(fontSize: 12.5, color: Brand.inkSecondary, height: 1.4)),
+        ],
         const SizedBox(height: 10),
         Wrap(
             spacing: 4,
@@ -1264,16 +1287,27 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
               onPressed: () => _editVenue(v),
               icon: const Icon(Icons.edit_outlined, size: 16),
               label: const Text('Edit')),
-          TextButton(
-              onPressed: () => _dismiss(v),
-              style: TextButton.styleFrom(foregroundColor: Brand.inkSecondary),
-              child: const Text('Not for the site')),
-          ElevatedButton.icon(
-              onPressed: hasPlace ? () => _queue(v) : null,
-              icon: const Icon(Icons.add_to_queue_outlined, size: 18),
-              label: Text(hasPlace
-                  ? 'Queue for the site'
-                  : 'Needs a Google match first')),
+          if (noLaptops) ...[
+            TextButton(
+                onPressed: hasPlace ? () => _queue(v) : null,
+                style: TextButton.styleFrom(foregroundColor: Brand.inkSecondary),
+                child: Text(hasPlace ? 'Queue anyway' : 'Needs a Google match')),
+            ElevatedButton.icon(
+                onPressed: () => _dismissAs(v, dismissReasons.first),
+                icon: const Icon(Icons.laptop_outlined, size: 18),
+                label: const Text('Not a place to work')),
+          ] else ...[
+            TextButton(
+                onPressed: () => _dismiss(v),
+                style: TextButton.styleFrom(foregroundColor: Brand.inkSecondary),
+                child: const Text('Not for the site')),
+            ElevatedButton.icon(
+                onPressed: hasPlace ? () => _queue(v) : null,
+                icon: const Icon(Icons.add_to_queue_outlined, size: 18),
+                label: Text(hasPlace
+                    ? 'Queue for the site'
+                    : 'Needs a Google match first')),
+          ],
         ]),
       ]),
     );
@@ -2487,6 +2521,24 @@ class _SitemapTabState extends State<_SitemapTab> {
         .join('\n');
   }
 
+  Future<void> _alreadyAdded(Map<String, dynamic> v) async {
+    setState(() => _busy = true);
+    try {
+      await widget.onMarked([v['id'] as String]);
+      if (mounted) {
+        setState(() {
+          _excluded.remove(v['id']);
+          _xml = null;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('${v['name']} removed. If it is not in the live '
+                'sitemap it will be back after tonight\'s check.')));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final pending = widget.pending;
@@ -2514,7 +2566,8 @@ class _SitemapTabState extends State<_SitemapTab> {
             'Released pages missing from the custom sitemap, checked '
             'against the live sitemap every night. Untick any you want to '
             'leave out, generate, copy, paste into the sitemap in Webflow, '
-            'then mark them as added.',
+            'then mark them as added. The tick on the right removes a page '
+            'you know is already in the sitemap.',
             style: TextStyle(fontSize: 12.5, color: Brand.inkMuted, height: 1.4)),
       ),
       ...pending.map((v) => CheckboxListTile(
@@ -2526,6 +2579,15 @@ class _SitemapTabState extends State<_SitemapTab> {
                 style: const TextStyle(fontWeight: FontWeight.w600)),
             subtitle: Text('/coworking/${v['webflow_slug']}',
                 style: const TextStyle(fontSize: 12)),
+            // "Already in the sitemap": drops the page from this list
+            // without generating anything. Safe to get wrong: the
+            // nightly check reads the live sitemap and brings back any
+            // page that is not really there.
+            secondary: IconButton(
+              tooltip: 'Already in the sitemap',
+              icon: const Icon(Icons.playlist_add_check, size: 22),
+              onPressed: _busy ? null : () => _alreadyAdded(v),
+            ),
             onChanged: (on) => setState(() {
               if (on == true) {
                 _excluded.remove(v['id']);
