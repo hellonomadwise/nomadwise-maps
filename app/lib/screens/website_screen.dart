@@ -1046,6 +1046,12 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   String? _countryOf(Map<String, dynamic> v) {
     final typed = v['country'];
     if (typed != null && '$typed'.trim().isNotEmpty) return '$typed'.trim();
+    // The site's own Country for the matched Region comes before
+    // Google's: Google says "United Kingdom", the site files London
+    // under England (england-london-...).
+    final region = _regionFor(v);
+    final siteCountry = region?['country'] as String?;
+    if (siteCountry != null && siteCountry.isNotEmpty) return siteCountry;
     final comps = v['address_components'];
     if (comps is List) {
       for (final c in comps) {
@@ -1055,8 +1061,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         }
       }
     }
-    final region = _regionFor(v);
-    return region?['country'] as String?;
+    return null;
   }
 
   static const minPhotos = 3;
@@ -1782,7 +1787,20 @@ class _EditVenuePageState extends State<_EditVenuePage> {
       if (_location != null && _location!['region_id'] != _regionId) {
         _locationId = null;
       }
+      // The slug's country follows the Region's Country on the site.
+      final c = picked['country'] as String?;
+      if (c != null && c.isNotEmpty) _country.text = c;
     });
+  }
+
+  /// The site's Country for the chosen Region when it differs from
+  /// what is typed (United Kingdom typed, England on the site).
+  String? get _countryMismatch {
+    final c = _region?['country'] as String?;
+    if (c == null || c.isEmpty) return null;
+    return c.trim().toLowerCase() == _country.text.trim().toLowerCase()
+        ? null
+        : c;
   }
 
   Future<void> _pickLocation() async {
@@ -1973,12 +1991,15 @@ class _EditVenuePageState extends State<_EditVenuePage> {
   }
 
   Widget _field(TextEditingController c, String label,
-          {String? hint, TextInputType? keyboard}) =>
+          {String? hint,
+          TextInputType? keyboard,
+          ValueChanged<String>? onChanged}) =>
       Padding(
         padding: const EdgeInsets.only(bottom: 12),
         child: TextField(
             controller: c,
             keyboardType: keyboard,
+            onChanged: onChanged,
             decoration: InputDecoration(
                 labelText: label,
                 hintText: hint,
@@ -2104,7 +2125,26 @@ class _EditVenuePageState extends State<_EditVenuePage> {
                   : _pickLocation,
             ),
             _field(_country, 'Country',
-                hint: 'First part of the slug: country-region-name'),
+                hint: 'First part of the slug: country-region-name',
+                onChanged: (_) => setState(() {})),
+            if (_countryMismatch != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Row(children: [
+                  Expanded(
+                    child: Text(
+                        'nomadwise.io files ${_region?['name']} under '
+                        '${_countryMismatch!}.',
+                        style: const TextStyle(
+                            fontSize: 12, color: Brand.inkMuted)),
+                  ),
+                  TextButton(
+                    onPressed: () =>
+                        setState(() => _country.text = _countryMismatch!),
+                    child: Text('Use ${_countryMismatch!}'),
+                  ),
+                ]),
+              ),
             _heading('AS SHOWN IN THE APP'),
             _field(_hood, 'Neighbourhood',
                 hint: 'Free text nomads see on the map'),

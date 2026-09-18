@@ -231,3 +231,13 @@ Region or Location in Webflow; unknown names reach the founders
 through the inbox as before. A verified review now also sets the
 venue's city (migration 56), so older "Lisboa" records become
 "Lisbon" the next time a nomad reviews them.
+
+## The site's Country beats Google's (Sep 2026)
+
+For the slug and the inbox cards, the country comes from what the
+founder typed, else the Webflow Region's Country, else Google's
+address. Google says "United Kingdom" while the site files London
+under England, Edinburgh under Scotland and Cardiff under Wales, so
+Google's word can only be a fallback when no Region matched. Picking
+a Region in Edit fills the Country field from it, and a note offers
+the site's Country whenever the typed one differs.
