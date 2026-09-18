@@ -821,6 +821,134 @@ if PUSH_ONLY:
             report['errors'].append(f'release mark: {e}')
     report['released_now'] = len(released_now)
 
+# ------------------------------------------- draft check and publish
+# The formality the founder used to do by eye in Webflow: for every
+# draft, read the listing and its Images entry back and confirm they
+# point at each other, the slug is the approved one, Region and
+# Country are set and at least three photos took. The verdict sits on
+# the card. "Publish" in the app sets website_publish_requested_at;
+# a run re-checks, stages both items and publishes them live through
+# the API, so the founder never has to open Webflow for a clean draft.
+def image_count(ifd):
+    n = 0
+    for k in ('image', 'image-2', 'image-3', 'image-4', 'image-5'):
+        val = ifd.get(k)
+        if isinstance(val, dict) and val.get('url'):
+            n += 1
+    return n
+
+
+def verify_draft(v):
+    """Reads the draft and its Images entry; returns the check dict."""
+    cms = v.get('webflow_cms_id')
+    issues = []
+    item = wf(f'/v2/collections/{COLLECTION_ID}/items/{cms}') or {}
+    fd = item.get('fieldData') or {}
+    if item.get('isArchived'):
+        issues.append('listing is archived in Webflow')
+    if v.get('webflow_slug') and fd.get('slug') != v.get('webflow_slug'):
+        issues.append(f"slug in Webflow is '{fd.get('slug')}', "
+                      f"approved was '{v.get('webflow_slug')}'")
+    if not fd.get('region-2'):
+        issues.append('no Region on the listing')
+    if not fd.get('country'):
+        issues.append('no Country on the listing')
+    if v.get('google_place_id') and fd.get('google-place-id') != v['google_place_id']:
+        issues.append('Google Place ID differs from the app')
+    img_id = fd.get('image-reference')
+    photos, img = 0, {}
+    if not img_id:
+        issues.append('no Images entry linked to the listing')
+    else:
+        time.sleep(0.3)
+        img = wf(f'/v2/collections/{IMAGES_ID}/items/{img_id}') or {}
+        ifd = img.get('fieldData') or {}
+        photos = image_count(ifd)
+        back = ifd.get('coworking-space')
+        if back and back != cms:
+            issues.append('Images entry points at a different listing')
+        if img.get('isArchived'):
+            issues.append('Images entry is archived')
+        if photos < MIN_PHOTOS:
+            issues.append(f'only {photos} photo{"s" if photos != 1 else ""} '
+                          'in the Images entry')
+    return {'ok': not issues, 'issues': issues, 'photos': photos,
+            'images_id': img_id,
+            'listing_name': fd.get('name'),
+            'images_name': (img.get('fieldData') or {}).get('name'),
+            'staged': not item.get('isDraft') and (not img_id or not img.get('isDraft')),
+            'checked_at': datetime.datetime.now(
+                datetime.timezone.utc).isoformat()}
+
+
+def save_check(v, check, extra=None):
+    prepared = dict(v.get('website_prepared') or {})
+    prepared['webflow_check'] = check
+    body = {'website_prepared': prepared}
+    if extra:
+        body.update(extra)
+    sb(f"venues?id=eq.{v['id']}", method='PATCH', body=body,
+       prefer='return=minimal')
+
+
+def publish_draft(v, check):
+    """Stage both items, then publish them live. Images first, so the
+    listing never goes live pointing at a draft."""
+    now_ = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    cms, img_id = v['webflow_cms_id'], check.get('images_id')
+    for coll, item_id in ((IMAGES_ID, img_id), (COLLECTION_ID, cms)):
+        if not item_id:
+            continue
+        wf_write(f'/v2/collections/{coll}/items/{item_id}', 'PATCH',
+                 {'isDraft': False})
+        time.sleep(0.6)
+        wf_write(f'/v2/collections/{coll}/items/publish', 'POST',
+                 {'itemIds': [item_id]})
+        time.sleep(0.6)
+    check = dict(check, published=True, published_at=now_)
+    save_check(v, check, {'website_status': 'released',
+                          'website_synced_at': now_,
+                          'website_publish_requested_at': None})
+
+
+if PUSH_ONLY:
+    try:
+        drafts = sb_all('venues?website_status=eq.published_hidden'
+                        '&webflow_cms_id=not.is.null'
+                        '&select=id,name,webflow_cms_id,webflow_slug,'
+                        'google_place_id,website_prepared,'
+                        'website_publish_requested_at')
+    except Exception as e:  # noqa: BLE001
+        report['errors'].append(f'drafts read: {e}')
+        drafts = []
+    checked, published = 0, 0
+    for v in drafts:
+        prev = (v.get('website_prepared') or {}).get('webflow_check') or {}
+        wanted = v.get('website_publish_requested_at')
+        if prev.get('ok') and not wanted:
+            continue        # already known good; nothing asked for
+        try:
+            check = verify_draft(v)
+            checked += 1
+        except Exception as e:  # noqa: BLE001
+            report['errors'].append(f"check {v.get('name')}: {e}")
+            continue
+        if wanted and check['ok']:
+            try:
+                publish_draft(v, check)
+                published += 1
+                continue
+            except Exception as e:  # noqa: BLE001
+                check['publish_error'] = str(e)[:200]
+                report['errors'].append(f"publish {v.get('name')}: {e}")
+        try:
+            save_check(v, check)
+        except Exception as e:  # noqa: BLE001
+            report['errors'].append(f"check save {v.get('name')}: {e}")
+        time.sleep(0.3)
+    report['drafts_checked'] = checked
+    report['drafts_published'] = published
+
 if PUSH_ONLY and not queued:
     finish(0)   # nothing to do: the common case, a second of runtime
 

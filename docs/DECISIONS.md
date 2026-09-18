@@ -336,3 +336,19 @@ flagged "weak", and the card says "5 suggested, N weak (few clear
 shots on Google). Check them" so the founder looks before approving.
 Google's API exposes at most ten photos per place; beyond that the
 founder pastes links by hand as before.
+
+## Drafts checked and published from the app (Sep 2026)
+
+Checking that every Webflow listing and its Images entry match was
+the last step done by eye. The push run now reads each draft back:
+listing and Images entry point at each other, the slug is the one
+approved, Region and Country are set, the Google Place ID matches
+the app, at least three photos were accepted by Webflow, nothing is
+archived. The verdict (website_prepared.webflow_check) shows on the
+card in In Webflow, green or with the list of problems. A clean
+draft gets a "Publish on nomadwise.io" button: the run re-checks,
+stages both items and publishes them live through the CMS API
+(Images first), then marks the venue released so the sitemap entry
+follows. "I published it in Webflow" remains for pages published by
+hand. Migration 61 adds website_publish_requested_at and teaches the
+nudge trigger to wake the run for it.

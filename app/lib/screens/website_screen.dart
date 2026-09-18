@@ -1732,8 +1732,9 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       ],
       if (_drafts.isNotEmpty) ...[
         _section('IN WEBFLOW, NOT RELEASED', _drafts.length,
-            'Open Webflow, add the words, publish. Within about ten '
-            'minutes of publishing it moves to Released and its entry '
+            'Each draft is checked against Webflow within a minute or '
+            'two. When it passes, Publish puts both the listing and its '
+            'Images entry live; it then moves to Released and its entry '
             'appears under Sitemap.'),
         ..._drafts.map((v) => _card(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -1760,23 +1761,97 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                       icon: const Icon(Icons.copy_outlined, size: 18)),
                 ]),
                 const SizedBox(height: 6),
-                // Published just now? Say so and carry on to the sitemap
-                // without waiting for the sync to notice. A mistake
-                // corrects itself: the nightly read puts a still-draft
-                // page back here.
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: ElevatedButton.icon(
-                      onPressed: () => _publishedNow(v),
-                      icon: const Icon(Icons.check, size: 18),
-                      label: const Text('Published, add to sitemap')),
-                ),
+                _draftCheck(v),
+                const SizedBox(height: 6),
+                Wrap(
+                    spacing: 4,
+                    runSpacing: 4,
+                    alignment: WrapAlignment.end,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      // Published by hand in Webflow: say so and carry on
+                      // to the sitemap. The nightly read corrects a
+                      // still-draft page.
+                      TextButton(
+                          onPressed: () => _publishedNow(v),
+                          style: TextButton.styleFrom(
+                              foregroundColor: Brand.inkSecondary),
+                          child: const Text('I published it in Webflow')),
+                      if (v['website_publish_requested_at'] != null)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 8),
+                          child: Text('Publishing within a minute or two',
+                              style: TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: Brand.goldTextDark)),
+                        )
+                      else
+                        ElevatedButton.icon(
+                            onPressed: _checkOf(v)['ok'] == true
+                                ? () => _requestPublish(v)
+                                : null,
+                            icon: const Icon(Icons.publish_outlined, size: 18),
+                            label: const Text('Publish on nomadwise.io')),
+                    ]),
               ]),
             )),
       ],
       const SizedBox(height: 30),
     ]);
   }
+
+  /// The sync's read-back of the draft: listing and Images entry
+  /// linked, slug as approved, Region, Country, enough photos.
+  Map<String, dynamic> _checkOf(Map<String, dynamic> v) {
+    final c = _prepared(v)['webflow_check'];
+    return c is Map ? Map<String, dynamic>.from(c) : const {};
+  }
+
+  Widget _draftCheck(Map<String, dynamic> v) {
+    final c = _checkOf(v);
+    if (c.isEmpty) {
+      return const Text('Checking the draft against Webflow...',
+          style: TextStyle(fontSize: 12.5, color: Brand.inkMuted));
+    }
+    final issues = (c['issues'] as List?)?.cast<String>() ?? const [];
+    final err = c['publish_error'];
+    if (c['ok'] == true && err == null) {
+      return Row(children: [
+        const Icon(Icons.verified_outlined, size: 16, color: Brand.success),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+              'Checked: listing and Images entry linked, '
+              '${c['photos']} photo${c['photos'] == 1 ? '' : 's'}, slug as '
+              'approved, Region and Country set.',
+              style: const TextStyle(fontSize: 12.5, color: Brand.success)),
+        ),
+      ]);
+    }
+    return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const Icon(Icons.error_outline, size: 16, color: Brand.red),
+      const SizedBox(width: 6),
+      Expanded(
+        child: Text(
+            err != null
+                ? 'Publishing failed: $err. Fix it in Webflow, or publish '
+                    'there by hand.'
+                : 'Needs attention in Webflow: ${issues.join('; ')}.',
+            style: const TextStyle(fontSize: 12.5, color: Brand.red)),
+      ),
+    ]);
+  }
+
+  /// Founder asks the sync to stage and publish both items via the
+  /// API. The run re-checks first; a failure shows on the card.
+  Future<void> _requestPublish(Map<String, dynamic> v) => _update(
+      v,
+      {
+        'website_publish_requested_at':
+            DateTime.now().toUtc().toIso8601String(),
+      },
+      '${v['name']} will be published within a minute or two.');
 
   /// Founder says the page is live: released now, so its sitemap
   /// entry is ready under Sitemap straight away.
