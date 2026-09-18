@@ -16,6 +16,7 @@ on:
     paths:
       - 'scripts/webflow_sync.py'
       - 'scripts/enrich_venues.py'
+      - 'scripts/photo_suggest.py'
       - '.github/workflows/enrich.yml'
 
 permissions:
@@ -44,6 +45,23 @@ jobs:
           GOOGLE_PLACES_KEY: ${{ secrets.GOOGLE_PLACES_SERVER_KEY || secrets.GOOGLE_PLACES_KEY }}
         run: |
           python3 scripts/webflow_sync.py
+
+      # Photo suggestions: learn the founder's taste from picks made
+      # since yesterday, then score any queued space still waiting.
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.cache/clip
+          key: photo-model-${{ runner.os }}-v1
+      - name: Photo suggestions (learn and score)
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          GOOGLE_PLACES_KEY: ${{ secrets.GOOGLE_PLACES_SERVER_KEY || secrets.GOOGLE_PLACES_KEY }}
+        run: |
+          python3 scripts/photo_suggest.py --learn
 
       # Coordinates, Google snapshots, review-signal scans (including
       # stored opening hours) and city sweeps.

@@ -6,8 +6,10 @@ name: Website push (queued spaces)
 # costs nothing to run often. The nightly run (enrich.yml) still does
 # the full pull from Webflow and the Region and Location copies.
 #
-# GitHub schedules are best-effort: a run can start a few minutes late
-# at busy times of day. "Run workflow" forces one straight away.
+# GitHub schedules are best-effort and in practice run every few
+# hours, so the database starts this workflow itself (workflow_dispatch
+# via migration 57) whenever a space is queued, approved or edited
+# while queued. The schedule is the backstop. "Run workflow" forces one.
 
 on:
   schedule:
@@ -34,3 +36,21 @@ jobs:
           GOOGLE_PLACES_KEY: ${{ secrets.GOOGLE_PLACES_SERVER_KEY || secrets.GOOGLE_PLACES_KEY }}
         run: |
           python3 scripts/webflow_sync.py --push-only
+
+      # Photo suggestions for newly queued spaces (exits in a second
+      # when there is nothing to score). The model and its weights are
+      # cached between runs.
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.cache/clip
+          key: photo-model-${{ runner.os }}-v1
+      - name: Photo suggestions
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          GOOGLE_PLACES_KEY: ${{ secrets.GOOGLE_PLACES_SERVER_KEY || secrets.GOOGLE_PLACES_KEY }}
+        run: |
+          python3 scripts/photo_suggest.py
