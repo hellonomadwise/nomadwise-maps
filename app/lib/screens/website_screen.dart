@@ -1292,8 +1292,12 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                 onPressed: hasPlace ? () => _queue(v) : null,
                 style: TextButton.styleFrom(foregroundColor: Brand.inkSecondary),
                 child: Text(hasPlace ? 'Queue anyway' : 'Needs a Google match')),
+            // Navy, not the red used for "Queue for the site", so the
+            // two opposite actions never look alike.
             ElevatedButton.icon(
                 onPressed: () => _dismissAs(v, dismissReasons.first),
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: Brand.ink, foregroundColor: Colors.white),
                 icon: const Icon(Icons.laptop_outlined, size: 18),
                 label: const Text('Not a place to work')),
           ] else ...[
