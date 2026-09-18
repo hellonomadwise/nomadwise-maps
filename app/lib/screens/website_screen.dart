@@ -758,14 +758,6 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         empty: 'No drafts waiting in Webflow.'
       ),
       (
-        key: 'released',
-        label: 'Released',
-        count: _released.length,
-        color: Brand.success,
-        hint: 'Live on nomadwise.io.',
-        empty: 'Nothing released yet.'
-      ),
-      (
         key: 'sitemap',
         label: 'Sitemap',
         count: _sitemap.length,
@@ -790,6 +782,17 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         hint: 'On Nomad Maps but kept off nomadwise.io, each with its '
             'reason. Bring back any of them at any time.',
         empty: 'Nothing has been marked as not for the site.'
+      ),
+      // The archive: every live page, searchable. Last because it is
+      // reference, not work.
+      (
+        key: 'released',
+        label: 'Released',
+        count: _released.length,
+        color: Brand.success,
+        hint: 'Every page live on nomadwise.io, for looking one up. '
+            'Nothing here needs doing.',
+        empty: 'Nothing released yet.'
       ),
     ];
     var key = _groupKey;
@@ -1671,35 +1674,63 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       ],
       if (_drafts.isNotEmpty) ...[
         _section('IN WEBFLOW, NOT RELEASED', _drafts.length,
-            'Open Webflow, add the photos and words, publish. The sync '
-            'marks it released once the page is live.'),
+            'Open Webflow, add the words, publish. Within about ten '
+            'minutes of publishing it moves to Released and its entry '
+            'appears under Sitemap.'),
         ..._drafts.map((v) => _card(
-              child: Row(children: [
-                Expanded(
-                    child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                      Text(v['name'] ?? '',
-                          style:
-                              const TextStyle(fontWeight: FontWeight.w700)),
-                      const SizedBox(height: 2),
-                      Text('/coworking/${v['webflow_slug'] ?? ''}',
-                          style: const TextStyle(
-                              fontSize: 12, color: Brand.inkSecondary)),
-                      Text(
-                          'Draft since ${_ago(v['website_synced_at'])}',
-                          style: const TextStyle(
-                              fontSize: 11.5, color: Brand.inkMuted)),
-                    ])),
-                IconButton(
-                    tooltip: 'Copy the name (to find it in Webflow)',
-                    onPressed: () => _copy(v['name'] ?? '', 'Name copied'),
-                    icon: const Icon(Icons.copy_outlined, size: 18)),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  Expanded(
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                        Text(v['name'] ?? '',
+                            style:
+                                const TextStyle(fontWeight: FontWeight.w700)),
+                        const SizedBox(height: 2),
+                        Text('/coworking/${v['webflow_slug'] ?? ''}',
+                            style: const TextStyle(
+                                fontSize: 12, color: Brand.inkSecondary)),
+                        Text(
+                            'Draft since ${_ago(v['website_synced_at'])}',
+                            style: const TextStyle(
+                                fontSize: 11.5, color: Brand.inkMuted)),
+                      ])),
+                  IconButton(
+                      tooltip: 'Copy the name (to find it in Webflow)',
+                      onPressed: () => _copy(v['name'] ?? '', 'Name copied'),
+                      icon: const Icon(Icons.copy_outlined, size: 18)),
+                ]),
+                const SizedBox(height: 6),
+                // Published just now? Say so and carry on to the sitemap
+                // without waiting for the sync to notice. A mistake
+                // corrects itself: the nightly read puts a still-draft
+                // page back here.
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: ElevatedButton.icon(
+                      onPressed: () => _publishedNow(v),
+                      icon: const Icon(Icons.check, size: 18),
+                      label: const Text('Published, add to sitemap')),
+                ),
               ]),
             )),
       ],
       const SizedBox(height: 30),
     ]);
+  }
+
+  /// Founder says the page is live: released now, so its sitemap
+  /// entry is ready under Sitemap straight away.
+  Future<void> _publishedNow(Map<String, dynamic> v) async {
+    await _update(
+        v,
+        {
+          'website_status': 'released',
+          'website_synced_at': DateTime.now().toUtc().toIso8601String(),
+        },
+        '${v['name']} released. Its sitemap entry is under Sitemap.');
+    if (mounted) setState(() => _groupKey = 'sitemap');
   }
 
   static String _ago(String? ts) {

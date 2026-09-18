@@ -779,6 +779,48 @@ report['queued_for_site'] = len(queued)
 report['prepared'] = []
 report['awaiting_approval'] = []
 
+# ------------------------------------------------ quick release check
+# Every ten minutes, the drafts the founders may just have published:
+# one live-item read each (a handful at most). Live means released, so
+# the page moves on to the Sitemap list within minutes instead of
+# waiting for the nightly pull. The nightly pull still has the last
+# word (sitemap flag, archived, taken down).
+if PUSH_ONLY:
+    try:
+        hidden = sb_all('venues?website_status=eq.published_hidden'
+                        '&webflow_cms_id=not.is.null'
+                        '&select=id,name,webflow_cms_id')
+    except Exception as e:  # noqa: BLE001
+        report['errors'].append(f'hidden read: {e}')
+        hidden = []
+    released_now = []
+    for v in hidden:
+        try:
+            live = wf(f"/v2/collections/{COLLECTION_ID}/items/"
+                      f"{v['webflow_cms_id']}/live")
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                continue        # still a draft, no live page yet
+            report['errors'].append(f"live check {v.get('name')}: {e.code}")
+            continue
+        except Exception as e:  # noqa: BLE001
+            report['errors'].append(f"live check {v.get('name')}: {e}")
+            continue
+        if live and not live.get('isDraft') and not live.get('isArchived'):
+            released_now.append(v['id'])
+        time.sleep(0.3)
+    if released_now:
+        try:
+            sb('venues?id=in.(' + ','.join(released_now) + ')',
+               method='PATCH',
+               body={'website_status': 'released',
+                     'website_synced_at': datetime.datetime.now(
+                         datetime.timezone.utc).isoformat()},
+               prefer='return=minimal')
+        except Exception as e:  # noqa: BLE001
+            report['errors'].append(f'release mark: {e}')
+    report['released_now'] = len(released_now)
+
 if PUSH_ONLY and not queued:
     finish(0)   # nothing to do: the common case, a second of runtime
 

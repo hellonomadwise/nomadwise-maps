@@ -250,3 +250,18 @@ its main button becomes a one-tap "Not a place to work", which files
 it under Not for the site with the reason "Not really a place to
 work from" and no dialog. Queueing stays possible ("Queue anyway")
 because the founder, not the flag, decides.
+
+## Published drafts are noticed within minutes (Sep 2026)
+
+The ten-minute push run also reads the live item for every venue in
+published_hidden (one small request each). A live, non-draft item
+marks the venue released, so its sitemap entry appears under Sitemap
+within minutes of the founder publishing in Webflow, not the next
+morning. The nightly pull keeps the last word (sitemap flag,
+archived, taken down). The Released chip moved to the end of the
+row: it is an archive to look things up in, not a step with work.
+The founder can also say "Published, add to sitemap" on a draft's
+card: the venue is marked released at once and the Sitemap chip
+opens, so a batch of pages can be published and added to the sitemap
+in one sitting. The nightly read still corrects a page that is not
+actually live.
