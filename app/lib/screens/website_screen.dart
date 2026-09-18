@@ -1181,14 +1181,44 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
             .where((c) => c['suggested'] == true && c['weak'] == true)
             .length
         : 0;
+    final text = Text(
+        auto
+            ? (weak > 0
+                ? '$count suggested, $weak weak (few clear shots on '
+                    'Google). Check them'
+                : '$count photo${count == 1 ? '' : 's'} suggested. Check them, '
+                    'or Approve to keep them')
+            : enough
+                ? '$count photo${count == 1 ? '' : 's'} ready for the page'
+                : '$count of $minPhotos photos needed before Approve',
+        style: TextStyle(
+            fontSize: 12.5,
+            color: auto
+                ? Brand.goldTextDark
+                : (enough ? Brand.success : Brand.goldTextDark),
+            fontWeight: FontWeight.w600));
+    final button = TextButton.icon(
+        onPressed: () => _editPhotos(v),
+        icon: Icon(
+            auto
+                ? Icons.auto_awesome_outlined
+                : Icons.add_photo_alternate_outlined,
+            size: 16),
+        label: Text(auto
+            ? 'Review'
+            : urls.isEmpty
+                ? (_candidates(v).isEmpty ? 'Add photos' : 'Pick photos')
+                : 'Edit photos'));
+    // Thumbnails on their own line (they scroll sideways on a phone),
+    // then the words and the button; a Row with the strip inside left
+    // the text one letter per line on mobile.
     return Padding(
       padding: const EdgeInsets.only(top: 6, bottom: 4),
-      child: Row(children: [
-        if (urls.isNotEmpty)
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        if (urls.isNotEmpty) ...[
           SizedBox(
             height: 44,
             child: ListView.separated(
-              shrinkWrap: true,
               scrollDirection: Axis.horizontal,
               itemCount: urls.length,
               separatorBuilder: (_, __) => const SizedBox(width: 4),
@@ -1206,41 +1236,18 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                             size: 18, color: Brand.inkMuted))),
               ),
             ),
-          )
-        else
-          const Icon(Icons.photo_library_outlined,
-              size: 18, color: Brand.inkMuted),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-              auto
-                  ? (weak > 0
-                      ? '$count suggested, $weak weak (few clear shots on '
-                          'Google). Check them'
-                      : '$count photo${count == 1 ? '' : 's'} suggested. Check them, '
-                          'or Approve to keep them')
-                  : enough
-                      ? '$count photo${count == 1 ? '' : 's'} ready for the page'
-                      : '$count of $minPhotos photos needed before Approve',
-              style: TextStyle(
-                  fontSize: 12.5,
-                  color: auto
-                      ? Brand.goldTextDark
-                      : (enough ? Brand.success : Brand.goldTextDark),
-                  fontWeight: FontWeight.w600)),
-        ),
-        TextButton.icon(
-            onPressed: () => _editPhotos(v),
-            icon: Icon(
-                auto
-                    ? Icons.auto_awesome_outlined
-                    : Icons.add_photo_alternate_outlined,
-                size: 16),
-            label: Text(auto
-                ? 'Review'
-                : urls.isEmpty
-                    ? (_candidates(v).isEmpty ? 'Add photos' : 'Pick photos')
-                    : 'Edit photos')),
+          ),
+          const SizedBox(height: 6),
+        ],
+        Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+          if (urls.isEmpty) ...[
+            const Icon(Icons.photo_library_outlined,
+                size: 18, color: Brand.inkMuted),
+            const SizedBox(width: 8),
+          ],
+          Expanded(child: text),
+          button,
+        ]),
       ]),
     );
   }
