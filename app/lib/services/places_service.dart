@@ -33,10 +33,61 @@ class PlacesService {
     'photos',
   ];
 
-  /// Turns a Google photo resource name into a loadable image URL.
-  static String photoUrl(String photoName, {int maxWidth = 900}) =>
-      'https://places.googleapis.com/v1/$photoName/media'
-      '?maxWidthPx=$maxWidth&key=${AppConfig.googlePlacesKey}';
+  /// Photo name -> plain image link (lh3.googleusercontent.com),
+  /// filled from venue rows as they load. A photo in here costs
+  /// nothing to show; one that is not goes through Google's billed
+  /// media endpoint.
+  static final Map<String, String> _resolved = {};
+
+  static void registerResolved(Map<String, dynamic> m) {
+    m.forEach((k, v) {
+      if (v is String && v.startsWith('http')) _resolved[k] = v;
+    });
+  }
+
+  static bool isResolved(String photoName) => _resolved.containsKey(photoName);
+
+  /// The plain link at a given size: the size lives in the =s...
+  /// suffix, which the CDN honours for free.
+  static String _sized(String uri, int maxWidth) {
+    final slash = uri.lastIndexOf('/');
+    final eq = uri.lastIndexOf('=');
+    if (eq > slash) return '${uri.substring(0, eq)}=s$maxWidth';
+    return uri;
+  }
+
+  /// Turns a Google photo resource name into a loadable image URL:
+  /// the free plain link when known, else Google's media endpoint.
+  static String photoUrl(String photoName, {int maxWidth = 900}) {
+    final r = _resolved[photoName];
+    if (r != null) return _sized(r, maxWidth);
+    return 'https://places.googleapis.com/v1/$photoName/media'
+        '?maxWidthPx=$maxWidth&key=${AppConfig.googlePlacesKey}';
+  }
+
+  /// Resolves photo names to plain links (one billed call each, once)
+  /// and registers them. Returns what was newly resolved, so the
+  /// caller can save it on the venue for everyone after.
+  Future<Map<String, String>> resolvePhotos(List<String> names) async {
+    final out = <String, String>{};
+    for (final n in names) {
+      if (_resolved.containsKey(n)) continue;
+      try {
+        final resp = await http.get(
+          Uri.parse('https://places.googleapis.com/v1/$n/media'
+              '?maxWidthPx=1600&maxHeightPx=1600&skipHttpRedirect=true'),
+          headers: {'X-Goog-Api-Key': AppConfig.googlePlacesKey},
+        );
+        if (resp.statusCode != 200) continue;
+        final uri = jsonDecode(resp.body)['photoUri'];
+        if (uri is String && uri.startsWith('http')) {
+          _resolved[n] = uri;
+          out[n] = uri;
+        }
+      } catch (_) {}
+    }
+    return out;
+  }
 
   Future<PlaceLive?> details(String placeId) async {
     final hit = _cache[placeId];

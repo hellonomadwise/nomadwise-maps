@@ -244,11 +244,19 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
   final Set<String> _badPhotos = {};
   num? _refRating;
 
+  /// Plain links resolved for a place with no venue row yet; saved
+  /// with the new venue so nobody pays for these photos again.
+  Map<String, String> _resolvedNow = {};
+
   Future<void> _loadReference(String placeId) async {
     final live = await _places.details(placeId);
     if (mounted && live != null) {
+      final names = live.photoNames.take(6).toList();
+      // Resolve once (billed) what the venue row did not already carry.
+      final fresh = await _places.resolvePhotos(names);
+      if (!mounted) return;
       setState(() {
-        _refNames = live.photoNames.take(6).toList();
+        _refNames = names;
         _refPhotos = _refNames
             .map((n) => PlacesService.photoUrl(n, maxWidth: 500))
             .toList();
@@ -256,6 +264,11 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
         _placeCity ??= live.city;
       });
       _loadSiteAreas();
+      if (fresh.isNotEmpty) {
+        _resolvedNow.addAll(fresh);
+        final v = _confirmTarget;
+        if (v != null) _supabase.cacheGooglePhotos(v.id, fresh);
+      }
     }
   }
 
@@ -372,6 +385,13 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
     }
     final live = await _places.details(s.placeId);
     if (!mounted) return;
+    // Resolve the reference photos once (billed) so the new venue
+    // carries free links for everyone after.
+    final fresh = live == null
+        ? <String, String>{}
+        : await _places.resolvePhotos(live.photoNames.take(6).toList());
+    if (!mounted) return;
+    _resolvedNow.addAll(fresh);
     setState(() {
       _placeId = s.placeId;
       _placeLat = live?.lat;
@@ -523,6 +543,7 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
           'type': _type,
           'neighbourhood': _neighbourhood.text.trim(),
           'google_place_id': _placeId,
+          if (_resolvedNow.isNotEmpty) 'google_photo_urls': _resolvedNow,
           'city': _cityForSave,
           // Venue pin sits where Google says the place is.
           'lat': _placeLat ?? pos.latitude,

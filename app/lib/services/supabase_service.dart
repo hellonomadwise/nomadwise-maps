@@ -727,6 +727,20 @@ class SupabaseService {
           String venueId, Map<String, dynamic> fields) =>
       _db.from('venues').update(fields).eq('id', venueId);
 
+  /// Saves plain links for a venue's Google photos (merge, never
+  /// overwrite), so later views cost nothing. Any signed-in nomad.
+  Future<void> cacheGooglePhotos(String venueId, Map<String, String> urls) async {
+    try {
+      await _db.rpc('cache_google_photos',
+          params: {'p_venue': venueId, 'p_urls': urls});
+    } catch (_) {}
+  }
+
+  /// What the founder kept and skipped among the suggested photos,
+  /// recorded at Approve so the nightly run can learn their taste.
+  Future<void> recordPhotoPicks(List<Map<String, dynamic>> rows) =>
+      _db.from('photo_picks').insert(rows);
+
   // ---------- website control centre (nomadwise.io) ----------
 
   static const _websiteCols =
@@ -738,7 +752,7 @@ class SupabaseService {
       'website_new_region, website_new_location, '
       'website_slug_override, website_photos, sitemap_added_at, created_at, '
       'google_rating_snapshot, google_reviews_snapshot, wifi_speed_mbps, '
-      'laptops_allowed, '
+      'laptops_allowed, website_photo_candidates, website_photos_auto, '
       // Just the address parts of the cached Google details, so the
       // inbox can show the country without loading the whole record.
       'address_components:g_details->addressComponents, '

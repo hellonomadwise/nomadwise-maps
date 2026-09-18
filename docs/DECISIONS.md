@@ -276,3 +276,41 @@ using a fine-grained GitHub token kept in Supabase Vault under
 github_actions_token. Without the secret the trigger is a no-op and
 the schedule remains the fallback. The app's promise of "within about
 ten minutes" holds again, usually within two.
+
+## Photo suggestions (Sep 2026)
+
+The rule "Google Places photos are never copied to Webflow" is
+relaxed to "never without the founder's approval". Jonathan already
+copied Google's image links by hand (right-click, Copy image address);
+scripts/photo_suggest.py now does the equivalent: it lists a queued
+space's Google photos, resolves each to the same plain
+lh3.googleusercontent.com link, adds the approved community photos,
+and scores every candidate with CLIP against a written brief. The
+brief says what a listing photo is for: the room, the seating, the
+front, people working, a coffee with the room behind it; and what to
+avoid: food and drink close-ups, pastry displays, menus, selfies,
+logos. The best five go on the page's photos flagged as suggested,
+the card says so, and Approve is still the founder's gate; the
+photos picker shows the whole scored grid to swap any of them.
+At Approve the app records what was kept and skipped; the nightly
+run turns that into a taste vector (photo_taste) that nudges future
+scores. Scoring runs inside GitHub Actions on open weights (no API);
+Google costs are one Details and up to ten Photo media calls per
+queued space, within the free tiers at current volume. If the model
+cannot be loaded, Google's own photo order stands in.
+
+## Google photos are paid for once, then free (Sep 2026)
+
+Every Google photo the app showed went through Google's billed media
+endpoint on each load (map cards, space pages, the review form), and
+at 1,000 spaces a month that was the largest Google line. Now each
+photo is resolved once to its plain image link and kept on the venue
+(google_photo_urls, migration 59); PlacesService.photoUrl uses the
+stored link whenever it has one, so a photo is billed at most once
+in its life. The nightly job resolves the backlog 150 venues a night,
+the review form resolves a new place's six reference photos on first
+open and saves them with the venue, and the website photo suggestions
+take names from the nightly snapshot instead of their own Details
+call and reuse the stored links, so a queued space usually costs no
+Google calls at all. Estimated at 1,000 spaces a month: about $100
+instead of about $210.

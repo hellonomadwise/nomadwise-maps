@@ -1,3 +1,4 @@
+import '../services/places_service.dart';
 import 'dart:math' as math;
 
 /// Tri-state for work-friendliness: true / false / unknown (null).
@@ -116,6 +117,13 @@ class Venue {
     // not need to call Google on every map open.
     if (j['g_details'] is Map) {
       live = PlaceLive.fromJson(Map<String, dynamic>.from(j['g_details']));
+    }
+    // Plain image links for this venue's Google photos, resolved once
+    // by the nightly job. Registered so every photo load in the app
+    // uses them instead of a billed Google call.
+    if (j['google_photo_urls'] is Map) {
+      PlacesService.registerResolved(
+          Map<String, dynamic>.from(j['google_photo_urls']));
     }
   }
 

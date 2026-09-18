@@ -260,8 +260,11 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
             // Lock the slug you approved so it is used exactly.
             'website_slug_override': slug,
             if (region != null) 'website_region_override': region['id'],
+            // Approving the suggested photos makes them yours.
+            'website_photos_auto': false,
           },
           '${v['name']} approved. The draft is created within minutes.');
+      _recordPicks(v);
     }
   }
 
@@ -1101,6 +1104,35 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     return pasted > counted ? pasted : counted;
   }
 
+  /// The scored photos the sync found for this space (Google and
+  /// community), best first. Empty until the sync has looked.
+  List<Map<String, dynamic>> _candidates(Map<String, dynamic> v) =>
+      ((v['website_photo_candidates'] as List?) ?? const [])
+          .whereType<Map>()
+          .map((m) => Map<String, dynamic>.from(m))
+          .toList();
+
+  /// At Approve: which candidates the founder kept (and in what
+  /// order) and which were skipped. Best-effort; never blocks.
+  Future<void> _recordPicks(Map<String, dynamic> v) async {
+    final cands = _candidates(v);
+    if (cands.isEmpty) return;
+    final kept = _pasted(v);
+    final rows = cands
+        .map((c) => {
+              'venue_id': v['id'],
+              'uri': c['uri'],
+              'source': c['source'],
+              'picked': kept.contains(c['uri']),
+              'position': kept.contains(c['uri']) ? kept.indexOf(c['uri']) : null,
+              'score': c['score'],
+            })
+        .toList();
+    try {
+      await _supabase.recordPhotoPicks(rows);
+    } catch (_) {}
+  }
+
   /// Paste up to five image links; saved on the venue, used by the
   /// sync for the Images entry when the draft is created.
   Future<void> _editPhotos(Map<String, dynamic> v) async {
@@ -1113,6 +1145,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                     .where((x) => x != null && '$x'.isNotEmpty)
                     .join(' '),
                 placeId: v['google_place_id'],
+                candidates: _candidates(v),
                 initial: _pasted(v))));
     if (saved == null) return;
     final p = _prepared(v);
@@ -1129,6 +1162,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         v,
         {
           'website_photos': saved,
+          'website_photos_auto': false,
           if (p.isNotEmpty) 'website_prepared': next,
         },
         '${saved.length} photo${saved.length == 1 ? '' : 's'} saved.');
@@ -1139,6 +1173,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     final urls = _pasted(v);
     final count = _photoCount(v);
     final enough = count >= minPhotos;
+    final auto = v['website_photos_auto'] == true;
     return Padding(
       padding: const EdgeInsets.only(top: 6, bottom: 4),
       child: Row(children: [
@@ -1171,18 +1206,31 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         const SizedBox(width: 8),
         Expanded(
           child: Text(
-              enough
-                  ? '$count photo${count == 1 ? '' : 's'} ready for the page'
-                  : '$count of $minPhotos photos needed before Approve',
+              auto
+                  ? '$count photo${count == 1 ? '' : 's'} suggested. Check them, '
+                      'or Approve to keep them'
+                  : enough
+                      ? '$count photo${count == 1 ? '' : 's'} ready for the page'
+                      : '$count of $minPhotos photos needed before Approve',
               style: TextStyle(
                   fontSize: 12.5,
-                  color: enough ? Brand.success : Brand.goldTextDark,
+                  color: auto
+                      ? Brand.goldTextDark
+                      : (enough ? Brand.success : Brand.goldTextDark),
                   fontWeight: FontWeight.w600)),
         ),
         TextButton.icon(
             onPressed: () => _editPhotos(v),
-            icon: const Icon(Icons.add_photo_alternate_outlined, size: 16),
-            label: Text(urls.isEmpty ? 'Add photos' : 'Edit photos')),
+            icon: Icon(
+                auto
+                    ? Icons.auto_awesome_outlined
+                    : Icons.add_photo_alternate_outlined,
+                size: 16),
+            label: Text(auto
+                ? 'Review'
+                : urls.isEmpty
+                    ? (_candidates(v).isEmpty ? 'Add photos' : 'Pick photos')
+                    : 'Edit photos')),
       ]),
     );
   }
@@ -2372,10 +2420,12 @@ class _PhotosPage extends StatefulWidget {
   final String searchText;
   final String? placeId;
   final List<String> initial;
+  final List<Map<String, dynamic>> candidates;
   const _PhotosPage(
       {required this.name,
       required this.searchText,
       required this.initial,
+      this.candidates = const [],
       this.placeId});
   @override
   State<_PhotosPage> createState() => _PhotosPageState();
@@ -2400,6 +2450,131 @@ class _PhotosPageState extends State<_PhotosPage> {
       .where((u) => u.startsWith('http'))
       .toList();
 
+  /// Tap a suggested photo: into the first free slot, or out again.
+  void _toggle(String uri) {
+    setState(() {
+      for (final c in _ctl) {
+        if (c.text.trim() == uri) {
+          c.clear();
+          return;
+        }
+      }
+      for (final c in _ctl) {
+        if (c.text.trim().isEmpty) {
+          c.text = uri;
+          return;
+        }
+      }
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Five already. Remove one first.')));
+    });
+  }
+
+  int _slotOf(String uri) {
+    for (var i = 0; i < _ctl.length; i++) {
+      if (_ctl[i].text.trim() == uri) return i;
+    }
+    return -1;
+  }
+
+  /// Short, human label from the brief sentence the photo matched.
+  static String _short(String? label) {
+    if (label == null) return '';
+    final l = label.toLowerCase();
+    if (l.contains('food')) return 'Food close-up';
+    if (l.contains('cup of coffee') || l.contains('drink')) return 'Drink close-up';
+    if (l.contains('pastries')) return 'Pastry display';
+    if (l.contains('menu')) return 'Menu';
+    if (l.contains('selfie')) return 'Person';
+    if (l.contains('logo')) return 'Logo or sign';
+    if (l.contains('blurry')) return 'Dark or blurry';
+    if (l.contains('coworking')) return 'Coworking interior';
+    if (l.contains('laptops')) return 'People working';
+    if (l.contains('front entrance')) return 'Front';
+    if (l.contains('terrace')) return 'Terrace';
+    if (l.contains('coffee on a table')) return 'Coffee and room';
+    if (l.contains('coliving')) return 'Common area';
+    if (l.contains('interior')) return 'Interior';
+    return '';
+  }
+
+  Widget _grid() {
+    final cands = widget.candidates;
+    final width = MediaQuery.of(context).size.width;
+    final cols = width > 600 ? 4 : 3;
+    final tile = ((width > 760 ? 760 : width) - 28 - (cols - 1) * 6) / cols;
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      children: cands.map((c) {
+        final uri = '${c['uri']}';
+        final slot = _slotOf(uri);
+        final good = c['good'] != false;
+        final label = _short(c['label'] as String?);
+        return InkWell(
+          onTap: () => _toggle(uri),
+          borderRadius: BorderRadius.circular(10),
+          child: Stack(children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: Opacity(
+                opacity: good ? 1 : .55,
+                child: Image.network('${c['thumb'] ?? uri}',
+                    width: tile,
+                    height: tile * .75,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                        width: tile,
+                        height: tile * .75,
+                        color: Brand.field,
+                        child: const Icon(Icons.broken_image_outlined,
+                            color: Brand.inkMuted))),
+              ),
+            ),
+            if (slot >= 0)
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Brand.accent, width: 3)),
+                ),
+              ),
+            if (slot >= 0)
+              Positioned(
+                top: 6,
+                left: 6,
+                child: CircleAvatar(
+                    radius: 12,
+                    backgroundColor: Brand.accent,
+                    child: Text('${slot + 1}',
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800))),
+              ),
+            if (label.isNotEmpty)
+              Positioned(
+                left: 6,
+                right: 6,
+                bottom: 6,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(6)),
+                  child: Text(
+                      '$label${c['source'] == 'community' ? ' · nomad' : ''}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: Colors.white, fontSize: 10.5)),
+                ),
+              ),
+          ]),
+        );
+      }).toList(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final n = _urls.length;
@@ -2417,16 +2592,44 @@ class _PhotosPageState extends State<_PhotosPage> {
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 760),
           child: ListView(padding: const EdgeInsets.all(14), children: [
+            if (widget.candidates.isNotEmpty) ...[
+              const Text('SUGGESTED',
+                  style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: .8,
+                      color: Brand.inkMuted)),
+              const SizedBox(height: 4),
+              const Text(
+                  'The place\'s Google photos and nomads\' photos, best first: '
+                  'the ones that show the space, not the food. The numbered '
+                  'ones are in. Tap to add or remove; the order is the order '
+                  'on the page, the first is the main picture.',
+                  style: TextStyle(fontSize: 12.5, height: 1.45, color: Brand.inkSecondary)),
+              const SizedBox(height: 8),
+              _grid(),
+              const SizedBox(height: 14),
+              const Text('OR PASTE LINKS',
+                  style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: .8,
+                      color: Brand.inkMuted)),
+              const SizedBox(height: 6),
+            ],
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                   color: Brand.field, borderRadius: BorderRadius.circular(12)),
-              child: const Text(
-                  'Open the place on Google, right-click a photo, choose '
-                  '"Copy image address", and paste it below. At least three; '
-                  'the first one is the main picture. They go straight into '
-                  'the Images entry when the draft is created.',
-                  style: TextStyle(fontSize: 12.5, height: 1.45)),
+              child: Text(
+                  widget.candidates.isEmpty
+                      ? 'Suggestions arrive a minute or two after queueing. '
+                          'Or open the place on Google, right-click a photo, '
+                          'choose "Copy image address", and paste it below. '
+                          'At least three; the first one is the main picture.'
+                      : 'Any photo not in the grid: right-click it on Google, '
+                          '"Copy image address", paste into a free slot.',
+                  style: const TextStyle(fontSize: 12.5, height: 1.45)),
             ),
             const SizedBox(height: 10),
             // Straight to the place on Google (its panel with the
