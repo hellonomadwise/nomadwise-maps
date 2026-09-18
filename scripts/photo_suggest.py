@@ -187,8 +187,8 @@ def ensure_model():
         import open_clip
         from PIL import Image
         model, _, preprocess = open_clip.create_model_and_transforms(
-            'ViT-B-32', pretrained='openai')
-        tokenizer = open_clip.get_tokenizer('ViT-B-32')
+            'ViT-B-32-quickgelu', pretrained='openai')
+        tokenizer = open_clip.get_tokenizer('ViT-B-32-quickgelu')
         model.eval()
 
         def encode_images(blobs):
@@ -322,19 +322,22 @@ def resolve_names(v, names):
     return [known[n] for n in names if n in known]
 
 
-def candidates_for(v):
+def candidates_for(v, wide=False):
     """Google photos (plain links) then community photos. The names
-    come from the nightly snapshot when it has them (free), else from
-    one Details call. Each: {uri, thumb, source}."""
+    come from the nightly snapshot (six, free); with wide=True the
+    place's full list (up to ten) is fetched with one Details call.
+    Each: {uri, thumb, source}."""
     out = []
     snap = v.get('photos') or ((v.get('g_details') or {}).get('photos') or [])
     names = [p.get('name') for p in snap if p.get('name')]
     pid = v.get('google_place_id')
-    if not names and pid and PLACES_KEY:
+    if (wide or not names) and pid and PLACES_KEY:
         try:
             d = google(f'places/{pid}', mask='photos') or {}
-            names = [p.get('name') for p in (d.get('photos') or [])[:MAX_GOOGLE]
-                     if p.get('name')]
+            full = [p.get('name') for p in (d.get('photos') or [])[:MAX_GOOGLE]
+                    if p.get('name')]
+            if full:
+                names = full
         except Exception as e:  # noqa: BLE001
             report['errors'].append(f"{v.get('name')}: details {e}")
     if names and PLACES_KEY:
@@ -356,6 +359,39 @@ def candidates_for(v):
             seen.add(c['uri'])
             uniq.append(c)
     return uniq
+
+
+def score_all(v, cands, model, prompts, taste):
+    """Score candidates; returns the scored list (empty without a
+    model). Embeddings are kept for learning."""
+    scored = []
+    blobs, keep = [], []
+    for c in cands:
+        try:
+            blobs.append(fetch_bytes(c['thumb']))
+            keep.append(c)
+        except Exception as e:  # noqa: BLE001
+            report['errors'].append(f"{v.get('name')}: fetch {e}")
+    try:
+        embs = model[0](blobs) if blobs else []
+    except Exception as e:  # noqa: BLE001
+        report['errors'].append(f"{v.get('name')}: encode {e}")
+        embs = []
+    rows = []
+    for c, e in zip(keep, embs):
+        base, total, label, good = score(e, prompts, taste)
+        scored.append(dict(c, score=round(total, 3), base=round(base, 3),
+                           label=label, good=good))
+        rows.append({'uri': c['uri'], 'venue_id': v['id'],
+                     'embedding': [round(x, 4) for x in e],
+                     'label': label, 'base': round(base, 3)})
+    if rows:
+        try:
+            sb('photo_embeddings?on_conflict=uri', method='POST', body=rows,
+               prefer='resolution=merge-duplicates,return=minimal')
+        except Exception as e:  # noqa: BLE001
+            report['errors'].append(f'embeddings write: {e}')
+    return scored
 
 
 def suggest():
@@ -397,36 +433,16 @@ def suggest():
                prefer='return=minimal')
             continue
 
-        scored = []
-        if model:
-            blobs, keep = [], []
-            for c in cands:
-                try:
-                    blobs.append(fetch_bytes(c['thumb']))
-                    keep.append(c)
-                except Exception as e:  # noqa: BLE001
-                    report['errors'].append(f"{v.get('name')}: fetch {e}")
-            try:
-                embs = model[0](blobs) if blobs else []
-            except Exception as e:  # noqa: BLE001
-                report['errors'].append(f"{v.get('name')}: encode {e}")
-                embs = []
-            rows = []
-            for c, e in zip(keep, embs):
-                base, total, label, good = score(e, prompts, taste)
-                c = dict(c, score=round(total, 3), base=round(base, 3),
-                         label=label, good=good)
-                scored.append(c)
-                rows.append({'uri': c['uri'], 'venue_id': v['id'],
-                             'embedding': [round(x, 4) for x in e],
-                             'label': label, 'base': round(base, 3)})
-            if rows:
-                try:
-                    sb('photo_embeddings?on_conflict=uri', method='POST',
-                       body=rows,
-                       prefer='resolution=merge-duplicates,return=minimal')
-                except Exception as e:  # noqa: BLE001
-                    report['errors'].append(f'embeddings write: {e}')
+        scored = score_all(v, cands, model, prompts, taste) if model else []
+        good_n = sum(1 for c in scored if c.get('good'))
+        if model and scored and good_n < SUGGEST:
+            # Not five usable ones among the snapshot's six: widen to the
+            # place's full list (one Details call, a few more links).
+            more = [c for c in candidates_for(v, wide=True)
+                    if c['uri'] not in {x['uri'] for x in scored}]
+            if more:
+                scored.extend(score_all(v, more, model, prompts, taste))
+                report['widened'] = report.get('widened', 0) + 1
         if not scored and v.get('_rescore'):
             continue        # still no model; leave the fallback as is
         if not scored:
@@ -439,12 +455,14 @@ def suggest():
 
         ranked = sorted(scored, key=lambda c: -c['score'])
         chosen = [c for c in ranked if c.get('good')][:SUGGEST]
-        if len(chosen) < MIN_SUGGEST:
-            for c in ranked:
-                if c not in chosen:
-                    chosen.append(c)
-                if len(chosen) >= MIN_SUGGEST:
-                    break
+        # Five is the target; the rest are filled with the best of the
+        # weak ones, flagged so the card says "check them".
+        for c in ranked:
+            if len(chosen) >= SUGGEST:
+                break
+            if c not in chosen:
+                c['weak'] = True
+                chosen.append(c)
         chosen_uris = {c['uri'] for c in chosen}
         for c in ranked:
             c['suggested'] = c['uri'] in chosen_uris

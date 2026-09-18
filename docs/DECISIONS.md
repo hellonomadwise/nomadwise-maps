@@ -324,3 +324,15 @@ nomadwise.io, so it is switched off (RESOLVE_PER_NIGHT = 0) and the
 free photo calls are kept for the website pipeline. The first night
 already covered 150 venues. Turn it to 30 (free, slow) or 150 (about
 $20, five nights) when the app gets real traffic.
+
+## Five photos, widening the pool (Sep 2026)
+
+The target is five usable photos per page. The snapshot holds six
+Google photo names; when fewer than five of them pass the brief, the
+script fetches the place's full list (up to ten, one Details call)
+and scores the extra ones too. If there are still fewer than five
+good ones, the five are filled with the best of the weak ones,
+flagged "weak", and the card says "5 suggested, N weak (few clear
+shots on Google). Check them" so the founder looks before approving.
+Google's API exposes at most ten photos per place; beyond that the
+founder pastes links by hand as before.

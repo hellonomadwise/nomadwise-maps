@@ -1174,6 +1174,13 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     final count = _photoCount(v);
     final enough = count >= minPhotos;
     final auto = v['website_photos_auto'] == true;
+    // Suggested photos the brief was not sure about (filled in to reach
+    // five when the place had too few clear shots).
+    final weak = auto
+        ? _candidates(v)
+            .where((c) => c['suggested'] == true && c['weak'] == true)
+            .length
+        : 0;
     return Padding(
       padding: const EdgeInsets.only(top: 6, bottom: 4),
       child: Row(children: [
@@ -1207,8 +1214,11 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         Expanded(
           child: Text(
               auto
-                  ? '$count photo${count == 1 ? '' : 's'} suggested. Check them, '
-                      'or Approve to keep them'
+                  ? (weak > 0
+                      ? '$count suggested, $weak weak (few clear shots on '
+                          'Google). Check them'
+                      : '$count photo${count == 1 ? '' : 's'} suggested. Check them, '
+                          'or Approve to keep them')
                   : enough
                       ? '$count photo${count == 1 ? '' : 's'} ready for the page'
                       : '$count of $minPhotos photos needed before Approve',
@@ -2563,7 +2573,8 @@ class _PhotosPageState extends State<_PhotosPage> {
                       color: Colors.black54,
                       borderRadius: BorderRadius.circular(6)),
                   child: Text(
-                      '$label${c['source'] == 'community' ? ' · nomad' : ''}',
+                      '$label${c['weak'] == true ? ' · weak' : ''}'
+                      '${c['source'] == 'community' ? ' · nomad' : ''}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(color: Colors.white, fontSize: 10.5)),
