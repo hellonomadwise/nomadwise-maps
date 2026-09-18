@@ -936,10 +936,15 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         _title(v, badge: 'QUEUED', badgeColor: Brand.inkSecondary),
         const SizedBox(height: 8),
+        _taxonomyRow(v),
+        const SizedBox(height: 8),
         if (region != null) ...[
-          _kv(Icons.place_outlined,
-              '${region['name']}${region['country'] != null ? ', ${region['country']}' : ''}'
-              '${chosen ? '' : '  (matched from the city; change it if wrong)'}'),
+          if (!chosen)
+            const Padding(
+              padding: EdgeInsets.only(bottom: 6),
+              child: Text('Region matched from the city; tap it if wrong.',
+                  style: TextStyle(fontSize: 11.5, color: Brand.inkMuted)),
+            ),
           InkWell(
             onTap: () => _editSlug(v),
             borderRadius: BorderRadius.circular(10),
@@ -1259,6 +1264,8 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         _title(v, badge: 'NEW', badgeColor: Brand.violet),
         const SizedBox(height: 8),
+        _taxonomyRow(v),
+        const SizedBox(height: 8),
         Wrap(spacing: 6, runSpacing: 6, children: [
           if (noLaptops) const StatusChip('No laptops', dotColor: Brand.red),
           if (rating != null)
@@ -1520,6 +1527,93 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       i = j + 1;
     }
     return parts.join(' · ');
+  }
+
+  /// Country, Region and Location as the site will file the space,
+  /// spelled out under the title so nothing has to be guessed from
+  /// the address line. Region and Location are tappable pickers.
+  Widget _taxonomyRow(Map<String, dynamic> v) {
+    final region = _regionFor(v);
+    final newRegion = v['website_new_region'] as String?;
+    final newLocation = v['website_new_location'] as String?;
+    final country = _countryOf(v);
+
+    // Location: the founder's choice, else the proposal, else a guess.
+    String locText;
+    Color locColor = Brand.ink;
+    final locOverride = v['website_location_override'] as String?;
+    final p = _prepared(v);
+    if (newLocation != null && newLocation.isNotEmpty) {
+      locText = '$newLocation (new, requested)';
+      locColor = Brand.goldTextDark;
+    } else if (locOverride == 'none') {
+      locText = 'None (your choice)';
+      locColor = Brand.inkSecondary;
+    } else if (locOverride != null) {
+      final l = _locations.where((l) => l['id'] == locOverride).firstOrNull;
+      locText = l != null ? '${l['name']}' : 'Chosen';
+    } else if (p['location'] != null) {
+      locText = '${p['location']}${p['location_chosen'] == true ? '' : ' (guess)'}';
+      if (p['location_chosen'] != true) locColor = Brand.goldTextDark;
+    } else {
+      final g = region == null ? null : _locationGuess(v, region['id']);
+      if (g != null) {
+        locText = '${g['name']} (guess)';
+        locColor = Brand.goldTextDark;
+      } else {
+        locText = region == null ? 'Pick a Region first' : 'None';
+        locColor = Brand.inkMuted;
+      }
+    }
+
+    Widget cell(String label, String value, Color color,
+            {VoidCallback? onTap}) =>
+        InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            constraints: const BoxConstraints(minWidth: 96),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+                color: Brand.surface,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Brand.border)),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(label,
+                  style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: .6,
+                      color: Brand.inkMuted)),
+              const SizedBox(height: 1),
+              Row(mainAxisSize: MainAxisSize.min, children: [
+                Text(value,
+                    style: TextStyle(
+                        fontSize: 12.5, fontWeight: FontWeight.w600, color: color)),
+                if (onTap != null) ...[
+                  const SizedBox(width: 4),
+                  const Icon(Icons.expand_more, size: 14, color: Brand.inkMuted),
+                ],
+              ]),
+            ]),
+          ),
+        );
+
+    return Wrap(spacing: 6, runSpacing: 6, children: [
+      cell('COUNTRY', country ?? 'Unknown',
+          country == null ? Brand.red : Brand.ink),
+      cell(
+          'REGION',
+          newRegion != null && newRegion.isNotEmpty
+              ? '$newRegion (new, requested)'
+              : region?['name'] ?? 'Not matched',
+          newRegion != null && newRegion.isNotEmpty
+              ? Brand.goldTextDark
+              : (region == null ? Brand.red : Brand.ink),
+          onTap: () => _pickRegion(v)),
+      cell('LOCATION', locText, locColor,
+          onTap: region == null ? null : () => _pickLocation(v)),
+    ]);
   }
 
   Widget _kv(IconData icon, String text, {bool muted = false}) => Padding(
