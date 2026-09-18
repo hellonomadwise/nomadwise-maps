@@ -217,3 +217,17 @@ Released, Sitemap.
 Still to come: moderation of business-written descriptions (a
 "words waiting for review" tab in the same inbox), the live read of
 Webflow's sitemap flag, and the closed-listings cleanup.
+
+## City and area pickers on the review form (Sep 2026)
+
+The review form shows a City field (the nomadwise.io Region the
+space matched, spelled the site's way) and a Neighbourhood field
+that opens a searchable list of the site's areas for that city.
+Both are searchable bottom sheets, not chip rows: London alone has
+dozens of areas. The nomad can pick a city page by hand when Google's
+city matched nothing or matched wrongly, keep Google's city, and
+type an area that is not on the site yet. Neither picker creates a
+Region or Location in Webflow; unknown names reach the founders
+through the inbox as before. A verified review now also sets the
+venue's city (migration 56), so older "Lisboa" records become
+"Lisbon" the next time a nomad reviews them.

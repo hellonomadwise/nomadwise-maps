@@ -87,7 +87,12 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
 
   /// The nomadwise.io Region (city page) for this space's city, if
   /// there is one. "Lisboa" from Google finds "Lisbon" on the site.
+  /// A Region the nomad picked by hand (the city Google gave was
+  /// wrong, or matched nothing on the site).
+  Map<String, dynamic>? _regionOverride;
+
   Map<String, dynamic>? _siteRegion() {
+    if (_regionOverride != null) return _regionOverride;
     final city = _norm(_placeCity);
     if (city.isEmpty || _siteRegions.isEmpty) return null;
     for (final r in _siteRegions) {
@@ -107,20 +112,65 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
   /// use one name.
   String? get _cityForSave => _siteRegion()?['name'] as String? ?? _placeCity;
 
-  /// The site's area pages for this space's city, filtered by what
-  /// the nomad has typed so far. Empty when the city has no page.
-  List<String> _siteAreaSuggestions() {
+  /// The site's area pages for this space's city, A to Z. Empty when
+  /// the city has no page, in which case the field is free text.
+  List<String> _siteAreas() {
     final region = _siteRegion();
     if (region == null) return const [];
-    final typed = _norm(_neighbourhood.text);
-    final names = _siteLocations
+    return _siteLocations
         .where((l) => l['region_id'] == region['id'])
         .map((l) => '${l['name']}')
-        .where((n) => typed.isEmpty || _norm(n).contains(typed))
         .toList()
-      ..sort();
-    return names.take(14).toList();
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
   }
+
+  /// Opens the searchable area list. The nomad can pick an area the
+  /// site already has, type their own, or clear the field.
+  Future<void> _pickArea() async {
+    final chosen = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => _AreaPicker(
+          city: _cityForSave ?? 'this city',
+          areas: _siteAreas(),
+          current: _neighbourhood.text.trim()),
+    );
+    if (chosen == null || !mounted) return;
+    setState(() {
+      _neighbourhood.text = chosen;
+      _neighbourhood.selection =
+          TextSelection.collapsed(offset: chosen.length);
+    });
+  }
+  /// Opens the searchable list of the site's Regions (city pages).
+  Future<void> _pickRegion() async {
+    final regions = [..._siteRegions]
+      ..sort((a, b) =>
+          '${a['name']}'.toLowerCase().compareTo('${b['name']}'.toLowerCase()));
+    final chosen = await showModalBottomSheet<Object>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => _CityPicker(
+          regions: regions,
+          currentId: _siteRegion()?['id'] as String?,
+          googleCity: _placeCity),
+    );
+    if (chosen == null || !mounted) return;
+    setState(() {
+      // 'google' keeps what Google said; otherwise a Region row.
+      _regionOverride = chosen == 'google' ? null : chosen as Map<String, dynamic>;
+      // An area from another city makes no sense any more.
+      if (_neighbourhood.text.trim().isNotEmpty &&
+          !_siteAreas().contains(_neighbourhood.text.trim())) {
+        _neighbourhood.clear();
+      }
+    });
+  }
+
   final _wifi = TextEditingController();
   final _wifiSsid = TextEditingController();
   String _type = 'cafe';
@@ -255,6 +305,9 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
     if (v != null) {
       _name.text = v.name;
       _neighbourhood.text = v.neighbourhood ?? '';
+      // The stored city (may be Google's spelling on older records).
+      _placeCity ??= v.city;
+      _loadSiteAreas();
       _type = v.type;
       if (v.wifiSpeedMbps != null) _wifi.text = v.wifiSpeedLabel ?? '';
       _features['laptops_allowed'] = v.laptopsAllowed;
@@ -324,6 +377,7 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
       _placeLat = live?.lat;
       _placeLng = live?.lng;
       _placeCity = live?.city;
+      _regionOverride = null;
       _loadSiteAreas();
       if (live?.displayName != null) _name.text = live!.displayName!;
       if (live != null) {
@@ -452,6 +506,9 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
         'name': _name.text.trim(),
         'type': _type,
         'neighbourhood': _neighbourhood.text.trim(),
+        // The city as the site spells it, once a Region matches or the
+        // reviewer picked one. Applied on the venue when verified.
+        if (_siteRegion() != null) 'city': _cityForSave,
         if (_wifi.text.trim().isNotEmpty)
           'wifi_speed_mbps': _typedMbps(),
           if (_badPhotos.isNotEmpty)
@@ -660,40 +717,57 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
             onChanged:
                 isConfirm ? null : (v) => setState(() => _type = v!),
           ),
-          const SizedBox(height: 14),
-          const FieldLabel('Neighbourhood', optional: true),
-          TextFormField(
-            controller: _neighbourhood,
-            onChanged: (_) => setState(() {}),
-            decoration:
-                const InputDecoration(hintText: 'e.g. Old town'),
-          ),
-          if (_siteAreaSuggestions().isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Text(
-                'Areas nomadwise.io already knows in ${_cityForSave ?? 'this city'} '
-                '(tap one, or type your own):',
-                style: const TextStyle(
-                    fontSize: 11.5, color: Brand.inkMuted)),
-            const SizedBox(height: 6),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: _siteAreaSuggestions()
-                  .map((n) => ActionChip(
-                        label: Text(n, style: const TextStyle(fontSize: 12)),
-                        backgroundColor: _neighbourhood.text.trim() == n
-                            ? Brand.accentTint
-                            : null,
-                        onPressed: () => setState(() {
-                          _neighbourhood.text = n;
-                          _neighbourhood.selection = TextSelection.collapsed(
-                              offset: n.length);
-                        }),
-                      ))
-                  .toList(),
+          if (_siteRegions.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            const FieldLabel('City'),
+            InkWell(
+              onTap: _pickRegion,
+              borderRadius: BorderRadius.circular(12),
+              child: InputDecorator(
+                decoration: InputDecoration(
+                  suffixIcon: const Icon(Icons.arrow_drop_down),
+                  helperText: _siteRegion() == null
+                      ? 'Not on nomadwise.io yet. Tap to choose the nearest '
+                          'city page, or leave it and the founders will sort it.'
+                      : (_siteRegion()!['country'] != null
+                          ? '${_siteRegion()!['country']}'
+                          : null),
+                ),
+                child: Text(
+                  _cityForSave ?? 'Choose a city',
+                  style: TextStyle(
+                      color: _cityForSave == null ? Brand.inkMuted : null),
+                ),
+              ),
             ),
           ],
+          const SizedBox(height: 14),
+          const FieldLabel('Neighbourhood', optional: true),
+          if (_siteAreas().isNotEmpty)
+            // The site knows this city's areas: a searchable list, with
+            // room to type a new one.
+            TextFormField(
+              controller: _neighbourhood,
+              readOnly: true,
+              onTap: _pickArea,
+              decoration: InputDecoration(
+                hintText: 'Choose an area of ${_cityForSave ?? 'the city'}',
+                suffixIcon: _neighbourhood.text.trim().isEmpty
+                    ? const Icon(Icons.arrow_drop_down)
+                    : IconButton(
+                        icon: const Icon(Icons.close, size: 18),
+                        tooltip: 'Clear',
+                        onPressed: () => setState(() => _neighbourhood.clear()),
+                      ),
+              ),
+            )
+          else
+            TextFormField(
+              controller: _neighbourhood,
+              onChanged: (_) => setState(() {}),
+              decoration:
+                  const InputDecoration(hintText: 'e.g. Old town'),
+            ),
           const SizedBox(height: 24),
           SectionLabel('WIFI',
               trailing: Text(
@@ -1012,6 +1086,7 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
                   _placeLat = null;
                   _placeLng = null;
                   _placeCity = null;
+                  _regionOverride = null;
                   _refPhotos = [];
                   _refRating = null;
                   _existing = null;
@@ -1138,6 +1213,205 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
       navy: true,
       icon: Icons.speed,
       onPressed: _testWifiHere,
+    );
+  }
+}
+
+/// Searchable list of the areas nomadwise.io already has for a city.
+/// Returns the chosen name, the typed name when nothing matches, or
+/// an empty string to clear the field; null when dismissed.
+class _AreaPicker extends StatefulWidget {
+  final String city;
+  final List<String> areas;
+  final String current;
+  const _AreaPicker(
+      {required this.city, required this.areas, required this.current});
+  @override
+  State<_AreaPicker> createState() => _AreaPickerState();
+}
+
+class _AreaPickerState extends State<_AreaPicker> {
+  String _q = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final q = _q.trim();
+    final ql = q.toLowerCase();
+    final rows = ql.isEmpty
+        ? widget.areas
+        : widget.areas.where((a) => a.toLowerCase().contains(ql)).toList();
+    final exact = widget.areas.any((a) => a.toLowerCase() == ql);
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.only(
+            left: 16,
+            right: 16,
+            top: 16,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 8),
+        child: SizedBox(
+          height: MediaQuery.of(context).size.height * .7,
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Which area of ${widget.city}?',
+                style:
+                    const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+            const SizedBox(height: 4),
+            const Text(
+                'These are the areas nomadwise.io already knows. Not listed? '
+                'Type it and use it anyway.',
+                style: TextStyle(fontSize: 12.5, color: Brand.inkMuted)),
+            const SizedBox(height: 10),
+            TextField(
+              autofocus: true,
+              textCapitalization: TextCapitalization.words,
+              decoration: InputDecoration(
+                  prefixIcon: const Icon(Icons.search),
+                  hintText: 'Search or type an area',
+                  filled: true,
+                  fillColor: Brand.field,
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none)),
+              onChanged: (s) => setState(() => _q = s),
+              onSubmitted: (s) {
+                final t = s.trim();
+                if (t.isNotEmpty) Navigator.pop(context, t);
+              },
+            ),
+            const SizedBox(height: 6),
+            Expanded(
+              child: ListView(children: [
+                if (q.isNotEmpty && !exact)
+                  ListTile(
+                    dense: true,
+                    leading: const Icon(Icons.add, size: 20),
+                    title: Text("Use '$q'"),
+                    subtitle: const Text('Not on the site yet',
+                        style: TextStyle(fontSize: 12)),
+                    onTap: () => Navigator.pop(context, q),
+                  ),
+                if (q.isEmpty && widget.current.isNotEmpty)
+                  ListTile(
+                    dense: true,
+                    leading: const Icon(Icons.close, size: 20),
+                    title: const Text('No neighbourhood'),
+                    onTap: () => Navigator.pop(context, ''),
+                  ),
+                for (final a in rows)
+                  ListTile(
+                    dense: true,
+                    title: Text(a),
+                    trailing: a == widget.current
+                        ? const Icon(Icons.check, size: 18)
+                        : null,
+                    onTap: () => Navigator.pop(context, a),
+                  ),
+                if (rows.isEmpty && q.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.all(12),
+                    child: Text('No areas yet.',
+                        style: TextStyle(color: Brand.inkMuted)),
+                  ),
+              ]),
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+
+/// Searchable list of the site's Regions (city pages), with the
+/// country under each. Returns the Region row, 'google' to keep the
+/// city Google gave, or null when dismissed.
+class _CityPicker extends StatefulWidget {
+  final List<Map<String, dynamic>> regions;
+  final String? currentId;
+  final String? googleCity;
+  const _CityPicker(
+      {required this.regions, required this.currentId, required this.googleCity});
+  @override
+  State<_CityPicker> createState() => _CityPickerState();
+}
+
+class _CityPickerState extends State<_CityPicker> {
+  String _q = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final q = _q.trim().toLowerCase();
+    final rows = q.isEmpty
+        ? widget.regions
+        : widget.regions
+            .where((r) =>
+                '${r['name']} ${r['country'] ?? ''}'.toLowerCase().contains(q))
+            .toList();
+    final google = widget.googleCity?.trim() ?? '';
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.only(
+            left: 16,
+            right: 16,
+            top: 16,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 8),
+        child: SizedBox(
+          height: MediaQuery.of(context).size.height * .7,
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('Which city is this space in?',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+            const SizedBox(height: 4),
+            const Text(
+                'These are the city pages nomadwise.io already has.',
+                style: TextStyle(fontSize: 12.5, color: Brand.inkMuted)),
+            const SizedBox(height: 10),
+            TextField(
+              autofocus: true,
+              decoration: InputDecoration(
+                  prefixIcon: const Icon(Icons.search),
+                  hintText: 'Search cities',
+                  filled: true,
+                  fillColor: Brand.field,
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none)),
+              onChanged: (s) => setState(() => _q = s),
+            ),
+            const SizedBox(height: 6),
+            Expanded(
+              child: ListView(children: [
+                if (q.isEmpty && google.isNotEmpty)
+                  ListTile(
+                    dense: true,
+                    leading: const Icon(Icons.place_outlined, size: 20),
+                    title: Text("Keep Google's: $google"),
+                    subtitle: const Text('Let the founders match it later',
+                        style: TextStyle(fontSize: 12)),
+                    onTap: () => Navigator.pop(context, 'google'),
+                  ),
+                for (final r in rows)
+                  ListTile(
+                    dense: true,
+                    title: Text('${r['name']}'),
+                    subtitle: r['country'] != null
+                        ? Text('${r['country']}',
+                            style: const TextStyle(fontSize: 12))
+                        : null,
+                    trailing: r['id'] == widget.currentId
+                        ? const Icon(Icons.check, size: 18)
+                        : null,
+                    onTap: () => Navigator.pop(context, r),
+                  ),
+                if (rows.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.all(12),
+                    child: Text('No city page with that name yet.',
+                        style: TextStyle(color: Brand.inkMuted)),
+                  ),
+              ]),
+            ),
+          ]),
+        ),
+      ),
     );
   }
 }
