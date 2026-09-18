@@ -159,9 +159,12 @@ def ensure_model():
         import open_clip  # noqa: F401
     except ImportError:
         try:
+            # torch and torchvision must come from the same (CPU) index
+            # in one go, or pip pairs a CPU torch with a GPU torchvision
+            # and the model fails with "operator torchvision::nms".
             subprocess.run(
                 [sys.executable, '-m', 'pip', 'install', '--quiet',
-                 'torch', '--index-url',
+                 'torch', 'torchvision', '--index-url',
                  'https://download.pytorch.org/whl/cpu'],
                 check=True, timeout=900)
             subprocess.run(
@@ -356,16 +359,26 @@ def candidates_for(v):
 
 
 def suggest():
+    cols = ('&select=id,name,google_place_id,website_photos,website_photos_auto,'
+            'google_photo_urls,photos:g_details->photos')
     try:
         todo = sb('venues?website_status=eq.queued&website_approved_at=is.null'
-                  '&website_photo_candidates=is.null'
-                  '&select=id,name,google_place_id,website_photos,'
-                  'google_photo_urls,photos:g_details->photos'
+                  '&website_photo_candidates=is.null' + cols +
+                  '&order=created_at.asc&limit=20') or []
+        # Spaces that only got Google's order because the model was not
+        # available at the time: score them properly now.
+        redo = sb('venues?website_status=eq.queued&website_approved_at=is.null'
+                  '&website_photo_candidates->0->>base=is.null'
+                  '&website_photo_candidates->0->>uri=not.is.null' + cols +
                   '&order=created_at.asc&limit=20') or []
     except Exception as e:  # noqa: BLE001
         report['errors'].append(f'venues read: {e}')
         return
+    for v in redo:
+        v['_rescore'] = True
+    todo = todo + redo
     report['spaces'] = len(todo)
+    report['rescored'] = len(redo)
     if not todo:
         return
     now = datetime.datetime.now(datetime.timezone.utc).isoformat()
@@ -414,6 +427,8 @@ def suggest():
                        prefer='resolution=merge-duplicates,return=minimal')
                 except Exception as e:  # noqa: BLE001
                     report['errors'].append(f'embeddings write: {e}')
+        if not scored and v.get('_rescore'):
+            continue        # still no model; leave the fallback as is
         if not scored:
             # No scoring available: Google's own order is a fair guess
             # (the first photos are usually the owner's or the most
@@ -438,7 +453,9 @@ def suggest():
                   if str(u).startswith('http')]
         patch = {'website_photo_candidates': ranked,
                  'website_photo_candidates_at': now}
-        if not pasted and chosen:
+        # Untouched suggestions are replaced by the scored ones; photos
+        # the founder chose or pasted are never overwritten.
+        if (not pasted or v.get('website_photos_auto')) and chosen:
             # Pre-fill the page's photos; the founder sees them on the
             # card, flagged as suggested, and Approve confirms them.
             patch['website_photos'] = [c['uri'] for c in chosen]
