@@ -40,6 +40,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   List<Map<String, dynamic>> _regions = [];
   List<Map<String, dynamic>> _hidden = [];
   List<Map<String, dynamic>> _locations = [];
+  List<Map<String, dynamic>> _countries = [];
   String? _error;
 
   @override
@@ -58,6 +59,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         _supabase.webflowRegions(),
         _supabase.websiteHidden(),
         _supabase.webflowLocations(),
+        _supabase.webflowCountries(),
       ]);
       if (!mounted) return;
       setState(() {
@@ -68,10 +70,39 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         _regions = results[4];
         _hidden = results[5];
         _locations = results[6];
+        _countries = results[7];
         _error = null;
       });
     } catch (e) {
       if (mounted) setState(() => _error = '$e');
+    }
+  }
+
+  // ------------------------------------------------------------ creators
+
+  Future<void> _newRegion() async {
+    final made = await Navigator.push<String>(
+        context,
+        MaterialPageRoute(
+            builder: (_) => _NewRegionPage(
+                supabase: _supabase, countries: _countries, regions: _regions)));
+    if (made != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('$made is being created on nomadwise.io; it appears '
+              'in the pickers within a minute or two.')));
+    }
+  }
+
+  Future<void> _newLocation() async {
+    final made = await Navigator.push<String>(
+        context,
+        MaterialPageRoute(
+            builder: (_) => _NewLocationPage(
+                supabase: _supabase, regions: _regions, locations: _locations)));
+    if (made != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('$made is being created on nomadwise.io; it appears '
+              'in the pickers within a minute or two.')));
     }
   }
 
@@ -381,6 +412,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                 countryGuess: _countryOf(v),
                 regions: _regions,
                 locations: _locations,
+                countries: _countries,
                 regionGuess: _regionFor(v),
                 locationGuess: _locationGuess(
                     v, (_prepared(v)['region_id'] ?? _regionFor(v)?['id'])),
@@ -455,7 +487,9 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       Map<String, dynamic>.from(v['website_prepared'] as Map? ?? {});
 
   static String _slugify(String s) {
-    var x = s.trim().toLowerCase();
+    // Apostrophes vanish rather than become hyphens (d'Arno -> darno),
+    // as everywhere on the site.
+    var x = s.trim().toLowerCase().replaceAll(RegExp("['\u2019\u2018`]"), '');
     const folds = {
       'å': 'a', 'ä': 'a', 'á': 'a', 'à': 'a', 'â': 'a', 'ã': 'a',
       'ö': 'o', 'ó': 'o', 'ò': 'o', 'ô': 'o', 'õ': 'o', 'ø': 'o',
@@ -672,6 +706,22 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
             ),
           ],
         ]),
+        actions: [
+          // The site's taxonomy, made from here: a Region (city page) or
+          // a Location (neighbourhood page), built and published by the
+          // sync within a minute or two, then in every picker.
+          PopupMenuButton<String>(
+            tooltip: 'Create on nomadwise.io',
+            icon: const Icon(Icons.add_location_alt_outlined),
+            onSelected: (k) => k == 'region' ? _newRegion() : _newLocation(),
+            itemBuilder: (_) => const [
+              PopupMenuItem(
+                  value: 'region', child: Text('Create a Region (city page)')),
+              PopupMenuItem(
+                  value: 'location', child: Text('Create a Location (area page)')),
+            ],
+          ),
+        ],
       ),
       body: inbox == null && _error == null
           ? const Center(child: CircularProgressIndicator(color: Brand.red))
@@ -1975,6 +2025,7 @@ class _EditVenuePage extends StatefulWidget {
   final String? countryGuess;
   final List<Map<String, dynamic>> regions;
   final List<Map<String, dynamic>> locations;
+  final List<Map<String, dynamic>> countries;
   final Map<String, dynamic>? regionGuess;
   final Map<String, dynamic>? locationGuess;
   final List<String> googleAreas;
@@ -1984,6 +2035,7 @@ class _EditVenuePage extends StatefulWidget {
       required this.supabase,
       required this.regions,
       required this.locations,
+      this.countries = const [],
       required this.googleAreas,
       required this.row,
       this.countryGuess,
@@ -2026,39 +2078,6 @@ class _EditVenuePageState extends State<_EditVenuePage> {
       ? null
       : widget.locations.where((l) => l['id'] == _locationId).firstOrNull;
 
-  Future<String?> _askName(String what) async {
-    final ctl = TextEditingController();
-    final ok = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-              title: Text('Needs a new $what'),
-              content: Column(mainAxisSize: MainAxisSize.min, children: [
-                Text(
-                    'Nothing is created from here. The name is recorded, '
-                    'the space waits under Blocked, and when you create the '
-                    '$what in Webflow with exactly this name it is linked '
-                    'automatically.',
-                    style: const TextStyle(fontSize: 13, height: 1.4)),
-                const SizedBox(height: 12),
-                TextField(
-                    controller: ctl,
-                    autofocus: true,
-                    decoration: InputDecoration(
-                        labelText: '$what name as it should appear')),
-              ]),
-              actions: [
-                TextButton(
-                    onPressed: () => Navigator.pop(ctx, false),
-                    child: const Text('Cancel')),
-                ElevatedButton(
-                    onPressed: () => Navigator.pop(ctx, true),
-                    child: const Text('Record')),
-              ],
-            ));
-    final name = ctl.text.trim();
-    return ok == true && name.isNotEmpty ? name : null;
-  }
-
   Future<void> _pickRegion() async {
     final picked = await showModalBottomSheet<Map<String, dynamic>>(
         context: context,
@@ -2074,7 +2093,21 @@ class _EditVenuePageState extends State<_EditVenuePage> {
             forName: widget.venue.name));
     if (picked == null) return;
     if (picked['id'] == 'new') {
-      final name = await _askName('Region');
+      // The creator form: the sync builds and publishes the Region and
+      // links this space to it by name within a minute or two.
+      final name = await Navigator.push<String>(
+          context,
+          MaterialPageRoute(
+              builder: (_) => _NewRegionPage(
+                  supabase: widget.supabase,
+                  countries: widget.countries,
+                  regions: widget.regions,
+                  initialName: _city.text.trim(),
+                  initialCountry: _country.text.trim(),
+                  state: _stateOf(widget.row),
+                  lat: widget.venue.lat,
+                  lng: widget.venue.lng,
+                  venueId: widget.venue.id)));
       if (name == null) return;
       setState(() {
         _newRegion = name;
@@ -2094,6 +2127,21 @@ class _EditVenuePageState extends State<_EditVenuePage> {
       final c = picked['country'] as String?;
       if (c != null && c.isNotEmpty) _country.text = c;
     });
+  }
+
+  /// Google's state or province (administrative_area_level_1), for
+  /// the country-state-city slugs the site uses in the US and India.
+  static String? _stateOf(Map<String, dynamic> row) {
+    final comps = row['address_components'];
+    if (comps is! List) return null;
+    for (final c in comps) {
+      if (c is Map &&
+          (c['types'] as List?)?.contains('administrative_area_level_1') == true) {
+        final n = c['longText'] ?? c['shortText'];
+        if (n != null) return '$n';
+      }
+    }
+    return null;
   }
 
   /// The site's Country for the chosen Region when it differs from
@@ -2131,7 +2179,16 @@ class _EditVenuePageState extends State<_EditVenuePage> {
                     'Only pick one you are sure of.'));
     if (picked == null) return;
     if (picked['id'] == 'new') {
-      final name = await _askName('Location');
+      final name = await Navigator.push<String>(
+          context,
+          MaterialPageRoute(
+              builder: (_) => _NewLocationPage(
+                  supabase: widget.supabase,
+                  regions: widget.regions,
+                  locations: widget.locations,
+                  initialRegionId: _regionId,
+                  initialName: _hood.text.trim(),
+                  venueId: widget.venue.id)));
       if (name == null) return;
       setState(() {
         _newLocation = name;
@@ -3072,5 +3129,513 @@ class _SitemapTabState extends State<_SitemapTab> {
       ],
       const SizedBox(height: 30),
     ]);
+  }
+}
+
+// ------------------------------------------------- Region and Location creators
+
+/// A new city page on nomadwise.io. The sync builds it the way the
+/// existing ones are (name, label, slug, category label, H2, map
+/// centre, Country link), publishes it and puts it in the pickers.
+class _NewRegionPage extends StatefulWidget {
+  final SupabaseService supabase;
+  final List<Map<String, dynamic>> countries;
+  final List<Map<String, dynamic>> regions;
+  final String? initialName;
+  final String? initialCountry;
+  final double? lat;
+  final double? lng;
+  final String? venueId;
+  final String? state;
+  const _NewRegionPage(
+      {required this.supabase,
+      required this.countries,
+      required this.regions,
+      this.initialName,
+      this.initialCountry,
+      this.state,
+      this.lat,
+      this.lng,
+      this.venueId});
+  @override
+  State<_NewRegionPage> createState() => _NewRegionPageState();
+}
+
+class _NewRegionPageState extends State<_NewRegionPage> {
+  late final _name = TextEditingController(text: widget.initialName ?? '');
+  late final _lat =
+      TextEditingController(text: widget.lat?.toStringAsFixed(4) ?? '');
+  late final _lng =
+      TextEditingController(text: widget.lng?.toStringAsFixed(4) ?? '');
+  final _zoom = TextEditingController(text: '12');
+  final _desc = TextEditingController();
+  Map<String, dynamic>? _country;
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final want = (widget.initialCountry ?? '').trim().toLowerCase();
+    if (want.isNotEmpty) {
+      _country = widget.countries
+          .where((c) => '${c['name']}'.toLowerCase() == want)
+          .firstOrNull;
+    }
+    _slugCtl.text = _slugSuggestion;
+  }
+
+  static String _slug(String x) => _WebsiteScreenState._slugify(x);
+
+  final _slugCtl = TextEditingController();
+  bool _slugTouched = false;
+
+  /// The site's convention: country-city, and country-state-city
+  /// where the site already does that (United States, India).
+  String get _slugSuggestion {
+    final c = _country == null ? '' : _slug('${_country!['name']}');
+    final n = _slug(_name.text);
+    final st = _slug(widget.state ?? '');
+    final layered = c == 'united-states' || c == 'india';
+    return [c, if (layered && st.isNotEmpty) st, n]
+        .where((x) => x.isNotEmpty)
+        .join('-');
+  }
+
+  /// Existing Regions in the same country, as examples of the pattern.
+  List<String> get _siblings {
+    final c = _country?['name'];
+    if (c == null) return const [];
+    return widget.regions
+        .where((r) => r['country'] == c && r['slug'] != null)
+        .map((r) => '${r['slug']}')
+        .where((x) => x.contains('-'))
+        .take(3)
+        .toList();
+  }
+
+  void _refreshSlug() {
+    if (!_slugTouched) _slugCtl.text = _slugSuggestion;
+    setState(() {});
+  }
+
+  String get _slugPreview => _slug(_slugCtl.text);
+
+  /// A Region with this label already exists: no duplicates.
+  Map<String, dynamic>? get _existing {
+    final n = _name.text.trim().toLowerCase();
+    if (n.isEmpty) return null;
+    return widget.regions
+        .where((r) => '${r['name']}'.trim().toLowerCase() == n)
+        .firstOrNull;
+  }
+
+  Future<void> _pickCountry() async {
+    final picked = await showModalBottomSheet<Map<String, dynamic>>(
+        context: context,
+        isScrollControlled: true,
+        shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(18))),
+        builder: (_) => _RegionPicker(
+            regions: widget.countries,
+            title: 'Which Country?',
+            subtitle: 'The Countries nomadwise.io already has. A new '
+                'country still needs creating in Webflow first.'));
+    if (picked != null) {
+      _country = picked;
+      _refreshSlug();
+    }
+  }
+
+  Future<void> _create() async {
+    final name = _name.text.trim();
+    if (name.isEmpty || _country == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('A name and a Country are needed.')));
+      return;
+    }
+    if (_slugPreview.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('The slug cannot be empty.')));
+      return;
+    }
+    if (widget.regions.any((r) => r['slug'] == _slugPreview)) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('A Region already uses /${_slugPreview}.')));
+      return;
+    }
+    if (_existing != null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('$name already exists on the site. Pick it instead.')));
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      await widget.supabase.createTaxonomyRequest({
+        'kind': 'region',
+        'name': name,
+        'country_id': _country!['id'],
+        'lat': double.tryParse(_lat.text.trim()),
+        'lng': double.tryParse(_lng.text.trim()),
+        'zoom': int.tryParse(_zoom.text.trim()),
+        'slug': _slugPreview,
+        'description': _desc.text.trim().isEmpty ? null : _desc.text.trim(),
+        'venue_id': widget.venueId,
+      });
+      if (mounted) Navigator.pop(context, name);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('That did not save: $e'),
+            backgroundColor: Brand.red));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final dup = _existing;
+    final nameText = _name.text.trim().isEmpty ? '...' : _name.text.trim();
+    return Scaffold(
+      appBar: AppBar(title: const Text('New Region (city page)')),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 640),
+          child: ListView(padding: const EdgeInsets.all(16), children: [
+            const Text(
+                'A Region is a city page on nomadwise.io. The sync creates '
+                'it exactly like the existing ones and publishes it within a '
+                'minute or two; description and photos can be polished in '
+                'Webflow later.',
+                style: TextStyle(
+                    fontSize: 12.5, height: 1.45, color: Brand.inkSecondary)),
+            const SizedBox(height: 14),
+            TextField(
+                controller: _name,
+                onChanged: (_) => _refreshSlug(),
+                textCapitalization: TextCapitalization.words,
+                decoration: const InputDecoration(
+                    labelText: 'City name as shown on the site',
+                    hintText: 'e.g. Porto')),
+            if (dup != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text('${dup['name']} already exists on the site.',
+                    style: const TextStyle(fontSize: 12.5, color: Brand.red)),
+              ),
+            const SizedBox(height: 12),
+            InkWell(
+              onTap: _pickCountry,
+              borderRadius: BorderRadius.circular(12),
+              child: InputDecorator(
+                decoration: const InputDecoration(
+                    labelText: 'Country',
+                    suffixIcon: Icon(Icons.arrow_drop_down)),
+                child: Text(_country?['name'] ?? 'Choose',
+                    style: TextStyle(
+                        color: _country == null ? Brand.inkMuted : null)),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(children: [
+              Expanded(
+                  child: TextField(
+                      controller: _lat,
+                      keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true, signed: true),
+                      decoration:
+                          const InputDecoration(labelText: 'Latitude'))),
+              const SizedBox(width: 10),
+              Expanded(
+                  child: TextField(
+                      controller: _lng,
+                      keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true, signed: true),
+                      decoration:
+                          const InputDecoration(labelText: 'Longitude'))),
+              const SizedBox(width: 10),
+              SizedBox(
+                  width: 80,
+                  child: TextField(
+                      controller: _zoom,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(labelText: 'Zoom'))),
+            ]),
+            const Padding(
+              padding: EdgeInsets.only(top: 6),
+              child: Text(
+                  'Map centre of the city page. Pre-filled from the space '
+                  'when opened from one; zoom 12 suits a city, 10 a large one.',
+                  style: TextStyle(fontSize: 11.5, color: Brand.inkMuted)),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+                controller: _desc,
+                minLines: 3,
+                maxLines: 8,
+                decoration: const InputDecoration(
+                    labelText: 'About the city (optional)',
+                    hintText:
+                        'A paragraph or two. Blank line between paragraphs.',
+                    alignLabelWithHint: true)),
+            const SizedBox(height: 12),
+            // The slug is the page address for ever (a rename needs a
+            // redirect), so it is shown and editable before creating.
+            TextField(
+                controller: _slugCtl,
+                onChanged: (_) => setState(() => _slugTouched = true),
+                decoration: InputDecoration(
+                    labelText: 'Slug (page address)',
+                    prefixText: '/region/',
+                    helperText: 'Site convention: country-city'
+                        '${_siblings.isEmpty ? '' : ', like ${_siblings.join(', ')}'}',
+                    helperMaxLines: 3,
+                    suffixIcon: _slugTouched
+                        ? IconButton(
+                            tooltip: 'Back to the convention',
+                            icon: const Icon(Icons.refresh, size: 18),
+                            onPressed: () {
+                              _slugTouched = false;
+                              _refreshSlug();
+                            })
+                        : null)),
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                  color: Brand.field, borderRadius: BorderRadius.circular(12)),
+              child: Text(
+                  'Page: /region/${_slugPreview.isEmpty ? '...' : _slugPreview}\n'
+                  'Name: $nameText${_country == null ? '' : ', ${_country!['name']}'}\n'
+                  'Label: Cafes & Coworking Spaces in $nameText'
+                  '${_country == null ? '' : ', ${_country!['name']}'}',
+                  style: const TextStyle(fontSize: 12.5, height: 1.5)),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+                onPressed: _busy ? null : _create,
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Create on nomadwise.io')),
+            const SizedBox(height: 40),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+/// A new neighbourhood page inside a Region. Built, published and
+/// wired into the Region's Locations list by the sync.
+class _NewLocationPage extends StatefulWidget {
+  final SupabaseService supabase;
+  final List<Map<String, dynamic>> regions;
+  final List<Map<String, dynamic>> locations;
+  final String? initialRegionId;
+  final String? initialName;
+  final String? venueId;
+  const _NewLocationPage(
+      {required this.supabase,
+      required this.regions,
+      this.locations = const [],
+      this.initialRegionId,
+      this.initialName,
+      this.venueId});
+  @override
+  State<_NewLocationPage> createState() => _NewLocationPageState();
+}
+
+class _NewLocationPageState extends State<_NewLocationPage> {
+  late final _name = TextEditingController(text: widget.initialName ?? '');
+  final _desc = TextEditingController();
+  final _slugCtl = TextEditingController();
+  bool _slugTouched = false;
+  Map<String, dynamic>? _region;
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _region = widget.regions
+        .where((r) => r['id'] == widget.initialRegionId)
+        .firstOrNull;
+    _slugCtl.text = _slugSuggestion;
+  }
+
+  static String _slug(String x) => _WebsiteScreenState._slugify(x);
+
+  /// The site's convention for areas: country-city-area, whatever the
+  /// Region's own (possibly older) slug looks like.
+  String get _slugSuggestion {
+    final r = _region;
+    if (r == null) return _slug(_name.text);
+    return [
+      _slug('${r['country'] ?? ''}'),
+      _slug('${r['name'] ?? ''}'),
+      _slug(_name.text),
+    ].where((x) => x.isNotEmpty).join('-');
+  }
+
+  List<String> get _siblings => _region == null
+      ? const []
+      : widget.locations
+          .where((l) => l['region_id'] == _region!['id'] && l['slug'] != null)
+          .map((l) => '${l['slug']}')
+          .where((x) => x.contains('-'))
+          .take(3)
+          .toList();
+
+  void _refreshSlug() {
+    if (!_slugTouched) _slugCtl.text = _slugSuggestion;
+    setState(() {});
+  }
+
+  String get _slugPreview => _slug(_slugCtl.text);
+
+  Future<void> _pickRegion() async {
+    final picked = await showModalBottomSheet<Map<String, dynamic>>(
+        context: context,
+        isScrollControlled: true,
+        shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(18))),
+        builder: (_) => _RegionPicker(
+            regions: widget.regions,
+            title: 'Inside which Region?',
+            subtitle: 'The city page this area belongs to.'));
+    if (picked != null) {
+      _region = picked;
+      _refreshSlug();
+    }
+  }
+
+  Future<void> _create() async {
+    final name = _name.text.trim();
+    if (name.isEmpty || _region == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('A name and a Region are needed.')));
+      return;
+    }
+    if (_slugPreview.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('The slug cannot be empty.')));
+      return;
+    }
+    if (widget.locations.any((l) => l['slug'] == _slugPreview)) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('A Location already uses /${_slugPreview}.')));
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      await widget.supabase.createTaxonomyRequest({
+        'kind': 'location',
+        'name': name,
+        'region_id': _region!['id'],
+        'slug': _slugPreview,
+        'description': _desc.text.trim().isEmpty ? null : _desc.text.trim(),
+        'venue_id': widget.venueId,
+      });
+      if (mounted) Navigator.pop(context, name);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('That did not save: $e'),
+            backgroundColor: Brand.red));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final r = _region;
+    final nameText = _name.text.trim().isEmpty ? '...' : _name.text.trim();
+    final regionText = r == null ? '' : ', ${r['name']}';
+    return Scaffold(
+      appBar: AppBar(title: const Text('New Location (area page)')),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 640),
+          child: ListView(padding: const EdgeInsets.all(16), children: [
+            const Text(
+                'A Location is a neighbourhood page inside a Region. The sync '
+                'creates it like the existing ones, links it both ways with '
+                'the Region, publishes it and puts it in the pickers within a '
+                'minute or two.',
+                style: TextStyle(
+                    fontSize: 12.5, height: 1.45, color: Brand.inkSecondary)),
+            const SizedBox(height: 14),
+            InkWell(
+              onTap: _pickRegion,
+              borderRadius: BorderRadius.circular(12),
+              child: InputDecorator(
+                decoration: const InputDecoration(
+                    labelText: 'Region (city page)',
+                    suffixIcon: Icon(Icons.arrow_drop_down)),
+                child: Text(
+                    r == null
+                        ? 'Choose'
+                        : '${r['name']}${r['country'] != null ? ', ${r['country']}' : ''}',
+                    style:
+                        TextStyle(color: r == null ? Brand.inkMuted : null)),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+                controller: _name,
+                onChanged: (_) => _refreshSlug(),
+                textCapitalization: TextCapitalization.words,
+                decoration: const InputDecoration(
+                    labelText: 'Area name as shown on the site',
+                    hintText: 'e.g. Anjos')),
+            const SizedBox(height: 12),
+            TextField(
+                controller: _slugCtl,
+                onChanged: (_) => setState(() => _slugTouched = true),
+                decoration: InputDecoration(
+                    labelText: 'Slug (page address)',
+                    prefixText: '/locations/',
+                    helperText: 'Site convention: country-city-area'
+                        '${_siblings.isEmpty ? '' : ', like ${_siblings.join(', ')}'}',
+                    helperMaxLines: 3,
+                    suffixIcon: _slugTouched
+                        ? IconButton(
+                            tooltip: 'Back to the convention',
+                            icon: const Icon(Icons.refresh, size: 18),
+                            onPressed: () {
+                              _slugTouched = false;
+                              _refreshSlug();
+                            })
+                        : null)),
+            const SizedBox(height: 12),
+            TextField(
+                controller: _desc,
+                minLines: 3,
+                maxLines: 8,
+                decoration: const InputDecoration(
+                    labelText: 'About the area (optional)',
+                    alignLabelWithHint: true)),
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                  color: Brand.field, borderRadius: BorderRadius.circular(12)),
+              child: Text(
+                  'Page: /locations/${_slugPreview.isEmpty ? '...' : _slugPreview}\n'
+                  'Name on the site: $nameText$regionText\n'
+                  'Label: Cafes & Coworking Spaces in $nameText$regionText',
+                  style: const TextStyle(fontSize: 12.5, height: 1.5)),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+                onPressed: _busy ? null : _create,
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Create on nomadwise.io')),
+            const SizedBox(height: 40),
+          ]),
+        ),
+      ),
+    );
   }
 }

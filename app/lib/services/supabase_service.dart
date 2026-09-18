@@ -859,6 +859,30 @@ class SupabaseService {
 
   /// The nightly copy of the Webflow Locations collection (the
   /// neighbourhood pages), each with the Region it belongs to.
+  /// The Countries collection, copied by the sync, for the Region
+  /// creator's picker.
+  Future<List<Map<String, dynamic>>> webflowCountries() async {
+    try {
+      final rows = await _db
+          .from('webflow_countries')
+          .select('id, name, slug')
+          .order('name', ascending: true);
+      return (rows as List)
+          .map((r) => Map<String, dynamic>.from(r))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// A Region or Location the founder asked the sync to create in
+  /// Webflow. The push run builds, publishes and links it.
+  Future<void> createTaxonomyRequest(Map<String, dynamic> row) =>
+      _db.from('taxonomy_requests').insert({
+        ...row,
+        'requested_by': currentUser?.id,
+      });
+
   Future<List<Map<String, dynamic>>> webflowLocations() async {
     try {
       final rows = await _db

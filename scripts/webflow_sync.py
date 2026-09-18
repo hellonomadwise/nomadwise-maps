@@ -551,8 +551,10 @@ NEAREST_REGION_KM = 30
 
 
 def slugify(x):
-    """URL slug with accents folded (pa, not p, for 'på')."""
-    x = unicodedata.normalize('NFKD', x or '')
+    """URL slug with accents folded (pa, not p, for 'på') and
+    apostrophes dropped, as the site does (d'Arno -> darno)."""
+    x = re.sub(r"['\u2019\u2018`]", '', x or '')
+    x = unicodedata.normalize('NFKD', x)
     x = ''.join(c for c in x if not unicodedata.combining(c))
     x = (x.replace('ø', 'o').replace('Ø', 'o').replace('ß', 'ss')
           .replace('æ', 'ae').replace('Æ', 'ae').replace('œ', 'oe'))
@@ -949,7 +951,17 @@ if PUSH_ONLY:
     report['drafts_checked'] = checked
     report['drafts_published'] = published
 
-if PUSH_ONLY and not queued:
+# Region and Location requests from the app (handled further down,
+# after the places are read); they count as work too.
+try:
+    requests_ = sb('taxonomy_requests?status=eq.pending&order=created_at.asc'
+                   '&limit=20') or []
+except Exception as e:  # noqa: BLE001
+    report['errors'].append(f'taxonomy requests read: {e}')
+    requests_ = []
+report['taxonomy_requests'] = len(requests_)
+
+if PUSH_ONLY and not queued and not requests_:
     finish(0)   # nothing to do: the common case, a second of runtime
 
 if PUSH_ONLY:
@@ -980,6 +992,165 @@ if rows and not PUSH_ONLY:
         report['regions_copied'] = len(rows)
     except Exception as e:  # noqa: BLE001
         report['errors'].append(f'regions copy: {e}')
+
+# Countries for the app's Region creator (66 rows; cheap, every run).
+if countries:
+    try:
+        sb('webflow_countries?on_conflict=id', method='POST',
+           body=[{'id': c['id'],
+                  'name': (c.get('fieldData') or {}).get('name') or '',
+                  'slug': (c.get('fieldData') or {}).get('slug'),
+                  'updated_at': now} for c in countries
+                 if not (c.get('isArchived') or c.get('isDraft'))],
+           prefer='resolution=merge-duplicates,return=minimal')
+    except Exception as e:  # noqa: BLE001
+        report['errors'].append(f'countries copy: {e}')
+
+
+# ----------------------------------------------- Region and Location creators
+# Requests the founder filled in the app. Each becomes a Webflow item
+# built the way the existing ones are, published, wired both ways and
+# copied into the app's pickers within the same run, so the spaces
+# waiting for it are linked a few lines further down.
+OG_LOGO = ('https://cdn.prod.website-files.com/64b6780f84d27e4bfd91f2d6/'
+           '66f99bc56b6fd608f70a3bc8_66f99b3d1eebf91c37f1be01_nomadwise%2520logo.webp')
+
+
+def taken_in(items):
+    return {(i.get('fieldData') or {}).get('slug') for i in items}
+
+
+def unique_slug(base, taken):
+    slug_, n = base, 2
+    while slug_ in taken:
+        slug_ = f'{base}-{n}'
+        n += 1
+    return slug_
+
+
+def rich(text):
+    paras = [p.strip() for p in (text or '').split('\n') if p.strip()]
+    return ''.join(f'<p>{p}</p>' for p in paras) if paras else None
+
+
+def create_and_publish(coll, fields):
+    made = wf_write(f'/v2/collections/{coll}/items', 'POST',
+                    {'isDraft': False, 'isArchived': False,
+                     'fieldData': fields})
+    item_id = (made or {}).get('id')
+    if not item_id:
+        raise RuntimeError(f'no id in response: {made}')
+    time.sleep(0.6)
+    wf_write(f'/v2/collections/{coll}/items/publish', 'POST',
+             {'itemIds': [item_id]})
+    time.sleep(0.6)
+    return made
+
+
+def create_region(req):
+    country = country_by_id.get(req.get('country_id'))
+    if not country:
+        raise RuntimeError('country not found in Webflow')
+    cname = country['fieldData'].get('name')
+    name = req['name'].strip()
+    fields = {
+        'name': f'{name}, {cname}',
+        # The slug the founder saw and approved in the form, else the
+        # site's convention country-city.
+        'slug': unique_slug(slugify(req.get('slug') or '')
+                            or f'{slugify(cname)}-{slugify(name)}',
+                            taken_in(regions)),
+        'name-label': name,
+        'country': country['id'],
+        'category-label': f'Cafes & Coworking Spaces in {name}, {cname}',
+        'h2-header': f'A little bit about {name}',
+        'h2-description': rich(req.get('description')),
+        'latitude': req.get('lat'),
+        'longitude': req.get('lng'),
+        'zoom-level': req.get('zoom') or 12,
+        'zoom-level-full-page-map': (req.get('zoom') or 12) + 2,
+        'turned-on': True,
+        'has-more-than-one-place-in-region': True,
+        'needs-scroll-on-number-of-locations': False,
+        'opengraph-image': {'url': OG_LOGO},
+        'locations': [],
+    }
+    fields = {k: v for k, v in fields.items() if v is not None}
+    made = create_and_publish(REGIONS_ID, fields)
+    regions.append(made)
+    sb('webflow_regions?on_conflict=id', method='POST',
+       body=region_rows([made], country_by_id),
+       prefer='resolution=merge-duplicates,return=minimal')
+    return made
+
+
+def create_location(req):
+    region = next((r for r in regions if r['id'] == req.get('region_id')), None)
+    if not region:
+        raise RuntimeError('region not found in Webflow')
+    rf = region['fieldData']
+    country = country_by_id.get(rf.get('country'))
+    cname = (country or {}).get('fieldData', {}).get('name') or ''
+    rlabel = rf.get('name-label') or rf.get('name')
+    name = req['name'].strip()
+    fields = {
+        'name': f'{name}, {rlabel}',
+        'slug': unique_slug(
+            slugify(req.get('slug') or '')
+            or f'{slugify(cname)}-{slugify(rlabel)}-{slugify(name)}'.strip('-'),
+            taken_in(locations)),
+        'name-label': name,
+        'country': country['id'] if country else None,
+        'region-3': region['id'],
+        'region-2': [region['id']],
+        'location-id': f'filter-{slugify(name)}',
+        'category-label': f'Cafes & Coworking Spaces in {name}, {rlabel}',
+        'h2-header': f'A little bit about {name}',
+        'h2-description': rich(req.get('description')),
+        'turned-on': True,
+        'has-more-than-one-place-in-location': False,
+    }
+    fields = {k: v for k, v in fields.items() if v is not None}
+    made = create_and_publish(LOCATIONS_ID, fields)
+    locations.append(made)
+    # The other direction: the Region lists its Locations.
+    have = list(rf.get('locations') or [])
+    if made['id'] not in have:
+        have.append(made['id'])
+        wf_write(f'/v2/collections/{REGIONS_ID}/items/{region["id"]}',
+                 'PATCH', {'fieldData': {'locations': have}})
+        rf['locations'] = have
+        time.sleep(0.6)
+        wf_write(f'/v2/collections/{REGIONS_ID}/items/publish', 'POST',
+                 {'itemIds': [region['id']]})
+        time.sleep(0.6)
+    lf = made['fieldData']
+    sb('webflow_locations?on_conflict=id', method='POST',
+       body=[{'id': made['id'], 'name': name, 'slug': lf.get('slug'),
+              'region_id': region['id'], 'country': cname or None,
+              'updated_at': now}],
+       prefer='resolution=merge-duplicates,return=minimal')
+    return made
+
+
+for req in requests_:
+    try:
+        made = create_region(req) if req['kind'] == 'region' else create_location(req)
+        sb(f"taxonomy_requests?id=eq.{req['id']}", method='PATCH',
+           body={'status': 'created', 'webflow_id': made['id'],
+                 'slug': made['fieldData'].get('slug'), 'done_at': now},
+           prefer='return=minimal')
+        report.setdefault('taxonomy_created', []).append(
+            {'kind': req['kind'], 'name': req['name'],
+             'slug': made['fieldData'].get('slug')})
+    except Exception as e:  # noqa: BLE001
+        report['errors'].append(f"create {req.get('kind')} {req.get('name')}: {e}")
+        try:
+            sb(f"taxonomy_requests?id=eq.{req['id']}", method='PATCH',
+               body={'status': 'failed', 'error': str(e)[:300], 'done_at': now},
+               prefer='return=minimal')
+        except Exception:  # noqa: BLE001
+            pass
 
 loc_rows = []
 for loc in locations:

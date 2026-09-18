@@ -352,3 +352,37 @@ stages both items and publishes them live through the CMS API
 follows. "I published it in Webflow" remains for pages published by
 hand. Migration 61 adds website_publish_requested_at and teaches the
 nudge trigger to wake the run for it.
+
+## Region and Location creators (Sep 2026)
+
+The rule "the app never creates Regions or Locations in Webflow"
+becomes "only from a form the founder filled in". Two creators live
+in the control centre (the pin icon in the header, and the "needs a
+new one" entries in Edit's pickers, pre-filled from the space). A
+request (taxonomy_requests, migration 62) wakes the push run, which
+builds the item the way the existing ones are built: Region = "City,
+Country", label, slug country-city, Country link, category label, H2
+header, optional description, map centre and zoom, turned on, logo
+as OpenGraph image; Location = "Area, City", label, slug
+country-city-area, Country and Region links (both fields), filter id,
+category label, H2, turned on. It publishes the item, appends a new
+Location to its Region's Locations list and republishes the Region,
+copies the item into the app's pickers, and the spaces waiting for
+it by name are linked in the same run. Countries stay Webflow-only.
+
+## Region and Location slug conventions, verified (Sep 2026)
+
+Checked against every item in Webflow on 18 Sep 2026. Regions: 133
+of 160 live ones are country-city (england-london, denmark-copenhagen);
+15 early ones (April to July 2024) are bare (lisbon, bangkok, bali);
+the United States and Goa use country-state-city
+(united-states-colorado-denver, india-goa-anjuna). Locations:
+country-city-area throughout, including under the bare legacy
+Regions (portugal-lisbon-baixa sits under the Region whose own slug
+is lisbon). Apostrophes vanish rather than become hyphens
+(diocletians-palace, riva-darno); slugify now does the same
+everywhere. The creators pre-fill these conventions (state added
+for the US and India when Google supplies it), show up to three
+existing slugs from the same country or Region as examples, and let
+the founder edit the slug before creating; the sync uses the slug
+exactly, refusing a duplicate.
