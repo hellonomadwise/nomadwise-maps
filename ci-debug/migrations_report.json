@@ -1,0 +1,10 @@
+{
+  "newly_applied": [
+    {
+      "file": "migration63_refresh_request.sql",
+      "status": "applied"
+    }
+  ],
+  "failed": [],
+  "error": null
+}
