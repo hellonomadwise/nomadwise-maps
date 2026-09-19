@@ -386,3 +386,15 @@ for the US and India when Google supplies it), show up to three
 existing slugs from the same country or Region as examples, and let
 the founder edit the slug before creating; the sync uses the slug
 exactly, refusing a duplicate.
+
+## City centre found from name and Country (Sep 2026)
+
+The Region form used to need the map centre typed by hand, looked up
+on a geocoding website with the country added so the right Lancaster
+came back. The form now does that itself: once the city name and
+Country are in, it asks Google for "City, Country" (one Text Search
+call, inside the free monthly allowance at this volume) and fills
+latitude and longitude, showing the address Google resolved so the
+founder can see it is the right place. A space's own coordinates are
+no longer used as the city centre. Coordinates typed by hand are
+kept; "Find city centre" replaces them on purpose.

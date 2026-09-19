@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -6,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/venue.dart';
+import '../services/places_service.dart';
 import '../services/supabase_service.dart';
 import '../theme.dart';
 import '../widgets/ui.dart';
@@ -791,6 +793,18 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
             'Webflow without your Approve.',
         empty: 'Nothing queued.'
       ),
+      // Blocked sits right after Queued: a queued space that is missing
+      // its Region is the next thing to fix, not something to find at
+      // the far end of the row.
+      (
+        key: 'region',
+        label: 'Blocked',
+        count: g.needsRegion.length,
+        color: Brand.goldTextDark,
+        hint: 'Blocked: a page needs a Country and a Region, and a slug no '
+            'other listing uses. Fix the item to unblock.',
+        empty: 'Nothing is blocked.'
+      ),
       (
         key: 'ready',
         label: 'Ready to approve',
@@ -819,15 +833,6 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         empty: 'Sitemap is up to date.'
       ),
       (
-        key: 'region',
-        label: 'Blocked',
-        count: g.needsRegion.length,
-        color: Brand.goldTextDark,
-        hint: 'Blocked: a page needs a Country and a Region, and a slug no '
-            'other listing uses. Fix the item to unblock.',
-        empty: 'Nothing is blocked.'
-      ),
-      (
         key: 'hidden',
         label: 'Not for the site',
         count: _hidden.length,
@@ -850,7 +855,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     ];
     var key = _groupKey;
     if (key == null || groups.firstWhere((x) => x.key == key).count == 0) {
-      const steps = ['fresh', 'preparing', 'ready', 'region'];
+      const steps = ['fresh', 'preparing', 'region', 'ready'];
       key = groups
           .firstWhere((x) => steps.contains(x.key) && x.count > 0,
               orElse: () => groups[0])
@@ -3172,6 +3177,16 @@ class _NewRegionPageState extends State<_NewRegionPage> {
   Map<String, dynamic>? _country;
   bool _busy = false;
 
+  // City centre lookup: "Name, Country" -> coordinates, the same thing
+  // the founder used to do by hand on a geocoding website. The country
+  // is always part of the query so Lancaster, England is not Lancaster,
+  // Pennsylvania.
+  final _places = PlacesService();
+  CityCentre? _found;
+  bool _locating = false;
+  bool _coordsTouched = false;
+  Timer? _lookupTimer;
+
   @override
   void initState() {
     super.initState();
@@ -3182,6 +3197,59 @@ class _NewRegionPageState extends State<_NewRegionPage> {
           .firstOrNull;
     }
     _slugCtl.text = _slugSuggestion;
+    _scheduleLookup();
+  }
+
+  @override
+  void dispose() {
+    _lookupTimer?.cancel();
+    super.dispose();
+  }
+
+  String get _lookupQuery {
+    final n = _name.text.trim();
+    final c = '${_country?['name'] ?? ''}'.trim();
+    if (n.isEmpty || c.isEmpty) return '';
+    return '$n, $c';
+  }
+
+  /// Runs shortly after typing stops, so the API is asked once per
+  /// name rather than once per letter. Hand-typed coordinates are never
+  /// overwritten; the Find button does that on purpose.
+  void _scheduleLookup() {
+    _lookupTimer?.cancel();
+    if (_coordsTouched || _lookupQuery.isEmpty) return;
+    _lookupTimer = Timer(const Duration(milliseconds: 800), _lookup);
+  }
+
+  Future<void> _lookup({bool force = false}) async {
+    final q = _lookupQuery;
+    if (q.isEmpty) {
+      if (force) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Type the city name and pick the Country first.')));
+      }
+      return;
+    }
+    if (_found != null && _found!.query == q && !force) return;
+    setState(() => _locating = true);
+    final hit = await _places.cityCentre(q);
+    if (!mounted) return;
+    setState(() {
+      _locating = false;
+      if (hit == null) {
+        _found = null;
+        return;
+      }
+      _found = CityCentre(
+          name: hit.name, address: hit.address, lat: hit.lat, lng: hit.lng,
+          query: q);
+      if (force || !_coordsTouched) {
+        _lat.text = hit.lat.toStringAsFixed(6);
+        _lng.text = hit.lng.toStringAsFixed(6);
+        _coordsTouched = false;
+      }
+    });
   }
 
   static String _slug(String x) => _WebsiteScreenState._slugify(x);
@@ -3243,6 +3311,7 @@ class _NewRegionPageState extends State<_NewRegionPage> {
     if (picked != null) {
       _country = picked;
       _refreshSlug();
+      _scheduleLookup();
     }
   }
 
@@ -3313,7 +3382,10 @@ class _NewRegionPageState extends State<_NewRegionPage> {
             const SizedBox(height: 14),
             TextField(
                 controller: _name,
-                onChanged: (_) => _refreshSlug(),
+                onChanged: (_) {
+                  _refreshSlug();
+                  _scheduleLookup();
+                },
                 textCapitalization: TextCapitalization.words,
                 decoration: const InputDecoration(
                     labelText: 'City name as shown on the site',
@@ -3342,6 +3414,7 @@ class _NewRegionPageState extends State<_NewRegionPage> {
               Expanded(
                   child: TextField(
                       controller: _lat,
+                      onChanged: (_) => _coordsTouched = true,
                       keyboardType: const TextInputType.numberWithOptions(
                           decimal: true, signed: true),
                       decoration:
@@ -3350,6 +3423,7 @@ class _NewRegionPageState extends State<_NewRegionPage> {
               Expanded(
                   child: TextField(
                       controller: _lng,
+                      onChanged: (_) => _coordsTouched = true,
                       keyboardType: const TextInputType.numberWithOptions(
                           decimal: true, signed: true),
                       decoration:
@@ -3362,11 +3436,54 @@ class _NewRegionPageState extends State<_NewRegionPage> {
                       keyboardType: TextInputType.number,
                       decoration: const InputDecoration(labelText: 'Zoom'))),
             ]),
+            const SizedBox(height: 8),
+            Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+              OutlinedButton.icon(
+                  onPressed: _locating ? null : () => _lookup(force: true),
+                  icon: _locating
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.my_location, size: 16),
+                  label: Text(_locating ? 'Finding' : 'Find city centre')),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _found == null
+                    ? Text(
+                        _lookupQuery.isEmpty
+                            ? 'Type the city and pick the Country and the '
+                                'centre is looked up for you.'
+                            : _locating
+                                ? 'Looking up $_lookupQuery'
+                                : 'Nothing found for $_lookupQuery. Check '
+                                    'the spelling or type the coordinates.',
+                        style: const TextStyle(
+                            fontSize: 11.5, color: Brand.inkMuted))
+                    : Text.rich(
+                        TextSpan(children: [
+                          const TextSpan(text: 'Found '),
+                          TextSpan(
+                              text: _found!.address.isEmpty
+                                  ? _found!.name
+                                  : _found!.address,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w600)),
+                          if (_coordsTouched)
+                            const TextSpan(
+                                text: ' (coordinates edited by hand, tap '
+                                    'Find to use the found ones)'),
+                        ]),
+                        style: const TextStyle(
+                            fontSize: 11.5, color: Brand.inkSecondary)),
+              ),
+            ]),
             const Padding(
               padding: EdgeInsets.only(top: 6),
               child: Text(
-                  'Map centre of the city page. Pre-filled from the space '
-                  'when opened from one; zoom 12 suits a city, 10 a large one.',
+                  'Map centre of the city page, found from the city name '
+                  'and Country (the Country keeps same-named cities apart). '
+                  'Zoom 12 suits a city, 10 a large one.',
                   style: TextStyle(fontSize: 11.5, color: Brand.inkMuted)),
             ),
             const SizedBox(height: 12),

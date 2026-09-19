@@ -4,6 +4,22 @@ import '../config.dart';
 import '../models/discovered_place.dart';
 import '../models/venue.dart';
 
+/// A city's centre point as Google resolves it from "City, Country".
+class CityCentre {
+  final String name;
+  final String address;
+  final double lat;
+  final double lng;
+  /// What was asked, so a form can tell whether a result is still current.
+  final String query;
+  CityCentre(
+      {required this.name,
+      required this.address,
+      required this.lat,
+      required this.lng,
+      this.query = ''});
+}
+
 class PlaceSuggestion {
   final String placeId;
   final String main;
@@ -234,6 +250,42 @@ class PlacesService {
       }).toList();
     } catch (_) {
       return [];
+    }
+  }
+
+  /// Where a city is: "Lancaster, England" -> its centre point and the
+  /// name Google resolved it to (so the founder can see it picked the
+  /// right Lancaster). Replaces looking coordinates up by hand on a
+  /// geocoding website. One Text Search call, within the free monthly
+  /// allowance at the volume the Region form is used.
+  Future<CityCentre?> cityCentre(String query) async {
+    final q = query.trim();
+    if (q.isEmpty) return null;
+    try {
+      final resp = await http.post(
+        Uri.parse('https://places.googleapis.com/v1/places:searchText'),
+        headers: {
+          'X-Goog-Api-Key': AppConfig.googlePlacesKey,
+          'Content-Type': 'application/json',
+          'X-Goog-FieldMask':
+              'places.displayName,places.formattedAddress,places.location',
+        },
+        body: jsonEncode({'textQuery': q, 'maxResultCount': 1}),
+      );
+      if (resp.statusCode != 200) return null;
+      final places = (jsonDecode(resp.body)['places'] as List?) ?? [];
+      if (places.isEmpty) return null;
+      final p = Map<String, dynamic>.from(places.first);
+      final loc = p['location'];
+      if (loc is! Map) return null;
+      return CityCentre(
+        name: (p['displayName']?['text'] ?? '').toString(),
+        address: (p['formattedAddress'] ?? '').toString(),
+        lat: (loc['latitude'] as num).toDouble(),
+        lng: (loc['longitude'] as num).toDouble(),
+      );
+    } catch (_) {
+      return null;
     }
   }
 
