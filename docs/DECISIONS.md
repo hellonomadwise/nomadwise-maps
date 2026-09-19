@@ -398,3 +398,15 @@ latitude and longitude, showing the address Google resolved so the
 founder can see it is the right place. A space's own coordinates are
 no longer used as the city centre. Coordinates typed by hand are
 kept; "Find city centre" replaces them on purpose.
+
+## Pickers refreshed from Webflow on demand (Sep 2026)
+
+Ulm and its two Locations appeared in Webflow without going through
+the app's creators, so the pickers, which are a copy, did not have
+them until the nightly copy. Two changes: every sync run that gets
+past "nothing to do" now copies the site's Regions and Locations
+into the app (a few hundred rows, cheap), and the control centre's
+pin menu has "Refresh Regions and Locations from Webflow", which
+files a request of kind refresh (migration 63) that wakes the sync
+for that copy alone. Items made in Webflow by hand are usable in the
+app a minute or two later.

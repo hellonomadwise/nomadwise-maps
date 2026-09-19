@@ -108,6 +108,25 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     }
   }
 
+  /// Regions or Locations made in Webflow by hand (or by anything other
+  /// than the app) reach the pickers on the nightly copy. This asks the
+  /// sync to copy them now instead, so they can be used within minutes.
+  Future<void> _refreshFromWebflow() async {
+    try {
+      await _supabase.createTaxonomyRequest(
+          {'kind': 'refresh', 'name': 'Refresh from Webflow'});
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Copying the site\'s Regions and Locations into '
+              'Nomad Maps. Reload in a minute or two.'),
+          duration: Duration(seconds: 5)));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('That did not save: $e'), backgroundColor: Brand.red));
+    }
+  }
+
   // ------------------------------------------------------------ actions
 
   Future<void> _update(Map<String, dynamic> v, Map<String, dynamic> fields,
@@ -352,18 +371,15 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   }
 
   Future<void> _pickRegion(Map<String, dynamic> v) async {
-    if (_regions.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('The list of Regions is copied by the nightly '
-              'sync. Try again tomorrow.')));
-      return;
-    }
     final picked = await showModalBottomSheet<Map<String, dynamic>>(
         context: context,
         isScrollControlled: true,
         shape: const RoundedRectangleBorder(
             borderRadius: BorderRadius.vertical(top: Radius.circular(18))),
-        builder: (_) => _RegionPicker(regions: _regions, forName: v['name']));
+        builder: (_) => _RegionPicker(
+            regions: _regions,
+            forName: v['name'],
+            onRefresh: _refreshFromWebflow));
     if (picked == null) return;
     await _update(
         v,
@@ -454,6 +470,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
               ...inRegion,
             ],
             forName: v['name'],
+            onRefresh: _refreshFromWebflow,
             title: 'Which Location is ${v['name']} in?',
             subtitle: inRegion.isEmpty
                 ? 'This Region has no Locations on the site yet, so the '
@@ -715,12 +732,20 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
           PopupMenuButton<String>(
             tooltip: 'Create on nomadwise.io',
             icon: const Icon(Icons.add_location_alt_outlined),
-            onSelected: (k) => k == 'region' ? _newRegion() : _newLocation(),
+            onSelected: (k) => k == 'region'
+                ? _newRegion()
+                : k == 'location'
+                    ? _newLocation()
+                    : _refreshFromWebflow(),
             itemBuilder: (_) => const [
               PopupMenuItem(
                   value: 'region', child: Text('Create a Region (city page)')),
               PopupMenuItem(
                   value: 'location', child: Text('Create a Location (area page)')),
+              PopupMenuDivider(),
+              PopupMenuItem(
+                  value: 'refresh',
+                  child: Text('Refresh Regions and Locations from Webflow')),
             ],
           ),
         ],
@@ -2889,8 +2914,15 @@ class _RegionPicker extends StatefulWidget {
   final String? forName;
   final String? title;
   final String? subtitle;
+  /// Offered when nothing matches: pull the site's current items into
+  /// the app (for something made in Webflow by hand).
+  final Future<void> Function()? onRefresh;
   const _RegionPicker(
-      {required this.regions, this.forName, this.title, this.subtitle});
+      {required this.regions,
+      this.forName,
+      this.title,
+      this.subtitle,
+      this.onRefresh});
   @override
   State<_RegionPicker> createState() => _RegionPickerState();
 }
@@ -2925,8 +2957,8 @@ class _RegionPickerState extends State<_RegionPicker> {
             const SizedBox(height: 4),
             Text(
                 widget.subtitle ??
-                    'Regions are the city pages on nomadwise.io. If the city '
-                        'has no Region yet, create it in Webflow first.',
+                    'Regions are the city pages on nomadwise.io. A city '
+                        'without one can be created from the pin menu.',
                 style: const TextStyle(fontSize: 12.5, color: Brand.inkMuted)),
             const SizedBox(height: 10),
             TextField(
@@ -2943,18 +2975,48 @@ class _RegionPickerState extends State<_RegionPicker> {
             ),
             const SizedBox(height: 6),
             Expanded(
-              child: ListView.builder(
-                itemCount: rows.length,
-                itemBuilder: (_, i) => ListTile(
-                  dense: true,
-                  title: Text(rows[i]['name'] ?? ''),
-                  subtitle: rows[i]['country'] != null
-                      ? Text(rows[i]['country'],
-                          style: const TextStyle(fontSize: 12))
-                      : null,
-                  onTap: () => Navigator.pop(context, rows[i]),
-                ),
-              ),
+              child: rows.isEmpty
+                  ? Padding(
+                      padding: const EdgeInsets.only(top: 18),
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                                q.isEmpty
+                                    ? 'Nothing here yet.'
+                                    : 'Nothing matches "${_q.trim()}".',
+                                style: const TextStyle(
+                                    fontSize: 13, color: Brand.inkSecondary)),
+                            if (widget.onRefresh != null) ...[
+                              const SizedBox(height: 6),
+                              const Text(
+                                  'Made in Webflow recently? The app keeps a '
+                                  'copy of the site\'s list; refresh it and '
+                                  'reload in a minute or two.',
+                                  style: TextStyle(
+                                      fontSize: 12.5, color: Brand.inkMuted)),
+                              const SizedBox(height: 10),
+                              OutlinedButton.icon(
+                                  onPressed: () async {
+                                    await widget.onRefresh!();
+                                    if (context.mounted) Navigator.pop(context);
+                                  },
+                                  icon: const Icon(Icons.sync, size: 16),
+                                  label: const Text('Refresh from Webflow')),
+                            ],
+                          ]))
+                  : ListView.builder(
+                      itemCount: rows.length,
+                      itemBuilder: (_, i) => ListTile(
+                        dense: true,
+                        title: Text(rows[i]['name'] ?? ''),
+                        subtitle: rows[i]['country'] != null
+                            ? Text(rows[i]['country'],
+                                style: const TextStyle(fontSize: 12))
+                            : null,
+                        onTap: () => Navigator.pop(context, rows[i]),
+                      ),
+                    ),
             ),
           ]),
         ),

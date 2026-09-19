@@ -984,8 +984,12 @@ except Exception as e:  # noqa: BLE001
     locations, regions, countries = [], [], []
 country_by_id = {c['id']: c for c in countries}
 
+# Copied on every run that gets this far (nightly, or a push run with
+# work to do), so an item made by hand in Webflow, or by anything other
+# than this script, reaches the app's pickers too. A "refresh" request
+# from the app is exactly that: a run whose only job is this copy.
 rows = region_rows(regions, country_by_id)
-if rows and not PUSH_ONLY:
+if rows:
     try:
         sb('webflow_regions?on_conflict=id', method='POST', body=rows,
            prefer='resolution=merge-duplicates,return=minimal')
@@ -1135,6 +1139,13 @@ def create_location(req):
 
 for req in requests_:
     try:
+        if req['kind'] == 'refresh':
+            # The copy above already happened; just close the request.
+            sb(f"taxonomy_requests?id=eq.{req['id']}", method='PATCH',
+               body={'status': 'created', 'done_at': now},
+               prefer='return=minimal')
+            report['refreshed'] = True
+            continue
         made = create_region(req) if req['kind'] == 'region' else create_location(req)
         sb(f"taxonomy_requests?id=eq.{req['id']}", method='PATCH',
            body={'status': 'created', 'webflow_id': made['id'],
@@ -1165,7 +1176,7 @@ for loc in locations:
         'region_id': lf.get('region-3') or (lf.get('region-2') or [None])[0],
         'country': (c.get('fieldData') or {}).get('name'),
         'updated_at': now})
-if loc_rows and not PUSH_ONLY:
+if loc_rows:
     try:
         sb('webflow_locations?on_conflict=id', method='POST', body=loc_rows,
            prefer='resolution=merge-duplicates,return=minimal')
