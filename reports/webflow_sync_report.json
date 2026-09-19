@@ -1,0 +1,40 @@
+{
+  "started": "2026-09-19T08:52:15.860026+00:00",
+  "items_read": 1028,
+  "live_items": 995,
+  "sitemap_source": "snapshot 2026-09-12",
+  "matched_by_place_id": 975,
+  "matched_by_cms_id": 16,
+  "inserted": 0,
+  "updated": 991,
+  "marked_removed": 0,
+  "status_counts": {
+    "published_hidden": 4,
+    "released": 986,
+    "removed": 1
+  },
+  "no_place_id": [],
+  "inserted_names": [],
+  "skipped_not_live_new": 28,
+  "queued_for_site": 1,
+  "created_on_site": [],
+  "needs_location": [],
+  "errors": [],
+  "sitemap_entries": 995,
+  "sitemap_marked": 0,
+  "sitemap_unmarked": 0,
+  "prepared": [
+    {
+      "name": "co.work",
+      "slug": "germany-wiggensbach-co-work",
+      "region": "Wiggensbach"
+    }
+  ],
+  "awaiting_approval": [
+    "co.work"
+  ],
+  "taxonomy_requests": 0,
+  "regions_copied": 163,
+  "locations_copied": 341,
+  "finished": "2026-09-19T08:52:47.237709+00:00"
+}
