@@ -43,6 +43,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   List<Map<String, dynamic>> _regions = [];
   List<Map<String, dynamic>> _hidden = [];
   List<Map<String, dynamic>> _closed = [];
+  List<Map<String, dynamic>> _paid = [];
   List<Map<String, dynamic>> _locations = [];
   List<Map<String, dynamic>> _countries = [];
   String? _error;
@@ -65,6 +66,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         _supabase.webflowLocations(),
         _supabase.webflowCountries(),
         _supabase.websiteClosed(),
+        _supabase.websitePaid(),
       ]);
       if (!mounted) return;
       setState(() {
@@ -77,6 +79,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         _locations = results[6];
         _countries = results[7];
         _closed = results[8];
+        _paid = results[9];
         _error = null;
       });
     } catch (e) {
@@ -862,6 +865,17 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         empty: 'Sitemap is up to date.'
       ),
       (
+        key: 'paid',
+        label: 'Paid listings',
+        count: _paid.length,
+        color: Brand.success,
+        hint: 'Verified listings: who pays, when it renews, and whether the '
+            'badge is on the page. Any space gets a plan from its Listing '
+            'plan button (here, or on the Released list).',
+        empty: 'No paid listings yet. Open a released page and tap Listing '
+            'plan to mark the first one Verified.'
+      ),
+      (
         key: 'closed',
         label: 'Closed',
         count: _closed.length,
@@ -910,6 +924,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       'preparing' => g.preparing.map(_preparingTile).toList(),
       'hidden' => _hidden.map(_hiddenTile).toList(),
       'closed' => _closed.map(_closedCard).toList(),
+      'paid' => _paid.map(_paidCard).toList(),
       _ => <Widget>[],
     };
     // The later stages have their own list screens.
@@ -1275,6 +1290,151 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                 label: const Text('Sitemap and publish done')),
           ]),
         ],
+      ]),
+    );
+  }
+
+  // ------------------------------------------------------------ paid listings
+
+  static DateTime? _day(String? s) => s == null ? null : DateTime.tryParse(s);
+
+  /// Days until the plan renews; negative once it has lapsed.
+  static int? _daysToRenewal(Map<String, dynamic> v) {
+    final r = _day(v['listing_renews_at']);
+    if (r == null) return null;
+    return r.difference(DateTime.now()).inDays;
+  }
+
+  Future<void> _editPlan(Map<String, dynamic> v) async {
+    final saved = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(
+            builder: (_) => _ListingPlanPage(supabase: _supabase, venue: v)));
+    if (saved == true) await _load();
+  }
+
+  Widget _paidCard(Map<String, dynamic> v) {
+    final verified = v['listing_tier'] == 'verified';
+    final onSite = v['webflow_verified'] == true;
+    final days = _daysToRenewal(v);
+    final renews = _day(v['listing_renews_at']);
+    final pageState = switch (v['website_status']) {
+      'released' => 'live and in the sitemap',
+      'published_hidden' => 'live, not in the sitemap yet',
+      'retired' => 'retired',
+      'removed' => 'removed from the site',
+      _ => 'not on the site yet',
+    };
+    final waiting = v['listing_sync_requested_at'] != null &&
+        v['listing_synced_at'] == null;
+    final country = _countryOf(v);
+    final lines = <Widget>[];
+    if (!verified && onSite) {
+      lines.add(const Text(
+          'Verified switch is on in Webflow but there is no plan here '
+          '(a legacy premium page). Set a plan, or save it as Free to '
+          'switch the badge off.',
+          style: TextStyle(fontSize: 12.5, color: Brand.goldTextDark)));
+    }
+    if (verified) {
+      final who = [
+        if ((v['listing_owner_name'] ?? '').toString().isNotEmpty)
+          v['listing_owner_name'],
+        if ((v['listing_owner_email'] ?? '').toString().isNotEmpty)
+          v['listing_owner_email'],
+      ].join('  ·  ');
+      if (who.isNotEmpty) {
+        lines.add(Text(who, style: const TextStyle(fontSize: 12.5)));
+      }
+      lines.add(Text(
+          'Enquiries to ${(v['listing_enquiry_email'] ?? '').toString().isEmpty ? 'hello@nomadwise.io (none set)' : v['listing_enquiry_email']}',
+          style: const TextStyle(fontSize: 12.5)));
+      if (renews != null) {
+        final when = DateFormat('d MMM yyyy').format(renews);
+        final note = days == null
+            ? ''
+            : days < 0
+                ? '  ·  lapsed ${-days} days ago'
+                : days <= 30
+                    ? '  ·  in $days days'
+                    : '';
+        lines.add(Text('Renews $when$note',
+            style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: days != null && days <= 30
+                    ? FontWeight.w700
+                    : FontWeight.w400,
+                color: days != null && days < 0
+                    ? Brand.red
+                    : days != null && days <= 30
+                        ? Brand.goldTextDark
+                        : Brand.ink)));
+      }
+    }
+    lines.add(Text(
+        'Page: $pageState'
+        '${verified && !onSite && !waiting ? '  ·  badge not on the page yet' : ''}'
+        '${waiting ? '  ·  updating Webflow now' : ''}',
+        style: const TextStyle(fontSize: 12.5, color: Brand.inkSecondary)));
+    if (v['listing_sync_error'] != null) {
+      lines.add(Text('Webflow update failed: ${v['listing_sync_error']}',
+          style: const TextStyle(fontSize: 12.5, color: Brand.red)));
+    }
+    return _card(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+                color: verified ? Brand.success : Brand.field,
+                borderRadius: BorderRadius.circular(8)),
+            child: Text(verified ? 'VERIFIED' : 'FREE',
+                style: TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: .5,
+                    color: verified ? Colors.white : Brand.inkSecondary)),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(v['name'] ?? '',
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w700, fontSize: 15)),
+                  Text(
+                      [
+                        if (_where(v).isNotEmpty) _where(v),
+                        if (country != null) country,
+                      ].join(', '),
+                      style: const TextStyle(
+                          fontSize: 12, color: Brand.inkSecondary)),
+                ]),
+          ),
+          IconButton(
+              tooltip: 'Open the space',
+              onPressed: () => _openVenue(v),
+              icon: const Icon(Icons.chevron_right)),
+        ]),
+        const SizedBox(height: 8),
+        ...lines.map((w) =>
+            Padding(padding: const EdgeInsets.only(bottom: 3), child: w)),
+        const SizedBox(height: 8),
+        Wrap(spacing: 8, runSpacing: 8, children: [
+          OutlinedButton.icon(
+              onPressed: () => _editPlan(v),
+              icon: const Icon(Icons.workspace_premium_outlined, size: 18),
+              label: const Text('Listing plan')),
+          if (v['webflow_slug'] != null)
+            TextButton.icon(
+                onPressed: () => launchUrl(
+                    Uri.parse(
+                        'https://www.nomadwise.io/coworking/${v['webflow_slug']}'),
+                    mode: LaunchMode.externalApplication),
+                icon: const Icon(Icons.open_in_new, size: 15),
+                label: const Text('Open page')),
+        ]),
       ]),
     );
   }
@@ -2189,7 +2349,18 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                     color: v['sitemap_added_at'] == null
                         ? Brand.goldTextDark
                         : Brand.inkSecondary)),
-            trailing: const Icon(Icons.open_in_new, size: 16),
+            trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+              TextButton(
+                  onPressed: () => _editPlan(v),
+                  child: Text(
+                      v['listing_tier'] == 'verified' ? 'Verified' : 'Plan',
+                      style: TextStyle(
+                          fontSize: 12,
+                          color: v['listing_tier'] == 'verified'
+                              ? Brand.success
+                              : Brand.inkSecondary))),
+              const Icon(Icons.open_in_new, size: 16),
+            ]),
             onTap: () => launchUrl(
                 Uri.parse(
                     'https://www.nomadwise.io/coworking/${v['webflow_slug']}'),
@@ -3080,6 +3251,216 @@ class _PhotosPageState extends State<_PhotosPage> {
                 onPressed: () => Navigator.pop(context, _urls),
                 icon: const Icon(Icons.check, size: 18),
                 label: const Text('Save photos')),
+            const SizedBox(height: 40),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+
+// ------------------------------------------------------------ listing plan
+
+/// Free or Verified, the owner, where enquiries go, and the dates.
+/// Saving asks the sync to write the page's fields within minutes;
+/// nothing else about the page changes.
+class _ListingPlanPage extends StatefulWidget {
+  final SupabaseService supabase;
+  final Map<String, dynamic> venue;
+  const _ListingPlanPage({required this.supabase, required this.venue});
+  @override
+  State<_ListingPlanPage> createState() => _ListingPlanPageState();
+}
+
+class _ListingPlanPageState extends State<_ListingPlanPage> {
+  late String _tier = widget.venue['listing_tier'] ?? 'free';
+  late final _ownerName =
+      TextEditingController(text: widget.venue['listing_owner_name'] ?? '');
+  late final _ownerEmail =
+      TextEditingController(text: widget.venue['listing_owner_email'] ?? '');
+  late final _enquiryEmail = TextEditingController(
+      text: widget.venue['listing_enquiry_email'] ?? '');
+  late final _notes =
+      TextEditingController(text: widget.venue['listing_notes'] ?? '');
+  late DateTime? _paid = _parse(widget.venue['listing_paid_at']);
+  late DateTime? _renews = _parse(widget.venue['listing_renews_at']);
+  bool _busy = false;
+
+  static DateTime? _parse(String? s) => s == null ? null : DateTime.tryParse(s);
+  static String _fmt(DateTime? d) =>
+      d == null ? 'Not set' : DateFormat('d MMM yyyy').format(d);
+  static String? _iso(DateTime? d) =>
+      d == null ? null : DateFormat('yyyy-MM-dd').format(d);
+
+  Future<void> _pickDate(bool paid) async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+        context: context,
+        initialDate: (paid ? _paid : _renews) ?? now,
+        firstDate: DateTime(2024),
+        lastDate: DateTime(now.year + 3));
+    if (picked == null) return;
+    setState(() {
+      if (paid) {
+        _paid = picked;
+        // A year from payment unless the renewal was set by hand.
+        _renews ??= DateTime(picked.year + 1, picked.month, picked.day);
+      } else {
+        _renews = picked;
+      }
+    });
+  }
+
+  Future<void> _save() async {
+    final enquiry = _enquiryEmail.text.trim();
+    if (_tier == 'verified' && enquiry.isNotEmpty && !enquiry.contains('@')) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('The enquiry address does not look like an email.')));
+      return;
+    }
+    if (_tier == 'verified' && _paid == null) {
+      // Paid today unless told otherwise; the renewal follows.
+      final now = DateTime.now();
+      _paid = DateTime(now.year, now.month, now.day);
+      _renews ??= DateTime(now.year + 1, now.month, now.day);
+    }
+    setState(() => _busy = true);
+    try {
+      await widget.supabase.updateVenueFields(widget.venue['id'], {
+        'listing_tier': _tier,
+        'listing_owner_name':
+            _ownerName.text.trim().isEmpty ? null : _ownerName.text.trim(),
+        'listing_owner_email':
+            _ownerEmail.text.trim().isEmpty ? null : _ownerEmail.text.trim(),
+        'listing_enquiry_email': enquiry.isEmpty ? null : enquiry,
+        'listing_notes': _notes.text.trim().isEmpty ? null : _notes.text.trim(),
+        'listing_paid_at': _tier == 'verified' ? _iso(_paid) : null,
+        'listing_renews_at': _tier == 'verified' ? _iso(_renews) : null,
+        // Asks the sync to write the page's fields; cleared once done.
+        'listing_sync_requested_at': DateTime.now().toUtc().toIso8601String(),
+        'listing_synced_at': null,
+        'listing_sync_error': null,
+      });
+      if (mounted) Navigator.pop(context, true);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('That did not save: $e'),
+            backgroundColor: Brand.red));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final v = widget.venue;
+    final onSite = v['webflow_cms_id'] != null;
+    return Scaffold(
+      appBar: AppBar(title: Text(v['name'] ?? 'Listing plan')),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 640),
+          child: ListView(padding: const EdgeInsets.all(16), children: [
+            const Text(
+                'Verified is the paid plan: the badge on the page and the '
+                'map pin, first position in its city and area, and the '
+                'Request a booking button sending enquiries to the address '
+                'below. Saving updates the page within a minute or two.',
+                style: TextStyle(
+                    fontSize: 12.5, height: 1.45, color: Brand.inkSecondary)),
+            if (!onSite)
+              const Padding(
+                padding: EdgeInsets.only(top: 8),
+                child: Text(
+                    'This space has no page on nomadwise.io yet. The plan is '
+                    'kept and written to the page once it exists.',
+                    style: TextStyle(fontSize: 12.5, color: Brand.goldTextDark)),
+              ),
+            const SizedBox(height: 14),
+            SegmentedButton<String>(
+              segments: const [
+                ButtonSegment(value: 'free', label: Text('Free')),
+                ButtonSegment(
+                    value: 'verified',
+                    label: Text('Verified'),
+                    icon: Icon(Icons.verified, size: 16)),
+              ],
+              selected: {_tier},
+              onSelectionChanged: (s) => setState(() => _tier = s.first),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+                controller: _ownerName,
+                textCapitalization: TextCapitalization.words,
+                decoration: const InputDecoration(
+                    labelText: 'Owner or contact name (optional)')),
+            const SizedBox(height: 12),
+            TextField(
+                controller: _ownerEmail,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(
+                    labelText: 'Owner email (billing, reports)')),
+            const SizedBox(height: 12),
+            TextField(
+                controller: _enquiryEmail,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(
+                    labelText: 'Enquiry email (booking requests go here)',
+                    helperText:
+                        'Leave empty to send them to hello@nomadwise.io.',
+                    helperMaxLines: 2)),
+            if (_tier == 'verified') ...[
+              const SizedBox(height: 12),
+              Row(children: [
+                Expanded(
+                  child: InkWell(
+                    onTap: () => _pickDate(true),
+                    borderRadius: BorderRadius.circular(12),
+                    child: InputDecorator(
+                        decoration: const InputDecoration(
+                            labelText: 'Paid on',
+                            suffixIcon: Icon(Icons.event, size: 18)),
+                        child: Text(_fmt(_paid))),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: InkWell(
+                    onTap: () => _pickDate(false),
+                    borderRadius: BorderRadius.circular(12),
+                    child: InputDecorator(
+                        decoration: const InputDecoration(
+                            labelText: 'Renews on',
+                            suffixIcon: Icon(Icons.event, size: 18)),
+                        child: Text(_fmt(_renews))),
+                  ),
+                ),
+              ]),
+              const Padding(
+                padding: EdgeInsets.only(top: 6),
+                child: Text(
+                    'Renewal is a year after payment unless you set it. '
+                    'Once Stripe is connected these fill in on their own.',
+                    style: TextStyle(fontSize: 11.5, color: Brand.inkMuted)),
+              ),
+            ],
+            const SizedBox(height: 12),
+            TextField(
+                controller: _notes,
+                minLines: 2,
+                maxLines: 5,
+                decoration: const InputDecoration(
+                    labelText: 'Notes (optional)',
+                    hintText: 'How they came in, what was agreed, invoice number.',
+                    alignLabelWithHint: true)),
+            const SizedBox(height: 20),
+            FilledButton.icon(
+                onPressed: _busy ? null : _save,
+                icon: const Icon(Icons.check, size: 18),
+                label: Text(_busy ? 'Saving' : 'Save plan')),
             const SizedBox(height: 40),
           ]),
         ),

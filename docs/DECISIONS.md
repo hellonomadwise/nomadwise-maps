@@ -451,3 +451,23 @@ bonus. Food is welcome only as an overview of the counter with the
 shop in view, or a coffee on a table with the room behind it. The
 brief carries a version number; spaces still waiting for approval are
 rescored when it changes.
+
+## Listing plans: free or Verified (Sep 2026)
+
+The business model, decided 19 and 20 Sep: one paid tier, Verified,
+99 EUR a year, annual through Stripe; Featured parked. What Verified
+buys is visibility and leads, never a booking engine (the earlier
+Webflow booking engine went to Stripe, took a euro a booking on day
+passes, and was retired). The app is the source of truth: a Listing
+plan (tier, owner, enquiry email, paid and renewal dates) lives on
+the venue (migration 65) and the push run writes four Webflow fields
+and republishes the page. The Coworking collection is at Webflow's
+60-field limit, so the old booking-engine fields were renamed rather
+than added: Premium Member is now Verified, Booking Engine is
+Enquiries On, Payment Model is Listing Rank ("1"/"0", text so the
+Designer can sort it), Coworking Space Email is Enquiry Email. The
+Request a booking button links to Nomad Maps with the listing's slug
+via a few lines of custom code (no field needed). The nightly pull
+copies the Verified switch back so legacy premium pages show up in
+the Paid listings section until they get a plan. Designer steps:
+docs/WEBFLOW_VERIFIED_SETUP.md; page copy: docs/GET_LISTED_PAGE.md.

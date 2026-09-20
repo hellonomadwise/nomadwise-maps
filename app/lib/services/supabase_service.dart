@@ -761,6 +761,10 @@ class SupabaseService {
       'business_status, business_status_at, closed_seen_at, '
       'closed_dismissed_at, website_retire_requested_at, website_retired_at, '
       'website_retire_note, website_retire_done_at, '
+      'listing_tier, listing_paid_at, listing_renews_at, listing_owner_name, '
+      'listing_owner_email, listing_enquiry_email, listing_notes, '
+      'listing_sync_requested_at, listing_synced_at, listing_sync_error, '
+      'webflow_verified, '
       // Just the address parts of the cached Google details, so the
       // inbox can show the country without loading the whole record.
       'address_components:g_details->addressComponents, '
@@ -810,6 +814,24 @@ class SupabaseService {
           'website_status.in.(published_hidden,released)),'
           'and(website_retired_at.not.is.null,website_retire_done_at.is.null)')
           .order('closed_seen_at', ascending: true);
+      return (rows as List)
+          .map((r) => Map<String, dynamic>.from(r))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Paid (Verified) listings, soonest renewal first, plus pages whose
+  /// Webflow Verified switch is on without a plan in the app (legacy
+  /// premium pages), so the two never drift apart unnoticed.
+  Future<List<Map<String, dynamic>>> websitePaid() async {
+    try {
+      final rows = await _db
+          .from('venues')
+          .select(_websiteCols)
+          .or('listing_tier.neq.free,webflow_verified.eq.true')
+          .order('listing_renews_at', ascending: true, nullsFirst: false);
       return (rows as List)
           .map((r) => Map<String, dynamic>.from(r))
           .toList();

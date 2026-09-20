@@ -384,7 +384,8 @@ if not PUSH_ONLY:
                         'webflow_cms_id': cms_id,
                         'webflow_slug': slug,
                         'website_status': status,
-                        'website_synced_at': now})
+                        'website_synced_at': now,
+                        'webflow_verified': bool(f.get('premium-member'))})
             row.update(editorial_fields(f, venue['type']))
             wifi = num(f.get('average-internet-speed'))
             if venue['id'] not in tested and wifi and wifi > 0:
@@ -415,6 +416,7 @@ if not PUSH_ONLY:
             'webflow_slug': slug,
             'website_status': status,
             'website_synced_at': now,
+            'webflow_verified': bool(f.get('premium-member')),
             'status': 'verified',
             'source': SOURCE_TAG,
         })
@@ -978,7 +980,21 @@ except Exception as e:  # noqa: BLE001
     retire_ = []
 report['retire_requests'] = len(retire_)
 
-if PUSH_ONLY and not queued and not requests_ and not retire_:
+# Listing plans saved in the app (free or Verified, enquiry address):
+# the Webflow fields follow within minutes.
+try:
+    # The app clears listing_synced_at when it saves a plan.
+    listing_ = sb('venues?listing_sync_requested_at=not.is.null'
+                  '&webflow_cms_id=not.is.null&listing_synced_at=is.null'
+                  '&select=id,name,webflow_cms_id,listing_tier,'
+                  'listing_enquiry_email,listing_sync_requested_at'
+                  '&limit=30') or []
+except Exception as e:  # noqa: BLE001
+    report.setdefault('warnings', []).append(f'listing plans read: {e}')
+    listing_ = []
+report['listing_requests'] = len(listing_)
+
+if PUSH_ONLY and not queued and not requests_ and not retire_ and not listing_:
     finish(0)   # nothing to do: the common case, a second of runtime
 
 if PUSH_ONLY:
@@ -1250,6 +1266,57 @@ for v in retire_:
         try:
             sb(f"venues?id=eq.{v['id']}", method='PATCH',
                body={'website_retire_note': {'error': str(e)[:300]}},
+               prefer='return=minimal')
+        except Exception:  # noqa: BLE001
+            pass
+
+# ------------------------------------------------------------ listing plans
+# The app's plan becomes the page's fields: Verified switch (the old
+# premium-member slug), Enquiries On (booking-engine), Listing Rank
+# (booking-model, "1" or "0", sorted Z to A in the Designer) and the
+# Enquiry Email (coworking-space-email-3). A live page is republished
+# so the badge shows within minutes; a draft just gets the fields.
+DEFAULT_ENQUIRY_EMAIL = 'hello@nomadwise.io'
+
+
+def sync_listing(v):
+    cms = v['webflow_cms_id']
+    verified = v.get('listing_tier') == 'verified'
+    email = (v.get('listing_enquiry_email') or '').strip() or DEFAULT_ENQUIRY_EMAIL
+    item = wf(f'/v2/collections/{COLLECTION_ID}/items/{cms}') or {}
+    fields = {
+        'premium-member': verified,
+        'booking-engine': verified,
+        'booking-model': '1' if verified else '0',
+        'coworking-space-email-3': email if verified else DEFAULT_ENQUIRY_EMAIL,
+    }
+    wf_write(f'/v2/collections/{COLLECTION_ID}/items/{cms}', 'PATCH',
+             {'fieldData': fields})
+    time.sleep(0.6)
+    live = not item.get('isDraft') and not item.get('isArchived') \
+        and item.get('lastPublished')
+    if live:
+        wf_write(f'/v2/collections/{COLLECTION_ID}/items/publish', 'POST',
+                 {'itemIds': [cms]})
+        time.sleep(0.6)
+    return {'verified': verified, 'email': fields['coworking-space-email-3'],
+            'republished': bool(live)}
+
+
+for v in listing_:
+    try:
+        done = sync_listing(v)
+        sb(f"venues?id=eq.{v['id']}", method='PATCH',
+           body={'listing_synced_at': now, 'listing_sync_error': None,
+                 'webflow_verified': done['verified']},
+           prefer='return=minimal')
+        report.setdefault('listings_synced', []).append(
+            {'name': v.get('name'), **done})
+    except Exception as e:  # noqa: BLE001
+        report['errors'].append(f"listing plan {v.get('name')}: {e}")
+        try:
+            sb(f"venues?id=eq.{v['id']}", method='PATCH',
+               body={'listing_sync_error': str(e)[:300]},
                prefer='return=minimal')
         except Exception:  # noqa: BLE001
             pass
