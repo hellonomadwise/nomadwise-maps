@@ -36,6 +36,27 @@ alter table public.venues
 create index if not exists idx_venues_listing_tier
   on public.venues(listing_tier) where listing_tier <> 'free';
 
+-- The five pages that carried the old Premium switch start as Verified,
+-- with the enquiry address the page already had where it was not the
+-- default. No paid or renewal date is known for them; the founders
+-- fill those in from the Listing plan form. The sync request makes
+-- the push run write the fields so the page matches the plan.
+update public.venues v set
+  listing_tier = 'verified',
+  listing_enquiry_email = case when v.webflow_cms_id = '67d78a0bd01eb8fd6ab57efe'
+                               then 'info@sokkool.com' else v.listing_enquiry_email end,
+  listing_notes = coalesce(v.listing_notes, 'Legacy premium page, marked Verified on 20 Sep 2026.'),
+  listing_sync_requested_at = now(),
+  listing_synced_at = null,
+  webflow_verified = true
+where v.webflow_cms_id in (
+  '6809cff65b7d6598c8b425e1',   -- Lisbon-Cowork
+  '67d78a0bd01eb8fd6ab57efe',   -- SOKKOOL Coliving & Coworking
+  '67246a39070155fc18588f75',   -- ALTER SPACE Siargao Workspace
+  '66d86b89956e2e75497bf514',   -- Ofis Voyvoda Istanbul
+  '65fa86d0e0379bf78d52478d')   -- Monday
+  and v.listing_tier = 'free';
+
 -- The nudge trigger also wakes the push run for a listing plan save.
 create or replace function public.nudge_website_sync()
 returns trigger language plpgsql security definer set search_path = public as $$

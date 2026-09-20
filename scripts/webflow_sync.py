@@ -1277,6 +1277,10 @@ for v in retire_:
 # Enquiry Email (coworking-space-email-3). A live page is republished
 # so the badge shows within minutes; a draft just gets the fields.
 DEFAULT_ENQUIRY_EMAIL = 'hello@nomadwise.io'
+# The Request a booking button links to a form on Nomad Maps that the
+# booking-requests build adds; until then the switch stays off for
+# everyone so no page shows a button that leads nowhere.
+ENQUIRIES_LIVE = False
 
 
 def sync_listing(v):
@@ -1286,7 +1290,7 @@ def sync_listing(v):
     item = wf(f'/v2/collections/{COLLECTION_ID}/items/{cms}') or {}
     fields = {
         'premium-member': verified,
-        'booking-engine': verified,
+        'booking-engine': verified and ENQUIRIES_LIVE,
         'booking-model': '1' if verified else '0',
         'coworking-space-email-3': email if verified else DEFAULT_ENQUIRY_EMAIL,
     }
