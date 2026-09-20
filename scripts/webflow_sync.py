@@ -1280,7 +1280,7 @@ DEFAULT_ENQUIRY_EMAIL = 'hello@nomadwise.io'
 # The Request a booking button links to a form on Nomad Maps that the
 # booking-requests build adds; until then the switch stays off for
 # everyone so no page shows a button that leads nowhere.
-ENQUIRIES_LIVE = False
+ENQUIRIES_LIVE = True   # the form shipped with migration 66
 
 
 def sync_listing(v):

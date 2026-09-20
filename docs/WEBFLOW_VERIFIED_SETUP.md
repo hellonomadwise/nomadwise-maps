@@ -41,7 +41,7 @@ where you want it (near the website and WhatsApp links is natural).
 Conditional visibility: show when Enquiries On is On. Give the button
 an ID of `enquire` (element settings, ID field).
 
-Set its link to `https://nomadmaps.io/#/enquire/` for now. Then add
+Set its link to `https://nomadmaps.io/?enquire=` for now. Then add
 this to the page's custom code, before the closing body tag, so the
 button carries the listing's own slug:
 
@@ -51,14 +51,15 @@ button carries the listing's own slug:
     var b = document.getElementById('enquire');
     if (!b) return;
     var slug = location.pathname.split('/').filter(Boolean).pop();
-    b.href = 'https://nomadmaps.io/#/enquire/' + slug;
+    b.href = 'https://nomadmaps.io/?enquire=' + slug;
   })();
 </script>
 ```
 
-The form itself arrives with the booking requests build (task 3);
-until then leave Enquiries On off, which Nomad Maps does by default,
-so no button shows.
+The form lives on Nomad Maps: the nomad fills in name, email, what
+they want, dates and a note, and the request is emailed to the
+listing's Enquiry Email with a copy to hello@nomadwise.io. Nomad Maps
+switches Enquiries On for every Verified listing.
 
 ## 4. The enquiry email
 

@@ -471,3 +471,19 @@ via a few lines of custom code (no field needed). The nightly pull
 copies the Verified switch back so legacy premium pages show up in
 the Paid listings section until they get a plan. Designer steps:
 docs/WEBFLOW_VERIFIED_SETUP.md; page copy: docs/GET_LISTED_PAGE.md.
+
+## Booking requests (Sep 2026)
+
+Verified pages get a Request a booking button that opens
+nomadmaps.io/?enquire=<slug>: one screen, no account, no payment
+(the founders retired a real booking engine; the value is the lead).
+The request is stored (migration 66, table enquiries, public insert
+with a rate guard of five an hour per address and twenty per
+listing, plus a honeypot in the form) and a trigger emails it through
+Resend to the listing's enquiry address, copying hello@nomadwise.io,
+reply-to set to the nomad. The Resend key lives in Vault as
+resend_api_key; until it exists a request is kept with status failed
+and the reason, the founders get the usual phone ping, and the Paid
+listings card offers Re-send. The card also counts requests, which
+is the number the renewal conversation is built on. PostHog gets
+enquiry_opened and enquiry_sent.

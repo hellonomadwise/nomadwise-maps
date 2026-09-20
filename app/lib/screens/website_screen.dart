@@ -44,6 +44,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   List<Map<String, dynamic>> _hidden = [];
   List<Map<String, dynamic>> _closed = [];
   List<Map<String, dynamic>> _paid = [];
+  List<Map<String, dynamic>> _enquiries = [];
   List<Map<String, dynamic>> _locations = [];
   List<Map<String, dynamic>> _countries = [];
   String? _error;
@@ -67,6 +68,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         _supabase.webflowCountries(),
         _supabase.websiteClosed(),
         _supabase.websitePaid(),
+        _supabase.enquiries(),
       ]);
       if (!mounted) return;
       setState(() {
@@ -80,6 +82,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         _countries = results[7];
         _closed = results[8];
         _paid = results[9];
+        _enquiries = results[10];
         _error = null;
       });
     } catch (e) {
@@ -1313,6 +1316,114 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     if (saved == true) await _load();
   }
 
+  List<Map<String, dynamic>> _enquiriesFor(Map<String, dynamic> v) =>
+      _enquiries.where((e) => e['venue_id'] == v['id']).toList();
+
+  static String _wantWords(String? w) => switch (w) {
+        'day_pass' => 'day pass',
+        'desk_month' => 'desk for a month or longer',
+        'event' => 'meeting or event',
+        _ => 'something else',
+      };
+
+  /// The booking requests one listing has had, newest first, with a
+  /// re-send for any that did not go out (no Resend key yet, say).
+  Future<void> _showEnquiries(Map<String, dynamic> v) async {
+    await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(18))),
+        builder: (ctx) {
+          final rows = _enquiriesFor(v);
+          return SafeArea(
+            child: SizedBox(
+              height: MediaQuery.of(ctx).size.height * .75,
+              child: ListView(padding: const EdgeInsets.all(16), children: [
+                Text('Booking requests for ${v['name']}',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w700, fontSize: 16)),
+                const SizedBox(height: 4),
+                Text(
+                    'Sent to ${(v['listing_enquiry_email'] ?? '').toString().isEmpty ? 'hello@nomadwise.io' : v['listing_enquiry_email']}, '
+                    'with a copy to hello@nomadwise.io.',
+                    style: const TextStyle(
+                        fontSize: 12.5, color: Brand.inkMuted)),
+                const SizedBox(height: 10),
+                ...rows.map((e) => Card(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      elevation: 0,
+                      color: e['status'] == 'failed'
+                          ? Brand.accentTint
+                          : Brand.field,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('${e['name']}  ·  ${e['email']}',
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w600)),
+                              const SizedBox(height: 2),
+                              Text(
+                                  [
+                                    _wantWords(e['want']),
+                                    if ((e['dates'] ?? '').toString().isNotEmpty)
+                                      e['dates'],
+                                    if (e['people'] != null)
+                                      '${e['people']} people',
+                                    _ago(e['created_at']),
+                                  ].join('  ·  '),
+                                  style: const TextStyle(
+                                      fontSize: 12, color: Brand.inkSecondary)),
+                              if ((e['message'] ?? '').toString().isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 6),
+                                  child: Text('${e['message']}',
+                                      style: const TextStyle(
+                                          fontSize: 12.5, height: 1.4)),
+                                ),
+                              if (e['status'] == 'failed') ...[
+                                const SizedBox(height: 6),
+                                Text('Not delivered: ${e['send_error'] ?? ''}',
+                                    style: const TextStyle(
+                                        fontSize: 12, color: Brand.red)),
+                                TextButton.icon(
+                                    onPressed: () async {
+                                      try {
+                                        await _supabase.resendEnquiry(e['id']);
+                                        if (ctx.mounted) Navigator.pop(ctx);
+                                        await _load();
+                                      } catch (err) {
+                                        if (mounted) {
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(SnackBar(
+                                                  content: Text(
+                                                      'Re-send failed: $err')));
+                                        }
+                                      }
+                                    },
+                                    icon: const Icon(Icons.refresh, size: 16),
+                                    label: const Text('Re-send now')),
+                              ] else if (e['status'] == 'sent')
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 4),
+                                  child: Text('Sent to ${e['to_email'] ?? ''}',
+                                      style: const TextStyle(
+                                          fontSize: 11.5,
+                                          color: Brand.inkMuted)),
+                                ),
+                            ]),
+                      ),
+                    )),
+              ]),
+            ),
+          );
+        });
+  }
+
   Widget _paidCard(Map<String, dynamic> v) {
     final verified = v['listing_tier'] == 'verified';
     final onSite = v['webflow_verified'] == true;
@@ -1380,6 +1491,18 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       lines.add(Text('Webflow update failed: ${v['listing_sync_error']}',
           style: const TextStyle(fontSize: 12.5, color: Brand.red)));
     }
+    final reqs = _enquiriesFor(v);
+    final failed = reqs.where((e) => e['status'] == 'failed').length;
+    if (reqs.isNotEmpty) {
+      lines.add(Text(
+          '${reqs.length} booking request${reqs.length == 1 ? '' : 's'}, '
+          'last one ${_ago(reqs.first['created_at'])}'
+          '${failed > 0 ? '  ·  $failed not delivered' : ''}',
+          style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w600,
+              color: failed > 0 ? Brand.red : Brand.ink)));
+    }
     return _card(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
@@ -1426,6 +1549,11 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
               onPressed: () => _editPlan(v),
               icon: const Icon(Icons.workspace_premium_outlined, size: 18),
               label: const Text('Listing plan')),
+          if (reqs.isNotEmpty)
+            OutlinedButton.icon(
+                onPressed: () => _showEnquiries(v),
+                icon: const Icon(Icons.mail_outline, size: 18),
+                label: Text('Requests (${reqs.length})')),
           if (v['webflow_slug'] != null)
             TextButton.icon(
                 onPressed: () => launchUrl(

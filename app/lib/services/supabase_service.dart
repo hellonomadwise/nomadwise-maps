@@ -726,6 +726,46 @@ class SupabaseService {
     return Venue.fromJson(Map<String, dynamic>.from(rows.first));
   }
 
+  /// A listing by its nomadwise.io slug, for the booking request form.
+  Future<Map<String, dynamic>?> venueBySlug(String slug) async {
+    try {
+      final rows = await _db
+          .from('venues')
+          .select('id, name, city, neighbourhood, webflow_slug, listing_tier')
+          .eq('webflow_slug', slug)
+          .limit(1);
+      if ((rows as List).isEmpty) return null;
+      return Map<String, dynamic>.from(rows.first);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Files a booking request; the database emails it on.
+  Future<void> sendEnquiry(Map<String, dynamic> row) =>
+      _db.from('enquiries').insert(row);
+
+  /// Booking requests per listing (admin), newest first.
+  Future<List<Map<String, dynamic>>> enquiries({int limit = 400}) async {
+    try {
+      final rows = await _db
+          .from('enquiries')
+          .select('id, venue_id, name, email, want, dates, people, message, '
+              'status, to_email, sent_at, send_error, created_at')
+          .order('created_at', ascending: false)
+          .limit(limit);
+      return (rows as List)
+          .map((r) => Map<String, dynamic>.from(r))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Re-sends a failed booking request (after the Resend key exists).
+  Future<void> resendEnquiry(String id) =>
+      _db.rpc('resend_enquiry', params: {'p_id': id});
+
   /// Admin fixes venue fields (spelling, wrong toggles) before approving.
   Future<void> updateVenueFields(
           String venueId, Map<String, dynamic> fields) =>
