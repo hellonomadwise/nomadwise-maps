@@ -45,6 +45,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   List<Map<String, dynamic>> _closed = [];
   List<Map<String, dynamic>> _paid = [];
   List<Map<String, dynamic>> _enquiries = [];
+  List<Map<String, dynamic>> _orders = [];
   List<Map<String, dynamic>> _locations = [];
   List<Map<String, dynamic>> _countries = [];
   String? _error;
@@ -53,6 +54,13 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void dispose() {
+    _searchTimer?.cancel();
+    _searchCtl.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -69,6 +77,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         _supabase.websiteClosed(),
         _supabase.websitePaid(),
         _supabase.enquiries(),
+        _supabase.unmatchedStripeOrders(),
       ]);
       if (!mounted) return;
       setState(() {
@@ -83,6 +92,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         _closed = results[8];
         _paid = results[9];
         _enquiries = results[10];
+        _orders = results[11];
         _error = null;
       });
     } catch (e) {
@@ -870,7 +880,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       (
         key: 'paid',
         label: 'Paid listings',
-        count: _paid.length,
+        count: _paid.length + _orders.length,
         color: Brand.success,
         hint: 'Verified listings: who pays, when it renews, and whether the '
             'badge is on the page. Any space gets a plan from its Listing '
@@ -927,7 +937,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       'preparing' => g.preparing.map(_preparingTile).toList(),
       'hidden' => _hidden.map(_hiddenTile).toList(),
       'closed' => _closed.map(_closedCard).toList(),
-      'paid' => _paid.map(_paidCard).toList(),
+      'paid' => [..._orders.map(_orderCard), ..._paid.map(_paidCard)],
       _ => <Widget>[],
     };
     // The later stages have their own list screens.
@@ -1565,6 +1575,103 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         ]),
       ]),
     );
+  }
+
+  // ------------------------------------------------------------ stripe orders
+
+  /// A paid checkout the sync could not match to a space. One tap
+  /// attaches it (search by name) and the plan follows.
+  Widget _orderCard(Map<String, dynamic> o) {
+    final who = [
+      if ((o['name'] ?? '').toString().isNotEmpty) o['name'],
+      if ((o['email'] ?? '').toString().isNotEmpty) o['email'],
+    ].join('  ·  ');
+    return _card(
+      tint: Brand.goldTint,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+                color: Brand.goldTextDark,
+                borderRadius: BorderRadius.circular(8)),
+            child: const Text('PAID, NEEDS MATCHING',
+                style: TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: .5,
+                    color: Colors.white)),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(o['space_name'] ?? 'Space not named',
+                style: const TextStyle(
+                    fontWeight: FontWeight.w700, fontSize: 15)),
+          ),
+        ]),
+        const SizedBox(height: 8),
+        if (who.isNotEmpty)
+          Text(who, style: const TextStyle(fontSize: 12.5)),
+        if ((o['space_link'] ?? '').toString().isNotEmpty)
+          InkWell(
+            onTap: () => launchUrl(Uri.parse('${o['space_link']}'),
+                mode: LaunchMode.externalApplication),
+            child: Padding(
+              padding: const EdgeInsets.only(top: 3),
+              child: Text('${o['space_link']}',
+                  style: const TextStyle(
+                      fontSize: 12,
+                      color: Brand.accent,
+                      decoration: TextDecoration.underline)),
+            ),
+          ),
+        Padding(
+          padding: const EdgeInsets.only(top: 3),
+          child: Text(
+              '${o['currency'] ?? ''} ${(o['amount'] ?? 0).toString()} paid '
+              '${_ago(o['created_at'])}. Not matched to a space yet: search '
+              'for it below, or add it as a new space first and then attach.',
+              style: const TextStyle(fontSize: 12.5, color: Brand.inkSecondary)),
+        ),
+        const SizedBox(height: 10),
+        Wrap(spacing: 8, runSpacing: 8, children: [
+          FilledButton.icon(
+              onPressed: () => _attachOrder(o),
+              icon: const Icon(Icons.link, size: 18),
+              label: const Text('Attach to a space')),
+          TextButton(
+              onPressed: () async {
+                await _supabase.ignoreStripeOrder(o['id']);
+                await _load();
+              },
+              child: const Text('Ignore')),
+        ]),
+      ]),
+    );
+  }
+
+  Future<void> _attachOrder(Map<String, dynamic> o) async {
+    final picked = await showModalBottomSheet<Map<String, dynamic>>(
+        context: context,
+        isScrollControlled: true,
+        shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(18))),
+        builder: (_) => _VenueSearchSheet(
+            supabase: _supabase, initial: o['space_name'] ?? ''));
+    if (picked == null) return;
+    try {
+      await _supabase.attachStripeOrder(o['id'], picked['id']);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('${picked['name']} is now Verified. The page '
+              'updates within a minute or two.')));
+      await _load();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('That did not attach: $e'),
+          backgroundColor: Brand.red));
+    }
   }
 
   Widget _hiddenTile(Map<String, dynamic> v) => Card(
@@ -2441,33 +2548,70 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   // ------------------------------------------------------------ released
 
   String _search = '';
+  final _searchCtl = TextEditingController();
+
+  /// Search runs against the whole database, not the newest 300 the
+  /// screen holds, so any page can be found however long the list gets.
+  Timer? _searchTimer;
+  List<Map<String, dynamic>>? _searchHits;
+  bool _searching = false;
+
+  void _releasedSearch(String text) {
+    setState(() => _search = text);
+    _searchTimer?.cancel();
+    final q = text.trim();
+    if (q.length < 2) {
+      setState(() {
+        _searchHits = null;
+        _searching = false;
+      });
+      return;
+    }
+    setState(() => _searching = true);
+    _searchTimer = Timer(const Duration(milliseconds: 400), () async {
+      final hits = await _supabase.websiteReleasedSearch(q);
+      if (!mounted || _search.trim() != q) return;
+      setState(() {
+        _searchHits = hits;
+        _searching = false;
+      });
+    });
+  }
 
   Widget _releasedTab() {
-    final q = _search.trim().toLowerCase();
-    final rows = q.isEmpty
-        ? _released
-        : _released
-            .where((v) =>
-                '${v['name']} ${v['city']} ${v['webflow_slug']}'
-                    .toLowerCase()
-                    .contains(q))
-            .toList();
+    final q = _search.trim();
+    final rows = q.length < 2 ? _released : (_searchHits ?? const []);
     return ListView(padding: const EdgeInsets.all(14), children: [
       TextField(
+        controller: _searchCtl,
         decoration: InputDecoration(
             prefixIcon: const Icon(Icons.search),
-            hintText: 'Search released pages',
+            hintText: 'Search every released page',
             filled: true,
             fillColor: Brand.field,
+            suffixIcon: q.isEmpty
+                ? null
+                : IconButton(
+                    icon: const Icon(Icons.close, size: 18),
+                    onPressed: () {
+                      _searchCtl.clear();
+                      _releasedSearch('');
+                    }),
             border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide.none)),
-        onChanged: (s) => setState(() => _search = s),
+        onChanged: _releasedSearch,
       ),
       const SizedBox(height: 6),
       Text(
-          '${_released.length} released page${_released.length == 1 ? '' : 's'}'
-          '${_released.length >= 300 ? ' (latest 300 shown)' : ''}',
+          q.length < 2
+              ? '${_released.length} newest released page'
+                  '${_released.length == 1 ? '' : 's'}. Search to find any '
+                  'of the others.'
+              : _searching
+                  ? 'Searching every released page...'
+                  : '${rows.length} match${rows.length == 1 ? '' : 'es'}'
+                      '${rows.length >= 100 ? ' (first 100)' : ''}',
           style: const TextStyle(fontSize: 12, color: Brand.inkMuted)),
       const SizedBox(height: 8),
       ...rows.map((v) => ListTile(
@@ -2500,12 +2644,13 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                     'https://www.nomadwise.io/coworking/${v['webflow_slug']}'),
                 mode: LaunchMode.externalApplication),
           )),
-      if (rows.isEmpty)
-        const Padding(
-          padding: EdgeInsets.all(30),
-          child: Text('Nothing matches.',
+      if (rows.isEmpty && !_searching)
+        Padding(
+          padding: const EdgeInsets.all(30),
+          child: Text(
+              q.length < 2 ? 'Nothing released yet.' : 'Nothing matches.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Brand.inkMuted)),
+              style: const TextStyle(color: Brand.inkMuted)),
         ),
       const SizedBox(height: 30),
     ]);
@@ -3678,6 +3823,123 @@ class _ListingPlanPageState extends State<_ListingPlanPage> {
               ]),
             ],
             const SizedBox(height: 40),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+
+// ------------------------------------------------------------ venue search
+
+/// Any space by name, from the whole database (not only the lists the
+/// control centre has loaded), for attaching a payment.
+class _VenueSearchSheet extends StatefulWidget {
+  final SupabaseService supabase;
+  final String initial;
+  const _VenueSearchSheet({required this.supabase, required this.initial});
+  @override
+  State<_VenueSearchSheet> createState() => _VenueSearchSheetState();
+}
+
+class _VenueSearchSheetState extends State<_VenueSearchSheet> {
+  late final _q = TextEditingController(text: widget.initial);
+  List<Map<String, dynamic>> _rows = [];
+  bool _busy = false;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _search();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  void _schedule() {
+    _timer?.cancel();
+    _timer = Timer(const Duration(milliseconds: 400), _search);
+  }
+
+  Future<void> _search() async {
+    final q = _q.text.trim();
+    if (q.length < 2) {
+      setState(() => _rows = []);
+      return;
+    }
+    setState(() => _busy = true);
+    final rows = await widget.supabase.searchVenues(q);
+    if (!mounted) return;
+    setState(() {
+      _rows = rows;
+      _busy = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.only(
+            left: 16,
+            right: 16,
+            top: 16,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 8),
+        child: SizedBox(
+          height: MediaQuery.of(context).size.height * .7,
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('Which space paid?',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+            const SizedBox(height: 4),
+            const Text(
+                'Search every space in Nomad Maps. If it is not here yet, '
+                'add it from the map first, then attach.',
+                style: TextStyle(fontSize: 12.5, color: Brand.inkMuted)),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _q,
+              autofocus: true,
+              onChanged: (_) => _schedule(),
+              decoration: InputDecoration(
+                  prefixIcon: const Icon(Icons.search),
+                  hintText: 'Space name',
+                  filled: true,
+                  fillColor: Brand.field,
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none)),
+            ),
+            const SizedBox(height: 6),
+            if (_busy) const LinearProgressIndicator(minHeight: 2),
+            Expanded(
+              child: ListView.builder(
+                itemCount: _rows.length,
+                itemBuilder: (_, i) {
+                  final r = _rows[i];
+                  final where = [r['neighbourhood'], r['city']]
+                      .where((x) => x != null && '$x'.isNotEmpty)
+                      .join(', ');
+                  return ListTile(
+                    dense: true,
+                    title: Text(r['name'] ?? ''),
+                    subtitle: Text(
+                        [
+                          if (where.isNotEmpty) where,
+                          r['webflow_slug'] != null
+                              ? 'on the site'
+                              : 'not on the site yet',
+                        ].join('  ·  '),
+                        style: const TextStyle(fontSize: 12)),
+                    onTap: () => Navigator.pop(context, r),
+                  );
+                },
+              ),
+            ),
           ]),
         ),
       ),

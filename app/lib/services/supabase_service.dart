@@ -880,6 +880,69 @@ class SupabaseService {
     }
   }
 
+  /// Paid Verified checkouts that could not be matched to a space.
+  Future<List<Map<String, dynamic>>> unmatchedStripeOrders() async {
+    try {
+      final rows = await _db
+          .from('stripe_orders')
+          .select('id, email, name, space_name, space_link, amount, currency, '
+              'paid_at, renews_at, created_at')
+          .eq('status', 'unmatched')
+          .order('created_at', ascending: false);
+      return (rows as List)
+          .map((r) => Map<String, dynamic>.from(r))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> attachStripeOrder(String orderId, String venueId) =>
+      _db.rpc('attach_stripe_order', params: {'p_order': orderId, 'p_venue': venueId});
+
+  Future<void> ignoreStripeOrder(String orderId) =>
+      _db.rpc('ignore_stripe_order', params: {'p_order': orderId});
+
+  /// Released pages matching a search, from the whole database rather
+  /// than the latest 300 the screen holds. Name, city or slug.
+  Future<List<Map<String, dynamic>>> websiteReleasedSearch(String q,
+      {int limit = 100}) async {
+    final clean = q.replaceAll(RegExp(r'[,()\\*]'), ' ').trim();
+    if (clean.length < 2) return [];
+    try {
+      final rows = await _db
+          .from('venues')
+          .select(_websiteCols)
+          .eq('website_status', 'released')
+          .or('name.ilike.%$clean%,city.ilike.%$clean%,'
+              'neighbourhood.ilike.%$clean%,webflow_slug.ilike.%$clean%')
+          .order('name', ascending: true)
+          .limit(limit);
+      return (rows as List)
+          .map((r) => Map<String, dynamic>.from(r))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Spaces by name, for attaching an order (any status, any site state).
+  Future<List<Map<String, dynamic>>> searchVenues(String q) async {
+    try {
+      final rows = await _db
+          .from('venues')
+          .select('id, name, city, neighbourhood, website_status, webflow_slug')
+          .ilike('name', '%$q%')
+          .order('name', ascending: true)
+          .limit(30);
+      return (rows as List)
+          .map((r) => Map<String, dynamic>.from(r))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
   /// Quick badge count for the menu; same rule as [websiteInbox].
   Future<int> websiteInboxCount() async {
     try {
