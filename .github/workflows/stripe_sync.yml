@@ -1,0 +1,31 @@
+name: Stripe plans (hourly)
+
+# Reads Stripe for paid Verified checkouts and subscription changes
+# and updates the listing plans. Also runs at the end of every website
+# push; this hourly schedule is the backstop so a payment never waits
+# longer than an hour or so. "Run workflow" forces one.
+
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: enrich
+  cancel-in-progress: false
+
+jobs:
+  stripe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Stripe plans
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          STRIPE_API_KEY: ${{ secrets.STRIPE_API_KEY }}
+        run: |
+          python3 scripts/stripe_sync.py

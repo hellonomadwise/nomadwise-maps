@@ -54,3 +54,14 @@ jobs:
           GOOGLE_PLACES_KEY: ${{ secrets.GOOGLE_PLACES_SERVER_KEY || secrets.GOOGLE_PLACES_KEY }}
         run: |
           python3 scripts/photo_suggest.py
+
+      # Stripe: paid Verified checkouts become plans, lapses go back
+      # to free. Exits at once when STRIPE_API_KEY is not set.
+      - name: Stripe plans
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          STRIPE_API_KEY: ${{ secrets.STRIPE_API_KEY }}
+        run: |
+          python3 scripts/stripe_sync.py
