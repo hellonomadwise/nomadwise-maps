@@ -40,7 +40,12 @@ Your page, your way, live within 3 working days:
 
 Less than one day pass a month.
 
-[Get Verified] (Stripe link)
+[Get Verified] button, linking to https://buy.stripe.com/5kQ00i1AG9zM95q79p63K03
+
+(When the button is placed on a page about a specific listing, or in an
+email to a space that already has a page, add
+`?client_reference_id=<the space's Nomad Maps id>` to the link so the
+payment attaches itself to that listing automatically.)
 
 ### What owners ask
 
