@@ -410,3 +410,44 @@ pin menu has "Refresh Regions and Locations from Webflow", which
 files a request of kind refresh (migration 63) that wakes the sync
 for that copy alone. Items made in Webflow by hand are usable in the
 app a minute or two later.
+
+## Region form shows the map it will publish (Sep 2026)
+
+Under the coordinates the form shows a live Google map at exactly
+the centre and zoom the city page will use, with a pin on the
+centre. It follows the fields (found, typed, or zoom edited), and
+the other way round: drag or zoom the preview and "Use this view"
+writes that centre and zoom into the fields. The full-page map on
+the site opens two zoom levels closer, as the existing Regions do.
+A handful of map loads a month, inside Google's free allowance.
+
+## Closed places and retiring their pages (Sep 2026)
+
+Google's business status is now recorded for every venue: the monthly
+snapshot carries it at no extra cost, and a status-only check (one
+cheap field, inside the free allowance) covers every page on the site
+about once a month, so a closure is noticed within a month of Google
+knowing. A place seen as closed for good leaves the Nomad Maps map at
+once. The control centre gets a Closed section between Sitemap and
+Not for the site: each card says what Google reports and when it was
+first seen, with two answers. "Still open" keeps everything and asks
+again only if the status changes. "Retire the page" asks the push run
+to take the listing and its Images entry off the live site, archive
+both, release the slug (the archived item is renamed closed-<slug>)
+and add a 301 from /coworking/<slug> to the city page, recorded on
+the card. Two steps stay with the founder because they touch the
+whole site: removing the address from the custom sitemap and
+publishing the site so the redirect goes live; the card waits for
+that tick. Retired is a website status of its own and the nightly
+pull leaves it alone. Migration 64.
+
+## Food photos: a hard rule (Sep 2026)
+
+The learned taste let a few food close-ups through. The brief now
+names food close-ups separately (plates, bowls, cake slices, latte
+art, display-case close-ups); a photo with 30 percent or more belief
+on those is never "good" and sinks to the bottom, whatever the taste
+bonus. Food is welcome only as an overview of the counter with the
+shop in view, or a coffee on a table with the room behind it. The
+brief carries a version number; spaces still waiting for approval are
+rescored when it changes.

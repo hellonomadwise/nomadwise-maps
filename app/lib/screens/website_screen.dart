@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -41,6 +42,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   List<Map<String, dynamic>> _sitemap = [];
   List<Map<String, dynamic>> _regions = [];
   List<Map<String, dynamic>> _hidden = [];
+  List<Map<String, dynamic>> _closed = [];
   List<Map<String, dynamic>> _locations = [];
   List<Map<String, dynamic>> _countries = [];
   String? _error;
@@ -62,6 +64,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         _supabase.websiteHidden(),
         _supabase.webflowLocations(),
         _supabase.webflowCountries(),
+        _supabase.websiteClosed(),
       ]);
       if (!mounted) return;
       setState(() {
@@ -73,6 +76,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         _hidden = results[5];
         _locations = results[6];
         _countries = results[7];
+        _closed = results[8];
         _error = null;
       });
     } catch (e) {
@@ -858,6 +862,17 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         empty: 'Sitemap is up to date.'
       ),
       (
+        key: 'closed',
+        label: 'Closed',
+        count: _closed.length,
+        color: Brand.red,
+        hint: 'Google reports these places as no longer operating. Retire '
+            'the page (it comes off the site, the address redirects to the '
+            'city page) or say it is still open. Checked about monthly.',
+        empty: 'No closures waiting. Every page is checked against Google '
+            'about once a month; anything that closes lands here.'
+      ),
+      (
         key: 'hidden',
         label: 'Not for the site',
         count: _hidden.length,
@@ -894,6 +909,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       'fresh' => g.fresh.map(_freshCard).toList(),
       'preparing' => g.preparing.map(_preparingTile).toList(),
       'hidden' => _hidden.map(_hiddenTile).toList(),
+      'closed' => _closed.map(_closedCard).toList(),
       _ => <Widget>[],
     };
     // The later stages have their own list screens.
@@ -1098,6 +1114,171 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   }
 
   /// A space marked "Not for the site": its reason, and a way back.
+  // ------------------------------------------------------------ closed
+
+  static String _statusWords(String? bs) => switch (bs) {
+        'CLOSED_PERMANENTLY' => 'closed for good',
+        'CLOSED_TEMPORARILY' => 'temporarily closed',
+        _ => 'not operating',
+      };
+
+  Future<void> _retire(Map<String, dynamic> v) async {
+    final ok = await showDialog<bool>(
+        context: context,
+        builder: (_) => AlertDialog(
+              title: Text('Retire ${v['name']}?'),
+              content: Text(
+                  'The page comes off nomadwise.io within a minute or two: '
+                  'the listing and its Images entry are unpublished and '
+                  'archived, the slug /coworking/${v['webflow_slug'] ?? ''} '
+                  'is released, and a redirect to the city page is added. '
+                  'The redirect goes live when you next publish the site.'),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: const Text('Not now')),
+                FilledButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    child: const Text('Retire the page')),
+              ],
+            ));
+    if (ok != true) return;
+    await _update(
+        v,
+        {
+          'website_retire_requested_at':
+              DateTime.now().toUtc().toIso8601String()
+        },
+        'Retiring. The card updates once the page is off the site.');
+  }
+
+  Future<void> _stillOpen(Map<String, dynamic> v) => _update(
+      v,
+      {'closed_dismissed_at': DateTime.now().toUtc().toIso8601String()},
+      'Kept. It stays on the map and the site; Google is checked again '
+      'next month.');
+
+  Future<void> _retireDone(Map<String, dynamic> v) => _update(
+      v,
+      {'website_retire_done_at': DateTime.now().toUtc().toIso8601String()},
+      'Done. ${v['name']} is fully retired.');
+
+  Widget _closedCard(Map<String, dynamic> v) {
+    final note = (v['website_retire_note'] as Map?) ?? const {};
+    final retired = v['website_retired_at'] != null;
+    final asked = v['website_retire_requested_at'] != null && !retired;
+    final err = note['error'];
+    final url = v['webflow_slug'] == null
+        ? null
+        : 'https://www.nomadwise.io/coworking/${v['webflow_slug']}';
+    final country = _countryOf(v);
+    return _card(
+      tint: retired ? Brand.field : null,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Expanded(
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(v['name'] ?? '',
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w700, fontSize: 15)),
+                  const SizedBox(height: 2),
+                  Text(
+                      [
+                        if (_where(v).isNotEmpty) _where(v),
+                        if (country != null) country,
+                      ].join(', '),
+                      style: const TextStyle(
+                          fontSize: 12, color: Brand.inkSecondary)),
+                ]),
+          ),
+          IconButton(
+              tooltip: 'Open the space',
+              onPressed: () => _openVenue(v),
+              icon: const Icon(Icons.chevron_right)),
+        ]),
+        const SizedBox(height: 8),
+        if (!retired) ...[
+          Text(
+              'Google says ${_statusWords(v['business_status'])}, first '
+              'seen ${_ago(v['closed_seen_at'])}. The page is '
+              '${v['website_status'] == 'released' ? 'live and in the sitemap' : 'a draft on the site'}.',
+              style: const TextStyle(fontSize: 13, height: 1.4)),
+          if (url != null)
+            InkWell(
+              onTap: () => launchUrl(Uri.parse(url),
+                  mode: LaunchMode.externalApplication),
+              child: Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(url,
+                    style: const TextStyle(
+                        fontSize: 12,
+                        color: Brand.accent,
+                        decoration: TextDecoration.underline)),
+              ),
+            ),
+          if (err != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                  'Last attempt failed: $err. Tap Retire to try again.',
+                  style: const TextStyle(fontSize: 12.5, color: Brand.red)),
+            ),
+          const SizedBox(height: 10),
+          if (asked && err == null)
+            const Text('Retiring: the sync is taking the page down now.',
+                style: TextStyle(
+                    fontSize: 12.5,
+                    color: Brand.inkSecondary,
+                    fontStyle: FontStyle.italic))
+          else
+            Wrap(spacing: 8, runSpacing: 8, children: [
+              FilledButton.icon(
+                  onPressed: () => _retire(v),
+                  style: FilledButton.styleFrom(backgroundColor: Brand.red),
+                  icon: const Icon(Icons.delete_outline, size: 18),
+                  label: const Text('Retire the page')),
+              OutlinedButton.icon(
+                  onPressed: () => _stillOpen(v),
+                  icon: const Icon(Icons.storefront_outlined, size: 18),
+                  label: const Text('Still open')),
+            ]),
+        ] else ...[
+          Text(
+              'Retired ${_ago(v['website_retired_at'])}. Off the site and '
+              'archived; the slug is released.',
+              style: const TextStyle(fontSize: 13, height: 1.4)),
+          const SizedBox(height: 6),
+          Text('Redirect: ${note['from'] ?? '?'}  to  ${note['to'] ?? '?'}',
+              style: const TextStyle(
+                  fontSize: 12.5, fontFamily: 'monospace', height: 1.4)),
+          Text('${note['redirect'] ?? ''}',
+              style: const TextStyle(fontSize: 12, color: Brand.inkMuted)),
+          const SizedBox(height: 8),
+          const Text(
+              'Two things left for you: remove this address from the '
+              'custom sitemap, and publish the site in Webflow so the '
+              'redirect goes live. Then tick it off.',
+              style: TextStyle(fontSize: 12.5, height: 1.4)),
+          const SizedBox(height: 10),
+          Wrap(spacing: 8, runSpacing: 8, children: [
+            OutlinedButton.icon(
+                onPressed: () => _copy(
+                    'https://www.nomadwise.io${note['from'] ?? ''}',
+                    'Old address copied'),
+                icon: const Icon(Icons.copy, size: 16),
+                label: const Text('Copy old address')),
+            FilledButton.icon(
+                onPressed: () => _retireDone(v),
+                icon: const Icon(Icons.check, size: 18),
+                label: const Text('Sitemap and publish done')),
+          ]),
+        ],
+      ]),
+    );
+  }
+
   Widget _hiddenTile(Map<String, dynamic> v) => Card(
         margin: const EdgeInsets.only(bottom: 10),
         elevation: 0,
@@ -3249,6 +3430,103 @@ class _NewRegionPageState extends State<_NewRegionPage> {
   bool _coordsTouched = false;
   Timer? _lookupTimer;
 
+  // Live preview of the city page's map: the same centre and zoom the
+  // page will use, so a wrong Lancaster or a zoom that shows half of
+  // Europe is caught here rather than on the live site. Panning the
+  // preview and tapping "Use this view" writes the map back into the
+  // fields, the other direction.
+  GoogleMapController? _map;
+  CameraPosition? _camera;
+
+  LatLng? get _point {
+    final la = double.tryParse(_lat.text.trim());
+    final ln = double.tryParse(_lng.text.trim());
+    if (la == null || ln == null || la.abs() > 90 || ln.abs() > 180) {
+      return null;
+    }
+    return LatLng(la, ln);
+  }
+
+  double get _zoomValue =>
+      (double.tryParse(_zoom.text.trim()) ?? 12).clamp(2, 20).toDouble();
+
+  /// Fields changed (typed, found, or zoom edited): move the preview.
+  void _moveMap() {
+    final p = _point;
+    if (p == null) {
+      setState(() {});
+      return;
+    }
+    _map?.animateCamera(
+        CameraUpdate.newCameraPosition(CameraPosition(target: p, zoom: _zoomValue)));
+    setState(() {});
+  }
+
+  /// The preview's current centre and zoom become the page's.
+  void _useMapView() {
+    final c = _camera;
+    if (c == null) return;
+    setState(() {
+      _lat.text = c.target.latitude.toStringAsFixed(6);
+      _lng.text = c.target.longitude.toStringAsFixed(6);
+      _zoom.text = c.zoom.round().toString();
+      _coordsTouched = true;
+    });
+  }
+
+  Widget _mapPreview() {
+    final p = _point;
+    final border = BorderRadius.circular(12);
+    if (p == null) {
+      return Container(
+        height: 120,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+            color: Brand.field, borderRadius: border),
+        child: const Text('The map preview appears once there are coordinates.',
+            style: TextStyle(fontSize: 12.5, color: Brand.inkMuted)),
+      );
+    }
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      ClipRRect(
+        borderRadius: border,
+        child: SizedBox(
+          height: 260,
+          child: GoogleMap(
+            initialCameraPosition: CameraPosition(target: p, zoom: _zoomValue),
+            markers: {
+              Marker(markerId: const MarkerId('centre'), position: p),
+            },
+            onMapCreated: (c) => _map = c,
+            onCameraMove: (c) => _camera = c,
+            myLocationButtonEnabled: false,
+            zoomControlsEnabled: true,
+            mapToolbarEnabled: false,
+            style: '''[
+              {"featureType": "poi.business",
+               "stylers": [{"visibility": "off"}]}
+            ]''',
+          ),
+        ),
+      ),
+      const SizedBox(height: 6),
+      Row(children: [
+        Expanded(
+          child: Text(
+              'This is the city page map at zoom ${_zoomValue.round()} (the '
+              'full-page map opens two levels closer). Drag or zoom to '
+              'adjust, then use that view.',
+              style: const TextStyle(fontSize: 11.5, color: Brand.inkMuted)),
+        ),
+        const SizedBox(width: 8),
+        TextButton.icon(
+            onPressed: _useMapView,
+            icon: const Icon(Icons.center_focus_strong, size: 15),
+            label: const Text('Use this view')),
+      ]),
+    ]);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -3312,6 +3590,7 @@ class _NewRegionPageState extends State<_NewRegionPage> {
         _coordsTouched = false;
       }
     });
+    _moveMap();
   }
 
   static String _slug(String x) => _WebsiteScreenState._slugify(x);
@@ -3476,7 +3755,10 @@ class _NewRegionPageState extends State<_NewRegionPage> {
               Expanded(
                   child: TextField(
                       controller: _lat,
-                      onChanged: (_) => _coordsTouched = true,
+                      onChanged: (_) {
+                        _coordsTouched = true;
+                        _moveMap();
+                      },
                       keyboardType: const TextInputType.numberWithOptions(
                           decimal: true, signed: true),
                       decoration:
@@ -3485,7 +3767,10 @@ class _NewRegionPageState extends State<_NewRegionPage> {
               Expanded(
                   child: TextField(
                       controller: _lng,
-                      onChanged: (_) => _coordsTouched = true,
+                      onChanged: (_) {
+                        _coordsTouched = true;
+                        _moveMap();
+                      },
                       keyboardType: const TextInputType.numberWithOptions(
                           decimal: true, signed: true),
                       decoration:
@@ -3495,11 +3780,12 @@ class _NewRegionPageState extends State<_NewRegionPage> {
                   width: 80,
                   child: TextField(
                       controller: _zoom,
+                      onChanged: (_) => _moveMap(),
                       keyboardType: TextInputType.number,
                       decoration: const InputDecoration(labelText: 'Zoom'))),
             ]),
             const SizedBox(height: 8),
-            Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+            Wrap(spacing: 8, runSpacing: 6, children: [
               OutlinedButton.icon(
                   onPressed: _locating ? null : () => _lookup(force: true),
                   icon: _locating
@@ -3509,7 +3795,18 @@ class _NewRegionPageState extends State<_NewRegionPage> {
                           child: CircularProgressIndicator(strokeWidth: 2))
                       : const Icon(Icons.my_location, size: 16),
                   label: Text(_locating ? 'Finding' : 'Find city centre')),
-              const SizedBox(width: 10),
+              // The by-hand route, for checking the found point or when
+              // the lookup draws a blank: opens the site the founder used
+              // before, in the browser; paste the numbers back here.
+              TextButton.icon(
+                  onPressed: () => launchUrl(
+                      Uri.https('www.gps-coordinates.net', '/'),
+                      mode: LaunchMode.externalApplication),
+                  icon: const Icon(Icons.open_in_new, size: 15),
+                  label: const Text('Look up on gps-coordinates.net')),
+            ]),
+            const SizedBox(height: 4),
+            Row(children: [
               Expanded(
                 child: _found == null
                     ? Text(
@@ -3548,6 +3845,8 @@ class _NewRegionPageState extends State<_NewRegionPage> {
                   'Zoom 12 suits a city, 10 a large one.',
                   style: TextStyle(fontSize: 11.5, color: Brand.inkMuted)),
             ),
+            const SizedBox(height: 10),
+            _mapPreview(),
             const SizedBox(height: 12),
             TextField(
                 controller: _desc,

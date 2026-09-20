@@ -142,7 +142,26 @@ SNAPSHOT_FIELDS = ','.join([
     # These are cheap-tier fields; the mask already bills at the
     # opening-hours tier, so adding them costs nothing extra.
     'primaryType', 'types',
+    # Open, temporarily closed or closed for good: same billing tier as
+    # the hours above, so it rides along free. Feeds the control
+    # centre's Closed section.
+    'businessStatus',
 ])
+
+
+def status_patch(v, bs):
+    """Columns for a fresh Google business status. closed_seen_at is
+    the first time a place was seen not operating and stays put until
+    it operates again (so the founder's 'still open' answer, kept in
+    closed_dismissed_at, is not asked twice for the same closure)."""
+    now_ = datetime.now(timezone.utc).isoformat()
+    patch = {'business_status': bs, 'business_status_at': now_}
+    if bs == 'OPERATIONAL':
+        patch['closed_seen_at'] = None
+        patch['closed_dismissed_at'] = None
+    elif not v.get('closed_seen_at'):
+        patch['closed_seen_at'] = now_
+    return patch
 MAX_AGE_DAYS = 30     # refresh each venue at most once a month — with
                       # ~660 venues after the Webflow import this keeps
                       # snapshot calls inside Google's free monthly tier
@@ -183,7 +202,7 @@ def slim(details):
 try:
     rows = req(
         f'{SUPABASE_URL}/rest/v1/venues'
-        '?select=id,name,google_place_id,g_synced_at,'
+        '?select=id,name,google_place_id,g_synced_at,closed_seen_at,'
         'ptype:g_details->>primaryType'
         '&google_place_id=not.is.null',
         headers=sb_headers())
@@ -226,6 +245,8 @@ for v in stale[:MAX_PER_RUN]:
             patch['google_rating_snapshot'] = details['rating']
         if details.get('userRatingCount') is not None:
             patch['google_reviews_snapshot'] = details['userRatingCount']
+        if details.get('businessStatus'):
+            patch.update(status_patch(v, details['businessStatus']))
         req(f"{SUPABASE_URL}/rest/v1/venues?id=eq.{v['id']}",
             method='PATCH',
             headers=sb_headers({'Prefer': 'return=minimal'}),
@@ -239,6 +260,52 @@ print(f'Snapshots: {snapped} refreshed, {len(rows) - len(stale)} fresh, '
       f'{skipped} deferred to next run.')
 if snap_failed:
     print('Snapshot failures:', *snap_failed, sep='\n  - ')
+
+
+# ------------------------------------------------------------
+# Closed check for the spaces with a page on nomadwise.io: a
+# status-only lookup (one cheap field, inside Google's free monthly
+# allowance at this volume) for any page not checked in the last
+# month, so a closure is noticed within about a month of Google
+# knowing. The monthly snapshot above records the same thing for
+# every venue when it comes round.
+# ------------------------------------------------------------
+STATUS_MAX_PER_RUN = 150
+try:
+    old_cut = (datetime.now(timezone.utc) - timedelta(days=MAX_AGE_DAYS)).isoformat()
+    pages = req(
+        f'{SUPABASE_URL}/rest/v1/venues'
+        '?select=id,name,google_place_id,closed_seen_at'
+        '&google_place_id=not.is.null'
+        '&website_status=in.(published_hidden,released)'
+        f'&or=(business_status_at.is.null,business_status_at.lt.{old_cut})'
+        f'&order=business_status_at.asc.nullsfirst&limit={STATUS_MAX_PER_RUN}',
+        headers=sb_headers()) or []
+except Exception as e:  # noqa: BLE001
+    pages = []
+    print(f'Closed check skipped (migration 64 not run yet?): {e}')
+
+checked, closed_now, status_failed = 0, [], []
+for v in pages:
+    try:
+        d = req(f"https://places.googleapis.com/v1/places/{v['google_place_id']}",
+                headers={'X-Goog-Api-Key': PLACES_KEY,
+                         'X-Goog-FieldMask': 'businessStatus'}) or {}
+        bs = d.get('businessStatus') or 'OPERATIONAL'
+        req(f"{SUPABASE_URL}/rest/v1/venues?id=eq.{v['id']}",
+            method='PATCH',
+            headers=sb_headers({'Prefer': 'return=minimal'}),
+            body=status_patch(v, bs))
+        checked += 1
+        if bs != 'OPERATIONAL':
+            closed_now.append(f"{v['name']} ({bs})")
+    except Exception as e:  # noqa: BLE001
+        status_failed.append(f"{v['name']} ({e})")
+print(f'Closed check: {checked} pages checked, {len(closed_now)} not operating.')
+if closed_now:
+    print('Not operating:', *closed_now, sep='\n  - ')
+if status_failed:
+    print('Closed check failures:', *status_failed, sep='\n  - ')
 
 
 # ------------------------------------------------------------

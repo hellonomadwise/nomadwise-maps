@@ -49,7 +49,11 @@ class SupabaseService {
   static const _venueCacheKey = 'venues_cache_v1';
 
   Future<List<Venue>> fetchVenues() async {
-    final rows = await _db.from('venues').select();
+    // A place Google reports closed for good leaves the map, unless a
+    // founder has looked and said it is still open.
+    final rows = await _db.from('venues').select().or(
+        'business_status.is.null,business_status.neq.CLOSED_PERMANENTLY,'
+        'closed_dismissed_at.not.is.null');
     final list = (rows as List)
         .map((r) => Venue.fromJson(Map<String, dynamic>.from(r)))
         .toList();
@@ -754,6 +758,9 @@ class SupabaseService {
       'google_rating_snapshot, google_reviews_snapshot, wifi_speed_mbps, '
       'laptops_allowed, website_photo_candidates, website_photos_auto, '
       'website_publish_requested_at, '
+      'business_status, business_status_at, closed_seen_at, '
+      'closed_dismissed_at, website_retire_requested_at, website_retired_at, '
+      'website_retire_note, website_retire_done_at, '
       // Just the address parts of the cached Google details, so the
       // inbox can show the country without loading the whole record.
       'address_components:g_details->addressComponents, '
@@ -784,6 +791,25 @@ class SupabaseService {
           .eq('website_status', 'not_on_site')
           .not('website_dismissed_at', 'is', null)
           .order('website_dismissed_at', ascending: false);
+      return (rows as List)
+          .map((r) => Map<String, dynamic>.from(r))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Spaces Google reports as not operating that still have a page
+  /// (until a founder answers), plus pages retired from the app that
+  /// still need the founder's last two steps (sitemap, site publish).
+  Future<List<Map<String, dynamic>>> websiteClosed() async {
+    try {
+      final rows = await _db.from('venues').select(_websiteCols).or(
+          'and(closed_seen_at.not.is.null,closed_dismissed_at.is.null,'
+          'website_retired_at.is.null,'
+          'website_status.in.(published_hidden,released)),'
+          'and(website_retired_at.not.is.null,website_retire_done_at.is.null)')
+          .order('closed_seen_at', ascending: true);
       return (rows as List)
           .map((r) => Map<String, dynamic>.from(r))
           .toList();

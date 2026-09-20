@@ -374,6 +374,8 @@ if not PUSH_ONLY:
         if venue:
             claimed.add(venue['id'])
             report[how] += 1
+            if venue.get('website_status') == 'retired' and status == 'removed':
+                status = 'retired'   # retired from the app: stays so
             # Same key set for every row (the API insists), starting from
             # what the venue holds now so an empty Webflow field never
             # blanks anything.
@@ -429,7 +431,7 @@ if not PUSH_ONLY:
     # Previously imported venues whose Webflow item is gone entirely.
     gone = [v for v in venues
             if v.get('webflow_cms_id') and v['webflow_cms_id'] not in seen_cms
-            and v.get('website_status') != 'removed']
+            and v.get('website_status') not in ('removed', 'retired')]
 
     # ------------------------------------------------------------- writes
     try:
@@ -961,7 +963,22 @@ except Exception as e:  # noqa: BLE001
     requests_ = []
 report['taxonomy_requests'] = len(requests_)
 
-if PUSH_ONLY and not queued and not requests_:
+# Pages the founder asked to retire (the space closed for good):
+# handled after the places are read, since the redirect points at the
+# city page.
+try:
+    retire_ = sb('venues?website_retire_requested_at=not.is.null'
+                 '&website_retired_at=is.null&webflow_cms_id=not.is.null'
+                 '&select=id,name,webflow_cms_id,webflow_slug,google_place_id'
+                 '&order=website_retire_requested_at.asc&limit=20') or []
+except Exception as e:  # noqa: BLE001
+    # A warning, not an error: the first run after the upload can land
+    # before the build has applied migration 64.
+    report.setdefault('warnings', []).append(f'retire requests read: {e}')
+    retire_ = []
+report['retire_requests'] = len(retire_)
+
+if PUSH_ONLY and not queued and not requests_ and not retire_:
     finish(0)   # nothing to do: the common case, a second of runtime
 
 if PUSH_ONLY:
@@ -1159,6 +1176,80 @@ for req in requests_:
         try:
             sb(f"taxonomy_requests?id=eq.{req['id']}", method='PATCH',
                body={'status': 'failed', 'error': str(e)[:300], 'done_at': now},
+               prefer='return=minimal')
+        except Exception:  # noqa: BLE001
+            pass
+
+# ------------------------------------------------------------ retiring pages
+# A listing whose place has closed for good: both CMS items come off the
+# live site and are archived, the old address gets a redirect to the
+# city page (a redirect goes live with the next site publish, which
+# stays in the founder's hands), and the slug is released by renaming
+# the archived item, so the address is free and plainly not in use.
+SITE_ID = '64b6780f84d27e4bfd91f236'
+
+
+def retire_page(v):
+    cms = v['webflow_cms_id']
+    item = wf(f'/v2/collections/{COLLECTION_ID}/items/{cms}') or {}
+    fd = item.get('fieldData') or {}
+    slug_ = fd.get('slug') or v.get('webflow_slug') or ''
+    note = {'from': f'/coworking/{slug_}' if slug_ else None,
+            'to': None, 'redirect': None, 'images': None,
+            'retired_at': datetime.datetime.now(datetime.timezone.utc).isoformat()}
+    region = next((r for r in regions if r['id'] == fd.get('region-2')), None)
+    if region and (region.get('fieldData') or {}).get('slug'):
+        note['to'] = f"/region/{region['fieldData']['slug']}"
+    else:
+        note['to'] = '/coworking'
+    # Off the live site, then archived, then the slug released. Images
+    # entry first so nothing live ever points at an archived one.
+    img_id = fd.get('image-reference')
+    for coll, item_id in ((IMAGES_ID, img_id), (COLLECTION_ID, cms)):
+        if not item_id:
+            continue
+        try:
+            wf_write(f'/v2/collections/{coll}/items/{item_id}/live', 'DELETE', None)
+        except urllib.error.HTTPError as e:
+            if e.code not in (404, 409):
+                raise
+        time.sleep(0.6)
+        body = {'isArchived': True, 'isDraft': True}
+        if coll == COLLECTION_ID and slug_:
+            body['fieldData'] = {'slug': f'closed-{slug_}'[:120]}
+        wf_write(f'/v2/collections/{coll}/items/{item_id}', 'PATCH', body)
+        time.sleep(0.6)
+        if coll == IMAGES_ID:
+            note['images'] = 'archived'
+    if slug_:
+        try:
+            wf_write(f'/v2/sites/{SITE_ID}/redirects', 'POST',
+                     {'fromUrl': note['from'], 'toUrl': note['to']})
+            note['redirect'] = 'added (live on the next site publish)'
+        except urllib.error.HTTPError as e:
+            # Most likely the token lacks the sites:write scope; the app
+            # shows from and to so it can be added by hand.
+            note['redirect'] = f'not added ({e.code}); add it in Webflow by hand'
+    return note
+
+
+for v in retire_:
+    try:
+        note = retire_page(v)
+        sb(f"venues?id=eq.{v['id']}", method='PATCH',
+           body={'website_retired_at': note['retired_at'],
+                 'website_retire_note': note,
+                 'website_status': 'retired',
+                 'website_synced_at': now},
+           prefer='return=minimal')
+        report.setdefault('retired', []).append(
+            {'name': v.get('name'), 'from': note['from'], 'to': note['to'],
+             'redirect': note['redirect']})
+    except Exception as e:  # noqa: BLE001
+        report['errors'].append(f"retire {v.get('name')}: {e}")
+        try:
+            sb(f"venues?id=eq.{v['id']}", method='PATCH',
+               body={'website_retire_note': {'error': str(e)[:300]}},
                prefer='return=minimal')
         except Exception:  # noqa: BLE001
             pass

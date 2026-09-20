@@ -62,17 +62,34 @@ POSITIVE = [
     'an outdoor terrace or garden seating area of a cafe',
     'a coffee on a table in a cafe with the room visible behind it',
     'a lounge or common area of a coliving space',
+    # Food is fine only as an overview of what the place offers, with
+    # the counter or room in view.
+    'a cafe counter with a wide display of pastries and food, the shop visible',
 ]
-NEGATIVE = [
+# Food close-ups first: they get the hard rule below as well as the
+# ordinary negative weight, because the taste vector alone let a few
+# through.
+FOOD = [
     'a close-up photo of food on a plate',
+    'a plate of food photographed from above, filling the frame',
+    'a sandwich, salad, bowl or burger close up',
+    'a slice of cake or a pastry on a plate',
     'a close-up photo of a cup of coffee or a drink',
+    'a latte with latte art filling the frame',
     'a close-up of pastries or cakes in a display case',
+]
+NEGATIVE = FOOD + [
     'a menu or price list',
     'a selfie or a portrait of a person looking at the camera',
     'a logo, sign or text graphic',
     'a blurry or very dark photo',
 ]
 TASTE_WEIGHT = 1.0    # how much the learned taste vector moves scores
+PROMPT_VERSION = 2    # bump when the brief changes: scored spaces still
+                      # waiting for approval are rescored under the new one
+FOOD_HARD = 0.30      # this much belief that it is a food close-up and
+                      # the photo is never "good", whatever the taste
+                      # bonus says; it sinks to the bottom of the list
 
 report = {'started': datetime.datetime.now(datetime.timezone.utc).isoformat(),
           'spaces': 0, 'suggested': 0, 'errors': []}
@@ -235,6 +252,11 @@ def score(img, prompts, taste):
     best = max(range(len(prompts)), key=lambda i: probs[i])
     label = (POSITIVE + NEGATIVE)[best]
     bonus = TASTE_WEIGHT * dot(img, taste) if taste else 0.0
+    food = sum(probs[n_pos:n_pos + len(FOOD)])
+    if food >= FOOD_HARD:
+        # A food close-up, however well the taste vector likes it.
+        return base, base + bonus - 1.0, (POSITIVE + NEGATIVE)[
+            n_pos + max(range(len(FOOD)), key=lambda i: probs[n_pos + i])], False
     return base, base + bonus, label, best < n_pos
 
 
@@ -381,7 +403,7 @@ def score_all(v, cands, model, prompts, taste):
     for c, e in zip(keep, embs):
         base, total, label, good = score(e, prompts, taste)
         scored.append(dict(c, score=round(total, 3), base=round(base, 3),
-                           label=label, good=good))
+                           label=label, good=good, pv=PROMPT_VERSION))
         rows.append({'uri': c['uri'], 'venue_id': v['id'],
                      'embedding': [round(x, 4) for x in e],
                      'label': label, 'base': round(base, 3)})
@@ -403,10 +425,14 @@ def suggest():
                   '&order=created_at.asc&limit=20') or []
         # Spaces that only got Google's order because the model was not
         # available at the time: score them properly now.
+        # Also spaces scored under an older brief (the food rule, say):
+        # rescored so the shortlist reflects the current rules.
         redo = sb('venues?website_status=eq.queued&website_approved_at=is.null'
-                  '&website_photo_candidates->0->>base=is.null'
-                  '&website_photo_candidates->0->>uri=not.is.null' + cols +
-                  '&order=created_at.asc&limit=20') or []
+                  '&website_photo_candidates->0->>uri=not.is.null'
+                  '&or=(website_photo_candidates->0->>base.is.null,'
+                  'website_photo_candidates->0->>pv.is.null,'
+                  f'website_photo_candidates->0->>pv.neq.{PROMPT_VERSION})'
+                  + cols + '&order=created_at.asc&limit=20') or []
     except Exception as e:  # noqa: BLE001
         report['errors'].append(f'venues read: {e}')
         return
