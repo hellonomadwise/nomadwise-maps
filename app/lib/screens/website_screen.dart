@@ -1929,6 +1929,12 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                 onPressed: () => _dismiss(v),
                 style: TextButton.styleFrom(foregroundColor: Brand.inkSecondary),
                 child: const Text('Not for the site')),
+            // A space that asked to be listed: the plan page holds the
+            // owner's details and the ready-made Verified offer.
+            TextButton(
+                onPressed: () => _editPlan(v),
+                style: TextButton.styleFrom(foregroundColor: Brand.inkSecondary),
+                child: const Text('Plan')),
             ElevatedButton.icon(
                 onPressed: hasPlace ? () => _queue(v) : null,
                 icon: const Icon(Icons.add_to_queue_outlined, size: 18),
@@ -3415,6 +3421,65 @@ class _ListingPlanPageState extends State<_ListingPlanPage> {
   late DateTime? _renews = _parse(widget.venue['listing_renews_at']);
   bool _busy = false;
 
+  static const stripeLink = 'https://buy.stripe.com/5kQ00i1AG9zM95q79p63K03';
+
+  /// The Verified payment link for this space: the space's id rides
+  /// along as Stripe's client reference, and the owner's email is
+  /// pre-filled when known, so the payment lands on this listing.
+  String get _payLink {
+    final email = _ownerEmail.text.trim();
+    return '$stripeLink?client_reference_id=${widget.venue['id']}'
+        '${email.contains('@') ? '&prefilled_email=${Uri.encodeQueryComponent(email)}' : ''}';
+  }
+
+  String get _offerEmail {
+    final v = widget.venue;
+    final name = v['name'] ?? 'your space';
+    final city = (v['city'] ?? '').toString().trim();
+    final page = v['webflow_slug'] != null
+        ? 'https://www.nomadwise.io/coworking/${v['webflow_slug']}'
+        : null;
+    final who = _ownerName.text.trim().isEmpty ? 'there' : _ownerName.text.trim();
+    return [
+      'Subject: $name on nomadwise.io',
+      '',
+      'Hi $who,',
+      '',
+      if (page != null)
+        '$name is listed on nomadwise.io as a free listing: $page'
+      else
+        'We have added $name to nomadwise.io as a free listing; the page '
+            'is on its way.',
+      '',
+      'Free listings are built from public information and marked '
+          '"unclaimed": nomads can find you, but they cannot contact you '
+          'from the page, and we cannot promise when we get to updates.',
+      '',
+      'If you would like the page to work for you, Verified is 99 EUR a '
+          'year: a Verified badge, your own description, photos and hours, '
+          'first position among the spaces in ${city.isEmpty ? 'your city' : city}, '
+          'structured data and a link to your site (the signals Google and '
+          'the AI assistants use to recommend places), a Request a booking '
+          'button that sends enquiries straight to your inbox, and a '
+          'quarterly note of how the page did. Live within three working '
+          'days.',
+      '',
+      'Get Verified: $_payLink',
+      '',
+      'Either way, thanks for being on the map.',
+      '',
+      'Jonathan',
+      'Nomadwise',
+    ].join('\n');
+  }
+
+  Future<void> _copy(String text, String toast) async {
+    await Clipboard.setData(ClipboardData(text: text));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(toast), duration: const Duration(seconds: 2)));
+  }
+
   static DateTime? _parse(String? s) => s == null ? null : DateTime.tryParse(s);
   static String _fmt(DateTime? d) =>
       d == null ? 'Not set' : DateFormat('d MMM yyyy').format(d);
@@ -3589,6 +3654,29 @@ class _ListingPlanPageState extends State<_ListingPlanPage> {
                 onPressed: _busy ? null : _save,
                 icon: const Icon(Icons.check, size: 18),
                 label: Text(_busy ? 'Saving' : 'Save plan')),
+            if (_tier != 'verified') ...[
+              const SizedBox(height: 28),
+              const SectionLabel('Sell Verified'),
+              const SizedBox(height: 6),
+              const Text(
+                  'The payment link below carries this space\'s id, so a '
+                  'payment through it attaches to this listing on its own. '
+                  'The offer email has the name, city and link filled in; '
+                  'paste it into Gmail and send.',
+                  style: TextStyle(
+                      fontSize: 12.5, height: 1.45, color: Brand.inkSecondary)),
+              const SizedBox(height: 10),
+              Wrap(spacing: 8, runSpacing: 8, children: [
+                OutlinedButton.icon(
+                    onPressed: () => _copy(_payLink, 'Payment link copied'),
+                    icon: const Icon(Icons.link, size: 16),
+                    label: const Text('Copy payment link')),
+                OutlinedButton.icon(
+                    onPressed: () => _copy(_offerEmail, 'Offer email copied'),
+                    icon: const Icon(Icons.mail_outline, size: 16),
+                    label: const Text('Copy offer email')),
+              ]),
+            ],
             const SizedBox(height: 40),
           ]),
         ),

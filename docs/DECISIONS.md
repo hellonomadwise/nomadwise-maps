@@ -487,3 +487,15 @@ and the reason, the founders get the usual phone ping, and the Paid
 listings card offers Re-send. The card also counts requests, which
 is the number the renewal conversation is built on. PostHog gets
 enquiry_opened and enquiry_sent.
+
+## Selling Verified from the app (Sep 2026)
+
+The Stripe payment link (product "Verified listing on nomadwise.io",
+99 EUR a year) lives in the app as a constant. Every space's Listing
+plan page, while the space is free, offers "Copy payment link" (the
+link with the space's id as Stripe's client reference and the owner's
+email pre-filled when known, so the payment attaches to the listing
+on its own once the webhook exists) and "Copy offer email" (the
+house-voice offer with the name, city, page and that link filled in).
+New spaces and released pages both reach the plan page, so a "list
+us" request is answered in three taps.
