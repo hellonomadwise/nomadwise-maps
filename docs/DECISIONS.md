@@ -542,12 +542,13 @@ has already paid fills one in. What the page needs on day one
 (address, coordinates, hours, photos) comes from Google anyway, so
 the listing is publishable without the owner typing anything.
 
-The promise is same-day, not three working days. A space already on
-the site needs no review at all — the badge goes on at the next push
-about ten minutes later. A new one arrives in the queue with its
-Google details already filled in, so the review is the ordinary one.
-Reviewing today is worth more in conversion than the slack three
-days would buy, and the pipeline can carry it.
+No publication date is promised (decided with Leonie, 21 Sep 2026).
+A space already on the site needs no review at all and its badge goes
+on at the next push. A new one joins the publishing queue with its
+Google details already filled in, and the owner is told it is in the
+queue and that we email them when the page is live. Selling a
+priority position is an open question, deliberately parked: it is
+easier to add later than to withdraw a promise already made.
 
 ## Not yet: the private owner page
 

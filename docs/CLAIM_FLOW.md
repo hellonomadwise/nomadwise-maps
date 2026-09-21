@@ -36,8 +36,8 @@ Three steps, no account, no password.
    to Stripe.
 
 After paying, Stripe returns them to `nomadmaps.io/?claimed`, which
-says the page is being set up today and that an email with a private
-link for photos and prices follows.
+says the listing is in the queue and that an email follows when the
+page is live, carrying a private link for photos and prices.
 
 ## What happens in the database
 
@@ -62,14 +62,17 @@ the same space and no second ping.
 ## Jonathan's job, per sale
 
 For a space **already on the site**: nothing. The badge, the owner's
-details and the booking-request button go on at the next push, within
-about ten minutes.
+details and the booking-request button go on at the next push,
+automatically.
 
 For a space **not on the site yet**: the phone pings, the space is
 waiting in the queue with its Google details already filled in. Review
-it the way any queued space is reviewed — check the photos, the region,
-the slug — and approve. That is the whole job, and it is why the promise
-is same-day rather than three days.
+it the way any queued space is reviewed, checking the photos, the
+region and the slug, then approve. That is the whole job.
+
+We promise no publication date. Owners are told their listing joins a
+queue and that we email them when the page is live. Whether to sell a
+priority position later is an open question, deliberately parked.
 
 A claim that never pays sits as `status = 'started'`. Those are warm
 leads: someone wanted this enough to fill in the form. A phone ping

@@ -31,9 +31,8 @@ year: a Verified badge, your own description, photos and hours, first
 position among the spaces in Koh Samui, structured data and a link to
 your site (the signals Google and the AI assistants use to recommend
 places), a Request a booking button that sends enquiries straight to
-your inbox, and a quarterly note of how the page did. We publish the
-same day you pay. Details and the link: [Get listed page or the claim
-link].
+your inbox, and a quarterly note of how the page did. Details and the
+link: [Get listed page or the claim link].
 
 Either way, thanks for being on the map.
 

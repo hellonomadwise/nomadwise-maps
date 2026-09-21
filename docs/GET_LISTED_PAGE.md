@@ -27,7 +27,7 @@ find you, but they cannot contact you from the page, the details are
 whatever Google says, and free listings are added as we get to them.
 
 **Verified, 99 EUR a year.**
-Your page, your way, live today:
+Your page, your way:
 
 - A Verified badge on your page and on your pin in Nomad Maps
 - Your own description, photos and opening hours
@@ -40,7 +40,7 @@ Your page, your way, live today:
 
 Less than one day pass a month.
 
-Less than one day pass a month, and we publish the same day you pay.
+Less than one day pass a month.
 
 [Claim your space] button, linking to https://nomadmaps.io/?claim
 
@@ -63,11 +63,11 @@ request, and the badge and first position that make it more likely
 they look at you at all.
 
 **What if we are not listed yet?**
-Verified gets you a page today. Search for your business on the claim
-form, pay, and we build and check the page the same day, usually
-within a few hours. Straight after paying you get a private link for
-your photos, your description and your prices, so nothing is holding
-the page up while you gather them.
+Search for your business on the claim form and pay, and your listing
+joins our publishing queue. We check every page before it goes live
+and email you as soon as it does. Straight after paying you get a
+private link for your photos, your description and your prices, so
+nothing is holding the page up while you gather them.
 
 **Can we cancel?**
 The plan runs for a year and renews unless you cancel, which you can

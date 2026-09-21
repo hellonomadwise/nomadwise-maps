@@ -510,7 +510,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
           _heading(wide, 1, 'Add your space',
               'Search for your business as it appears on Google Maps. That '
                   'gives us the right address, opening hours and photos from '
-                  'the start, so your page can be ready the same day.'),
+                  'the start, so your page is ready to publish.'),
           SizedBox(height: wide ? 24 : 16),
           TextField(
             controller: _placeSearch,
@@ -769,10 +769,9 @@ class _ClaimScreenState extends State<ClaimScreen> {
                 child: Text(
                     _alreadyPublished
                         ? 'Your page is already live. The badge and your '
-                            'details go on today.'
-                        : 'We review every paid listing the same day it '
-                            'arrives. Your page is usually live within a few '
-                            'hours.',
+                            'details are added to it automatically.'
+                        : 'Your listing joins our publishing queue. We will '
+                            'email you as soon as your page is live.',
                     style: const TextStyle(
                         fontSize: 12.5, height: 1.45, color: Brand.ink)),
               ),
@@ -879,7 +878,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
         if (compact)
           Padding(
             padding: const EdgeInsets.only(top: 2),
-            child: Text('€99 a year. Same-day publishing.',
+            child: Text('€99 a year, billed annually.',
                 style: TextStyle(
                     fontWeight: FontWeight.w700, fontSize: wide ? 14 : 13)),
           ),
@@ -924,11 +923,10 @@ class ClaimedScreen extends StatelessWidget {
                 const SizedBox(height: 12),
                 Text(
                     'Thank you. Your payment reached us and your listing is '
-                    'being set up now.\n\n'
-                    'We check every paid listing the same day, so your page is '
-                    'usually live within a few hours. You will get an email '
-                    'when it is, with a private link for adding your photos, '
-                    'your description and your prices.',
+                    'in the queue.\n\n'
+                    'We will email you as soon as your page is live, with a '
+                    'private link for adding your photos, your description '
+                    'and your prices.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                         color: Brand.inkSecondary,
