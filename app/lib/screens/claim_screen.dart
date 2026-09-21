@@ -21,6 +21,10 @@ import '../theme.dart';
 /// the details that make a page good are collected afterwards, when
 /// the owner is already a customer rather than a visitor being asked
 /// to fill in a long form.
+///
+/// Owners read this on a laptop at their desk as often as on a phone,
+/// so every step lays out in two columns above [_wideAt] and stacks
+/// below it.
 class ClaimScreen extends StatefulWidget {
   /// A name to search for straight away, from ?claim=<name>.
   final String? seed;
@@ -30,6 +34,9 @@ class ClaimScreen extends StatefulWidget {
 }
 
 enum _Step { find, addSpace, about, pay }
+
+/// Below this the page is one column, above it two.
+const double _wideAt = 900;
 
 class _ClaimScreenState extends State<ClaimScreen> {
   final _supabase = SupabaseService();
@@ -105,6 +112,14 @@ class _ClaimScreenState extends State<ClaimScreen> {
   String get _spaceName => _picked != null
       ? '${_picked!['name']}'
       : (_pickedPlace?.main ?? '').trim();
+
+  String get _where => _picked != null
+      ? [_picked!['neighbourhood'], _picked!['city'], _picked!['country']]
+          .where((x) => x != null && '$x'.isNotEmpty)
+          .join(', ')
+      : (_newAddress ?? '');
+
+  bool get _alreadyPublished => _picked != null && _picked!['on_site'] == true;
 
   // ---------------------------------------------------------------- search
 
@@ -250,6 +265,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
     return Scaffold(
       backgroundColor: Brand.bg,
       appBar: AppBar(
+        titleSpacing: 20,
         title: const Text('Claim your space'),
         leading: _step == _Step.find
             ? IconButton(
@@ -259,20 +275,27 @@ class _ClaimScreenState extends State<ClaimScreen> {
                     Uri.parse('https://www.nomadwise.io'),
                     mode: LaunchMode.platformDefault))
             : IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: _back),
+                icon: const Icon(Icons.arrow_back), onPressed: _back),
       ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 580),
-          child: switch (_step) {
-            _Step.find => _findStep(),
-            _Step.addSpace => _addStep(),
-            _Step.about => _aboutStep(),
-            _Step.pay => _payStep(),
-          },
-        ),
-      ),
+      body: LayoutBuilder(builder: (context, box) {
+        final wide = box.maxWidth >= _wideAt;
+        return SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(
+              wide ? 32 : 18, wide ? 36 : 18, wide ? 32 : 18, 64),
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: wide ? 1060 : 600),
+              child: switch (_step) {
+                _Step.find => _findStep(wide),
+                _Step.addSpace => _addStep(wide),
+                _Step.about => _aboutStep(wide),
+                _Step.pay => _payStep(wide),
+              },
+            ),
+          ),
+        );
+      }),
     );
   }
 
@@ -288,80 +311,132 @@ class _ClaimScreenState extends State<ClaimScreen> {
     });
   }
 
-  Widget _stepLine(int n) => Padding(
-        padding: const EdgeInsets.only(bottom: 4),
-        child: Text('Step $n of 3',
-            style: const TextStyle(
-                color: Brand.inkMuted,
-                fontSize: 11.5,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.4)),
+  // --------------------------------------------------------- shared pieces
+
+  Widget _heading(bool wide, int step, String title, String blurb) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('STEP $step OF 3',
+              style: const TextStyle(
+                  color: Brand.inkMuted,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.8)),
+          SizedBox(height: wide ? 8 : 4),
+          Text(title,
+              style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: wide ? 34 : 24,
+                  height: 1.15,
+                  letterSpacing: wide ? -0.6 : -0.2)),
+          if (blurb.isNotEmpty) ...[
+            SizedBox(height: wide ? 12 : 8),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 560),
+              child: Text(blurb,
+                  style: TextStyle(
+                      color: Brand.inkSecondary,
+                      fontSize: wide ? 15.5 : 13.5,
+                      height: 1.55)),
+            ),
+          ],
+        ],
       );
+
+  /// Two columns above the breakpoint, stacked below, with the side
+  /// column dropping underneath the main one on a phone.
+  Widget _split(bool wide,
+      {required Widget main, required Widget side, int mainFlex = 3}) {
+    if (!wide) {
+      return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        main,
+        const SizedBox(height: 28),
+        side,
+      ]);
+    }
+    return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Expanded(flex: mainFlex, child: main),
+      const SizedBox(width: 44),
+      Expanded(flex: 2, child: side),
+    ]);
+  }
+
+  InputDecoration _field(String label,
+          {String? hint, String? helper, Widget? prefix, Widget? suffix}) =>
+      InputDecoration(
+        labelText: label,
+        hintText: hint,
+        helperText: helper,
+        prefixIcon: prefix,
+        suffixIcon: suffix,
+        filled: true,
+        fillColor: Brand.surface,
+      );
+
+  static const _spinner = Padding(
+    padding: EdgeInsets.all(12),
+    child: SizedBox(
+        width: 16,
+        height: 16,
+        child:
+            CircularProgressIndicator(strokeWidth: 2, color: Brand.inkMuted)),
+  );
 
   // ------------------------------------------------------------ step one
 
-  Widget _findStep() => ListView(padding: const EdgeInsets.all(18), children: [
-        _stepLine(1),
-        const Text('Find your space',
-            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 22)),
-        const SizedBox(height: 6),
-        const Text(
-            'Nomadwise already lists thousands of coworking spaces and '
-            'laptop-friendly cafes. Search for yours below.',
-            style: TextStyle(
-                color: Brand.inkSecondary, fontSize: 13.5, height: 1.5)),
-        const SizedBox(height: 16),
-        TextField(
-          controller: _search,
-          autofocus: true,
-          textCapitalization: TextCapitalization.words,
-          onChanged: _scheduleSearch,
-          decoration: InputDecoration(
-            labelText: 'Name of your space',
-            hintText: 'e.g. Tribal Bali',
-            prefixIcon: const Icon(Icons.search, size: 20),
-            suffixIcon: _searching
-                ? const Padding(
-                    padding: EdgeInsets.all(12),
-                    child: SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Brand.inkMuted)))
-                : null,
+  Widget _findStep(bool wide) => _split(
+        wide,
+        main: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          _heading(wide, 1, 'Find your space',
+              'Nomadwise lists thousands of coworking spaces and '
+                  'laptop-friendly cafes. Search for yours below, and if it is '
+                  'not here yet you can add it in the next step.'),
+          SizedBox(height: wide ? 24 : 16),
+          TextField(
+            controller: _search,
+            autofocus: wide,
+            textCapitalization: TextCapitalization.words,
+            onChanged: _scheduleSearch,
+            style: TextStyle(fontSize: wide ? 16 : 15),
+            decoration: _field('Name of your space',
+                hint: 'e.g. Tribal Bali',
+                prefix: const Icon(Icons.search, size: 20),
+                suffix: _searching ? _spinner : null),
           ),
-        ),
-        const SizedBox(height: 12),
-        ..._hits.map(_hitTile),
-        if (_searched && _hits.isEmpty && !_searching)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 14),
-            child: Text('Nothing under that name yet.',
-                style: TextStyle(color: Brand.inkMuted, fontSize: 13)),
+          const SizedBox(height: 14),
+          ..._hits.map((h) => _hitTile(h, wide)),
+          if (_searched && _hits.isEmpty && !_searching)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 10),
+              child: Text('Nothing under that name yet.',
+                  style: TextStyle(color: Brand.inkMuted, fontSize: 13)),
+            ),
+          const SizedBox(height: 10),
+          const Divider(color: Brand.hairline),
+          const SizedBox(height: 14),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton.icon(
+              onPressed: () => setState(() {
+                _step = _Step.addSpace;
+                _picked = null;
+                _placeSearch.text = _search.text;
+                if (_search.text.trim().length >= 2) {
+                  _schedulePlaces(_search.text);
+                }
+              }),
+              icon: const Icon(Icons.add_location_alt_outlined, size: 18),
+              label: const Text("My space isn't here — add it"),
+              style: OutlinedButton.styleFrom(
+                  padding: EdgeInsets.symmetric(
+                      vertical: 14, horizontal: wide ? 22 : 16)),
+            ),
           ),
-        const SizedBox(height: 8),
-        const Divider(color: Brand.hairline),
-        const SizedBox(height: 8),
-        OutlinedButton.icon(
-          onPressed: () => setState(() {
-            _step = _Step.addSpace;
-            _picked = null;
-            _placeSearch.text = _search.text;
-            if (_search.text.trim().length >= 2) {
-              _schedulePlaces(_search.text);
-            }
-          }),
-          icon: const Icon(Icons.add_location_alt_outlined, size: 18),
-          label: const Text("My space isn't here — add it"),
-          style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 14)),
-        ),
-        const SizedBox(height: 28),
-        _valueBlock(compact: true),
-        const SizedBox(height: 40),
-      ]);
+        ]),
+        side: _valueBlock(wide, compact: true),
+      );
 
-  Widget _hitTile(Map<String, dynamic> h) {
+  Widget _hitTile(Map<String, dynamic> h, bool wide) {
     final verified = h['already_verified'] == true;
     final onSite = h['on_site'] == true;
     final where = [h['neighbourhood'], h['city'], h['country']]
@@ -375,15 +450,19 @@ class _ClaimScreenState extends State<ClaimScreen> {
         border: Border.all(color: Brand.border),
       ),
       child: ListTile(
+        contentPadding:
+            EdgeInsets.symmetric(horizontal: wide ? 18 : 14, vertical: 4),
         title: Text('${h['name']}',
-            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14.5)),
+            style: TextStyle(
+                fontWeight: FontWeight.w700, fontSize: wide ? 15.5 : 14.5)),
         subtitle: Text(
             verified
                 ? '$where · already Verified'
                 : onSite
                     ? '$where · has a page on nomadwise.io'
                     : '$where · not published yet',
-            style: const TextStyle(fontSize: 12, color: Brand.inkSecondary)),
+            style: TextStyle(
+                fontSize: wide ? 12.5 : 12, color: Brand.inkSecondary)),
         trailing: verified
             ? const Icon(Icons.verified, size: 20, color: Brand.success)
             : const Icon(Icons.chevron_right, color: Brand.inkMuted),
@@ -408,14 +487,13 @@ class _ClaimScreenState extends State<ClaimScreen> {
             'email hello@nomadwise.io and we will look into it.'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Close')),
+              onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Brand.red),
             onPressed: () {
               Navigator.pop(ctx);
-              launchUrl(Uri.parse(
-                  'mailto:hello@nomadwise.io?subject=${Uri.encodeComponent('About the listing for $name')}'));
+              launchUrl(Uri.parse('mailto:hello@nomadwise.io?subject='
+                  '${Uri.encodeComponent('About the listing for $name')}'));
             },
             child: const Text('Email us'),
           ),
@@ -426,327 +504,385 @@ class _ClaimScreenState extends State<ClaimScreen> {
 
   // ----------------------------------------------------- step one (add it)
 
-  Widget _addStep() => ListView(padding: const EdgeInsets.all(18), children: [
-        _stepLine(1),
-        const Text('Add your space',
-            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 22)),
-        const SizedBox(height: 6),
-        const Text(
-            'Search for your business as it appears on Google Maps. That '
-            'gives us the right address, opening hours and photos from the '
-            'start, so your page is ready the same day.',
-            style: TextStyle(
-                color: Brand.inkSecondary, fontSize: 13.5, height: 1.5)),
-        const SizedBox(height: 16),
-        TextField(
-          controller: _placeSearch,
-          autofocus: true,
-          onChanged: _schedulePlaces,
-          decoration: InputDecoration(
-            labelText: 'Your business on Google',
-            hintText: 'e.g. Tribal Bali, Pererenan',
-            prefixIcon: const Icon(Icons.place_outlined, size: 20),
-            suffixIcon: _placeBusy
-                ? const Padding(
-                    padding: EdgeInsets.all(12),
-                    child: SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Brand.inkMuted)))
-                : null,
+  Widget _addStep(bool wide) => _split(
+        wide,
+        main: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          _heading(wide, 1, 'Add your space',
+              'Search for your business as it appears on Google Maps. That '
+                  'gives us the right address, opening hours and photos from '
+                  'the start, so your page can be ready the same day.'),
+          SizedBox(height: wide ? 24 : 16),
+          TextField(
+            controller: _placeSearch,
+            autofocus: wide,
+            onChanged: _schedulePlaces,
+            style: TextStyle(fontSize: wide ? 16 : 15),
+            decoration: _field('Your business on Google',
+                hint: 'e.g. Tribal Bali, Pererenan',
+                prefix: const Icon(Icons.place_outlined, size: 20),
+                suffix: _placeBusy ? _spinner : null),
           ),
-        ),
-        const SizedBox(height: 12),
-        ..._suggestions.map((s) => Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              decoration: BoxDecoration(
-                color: Brand.surface,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Brand.border),
-              ),
-              child: ListTile(
-                title: Text(s.main,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w700, fontSize: 14.5)),
-                subtitle: Text(s.secondary,
-                    style: const TextStyle(
-                        fontSize: 12, color: Brand.inkSecondary)),
-                trailing:
-                    const Icon(Icons.chevron_right, color: Brand.inkMuted),
-                onTap: () => _choosePlace(s),
-              ),
-            )),
-        const SizedBox(height: 20),
-        const Text(
-            'Not on Google Maps? Email hello@nomadwise.io and we will add '
-            'you by hand.',
-            style: TextStyle(color: Brand.inkMuted, fontSize: 12, height: 1.5)),
-        const SizedBox(height: 40),
-      ]);
+          const SizedBox(height: 14),
+          ..._suggestions.map((s) => Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                decoration: BoxDecoration(
+                  color: Brand.surface,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Brand.border),
+                ),
+                child: ListTile(
+                  contentPadding: EdgeInsets.symmetric(
+                      horizontal: wide ? 18 : 14, vertical: 4),
+                  title: Text(s.main,
+                      style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: wide ? 15.5 : 14.5)),
+                  subtitle: Text(s.secondary,
+                      style: TextStyle(
+                          fontSize: wide ? 12.5 : 12,
+                          color: Brand.inkSecondary)),
+                  trailing:
+                      const Icon(Icons.chevron_right, color: Brand.inkMuted),
+                  onTap: () => _choosePlace(s),
+                ),
+              )),
+          const SizedBox(height: 16),
+          const Text(
+              'Not on Google Maps? Email hello@nomadwise.io and we will add '
+              'you by hand.',
+              style:
+                  TextStyle(color: Brand.inkMuted, fontSize: 12.5, height: 1.5)),
+        ]),
+        side: _valueBlock(wide, compact: true),
+      );
 
   // ------------------------------------------------------------ step two
 
-  Widget _aboutStep() {
-    final where = _picked != null
-        ? [_picked!['neighbourhood'], _picked!['city'], _picked!['country']]
-            .where((x) => x != null && '$x'.isNotEmpty)
-            .join(', ')
-        : (_newAddress ?? '');
-    return ListView(padding: const EdgeInsets.all(18), children: [
-      _stepLine(2),
-      const Text('About you',
-          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 22)),
-      const SizedBox(height: 12),
-      Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Brand.surface,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Brand.border),
-        ),
-        child: Row(children: [
-          const Icon(Icons.storefront_outlined, color: Brand.inkMuted),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(_spaceName,
-                      style: const TextStyle(
-                          fontWeight: FontWeight.w700, fontSize: 15)),
-                  if (where.isNotEmpty)
-                    Text(where,
-                        style: const TextStyle(
-                            fontSize: 12, color: Brand.inkSecondary)),
-                ]),
-          ),
-          TextButton(onPressed: _back, child: const Text('Change')),
-        ]),
-      ),
+  Widget _aboutStep(bool wide) {
+    final fields = <Widget>[
+      _pickedCard(wide),
       if (_picked == null) ...[
-        const SizedBox(height: 14),
+        SizedBox(height: wide ? 22 : 16),
         const Text('What kind of place is it?',
-            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-        const SizedBox(height: 8),
-        SegmentedButton<String>(
-          segments: const [
-            ButtonSegment(value: 'coworking', label: Text('Coworking')),
-            ButtonSegment(value: 'cafe', label: Text('Cafe')),
-          ],
-          selected: {_newType},
-          onSelectionChanged: (s) => setState(() => _newType = s.first),
+            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
+        const SizedBox(height: 10),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: SegmentedButton<String>(
+            segments: const [
+              ButtonSegment(value: 'coworking', label: Text('Coworking')),
+              ButtonSegment(value: 'cafe', label: Text('Cafe')),
+            ],
+            selected: {_newType},
+            onSelectionChanged: (s) => setState(() => _newType = s.first),
+          ),
         ),
       ],
-      const SizedBox(height: 18),
-      TextField(
-          controller: _ownerName,
-          textCapitalization: TextCapitalization.words,
-          decoration: const InputDecoration(labelText: 'Your name')),
-      const SizedBox(height: 12),
-      TextField(
-          controller: _ownerRole,
-          textCapitalization: TextCapitalization.sentences,
-          decoration: const InputDecoration(
-              labelText: 'Your role (optional)',
-              hintText: 'Owner, manager, community lead')),
-      const SizedBox(height: 12),
-      TextField(
-          controller: _ownerEmail,
-          keyboardType: TextInputType.emailAddress,
-          decoration: const InputDecoration(
-              labelText: 'Your email',
-              helperText: 'Receipts and anything we need to ask you.')),
-      const SizedBox(height: 12),
-      TextField(
-          controller: _ownerPhone,
-          keyboardType: TextInputType.phone,
-          decoration: const InputDecoration(
-              labelText: 'Phone or WhatsApp (optional)')),
-      const SizedBox(height: 12),
+      SizedBox(height: wide ? 26 : 18),
+      _pair(
+        wide,
+        TextField(
+            controller: _ownerName,
+            textCapitalization: TextCapitalization.words,
+            decoration: _field('Your name')),
+        TextField(
+            controller: _ownerRole,
+            textCapitalization: TextCapitalization.sentences,
+            decoration: _field('Your role (optional)',
+                hint: 'Owner, manager, community lead')),
+      ),
+      const SizedBox(height: 16),
+      _pair(
+        wide,
+        TextField(
+            controller: _ownerEmail,
+            keyboardType: TextInputType.emailAddress,
+            decoration: _field('Your email',
+                helper: 'Receipts and anything we need to ask you.')),
+        TextField(
+            controller: _ownerPhone,
+            keyboardType: TextInputType.phone,
+            decoration: _field('Phone or WhatsApp (optional)')),
+      ),
+      const SizedBox(height: 16),
       TextField(
           controller: _enquiryEmail,
           keyboardType: TextInputType.emailAddress,
-          decoration: const InputDecoration(
-              labelText: 'Where should booking requests go? (optional)',
-              helperText: 'Leave blank to use your own email.')),
-      const SizedBox(height: 12),
+          decoration: _field('Where should booking requests go? (optional)',
+              helper: "Leave blank and we'll send them to the email above.")),
+      const SizedBox(height: 16),
       TextField(
           controller: _note,
-          minLines: 2,
-          maxLines: 6,
+          minLines: 3,
+          maxLines: 8,
           textCapitalization: TextCapitalization.sentences,
-          decoration: const InputDecoration(
-              labelText: 'Anything we should know? (optional)',
-              hintText: 'Day pass price, opening hours, a correction...',
-              alignLabelWithHint: true)),
+          decoration: _field('Anything we should know? (optional)',
+              hint: 'Day pass price, opening hours, a correction...')),
       Offstage(
           offstage: true,
           child: TextField(controller: _website, autofocus: false)),
       if (_error != null)
         Padding(
-          padding: const EdgeInsets.only(top: 12),
+          padding: const EdgeInsets.only(top: 14),
           child: Text(_error!,
               style: const TextStyle(color: Brand.red, fontSize: 13)),
         ),
-      const SizedBox(height: 18),
-      FilledButton(
-        onPressed: () {
-          final name = _ownerName.text.trim();
-          final email = _ownerEmail.text.trim();
-          if (name.length < 2 || !email.contains('@')) {
-            setState(() => _error = 'Your name and a working email are needed.');
-            return;
-          }
-          setState(() {
-            _error = null;
-            _step = _Step.pay;
-          });
-        },
-        style: FilledButton.styleFrom(
-            backgroundColor: Brand.red,
-            padding: const EdgeInsets.symmetric(vertical: 16)),
-        child: const Text('Continue'),
+      SizedBox(height: wide ? 26 : 20),
+      Align(
+        alignment: Alignment.centerLeft,
+        child: SizedBox(
+          width: wide ? 260 : double.infinity,
+          child: FilledButton(
+            onPressed: () {
+              final name = _ownerName.text.trim();
+              final email = _ownerEmail.text.trim();
+              if (name.length < 2 || !email.contains('@')) {
+                setState(() =>
+                    _error = 'Your name and a working email are needed.');
+                return;
+              }
+              setState(() {
+                _error = null;
+                _step = _Step.pay;
+              });
+            },
+            style: FilledButton.styleFrom(
+                backgroundColor: Brand.red,
+                padding: const EdgeInsets.symmetric(vertical: 16)),
+            child: const Text('Continue'),
+          ),
+        ),
       ),
-      const SizedBox(height: 40),
+    ];
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      _heading(wide, 2, 'About you',
+          'So we know who to reply to, and where booking requests from your '
+              'page should land.'),
+      SizedBox(height: wide ? 26 : 18),
+      ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: wide ? 760 : double.infinity),
+        child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch, children: fields),
+      ),
     ]);
   }
 
+  /// Side by side on a desktop, stacked on a phone.
+  Widget _pair(bool wide, Widget a, Widget b) => wide
+      ? Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Expanded(child: a),
+          const SizedBox(width: 16),
+          Expanded(child: b),
+        ])
+      : Column(children: [a, const SizedBox(height: 16), b]);
+
+  Widget _pickedCard(bool wide) => Container(
+        padding: EdgeInsets.all(wide ? 18 : 14),
+        decoration: BoxDecoration(
+          color: Brand.surface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Brand.border),
+        ),
+        child: Row(children: [
+          const Icon(Icons.storefront_outlined, color: Brand.inkMuted),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(_spaceName,
+                      style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: wide ? 16 : 15)),
+                  if (_where.isNotEmpty)
+                    Text(_where,
+                        style: const TextStyle(
+                            fontSize: 12.5, color: Brand.inkSecondary)),
+                ]),
+          ),
+          TextButton(onPressed: _back, child: const Text('Change')),
+        ]),
+      );
+
   // ---------------------------------------------------------- step three
 
-  Widget _payStep() => ListView(padding: const EdgeInsets.all(18), children: [
-        _stepLine(3),
-        const Text('Your Verified listing',
-            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 22)),
-        const SizedBox(height: 6),
-        Text('for $_spaceName',
-            style: const TextStyle(
-                color: Brand.inkSecondary,
-                fontSize: 14,
-                fontWeight: FontWeight.w600)),
-        const SizedBox(height: 16),
-        _valueBlock(),
-        const SizedBox(height: 16),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Brand.successTint,
-            borderRadius: BorderRadius.circular(12),
+  Widget _payStep(bool wide) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _heading(wide, 3, 'Your Verified listing', ''),
+          const SizedBox(height: 6),
+          Text('for $_spaceName',
+              style: TextStyle(
+                  color: Brand.inkSecondary,
+                  fontSize: wide ? 16 : 14,
+                  fontWeight: FontWeight.w600)),
+          SizedBox(height: wide ? 28 : 18),
+          _split(
+            wide,
+            main: _valueBlock(wide),
+            side: _checkoutCard(wide),
           ),
-          child: Row(children: [
-            const Icon(Icons.bolt, color: Brand.success),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                  _picked != null && _picked!['on_site'] == true
-                      ? 'Your page is already live. The badge and your details '
-                          'go on today.'
-                      : 'We review every paid listing the same day it arrives. '
-                          'Your page is usually live within a few hours.',
-                  style: const TextStyle(
-                      fontSize: 12.5, height: 1.45, color: Brand.ink)),
+        ],
+      );
+
+  Widget _checkoutCard(bool wide) => Container(
+        padding: EdgeInsets.all(wide ? 24 : 18),
+        decoration: BoxDecoration(
+          color: Brand.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Brand.border),
+          boxShadow: wide ? Brand.shadowResting : null,
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+            Text('€99',
+                style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: wide ? 40 : 32,
+                    height: 1,
+                    letterSpacing: -1)),
+            const SizedBox(width: 8),
+            const Padding(
+              padding: EdgeInsets.only(bottom: 4),
+              child: Text('per year',
+                  style: TextStyle(color: Brand.inkSecondary, fontSize: 14)),
             ),
           ]),
-        ),
-        const SizedBox(height: 18),
-        Row(crossAxisAlignment: CrossAxisAlignment.end, children: const [
-          Text('€99',
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 30)),
-          SizedBox(width: 6),
-          Padding(
-            padding: EdgeInsets.only(bottom: 6),
-            child: Text('per year',
-                style: TextStyle(color: Brand.inkSecondary, fontSize: 14)),
+          const SizedBox(height: 8),
+          const Text(
+              'Renews once a year. Cancel any time and it runs to the end of '
+              'the 12 months.',
+              style:
+                  TextStyle(color: Brand.inkMuted, fontSize: 12.5, height: 1.45)),
+          const SizedBox(height: 18),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Brand.successTint,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Icon(Icons.bolt, color: Brand.success, size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                    _alreadyPublished
+                        ? 'Your page is already live. The badge and your '
+                            'details go on today.'
+                        : 'We review every paid listing the same day it '
+                            'arrives. Your page is usually live within a few '
+                            'hours.',
+                    style: const TextStyle(
+                        fontSize: 12.5, height: 1.45, color: Brand.ink)),
+              ),
+            ]),
           ),
+          if (_error != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 14),
+              child: Text(_error!,
+                  style: const TextStyle(color: Brand.red, fontSize: 13)),
+            ),
+          const SizedBox(height: 18),
+          FilledButton.icon(
+            onPressed: _sending ? null : _startAndPay,
+            style: FilledButton.styleFrom(
+                backgroundColor: Brand.red,
+                minimumSize: const Size.fromHeight(52)),
+            icon: const Icon(Icons.lock_outline, size: 18),
+            label: Text(_sending ? 'One moment' : 'Continue to payment',
+                style: const TextStyle(
+                    fontSize: 15, fontWeight: FontWeight.w700)),
+          ),
+          const SizedBox(height: 12),
+          const Text('Payment is handled by Stripe. We never see your card.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Brand.inkMuted, fontSize: 11.5)),
         ]),
-        const SizedBox(height: 4),
-        const Text('Renews once a year. Cancel any time and it runs to the '
-            'end of the 12 months.',
-            style: TextStyle(color: Brand.inkMuted, fontSize: 12, height: 1.4)),
-        if (_error != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 12),
-            child: Text(_error!,
-                style: const TextStyle(color: Brand.red, fontSize: 13)),
-          ),
-        const SizedBox(height: 16),
-        FilledButton.icon(
-          onPressed: _sending ? null : _startAndPay,
-          style: FilledButton.styleFrom(
-              backgroundColor: Brand.red,
-              padding: const EdgeInsets.symmetric(vertical: 16)),
-          icon: const Icon(Icons.lock_outline, size: 18),
-          label: Text(_sending ? 'One moment' : 'Continue to payment'),
-        ),
-        const SizedBox(height: 10),
-        const Text('Payment is handled by Stripe. We never see your card.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Brand.inkMuted, fontSize: 11.5)),
-        const SizedBox(height: 40),
-      ]);
+      );
 
-  Widget _valueBlock({bool compact = false}) {
+  // ------------------------------------------------------- what you get
+
+  Widget _valueBlock(bool wide, {bool compact = false}) {
+    // The badge is green wherever it appears, so its own line is drawn
+    // green here too; the rest carry the house red.
     const rows = [
-      (Icons.verified, 'The Verified badge',
+      (Icons.verified, Brand.success, 'The Verified badge',
           'A green badge on your page and in every list you appear in.'),
-      (Icons.arrow_upward, 'First position in your city',
+      (Icons.arrow_upward, Brand.red, 'First position in your city',
           'Verified spaces sit above the free listings on their city and '
               'area pages.'),
-      (Icons.mark_email_read_outlined, 'Booking requests to your inbox',
+      (Icons.mark_email_read_outlined, Brand.red,
+          'Booking requests to your inbox',
           'A request button on your page that emails you directly. '
               'No commission, no middleman.'),
-      (Icons.photo_library_outlined, 'Your own photos and words',
+      (Icons.photo_library_outlined, Brand.red, 'Your own photos and words',
           'Your description, your prices, your pictures, instead of '
               'whatever Google shows.'),
-      (Icons.travel_explore, 'Found by Google and by AI',
+      (Icons.travel_explore, Brand.red, 'Found by Google and by AI',
           'Your page is written to be quoted by ChatGPT, Claude and '
               'Perplexity when someone asks where to work.'),
-      (Icons.insights_outlined, 'A report every quarter',
+      (Icons.insights_outlined, Brand.red, 'A report every quarter',
           'How many people saw your page, where they came from, how many '
               'asked to book.'),
     ];
-    final show = compact ? rows.take(3) : rows;
+    final show = compact ? rows.take(3).toList() : rows;
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(wide ? 24 : 18),
       decoration: BoxDecoration(
         color: Brand.surface,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Brand.border),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         if (compact) ...[
           const Text('What a Verified listing gets you',
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
-          const SizedBox(height: 12),
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+          const SizedBox(height: 16),
         ],
         ...show.map((r) => Padding(
-              padding: const EdgeInsets.only(bottom: 14),
+              padding: EdgeInsets.only(bottom: wide ? 18 : 14),
               child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(r.$1, size: 18, color: Brand.red),
-                    const SizedBox(width: 12),
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: r.$2 == Brand.success
+                            ? Brand.successTint
+                            : Brand.accentTint,
+                        borderRadius: BorderRadius.circular(9),
+                      ),
+                      child: Icon(r.$1, size: 17, color: r.$2),
+                    ),
+                    const SizedBox(width: 14),
                     Expanded(
                       child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(r.$2,
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 13.5)),
-                            const SizedBox(height: 2),
                             Text(r.$3,
-                                style: const TextStyle(
-                                    fontSize: 12.5,
-                                    height: 1.4,
+                                style: TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: wide ? 15 : 13.5)),
+                            const SizedBox(height: 3),
+                            Text(r.$4,
+                                style: TextStyle(
+                                    fontSize: wide ? 13.5 : 12.5,
+                                    height: 1.5,
                                     color: Brand.inkSecondary)),
                           ]),
                     ),
                   ]),
             )),
         if (compact)
-          const Text('€99 a year.',
-              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Text('€99 a year. Same-day publishing.',
+                style: TextStyle(
+                    fontWeight: FontWeight.w700, fontSize: wide ? 14 : 13)),
+          ),
       ]),
     );
   }
@@ -762,50 +898,60 @@ class ClaimedScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Brand.bg,
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 520),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-              Container(
-                width: 76,
-                height: 76,
-                decoration: const BoxDecoration(
-                    color: Brand.successTint, shape: BoxShape.circle),
-                child: const Icon(Icons.verified,
-                    size: 36, color: Brand.success),
-              ),
-              const SizedBox(height: 18),
-              const Text('You are Verified',
-                  textAlign: TextAlign.center,
-                  style:
-                      TextStyle(fontWeight: FontWeight.w800, fontSize: 22)),
-              const SizedBox(height: 10),
-              const Text(
-                  'Thank you. Your payment reached us and your listing is '
-                  'being set up now.\n\n'
-                  'We check every paid listing the same day, so your page is '
-                  'usually live within a few hours. You will get an email '
-                  'when it is, with a private link for adding your photos, '
-                  'your description and your prices.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                      color: Brand.inkSecondary, height: 1.6, fontSize: 14)),
-              const SizedBox(height: 22),
-              OutlinedButton.icon(
-                  onPressed: () => launchUrl(
-                      Uri.parse('https://www.nomadwise.io'),
-                      mode: LaunchMode.platformDefault),
-                  icon: const Icon(Icons.arrow_back, size: 16),
-                  label: const Text('Back to nomadwise.io')),
-              const SizedBox(height: 12),
-              const Text('Questions? hello@nomadwise.io',
-                  style: TextStyle(color: Brand.inkMuted, fontSize: 12)),
-            ]),
+      body: LayoutBuilder(builder: (context, box) {
+        final wide = box.maxWidth >= _wideAt;
+        return Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(28),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 560),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Container(
+                  width: wide ? 88 : 76,
+                  height: wide ? 88 : 76,
+                  decoration: const BoxDecoration(
+                      color: Brand.successTint, shape: BoxShape.circle),
+                  child: Icon(Icons.verified,
+                      size: wide ? 42 : 36, color: Brand.success),
+                ),
+                SizedBox(height: wide ? 24 : 18),
+                Text('You are Verified',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: wide ? 30 : 23,
+                        letterSpacing: -0.5)),
+                const SizedBox(height: 12),
+                Text(
+                    'Thank you. Your payment reached us and your listing is '
+                    'being set up now.\n\n'
+                    'We check every paid listing the same day, so your page is '
+                    'usually live within a few hours. You will get an email '
+                    'when it is, with a private link for adding your photos, '
+                    'your description and your prices.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                        color: Brand.inkSecondary,
+                        height: 1.65,
+                        fontSize: wide ? 15 : 14)),
+                SizedBox(height: wide ? 28 : 22),
+                OutlinedButton.icon(
+                    onPressed: () => launchUrl(
+                        Uri.parse('https://www.nomadwise.io'),
+                        mode: LaunchMode.platformDefault),
+                    style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 14, horizontal: 22)),
+                    icon: const Icon(Icons.arrow_back, size: 16),
+                    label: const Text('Back to nomadwise.io')),
+                const SizedBox(height: 14),
+                const Text('Questions? hello@nomadwise.io',
+                    style: TextStyle(color: Brand.inkMuted, fontSize: 12.5)),
+              ]),
+            ),
           ),
-        ),
-      ),
+        );
+      }),
     );
   }
 }
