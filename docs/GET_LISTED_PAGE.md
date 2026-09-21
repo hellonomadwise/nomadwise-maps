@@ -35,12 +35,11 @@ Your page, your way:
 - Listed above every free space in your city and neighbourhood
 - Structured data and a link to your website, the signals search
   engines and AI assistants use to cite you
-- A quarterly report: visitors, where they came from, what Google
-  showed you for, and the booking requests you received
+- Your own event or offer in the advert slot on your page
 
-Less than one day pass a month.
+Billed once a year. Cancel any time.
 
-Less than one day pass a month.
+Billed once a year. Cancel any time.
 
 [Claim your space] button, linking to https://nomadmaps.io/?claim
 

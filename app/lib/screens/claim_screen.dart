@@ -822,9 +822,9 @@ class _ClaimScreenState extends State<ClaimScreen> {
       (Icons.travel_explore, Brand.red, 'Found by Google and by AI',
           'Your page is built so Google, ChatGPT and Perplexity can find '
               'it and quote it when someone asks where to work.'),
-      (Icons.insights_outlined, Brand.red, 'A report every quarter',
-          'How many people saw your page, where they came from, how many '
-              'asked to book.'),
+      (Icons.campaign_outlined, Brand.red, 'Your event or offer on your page',
+          'The advert slot on your page carries your message instead of '
+              'ours.'),
     ];
     final show = compact ? rows.take(3).toList() : rows;
     return Container(

@@ -673,3 +673,33 @@ card.
    "Something need updating?".
 6. **Claim page note for spaces not on Google Maps**, pointing to
    Google Business Profile.
+
+## Reporting out of the offer (21 Sep, Leonie)
+
+No analytics promised to Verified for now. Raw view counts invite the
+wrong comparison with social media numbers. If it comes back it is
+indirect (a position such as "third most viewed space in Canggu this
+month") plus things the owner already experiences (booking requests in
+their inbox). Nothing public, nothing for free listings. Removed from
+the comparison page, the memo, the claim screen, the offer email, the
+plan page and the Get Listed copy. Verified is now five things: badge,
+placement above free listings, booking requests to their inbox, their
+own photos and words, their event or offer in the advert slot.
+
+## Order within the Verified group: rotation (21 Sep, Leonie)
+
+Any owner-supplied number (WiFi speed, ratings) can be gamed, so the
+order inside the Verified group rotates nightly with the site rebuild.
+Build: the nightly sync writes a rotating Listing Rank per Verified
+venue (zero-padded so the text sort holds) instead of a fixed "1";
+free stays "0". WiFi speed stays a fact on the page, owner-reported
+figures marked as such.
+
+## Free listings: no request form (21 Sep, Leonie)
+
+A free listing shows "Contact the space" linking straight to their
+website, WhatsApp or Google Maps. No form, no auto-reply. The request
+form exists only on Verified pages, where it goes to the owner's
+inbox. Contact clicks on free pages are counted for the upgrade email
+to the space ("43 people tried to contact you from Nomadwise last
+month"). Enquiries On already switches between the two buttons.

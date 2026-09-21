@@ -31,7 +31,8 @@ year: a Verified badge, your own description, photos and hours, a
 place above every free listing in Koh Samui, structured data and a link to
 your site (the signals Google and the AI assistants use to recommend
 places), a Request a booking button that sends enquiries straight to
-your inbox, and a quarterly note of how the page did. Details and the
+your inbox, and your own event or offer in the advert slot on your
+page. Details and the
 link: [Get listed page or the claim link].
 
 Either way, thanks for being on the map.

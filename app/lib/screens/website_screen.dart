@@ -3688,8 +3688,8 @@ class _ListingPlanPageState extends State<_ListingPlanPage> {
           'a place above every free listing in ${city.isEmpty ? 'your city' : city}, '
           'structured data and a link to your site (the signals Google and '
           'the AI assistants use to recommend places), a Request a booking '
-          'button that sends enquiries straight to your inbox, and a '
-          'quarterly note of how the page did.',
+          'button that sends enquiries straight to your inbox, and your '
+          'own event or offer in the advert slot on your page.',
       '',
       'Get Verified: $_payLink',
       '',
