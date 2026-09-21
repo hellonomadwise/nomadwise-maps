@@ -621,3 +621,55 @@ card.
   booking requests); views only with context against nearby spaces;
   nothing public, nothing for free listings. Open whether to offer any
   analytics at all.
+
+## Leonie's scenario questions (21 Sep): rules and build items
+
+**Rules agreed in the answers**
+
+- Every owner change to photos, description, prices or facts is reviewed
+  before it goes live, on any tier. Owners see it as pending.
+- A free claim that later upgrades is not re-reviewed: the page was
+  approved at the claim; the upgrade is only the payment.
+- Rejected after paying: full refund in Stripe, subscription cancelled,
+  claim kept on record with the reason.
+- Cancel or downgrade: Verified runs to the end of the paid year, then
+  badge, placement, booking route and advert slot revert. Photos and
+  description are kept unless the owner asks for removal.
+- Ownership change: the listing is the fixed thing; a new owner makes a
+  new claim, which goes to a person because the page is already claimed.
+  Old subscription stays with the old card; the new owner starts their
+  own.
+- A space not on Google Maps cannot be added yet; tell them to set up a
+  Google Business Profile first. A manual add form is a later option.
+- Temporary closures: Google is the baseline for everyone (nightly
+  refresh already marks temporarily and permanently closed).
+
+**Build items added**
+
+1. **Approval hold on paid claims for existing pages.** Today
+   `claim_paid()` sets `listing_tier = 'verified'`, the owner details
+   and the enquiry email the moment the payment lands, and the next
+   push puts them on the page. A wrong or hostile claim on someone
+   else's page would therefore go live until undone. Change: a paid
+   claim on an existing venue lands as `status = 'paid'` with
+   `needs_approval = true`; the control centre shows it as a card
+   (name, claimant, email, phone, note, and whether the claimant's email
+   domain matches the space's website) with Approve and Refund. Only
+   Approve writes the Verified fields and the enquiry address. New
+   spaces already wait in the publishing queue, so nothing changes
+   there. Until this exists, act on the "PAID" phone ping quickly.
+2. **Free claim ownership check.** Confirmation sent to the email on
+   the space's own website or Google listing, or a code to its public
+   phone, before a free claim completes. Any claim on an already
+   claimed page goes to a person.
+3. **Owner status toggle: "temporarily closed until [date]".** For
+   Verified owners in their account. Goes live without review, since a
+   wrong "closed" only hurts the owner. Overrides Google until the date.
+4. **Owner-supplied facts survive the Google refresh.** When an owner
+   correction is approved, the field is marked owner-supplied and the
+   nightly refresh does not overwrite it.
+5. **Change log with rollback.** Every approved owner change is logged
+   so a page can be put back when a nomad reports it through
+   "Something need updating?".
+6. **Claim page note for spaces not on Google Maps**, pointing to
+   Google Business Profile.
