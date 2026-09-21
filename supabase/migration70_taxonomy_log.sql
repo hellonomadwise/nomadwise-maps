@@ -16,7 +16,7 @@
 --
 -- The one-off sweep of older pages that were quietly missed is a
 -- separate job for later; when it is wanted, it is one statement:
---   update public.webflow_regions set sitemap_tracked = true;
+--   update public.webflow_regions set sitemap_tracked = true where id is not null;
 -- and the nightly check does the rest.
 -- ============================================================
 
@@ -48,12 +48,15 @@ create policy "countries admin write" on public.webflow_countries
 -- The log starts now: everything already here is left alone.
 update public.webflow_regions
    set sitemap_tracked = false,
-       sitemap_added_at = coalesce(sitemap_added_at, now());
+       sitemap_added_at = coalesce(sitemap_added_at, now())
+ where id is not null;  -- Supabase refuses an update without a where
 
 update public.webflow_locations
    set sitemap_tracked = false,
-       sitemap_added_at = coalesce(sitemap_added_at, now());
+       sitemap_added_at = coalesce(sitemap_added_at, now())
+ where id is not null;  -- Supabase refuses an update without a where
 
 update public.webflow_countries
    set sitemap_tracked = false,
-       sitemap_added_at = coalesce(sitemap_added_at, now());
+       sitemap_added_at = coalesce(sitemap_added_at, now())
+ where id is not null;  -- Supabase refuses an update without a where
