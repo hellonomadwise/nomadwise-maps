@@ -31,7 +31,9 @@ Three steps, no account, no password.
    instead, which gives us the real place id, address and coordinates —
    so photos, opening hours and the rating fill themselves in.
 2. **About you.** Name, role, email, phone, and where booking requests
-   should go. Plus a free-text box for anything we should know.
+   should go. Website and Instagram, both optional (they fill empty
+   fields on the page when the claim is applied, never overwrite).
+   Plus a free-text box for anything we should know.
 3. **Your Verified listing.** What they get, €99 a year, and a button
    to Stripe.
 
@@ -53,17 +55,23 @@ of every website push) it calls `claim_paid()`, which:
   enquiry address, and the dates from the Stripe subscription;
 - asks the website sync to rewrite the page;
 - puts a brand-new space into the queue as `website_status = 'queued'`;
-- pings the phone: *"PAID — new space, publish today"* or *"PAID —
-  Verified listing"*.
+- pings the phone: *"PAID, new space in the queue"* or *"PAID,
+  approve the claim"*.
 
 It is safe to run twice: a claim already settled is re-answered with
 the same space and no second ping.
 
 ## Jonathan's job, per sale
 
-For a space **already on the site**: nothing. The badge, the owner's
-details and the booking-request button go on at the next push,
-automatically.
+For a space **already on the site**: one look. The claim lands in
+Paid listings as **Paid, approve?** with the claimant's name, email,
+phone and note, whether their email domain matches the space's
+website, and a warning if the page already has an owner on file.
+Nothing on the page changes until **Approve** is pressed; then the
+badge, the owner's details and the booking-request button go on at
+the next push. **Reject** leaves the page alone and keeps the reason;
+the refund is one click in Stripe. This hold exists so a wrong or
+hostile claim on somebody else's page can never go live.
 
 For a space **not on the site yet**: the phone pings, the space is
 waiting in the queue with its Google details already filled in. Review

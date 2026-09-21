@@ -50,6 +50,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   List<Map<String, dynamic>> _paid = [];
   List<Map<String, dynamic>> _enquiries = [];
   List<Map<String, dynamic>> _orders = [];
+  List<Map<String, dynamic>> _held = [];
   List<Map<String, dynamic>> _locations = [];
   List<Map<String, dynamic>> _countries = [];
   String? _error;
@@ -85,6 +86,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         _supabase.sitemapPendingRegions(),
         _supabase.sitemapPendingLocations(),
         _supabase.sitemapPendingCountries(),
+        _supabase.heldClaims(),
       ]);
       if (!mounted) return;
       setState(() {
@@ -103,6 +105,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         _sitemapRegions = results[12];
         _sitemapLocations = results[13];
         _sitemapCountries = results[14];
+        _held = results[15];
         _error = null;
       });
     } catch (e) {
@@ -915,7 +918,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       (
         key: 'paid',
         label: 'Paid listings',
-        count: _paid.length + _orders.length,
+        count: _held.length + _paid.length + _orders.length,
         color: Brand.success,
         hint: 'Verified listings: who pays, when it renews, and whether the '
             'badge is on the page. Any space gets a plan from its Listing '
@@ -972,7 +975,11 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       'preparing' => g.preparing.map(_preparingTile).toList(),
       'hidden' => _hidden.map(_hiddenTile).toList(),
       'closed' => _closed.map(_closedCard).toList(),
-      'paid' => [..._orders.map(_orderCard), ..._paid.map(_paidCard)],
+      'paid' => [
+          ..._held.map(_heldCard),
+          ..._orders.map(_orderCard),
+          ..._paid.map(_paidCard)
+        ],
       _ => <Widget>[],
     };
     // The later stages have their own list screens.
@@ -1664,6 +1671,200 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
 
   /// A paid checkout the sync could not match to a space. One tap
   /// attaches it (search by name) and the plan follows.
+  // A paid claim on a page that is already on the site. Nothing on the
+  // page has changed yet: Approve makes it Verified, Reject leaves the
+  // page alone and points at the Stripe refund.
+  Widget _heldCard(Map<String, dynamic> c) {
+    final v = (c['venues'] is Map)
+        ? Map<String, dynamic>.from(c['venues'] as Map)
+        : <String, dynamic>{};
+    final spaceName = (v['name'] ?? c['space_name'] ?? 'A space').toString();
+    final where = [v['city'], v['country']]
+        .where((x) => (x ?? '').toString().isNotEmpty)
+        .join(', ');
+    final who = [
+      c['owner_name'],
+      if ((c['owner_role'] ?? '').toString().isNotEmpty) c['owner_role'],
+      c['owner_email'],
+      if ((c['owner_phone'] ?? '').toString().isNotEmpty) c['owner_phone'],
+    ].where((x) => (x ?? '').toString().isNotEmpty).join('  ·  ');
+    final email = (c['owner_email'] ?? '').toString().toLowerCase();
+    final site = (v['website'] ?? c['space_website'] ?? '').toString();
+    // A cheap sanity check: does the claimant's email domain match the
+    // space's own website? A match is reassuring; a miss is not proof
+    // of anything (many owners use Gmail), just a reason to look.
+    String host(String u) => u
+        .replaceFirst(RegExp(r'^https?://'), '')
+        .replaceFirst(RegExp(r'^www\.'), '')
+        .split('/')
+        .first
+        .toLowerCase();
+    final domain = email.contains('@') ? email.split('@').last : '';
+    final match = site.isNotEmpty && domain.isNotEmpty && host(site) == domain;
+    final previous = (v['listing_owner_email'] ?? '').toString();
+    final lines = <String>[
+      if (who.isNotEmpty) who,
+      if ((c['enquiry_email'] ?? '').toString().isNotEmpty)
+        'Booking requests to ${c['enquiry_email']}',
+      if ((c['space_website'] ?? '').toString().isNotEmpty)
+        'Website given: ${c['space_website']}',
+      if ((c['space_instagram'] ?? '').toString().isNotEmpty)
+        'Instagram given: ${c['space_instagram']}',
+      if ((c['note'] ?? '').toString().isNotEmpty) 'Note: ${c['note']}',
+    ];
+    return _card(
+      tint: Brand.goldTint,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+                color: Brand.goldTextDark,
+                borderRadius: BorderRadius.circular(8)),
+            child: const Text('PAID, APPROVE?',
+                style: TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: .5,
+                    color: Colors.white)),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(spaceName,
+                style: const TextStyle(
+                    fontWeight: FontWeight.w700, fontSize: 15)),
+          ),
+        ]),
+        if (where.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Text(where,
+                style: const TextStyle(
+                    fontSize: 12.5, color: Brand.inkSecondary)),
+          ),
+        const SizedBox(height: 8),
+        for (final l in lines)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 2),
+            child: Text(l, style: const TextStyle(fontSize: 12.5)),
+          ),
+        const SizedBox(height: 6),
+        Row(children: [
+          Icon(match ? Icons.verified_user_outlined : Icons.help_outline,
+              size: 16, color: match ? Brand.success : Brand.goldTextDark),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+                match
+                    ? 'Email domain matches the space\'s website.'
+                    : site.isEmpty
+                        ? 'No website on file to check the email against.'
+                        : 'Email domain does not match the website (${host(site)}). '
+                            'Common with Gmail; worth a look.',
+                style: TextStyle(
+                    fontSize: 12,
+                    color: match ? Brand.success : Brand.goldTextDark)),
+          ),
+        ]),
+        if (previous.isNotEmpty && previous != email)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text('Careful: this page already has an owner on file '
+                '($previous).',
+                style: const TextStyle(fontSize: 12, color: Brand.red)),
+          ),
+        Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Text(
+              'Paid ${_ago(c['paid_at'] ?? c['created_at'])} through the claim '
+              'form. Nothing on the page has changed yet.',
+              style: const TextStyle(fontSize: 12.5, color: Brand.inkSecondary)),
+        ),
+        const SizedBox(height: 10),
+        Wrap(spacing: 8, runSpacing: 8, children: [
+          FilledButton.icon(
+              onPressed: () => _approveClaim(c, spaceName),
+              style: FilledButton.styleFrom(backgroundColor: Brand.success),
+              icon: const Icon(Icons.check, size: 18),
+              label: const Text('Approve, make it Verified')),
+          TextButton(
+              onPressed: () => _rejectClaim(c, spaceName),
+              child: const Text('Reject')),
+          if ((v['name'] ?? '').toString().isNotEmpty)
+            TextButton(
+                onPressed: () => _openVenue({'id': c['venue_id']}),
+                child: const Text('Open the space')),
+        ]),
+      ]),
+    );
+  }
+
+  Future<void> _approveClaim(Map<String, dynamic> c, String spaceName) async {
+    try {
+      await _supabase.approveClaim(c['id']);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('$spaceName is now Verified. The page updates at '
+              'the next push.')));
+      await _load();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('That did not approve: $e'),
+          backgroundColor: Brand.red));
+    }
+  }
+
+  Future<void> _rejectClaim(Map<String, dynamic> c, String spaceName) async {
+    final ctl = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Reject the claim on $spaceName?'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Text(
+              'The page stays exactly as it is. Refund the payment in the '
+              'Stripe dashboard (Customers, then the subscription, then '
+              'Cancel and refund). The reason is kept with the claim so a '
+              'repeat is recognised.',
+              style: TextStyle(fontSize: 13.5, height: 1.4)),
+          const SizedBox(height: 14),
+          TextField(
+              controller: ctl,
+              autofocus: true,
+              minLines: 2,
+              maxLines: 4,
+              decoration: const InputDecoration(
+                  labelText: 'Reason',
+                  hintText: 'Wrong space, not the owner, does not fit...',
+                  border: OutlineInputBorder())),
+        ]),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Keep it')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: FilledButton.styleFrom(backgroundColor: Brand.red),
+              child: const Text('Reject')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await _supabase.rejectClaim(c['id'], ctl.text.trim());
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Rejected. Remember the refund in Stripe.')));
+      await _load();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('That did not reject: $e'),
+          backgroundColor: Brand.red));
+    }
+  }
+
   Widget _orderCard(Map<String, dynamic> o) {
     final who = [
       if ((o['name'] ?? '').toString().isNotEmpty) o['name'],

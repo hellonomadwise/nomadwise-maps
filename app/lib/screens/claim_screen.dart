@@ -72,6 +72,10 @@ class _ClaimScreenState extends State<ClaimScreen> {
   final _ownerPhone = TextEditingController();
   final _enquiryEmail = TextEditingController();
   final _note = TextEditingController();
+  // Two optional links. Public facts we would show anyway, and a small
+  // investment that makes finishing more likely.
+  final _siteUrl = TextEditingController();
+  final _instagram = TextEditingController();
   // Honeypot: never shown, so anything in it is a bot.
   final _website = TextEditingController();
 
@@ -102,6 +106,8 @@ class _ClaimScreenState extends State<ClaimScreen> {
       _ownerPhone,
       _enquiryEmail,
       _note,
+      _siteUrl,
+      _instagram,
       _website,
     ]) {
       c.dispose();
@@ -220,6 +226,8 @@ class _ClaimScreenState extends State<ClaimScreen> {
         'owner_phone': _ownerPhone.text.trim(),
         'enquiry_email': _enquiryEmail.text.trim(),
         'note': _note.text.trim(),
+        'space_website': _siteUrl.text.trim(),
+        'space_instagram': _instagram.text.trim(),
         if (_picked == null) ...{
           'space_name': _pickedPlace?.main ?? '',
           'space_type': _newType,
@@ -611,6 +619,17 @@ class _ClaimScreenState extends State<ClaimScreen> {
           decoration: _field('Where should booking requests go? (optional)',
               helper: "Leave blank and we'll send them to the email above.")),
       const SizedBox(height: 16),
+      _pair(
+        wide,
+        TextField(
+            controller: _siteUrl,
+            keyboardType: TextInputType.url,
+            decoration: _field('Website (optional)', hint: 'yourspace.com')),
+        TextField(
+            controller: _instagram,
+            decoration: _field('Instagram (optional)', hint: '@yourspace')),
+      ),
+      const SizedBox(height: 16),
       TextField(
           controller: _note,
           minLines: 3,
@@ -768,8 +787,8 @@ class _ClaimScreenState extends State<ClaimScreen> {
               Expanded(
                 child: Text(
                     _alreadyPublished
-                        ? 'Your page is already live. The badge and your '
-                            'details are added to it automatically.'
+                        ? 'Your page is already live. We check the claim, '
+                            'then the badge and your details go on.'
                         : 'Your listing joins our publishing queue. We will '
                             'email you as soon as your page is live.',
                     style: const TextStyle(
@@ -942,11 +961,11 @@ class ClaimedScreen extends StatelessWidget {
                         letterSpacing: -0.5)),
                 const SizedBox(height: 12),
                 Text(
-                    'Thank you. Your payment reached us and your listing is '
+                    'Thank you. Your payment reached us and your claim is '
                     'in the queue.\n\n'
-                    'We will email you as soon as your page is live, with a '
-                    'private link for adding your photos, your description '
-                    'and your prices.',
+                    'We will email you as soon as your Verified page is live, '
+                    'with a private link for adding your photos, your '
+                    'description and your prices.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                         color: Brand.inkSecondary,

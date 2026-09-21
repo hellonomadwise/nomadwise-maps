@@ -772,7 +772,8 @@ class SupabaseService {
           .from('listing_claims')
           .select('id, venue_id, is_new_space, owner_name, owner_email, '
               'owner_phone, owner_role, enquiry_email, space_name, '
-              'space_city, space_country, note, status, created_at, paid_at')
+              'space_city, space_country, space_website, space_instagram, '
+              'note, status, created_at, paid_at')
           .order('created_at', ascending: false)
           .limit(limit);
       return (rows as List).map((r) => Map<String, dynamic>.from(r)).toList();
@@ -784,6 +785,36 @@ class SupabaseService {
   /// Marks a claim that never paid as abandoned.
   Future<void> abandonClaim(String id) =>
       _db.rpc('abandon_claim', params: {'p_claim': id});
+
+  /// Paid claims on pages already on the site, waiting for a founder
+  /// to approve before anything on the page changes.
+  Future<List<Map<String, dynamic>>> heldClaims() async {
+    try {
+      final rows = await _db
+          .from('listing_claims')
+          .select('id, venue_id, owner_name, owner_email, owner_phone, '
+              'owner_role, enquiry_email, space_name, space_website, '
+              'space_instagram, note, paid_at, created_at, order_json, '
+              'venues(name, city, country, website, listing_owner_email)')
+          .eq('status', 'awaiting_approval')
+          .order('paid_at', ascending: false)
+          .limit(50);
+      return (rows as List).map((r) => Map<String, dynamic>.from(r)).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// The founders looked: it is theirs. Makes the listing Verified.
+  Future<Map<String, dynamic>?> approveClaim(String id) async {
+    final res = await _db.rpc('approve_claim', params: {'p_claim': id});
+    return res == null ? null : Map<String, dynamic>.from(res as Map);
+  }
+
+  /// Wrong space or wrong person. The page is untouched; the refund is
+  /// done in Stripe.
+  Future<void> rejectClaim(String id, String reason) =>
+      _db.rpc('reject_claim', params: {'p_claim': id, 'p_reason': reason});
 
   /// Booking requests per listing (admin), newest first.
   Future<List<Map<String, dynamic>>> enquiries({int limit = 400}) async {

@@ -657,7 +657,8 @@ card.
    domain matches the space's website) with Approve and Refund. Only
    Approve writes the Verified fields and the enquiry address. New
    spaces already wait in the publishing queue, so nothing changes
-   there. Until this exists, act on the "PAID" phone ping quickly.
+   there. **Built: migration 71 (`awaiting_approval`, `approve_claim`,
+   `reject_claim`) and the Paid, approve? card in the control centre.**
 2. **Free claim ownership check.** Confirmation sent to the email on
    the space's own website or Google listing, or a code to its public
    phone, before a free claim completes. Any claim on an already
@@ -673,6 +674,8 @@ card.
    "Something need updating?".
 6. **Claim page note for spaces not on Google Maps**, pointing to
    Google Business Profile.
+7. **Website and Instagram on the claim form** (optional). Built:
+   migration 71 and the About you step.
 
 ## Reporting out of the offer (21 Sep, Leonie)
 

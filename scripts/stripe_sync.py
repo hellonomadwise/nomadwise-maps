@@ -41,7 +41,7 @@ SUPABASE_URL = os.environ.get('SUPABASE_URL', '').rstrip('/')
 SERVICE_KEY = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
 
 report = {'started': datetime.datetime.now(datetime.timezone.utc).isoformat(),
-          'orders_new': 0, 'matched': 0, 'claims': 0, 'new_spaces': 0,
+          'orders_new': 0, 'matched': 0, 'claims': 0, 'new_spaces': 0, 'held': 0,
           'unmatched': 0, 'lapsed': 0,
           'renewals_refreshed': 0, 'errors': [], 'warnings': []}
 
@@ -173,8 +173,14 @@ def find_venue(session, email, order=None):
             report['claims'] += 1
             if res.get('new_space'):
                 report['new_spaces'] += 1
+            if res.get('held'):
+                # An existing page: the database holds the claim for
+                # approval in the control centre and pinged the phone.
+                # The venue is untouched until Approve is pressed.
+                report['held'] += 1
             return ({'id': res['venue_id'], 'name': res.get('name') or 'a space'},
-                    'claim', True)
+                    'claim, awaiting approval' if res.get('held') else 'claim',
+                    True)
     if email:
         rows = sb('venues?listing_owner_email=eq.'
                   f'{urllib.parse.quote(email)}&select=id,name,webflow_cms_id,website_status&limit=1')
