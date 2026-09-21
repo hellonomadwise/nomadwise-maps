@@ -11,12 +11,15 @@ GitHub Actions and Supabase set-up.
 Per run:
   1. Completed Checkout Sessions since the last run (paid, subscription
      mode) that are not yet in stripe_orders are recorded. Each is
-     matched to a space: by the client_reference_id the app's payment
-     link carries (the space's id), else by the owner's email, else by
+     matched to a space: by the client_reference_id the payment link
+     carries (a claim's id when the owner came through the claim form
+     at nomadmaps.io/?claim, or a space's id when a founder sent the
+     link from the control centre), else by the owner's email, else by
      a nomadwise.io link in the custom fields. A matched order sets the
      space's plan to Verified with the dates from the subscription and
-     asks the sync to update the page. An unmatched one waits in the
-     control centre for a tap.
+     asks the sync to update the page; a claim for a space that is not
+     on the site yet creates it and drops it in the queue for same-day
+     review. An unmatched one waits in the control centre for a tap.
   2. Every space with a Stripe subscription is checked: renewal date
      refreshed; a cancelled or unpaid one goes back to free.
 
@@ -38,7 +41,8 @@ SUPABASE_URL = os.environ.get('SUPABASE_URL', '').rstrip('/')
 SERVICE_KEY = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
 
 report = {'started': datetime.datetime.now(datetime.timezone.utc).isoformat(),
-          'orders_new': 0, 'matched': 0, 'unmatched': 0, 'lapsed': 0,
+          'orders_new': 0, 'matched': 0, 'claims': 0, 'new_spaces': 0,
+          'unmatched': 0, 'lapsed': 0,
           'renewals_refreshed': 0, 'errors': [], 'warnings': []}
 
 
@@ -152,24 +156,37 @@ def custom(session, key_hint):
     return ''
 
 
-def find_venue(session, email):
+def find_venue(session, email, order=None):
+    """Returns (venue, how, settled). `settled` is True when the match
+    already did everything — the claim path sets the plan, creates the
+    space if it is new, and pings the phone inside the database — so
+    the caller must not patch the venue or ping a second time."""
     ref = (session.get('client_reference_id') or '').strip()
     if ref and UUID.match(ref):
         rows = sb(f'venues?id=eq.{ref}&select=id,name,webflow_cms_id,website_status')
         if rows:
-            return rows[0], 'reference'
+            return rows[0], 'reference', False
+        # Not a space: the claim form's payment link carries a claim id.
+        res = sb('rpc/claim_paid', method='POST',
+                 body={'p_claim': ref, 'p_order': order or {}})
+        if res and res.get('venue_id'):
+            report['claims'] += 1
+            if res.get('new_space'):
+                report['new_spaces'] += 1
+            return ({'id': res['venue_id'], 'name': res.get('name') or 'a space'},
+                    'claim', True)
     if email:
         rows = sb('venues?listing_owner_email=eq.'
                   f'{urllib.parse.quote(email)}&select=id,name,webflow_cms_id,website_status&limit=1')
         if rows:
-            return rows[0], 'owner email'
+            return rows[0], 'owner email', False
     link = custom(session, 'link')
     m = re.search(r'nomadwise\.io/coworking/([a-z0-9-]+)', link or '')
     if m:
         rows = sb(f'venues?webflow_slug=eq.{m.group(1)}&select=id,name,webflow_cms_id,website_status&limit=1')
         if rows:
-            return rows[0], 'page link'
-    return None, None
+            return rows[0], 'page link', False
+    return None, None, False
 
 
 for s in sessions:
@@ -200,10 +217,10 @@ for s in sessions:
         'matched_by': None,
     }
     try:
-        venue, how = find_venue(s, email)
+        venue, how, settled = find_venue(s, email, order)
     except Exception as e:  # noqa: BLE001
         report['errors'].append(f"match {s['id']}: {e}")
-        venue, how = None, None
+        venue, how, settled = None, None, False
     if venue:
         order.update({'status': 'matched', 'venue_id': venue['id'], 'matched_by': how})
     try:
@@ -216,6 +233,12 @@ for s in sessions:
         report['unmatched'] += 1
         notify('Verified paid, needs matching',
                f"{order['space_name'] or email or 'someone'} paid; match it in Paid listings")
+        continue
+    if settled:
+        # claim_paid() in the database already set the plan, created the
+        # space if it was new, asked for the page to be rewritten and
+        # pinged the phone. Nothing left to do but count it.
+        report['matched'] += 1
         continue
     patch = {
         'listing_tier': 'verified',
@@ -252,11 +275,20 @@ except Exception as e:  # noqa: BLE001
     report['errors'].append(f'paying read: {e}')
     paying = []
 
+# A subscription Stripe no longer has (a test-mode one left behind, a
+# deleted object): the link is dropped and the listing goes back to
+# free. Unless every single one is missing, which means the key is
+# pointing at the wrong Stripe mode; then nothing is touched.
+gone = []
+
 for v in paying:
     try:
         sub = stripe(f"/subscriptions/{v['stripe_subscription_id']}")
     except Exception as e:  # noqa: BLE001
-        report['warnings'].append(f"subscription {v['name']}: {e}")
+        if '404' in str(e):
+            gone.append(v)
+        else:
+            report['warnings'].append(f"subscription {v['name']}: {e}")
         continue
     status = sub.get('status')
     pe = period_end_of(sub)
@@ -277,5 +309,25 @@ for v in paying:
         except Exception as e:  # noqa: BLE001
             report['errors'].append(f"renewal {v['name']}: {e}")
     time.sleep(0.2)
+
+if gone and len(gone) == len(paying):
+    report['warnings'].append(
+        f'{len(gone)} subscriptions not found in Stripe; the key looks like '
+        'the wrong mode (test against live), so nothing was changed')
+else:
+    for v in gone:
+        patch = {'stripe_subscription_id': None, 'stripe_customer_id': None}
+        if v.get('listing_tier') == 'verified':
+            patch.update({'listing_tier': 'free',
+                          'listing_sync_requested_at': now_iso,
+                          'listing_synced_at': None})
+            report['lapsed'] += 1
+            notify('Verified listing lapsed',
+                   f"{v['name']}: subscription no longer in Stripe")
+        try:
+            sb(f"venues?id=eq.{v['id']}", method='PATCH', body=patch,
+               prefer='return=minimal')
+        except Exception as e:  # noqa: BLE001
+            report['errors'].append(f"forget subscription {v['name']}: {e}")
 
 finish(1 if report['errors'] else 0)

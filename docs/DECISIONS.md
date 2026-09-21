@@ -499,3 +499,60 @@ on its own once the webhook exists) and "Copy offer email" (the
 house-voice offer with the name, city, page and that link filled in).
 New spaces and released pages both reach the plan page, so a "list
 us" request is answered in three taps.
+
+## Payments become plans by reading Stripe (Sep 2026)
+
+No webhook endpoint: scripts/stripe_sync.py reads Stripe with a
+restricted read-only key at the end of every push run and hourly, so
+it lives inside the existing GitHub Actions and Supabase set-up and
+needs one GitHub secret. Paid subscription checkouts are recorded in
+stripe_orders (migration 67) and matched to a space by the id the
+app's payment link carries, then the owner's email, then a
+nomadwise.io link the buyer typed; a match sets the plan and queues
+a space that is not on the site yet; no match waits at the top of
+Paid listings with an Attach button (search every space by name) or
+Ignore. Subscriptions are re-read each run: renewal dates refreshed,
+cancelled or unpaid ones back to free. Latency is up to an hour,
+which the three-working-day promise absorbs.
+
+## Owners claim their own listing (Sep 2026)
+
+A payment must never arrive without us knowing whose it is. Every
+payment link therefore carries an id: the space's, when a founder
+sends it from the control centre, or a claim's, when the owner came
+on their own through nomadmaps.io/?claim. The bare link stays a
+supported path but is now the exception rather than the norm, and
+two Stripe custom fields (space name, nomadwise.io link) let even
+that case name and often match itself.
+
+The claim flow is three steps and has no account and no password:
+find your space (the directory first, Google Maps second, which
+hands us a real place id so photos, hours and rating fill themselves
+in), who you are, then pay. Paying is the proof of ownership; a
+password would only be a second thing to lose. The claim is written
+to listing_claims (migration 68) before Stripe is reached, so an
+abandoned claim is a warm lead with a phone ping rather than a lost
+visitor, and nothing an unpaid stranger types ever reaches the
+venues table — a brand-new space becomes a venue row only inside
+claim_paid(), once the money has landed.
+
+Details are collected after payment, not before. A long form in
+front of the card loses people who would have paid; a customer who
+has already paid fills one in. What the page needs on day one
+(address, coordinates, hours, photos) comes from Google anyway, so
+the listing is publishable without the owner typing anything.
+
+The promise is same-day, not three working days. A space already on
+the site needs no review at all — the badge goes on at the next push
+about ten minutes later. A new one arrives in the queue with its
+Google details already filled in, so the review is the ordinary one.
+Reviewing today is worth more in conversion than the slack three
+days would buy, and the pipeline can carry it.
+
+## Not yet: the private owner page
+
+Photos, description, prices and hours from the owner are still to
+build: a long secret in the address rather than a password, emailed
+after payment, with submissions going through the same review as
+everything else. Until then those details come by email and go in
+through the control centre.

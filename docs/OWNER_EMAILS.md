@@ -1,12 +1,16 @@
 # Emails to owners
 
-Three emails, in the house voice: short, specific, no hard sell. The
-Stripe link is https://buy.stripe.com/5kQ00i1AG9zM95q79p63K03; when
-the space already has a page on nomadwise.io, add
-`?client_reference_id=<its Nomad Maps id>` so the payment lands on the
-right listing on its own (the id is on the space's card in the control
-centre once task 4 is in; until then, the owner's email is enough to
-match by hand).
+Three emails, in the house voice: short, specific, no hard sell.
+
+Which link to paste. For a space already in the directory, use the
+**Copy payment link** button on its Listing plan page in the control
+centre: that link carries the space's id, so the payment attaches
+itself. For anyone else, send the claim form,
+https://nomadmaps.io/?claim (or
+`https://nomadmaps.io/?claim=<space name>` to save them the typing),
+where they find their space and pay in three steps. Never paste the
+bare Stripe link: a payment with no id on it has to be matched by
+hand.
 
 ## 1. Reply to a "list us" request (Magical Garden and the like)
 
@@ -27,8 +31,8 @@ year: a Verified badge, your own description, photos and hours, first
 position among the spaces in Koh Samui, structured data and a link to
 your site (the signals Google and the AI assistants use to recommend
 places), a Request a booking button that sends enquiries straight to
-your inbox, and a quarterly note of how the page did. Live within
-three working days. Details and the link: [Get listed page or Stripe
+your inbox, and a quarterly note of how the page did. We publish the
+same day you pay. Details and the link: [Get listed page or the claim
 link].
 
 Either way, thanks for being on the map.

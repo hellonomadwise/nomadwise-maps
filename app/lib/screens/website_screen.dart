@@ -7,6 +7,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../config.dart';
 import '../models/venue.dart';
 import '../services/places_service.dart';
 import '../services/supabase_service.dart';
@@ -3566,7 +3567,7 @@ class _ListingPlanPageState extends State<_ListingPlanPage> {
   late DateTime? _renews = _parse(widget.venue['listing_renews_at']);
   bool _busy = false;
 
-  static const stripeLink = 'https://buy.stripe.com/5kQ00i1AG9zM95q79p63K03';
+  static const stripeLink = AppConfig.stripeVerifiedLink;
 
   /// The Verified payment link for this space: the space's id rides
   /// along as Stripe's client reference, and the owner's email is

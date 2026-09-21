@@ -27,7 +27,7 @@ find you, but they cannot contact you from the page, the details are
 whatever Google says, and free listings are added as we get to them.
 
 **Verified, 99 EUR a year.**
-Your page, your way, live within 3 working days:
+Your page, your way, live today:
 
 - A Verified badge on your page and on your pin in Nomad Maps
 - Your own description, photos and opening hours
@@ -40,12 +40,19 @@ Your page, your way, live within 3 working days:
 
 Less than one day pass a month.
 
-[Get Verified] button, linking to https://buy.stripe.com/5kQ00i1AG9zM95q79p63K03
+Less than one day pass a month, and we publish the same day you pay.
 
-(When the button is placed on a page about a specific listing, or in an
-email to a space that already has a page, add
-`?client_reference_id=<the space's Nomad Maps id>` to the link so the
-payment attaches itself to that listing automatically.)
+[Claim your space] button, linking to https://nomadmaps.io/?claim
+
+That is the claim form: the owner searches for their space, says who
+they are, and pays, all in three steps. Because they came through the
+form, the payment arrives already attached to their listing.
+
+(Two other ways in. On a page about one specific space, link to
+`https://nomadmaps.io/?claim=<the space's name>` so the search box
+arrives filled in. In an email to a space Jonathan is selling to
+directly, use the Copy payment link button in the control centre,
+which carries that space's id.)
 
 ### What owners ask
 
@@ -56,9 +63,11 @@ request, and the badge and first position that make it more likely
 they look at you at all.
 
 **What if we are not listed yet?**
-Verified gets you a page within 3 working days. You send us your
-details and photos after paying; we build the page and you approve it
-before it goes live.
+Verified gets you a page today. Search for your business on the claim
+form, pay, and we build and check the page the same day, usually
+within a few hours. Straight after paying you get a private link for
+your photos, your description and your prices, so nothing is holding
+the page up while you gather them.
 
 **Can we cancel?**
 The plan runs for a year and renews unless you cancel, which you can

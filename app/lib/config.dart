@@ -16,6 +16,12 @@ class AppConfig {
   /// Deep-link used for OAuth (Google sign-in) redirects on mobile.
   static const authRedirect = 'com.nomadwise.maps://login-callback/';
 
+  /// The live Stripe payment link for a Verified listing (EUR 99 a year).
+  /// The claim form and the control centre both append
+  /// ?client_reference_id=<id> so the payment always knows whose it is.
+  static const stripeVerifiedLink =
+      'https://buy.stripe.com/5kQ00i1AG9zM95q79p63K03';
+
   // ---- Coin economy ----
   /// Reviewing/screening a space that isn't listed yet (identity comes
   /// from Google, so it's easier than the old "add a venue", hence 50).

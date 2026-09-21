@@ -745,6 +745,46 @@ class SupabaseService {
   Future<void> sendEnquiry(Map<String, dynamic> row) =>
       _db.from('enquiries').insert(row);
 
+  // ---------- claiming a listing (public, no account) ----------
+
+  /// The public claim form's search: name, where, and whether the space
+  /// already has a page or is already Verified. Nothing else is exposed.
+  Future<List<Map<String, dynamic>>> claimSearch(String q) async {
+    try {
+      final rows = await _db.rpc('claim_search', params: {'p_query': q});
+      return (rows as List).map((r) => Map<String, dynamic>.from(r)).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Records a claim before the owner goes to Stripe and returns
+  /// {claim_id, venue_id}. The claim id rides along in the payment link.
+  Future<Map<String, dynamic>?> startClaim(Map<String, dynamic> p) async {
+    final res = await _db.rpc('start_claim', params: {'p': p});
+    return res == null ? null : Map<String, dynamic>.from(res as Map);
+  }
+
+  /// Claims a founder has not seen resolve yet (control centre).
+  Future<List<Map<String, dynamic>>> openClaims({int limit = 100}) async {
+    try {
+      final rows = await _db
+          .from('listing_claims')
+          .select('id, venue_id, is_new_space, owner_name, owner_email, '
+              'owner_phone, owner_role, enquiry_email, space_name, '
+              'space_city, space_country, note, status, created_at, paid_at')
+          .order('created_at', ascending: false)
+          .limit(limit);
+      return (rows as List).map((r) => Map<String, dynamic>.from(r)).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Marks a claim that never paid as abandoned.
+  Future<void> abandonClaim(String id) =>
+      _db.rpc('abandon_claim', params: {'p_claim': id});
+
   /// Booking requests per listing (admin), newest first.
   Future<List<Map<String, dynamic>>> enquiries({int limit = 400}) async {
     try {
