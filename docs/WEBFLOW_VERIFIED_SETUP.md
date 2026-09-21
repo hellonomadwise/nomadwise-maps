@@ -1,7 +1,8 @@
 # Verified listings: the Designer steps
 
 One-off setup in Webflow so a Verified listing shows its badge, sits
-first in its city and area, and offers a Request a booking button.
+above every free listing in its city and area, and offers a Request a
+booking button.
 The fields already exist on the Coworking collection (renamed from the
 old booking engine, since the collection is at Webflow's 60-field
 limit); Nomad Maps fills them, so nothing here needs typing per
@@ -26,7 +27,7 @@ The same badge can go on the listing cards inside the city and area
 pages (the collection lists on the Region and Location templates):
 add it to the card and set the same condition.
 
-## 2. Verified first in city and area lists
+## 2. Verified above free listings in city and area lists
 
 On the Region template and the Location template, select the
 collection list of listings, open its settings, and add a sort:
@@ -34,16 +35,27 @@ Listing Rank, Z to A. Keep whatever sort you had as the second rule
 (rating, name), so Verified listings come first and the rest keep
 their old order. Because the field is text, "1" sorts above "0".
 
-## 3. The Request a booking button
+## 3. The Book Your Desk button
 
-On the Coworking template, add a button labelled "Request a booking"
-where you want it (near the website and WhatsApp links is natural).
-Conditional visibility: show when Enquiries On is On. Give the button
-an ID of `enquire` (element settings, ID field).
+Every listing page already has a Book Your Desk button that opens
+the reservation-request modal, whose submissions arrive at
+hello@nomadwise.io as Webflow form emails. Keep that for free
+listings: it is the lead Nomadwise can forward to the owner with the
+Verified offer attached. For Verified listings the same button should
+go to the owner directly, through Nomad Maps.
 
-Set its link to `https://nomadmaps.io/?enquire=` for now. Then add
-this to the page's custom code, before the closing body tag, so the
-button carries the listing's own slug:
+On the Coworking template, duplicate the Book Your Desk button so
+there are two, styled the same:
+
+1. The existing one (opens the modal): conditional visibility, show
+   when Enquiries On is Off.
+2. The copy: make it a link button, set its link to
+   `https://nomadmaps.io/?enquire=`, give it the ID `enquire`
+   (element settings), conditional visibility, show when Enquiries On
+   is On.
+
+Then add this to the page's custom code, before the closing body tag,
+so the second button carries the listing's own slug:
 
 ```html
 <script>
@@ -56,10 +68,10 @@ button carries the listing's own slug:
 </script>
 ```
 
-The form lives on Nomad Maps: the nomad fills in name, email, what
-they want, dates and a note, and the request is emailed to the
-listing's Enquiry Email with a copy to hello@nomadwise.io. Nomad Maps
-switches Enquiries On for every Verified listing.
+The Nomad Maps form asks the nomad what they want, dates, people and
+a note, and emails the request to the listing's Enquiry Email with a
+copy to hello@nomadwise.io. Nomad Maps switches Enquiries On for every
+Verified listing, so the swap happens on its own per page.
 
 ## 4. The enquiry email
 

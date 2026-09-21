@@ -27,8 +27,8 @@ Free listings are built from public information and marked
 page, and we cannot promise when we get to updates.
 
 If you would like the page to work for you, Verified is 99 EUR a
-year: a Verified badge, your own description, photos and hours, first
-position among the spaces in Koh Samui, structured data and a link to
+year: a Verified badge, your own description, photos and hours, a
+place above every free listing in Koh Samui, structured data and a link to
 your site (the signals Google and the AI assistants use to recommend
 places), a Request a booking button that sends enquiries straight to
 your inbox, and a quarterly note of how the page did. Details and the

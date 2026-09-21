@@ -3685,12 +3685,11 @@ class _ListingPlanPageState extends State<_ListingPlanPage> {
       '',
       'If you would like the page to work for you, Verified is 99 EUR a '
           'year: a Verified badge, your own description, photos and hours, '
-          'first position among the spaces in ${city.isEmpty ? 'your city' : city}, '
+          'a place above every free listing in ${city.isEmpty ? 'your city' : city}, '
           'structured data and a link to your site (the signals Google and '
           'the AI assistants use to recommend places), a Request a booking '
           'button that sends enquiries straight to your inbox, and a '
-          'quarterly note of how the page did. Live within three working '
-          'days.',
+          'quarterly note of how the page did.',
       '',
       'Get Verified: $_payLink',
       '',
@@ -3787,7 +3786,8 @@ class _ListingPlanPageState extends State<_ListingPlanPage> {
           child: ListView(padding: const EdgeInsets.all(16), children: [
             const Text(
                 'Verified is the paid plan: the badge on the page and the '
-                'map pin, first position in its city and area, and the '
+                'map pin, a place above every free listing in its city and '
+                'area, and the '
                 'Request a booking button sending enquiries to the address '
                 'below. Saving updates the page within a minute or two.',
                 style: TextStyle(

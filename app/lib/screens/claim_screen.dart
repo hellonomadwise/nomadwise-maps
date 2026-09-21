@@ -426,7 +426,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
                 }
               }),
               icon: const Icon(Icons.add_location_alt_outlined, size: 18),
-              label: const Text("My space isn't here — add it"),
+              label: const Text("My space isn't here, add it"),
               style: OutlinedButton.styleFrom(
                   padding: EdgeInsets.symmetric(
                       vertical: 14, horizontal: wide ? 22 : 16)),
@@ -809,9 +809,9 @@ class _ClaimScreenState extends State<ClaimScreen> {
     const rows = [
       (Icons.verified, Brand.success, 'The Verified badge',
           'A green badge on your page and in every list you appear in.'),
-      (Icons.arrow_upward, Brand.red, 'First position in your city',
-          'Verified spaces sit above the free listings on their city and '
-              'area pages.'),
+      (Icons.arrow_upward, Brand.red, 'Above every free listing',
+          'Verified spaces are listed ahead of every unpaid space on their '
+              'city and area pages.'),
       (Icons.mark_email_read_outlined, Brand.red,
           'Booking requests to your inbox',
           'A request button on your page that emails you directly. '

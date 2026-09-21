@@ -32,7 +32,7 @@ Your page, your way:
 - A Verified badge on your page and on your pin in Nomad Maps
 - Your own description, photos and opening hours
 - A Request a booking button that sends enquiries straight to your inbox
-- First position among the spaces in your city and neighbourhood
+- Listed above every free space in your city and neighbourhood
 - Structured data and a link to your website, the signals search
   engines and AI assistants use to cite you
 - A quarterly report: visitors, where they came from, what Google
@@ -59,7 +59,7 @@ which carries that space's id.)
 **We are already listed. Why pay?**
 Because people are already looking at your page and cannot act on
 it. Verified adds the button that turns a look into a booking
-request, and the badge and first position that make it more likely
+request, and the badge and placement above free listings that make it more likely
 they look at you at all.
 
 **What if we are not listed yet?**
