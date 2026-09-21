@@ -41,7 +41,7 @@ class NomadwiseMapsApp extends StatelessWidget {
     // Three public doors into the app, all query parameters so the
     // static build needs no routing:
     //   ?enquire=<slug>  the Request a booking form on a Verified page
-    //   ?claim[=<name>]  the owner's claim-and-pay flow
+    //   ?claim[=<name or slug>][&from=<page>]  the owner's claim-and-pay flow
     //   ?claimed         where Stripe returns them after paying
     // Anything else is the map.
     final enquire = _param('enquire');
@@ -51,7 +51,7 @@ class NomadwiseMapsApp extends StatelessWidget {
     } else if (_has('claimed')) {
       home = const ClaimedScreen();
     } else if (_has('claim')) {
-      home = ClaimScreen(seed: _param('claim'));
+      home = ClaimScreen(seed: _param('claim'), from: _param('from'));
     } else {
       home = const MapScreen();
     }

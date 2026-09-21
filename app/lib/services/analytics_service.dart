@@ -82,6 +82,8 @@ class Analytics {
 
   /// Automated browsers (crawlers, link-preview fetchers, uptime
   /// checkers) are not visitors: keep them out of all analytics.
+  static bool get isBot => _isBot;
+
   static bool get _isBot {
     try {
       return ua.isWebdriver() || _botPattern.hasMatch(ua.userAgent());

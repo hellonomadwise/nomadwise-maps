@@ -7,6 +7,8 @@ import '../config.dart';
 import '../services/analytics_service.dart';
 import '../services/places_service.dart';
 import '../services/supabase_service.dart';
+import '../services/ua_stub.dart' if (dart.library.html) '../services/ua_web.dart'
+    as ua;
 import '../theme.dart';
 
 /// Claim your space: the owner's way in.
@@ -26,9 +28,14 @@ import '../theme.dart';
 /// so every step lays out in two columns above [_wideAt] and stacks
 /// below it.
 class ClaimScreen extends StatefulWidget {
-  /// A name to search for straight away, from ?claim=<name>.
+  /// A name or page slug to search for straight away, from
+  /// ?claim=<name or slug>.
   final String? seed;
-  const ClaimScreen({super.key, this.seed});
+
+  /// The nomadwise.io page the link was on, from &from=/coworking/<slug>,
+  /// so the phone ping can say where the visitor came from.
+  final String? from;
+  const ClaimScreen({super.key, this.seed, this.from});
   @override
   State<ClaimScreen> createState() => _ClaimScreenState();
 }
@@ -90,7 +97,15 @@ class _ClaimScreenState extends State<ClaimScreen> {
       _search.text = seed;
       _runSearch(seed);
     }
-    Analytics.capture('claim_opened', {'seed': seed});
+    Analytics.capture('claim_opened', {'seed': seed, 'from': widget.from});
+    // Ring the phone, unless the visitor is a crawler.
+    if (!Analytics.isBot) {
+      _supabase.claimOpened(
+          seed: seed,
+          from: widget.from,
+          referrer: ua.referrer(),
+          userAgent: ua.userAgent());
+    }
   }
 
   @override
@@ -145,10 +160,21 @@ class _ClaimScreenState extends State<ClaimScreen> {
     setState(() => _searching = true);
     final rows = await _supabase.claimSearch(q);
     if (!mounted) return;
+    // A link from a listing page carries that page's slug: when the
+    // search finds exactly that page, it is chosen without a tap.
+    final exact = rows.where((r) => r['webflow_slug'] == q.trim()).toList();
     setState(() {
       _hits = rows;
       _searching = false;
       _searched = true;
+      if (exact.length == 1 &&
+          exact.first['already_verified'] != true &&
+          _picked == null &&
+          _step == _Step.find) {
+        _picked = exact.first;
+        _search.text = '${exact.first['name']}';
+        _step = _Step.about;
+      }
     });
   }
 

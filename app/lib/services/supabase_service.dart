@@ -758,6 +758,24 @@ class SupabaseService {
     }
   }
 
+  /// Someone opened the claim page: logged, and the phone is pinged
+  /// with which listing page they came from. Fire and forget.
+  Future<void> claimOpened({
+    String? seed,
+    String? from,
+    String? referrer,
+    String? userAgent,
+  }) async {
+    try {
+      await _db.rpc('claim_opened', params: {
+        'p_seed': seed ?? '',
+        'p_from': from ?? '',
+        'p_referrer': referrer ?? '',
+        'p_user_agent': userAgent ?? '',
+      });
+    } catch (_) {}
+  }
+
   /// Records a claim before the owner goes to Stripe and returns
   /// {claim_id, venue_id}. The claim id rides along in the payment link.
   Future<Map<String, dynamic>?> startClaim(Map<String, dynamic> p) async {
