@@ -586,3 +586,19 @@ The one-off sweep of pages quietly missed before the log began is a
 separate job, deliberately not done now. When it is wanted it is one
 statement per table — set sitemap_tracked = true — and the nightly
 read does the rest.
+
+
+## Pay first stands, against the concept's account gate (Sep 2026)
+
+The Nomadwise For Spaces concept put account creation and an ownership
+review in front of the card. Rejected, after discussion. A long form
+before payment loses people who would have paid, and an ownership
+queue is manual work on every single sale, which is the opposite of
+reducing the founders' job to reviewing a prepared queue.
+
+A card payment is reasonable evidence of ownership and a refund undoes
+a mistake. So an unclaimed space is claimed and paid for in one go,
+with no account and no review; a check is required only where a space
+is already claimed or something looks wrong. Sign-in comes later, as a
+way to manage an existing membership, never as a gate in front of the
+card.

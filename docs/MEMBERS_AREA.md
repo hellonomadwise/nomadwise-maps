@@ -62,9 +62,13 @@ target.
 Paying with a card is itself reasonable evidence of ownership, and it is
 reversible: if a claim turns out to be wrong, refund it. The concept's
 own "This profile already has a manager" screen is the case that does
-need a check, and that is rare. Suggested compromise: keep pay first for
-an unclaimed space, and require a check only when a space is already
-claimed or when something looks off.
+need a check, and that is rare.
+
+**Decided (21 Sep 2026): pay first stands.** An unclaimed space is
+claimed and paid for in one go, with no account and no review. A check
+is required only where a space is already claimed, or where something
+looks wrong. Sign-in arrives later as a convenience for managing an
+existing membership, never as a gate in front of the card.
 
 **The numbers in the brief are unverified.** The concept cites about
 2,400 listing page visitors in 30 days and 15 to 40 per listing, and says
