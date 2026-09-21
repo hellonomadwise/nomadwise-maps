@@ -476,9 +476,12 @@ if not PUSH_ONLY:
                 SITEMAP_URL, headers={'User-Agent': 'nomadmaps-sync'}),
                 timeout=60) as r:
             xml = r.read().decode('utf-8', 'replace')
-        in_map = set(re.findall(
-            r'<loc>\s*https?://(?:www\.)?nomadwise\.io/coworking/([^<\s]+?)\s*</loc>',
-            xml))
+        def slugs_under(path):
+            return set(re.findall(
+                r'<loc>\s*https?://(?:www\.)?nomadwise\.io/'
+                + path + r'/([^<\s]+?)\s*</loc>', xml))
+
+        in_map = slugs_under('coworking')
         report['sitemap_entries'] = len(in_map)
         if in_map:
             released = sb_all('venues?website_status=eq.released'
@@ -500,6 +503,38 @@ if not PUSH_ONLY:
                    body={'sitemap_added_at': None}, prefer='return=minimal')
             report['sitemap_marked'] = len(mark)
             report['sitemap_unmarked'] = len(unmark)
+
+        # The directory pages. A region or location made in Webflow and
+        # never added to the custom sitemap earns nothing, and these are
+        # the pages that rank for "coworking in <city>", so they are
+        # worth more than any single listing. Same rule as above: the
+        # live sitemap is the truth, both ways.
+        for table, path in (('webflow_regions', 'region'),
+                            ('webflow_locations', 'locations'),
+                            ('webflow_countries', 'country')):
+            found = slugs_under(path)
+            report[f'sitemap_{path}_entries'] = len(found)
+            if not found:
+                continue
+            # Only pages the log is tracking: everything that existed
+            # before the log started is left alone (migration 70).
+            rows = sb_all(f'{table}?slug=not.is.null&sitemap_tracked=is.true'
+                          '&select=id,slug,sitemap_added_at')
+            mark = [r['id'] for r in rows
+                    if r['slug'] in found and not r.get('sitemap_added_at')]
+            unmark = [r['id'] for r in rows
+                      if r['slug'] not in found and r.get('sitemap_added_at')]
+            # These ids are Webflow strings, so they are quoted.
+            for i in range(0, len(mark), 100):
+                ids = ','.join(f'"{x}"' for x in mark[i:i + 100])
+                sb(f'{table}?id=in.({ids})', method='PATCH',
+                   body={'sitemap_added_at': now}, prefer='return=minimal')
+            for i in range(0, len(unmark), 100):
+                ids = ','.join(f'"{x}"' for x in unmark[i:i + 100])
+                sb(f'{table}?id=in.({ids})', method='PATCH',
+                   body={'sitemap_added_at': None}, prefer='return=minimal')
+            report[f'sitemap_{path}_marked'] = len(mark)
+            report[f'sitemap_{path}_unmarked'] = len(unmark)
     except Exception as e:  # noqa: BLE001
         report['errors'].append(f'sitemap check: {e}')
 
@@ -1115,8 +1150,10 @@ def create_region(req):
     fields = {k: v for k, v in fields.items() if v is not None}
     made = create_and_publish(REGIONS_ID, fields)
     regions.append(made)
-    sb('webflow_regions?on_conflict=id', method='POST',
-       body=region_rows([made], country_by_id),
+    row = region_rows([made], country_by_id)
+    for r in row:
+        r['source'] = 'app'
+    sb('webflow_regions?on_conflict=id', method='POST', body=row,
        prefer='resolution=merge-duplicates,return=minimal')
     return made
 
@@ -1165,7 +1202,7 @@ def create_location(req):
     sb('webflow_locations?on_conflict=id', method='POST',
        body=[{'id': made['id'], 'name': name, 'slug': lf.get('slug'),
               'region_id': region['id'], 'country': cname or None,
-              'updated_at': now}],
+              'source': 'app', 'updated_at': now}],
        prefer='resolution=merge-duplicates,return=minimal')
     return made
 

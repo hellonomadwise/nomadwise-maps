@@ -41,6 +41,9 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   List<Map<String, dynamic>> _drafts = [];
   List<Map<String, dynamic>> _released = [];
   List<Map<String, dynamic>> _sitemap = [];
+  List<Map<String, dynamic>> _sitemapRegions = [];
+  List<Map<String, dynamic>> _sitemapLocations = [];
+  List<Map<String, dynamic>> _sitemapCountries = [];
   List<Map<String, dynamic>> _regions = [];
   List<Map<String, dynamic>> _hidden = [];
   List<Map<String, dynamic>> _closed = [];
@@ -79,6 +82,9 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         _supabase.websitePaid(),
         _supabase.enquiries(),
         _supabase.unmatchedStripeOrders(),
+        _supabase.sitemapPendingRegions(),
+        _supabase.sitemapPendingLocations(),
+        _supabase.sitemapPendingCountries(),
       ]);
       if (!mounted) return;
       setState(() {
@@ -94,6 +100,9 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         _paid = results[9];
         _enquiries = results[10];
         _orders = results[11];
+        _sitemapRegions = results[12];
+        _sitemapLocations = results[13];
+        _sitemapCountries = results[14];
         _error = null;
       });
     } catch (e) {
@@ -521,6 +530,25 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         SnackBar(content: Text(toast), duration: const Duration(seconds: 2)));
   }
 
+  /// The log line under a directory page in the Sitemap tab: where it
+  /// is, when it was set up, and whether Nomad Maps made it or it was
+  /// made by hand in Webflow.
+  String _logLine(Map<String, dynamic> row, String where) {
+    final bits = <String>[];
+    if (where.trim().isNotEmpty) bits.add(where.trim());
+    final seen = DateTime.tryParse('${row['first_seen_at'] ?? ''}');
+    if (seen != null) {
+      final d = seen.toLocal();
+      final fmt = DateFormat(
+          d.year == DateTime.now().year ? 'd MMM' : 'd MMM yyyy');
+      bits.add('set up ${fmt.format(d)}');
+    }
+    bits.add(row['source'] == 'app'
+        ? 'from Nomad Maps'
+        : 'made in Webflow');
+    return bits.join('  ·  ');
+  }
+
   // ------------------------------------------------------------ helpers
 
   static Map<String, dynamic> _prepared(Map<String, dynamic> v) =>
@@ -873,9 +901,15 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       (
         key: 'sitemap',
         label: 'Sitemap',
-        count: _sitemap.length,
+        count: _sitemap.length +
+            _sitemapRegions.length +
+            _sitemapLocations.length +
+            _sitemapCountries.length,
         color: Brand.goldTextDark,
-        hint: 'Released pages that still need their sitemap entry.',
+        hint: 'Released listings needing a sitemap entry, plus a log of '
+            'every region, location and country page set up since the log '
+            'began. The directory pages matter most: one of them carries a '
+            'whole city.',
         empty: 'Sitemap is up to date.'
       ),
       (
@@ -946,12 +980,60 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       'drafts' => _draftsTab(),
       'released' => _releasedTab(),
       'sitemap' => _SitemapTab(
-          pending: _sitemap,
-          onMarked: (ids) async {
-            await _supabase.markSitemapAdded(ids);
-            await _load();
-          },
-          copy: _copy),
+          onChanged: _load,
+          copy: _copy,
+          kinds: [
+            _SitemapKind(
+              key: 'listings',
+              label: 'Listings',
+              path: 'coworking',
+              slugField: 'webflow_slug',
+              items: _sitemap,
+              mark: _supabase.markSitemapAdded,
+              where: (v) => [v['neighbourhood'], v['city']]
+                  .where((x) => x != null && '$x'.isNotEmpty)
+                  .join(', '),
+            ),
+            _SitemapKind(
+              key: 'regions',
+              label: 'Region pages',
+              path: 'region',
+              slugField: 'slug',
+              items: _sitemapRegions,
+              mark: (ids) => _supabase.markTaxonomySitemapAdded(
+                  'webflow_regions', ids),
+              where: (v) => _logLine(v, '${v['country'] ?? ''}'),
+            ),
+            _SitemapKind(
+              key: 'locations',
+              label: 'Location pages',
+              path: 'locations',
+              slugField: 'slug',
+              items: _sitemapLocations,
+              mark: (ids) => _supabase.markTaxonomySitemapAdded(
+                  'webflow_locations', ids),
+              where: (v) {
+                final r = _regions.firstWhere(
+                    (x) => x['id'] == v['region_id'],
+                    orElse: () => const <String, dynamic>{});
+                return _logLine(
+                    v,
+                    [r['name'], v['country']]
+                        .where((x) => x != null && '$x'.isNotEmpty)
+                        .join(', '));
+              },
+            ),
+            _SitemapKind(
+              key: 'countries',
+              label: 'Country pages',
+              path: 'country',
+              slugField: 'slug',
+              items: _sitemapCountries,
+              mark: (ids) => _supabase.markTaxonomySitemapAdded(
+                  'webflow_countries', ids),
+              where: (v) => _logLine(v, ''),
+            ),
+          ]),
       _ => null,
     };
 
@@ -4068,35 +4150,74 @@ class _RegionPickerState extends State<_RegionPicker> {
 
 // ---------------------------------------------------------------- sitemap
 
-/// Released pages not yet in the custom sitemap, turned into the exact
-/// <url> blocks Jonathan pastes into it: priority 0.80, lastmod dated
-/// yesterday with a randomised time of day, earliest first.
+/// One kind of page in the custom sitemap: the listings, the region
+/// pages, the location pages. Each knows its URL prefix and which
+/// table ticks off.
+class _SitemapKind {
+  final String key;
+  final String label;
+  final String path; // 'coworking', 'region', 'locations'
+  final String slugField;
+  final List<Map<String, dynamic>> items;
+  final Future<void> Function(List<String> ids) mark;
+  final String Function(Map<String, dynamic> row) where;
+  const _SitemapKind({
+    required this.key,
+    required this.label,
+    required this.path,
+    required this.slugField,
+    required this.items,
+    required this.mark,
+    required this.where,
+  });
+}
+
+/// Pages that are live on nomadwise.io but missing from the custom
+/// sitemap, turned into the exact <url> blocks Jonathan pastes into
+/// it: priority 0.80, lastmod dated yesterday with a randomised time
+/// of day, earliest first.
+///
+/// Three kinds sit here. The listings are the volume; the region and
+/// location pages are the directory URLs that rank for "coworking in
+/// <city>", so one of those left out of the sitemap costs more than a
+/// missing listing does.
 class _SitemapTab extends StatefulWidget {
-  final List<Map<String, dynamic>> pending;
-  final Future<void> Function(List<String> ids) onMarked;
+  final List<_SitemapKind> kinds;
+  final Future<void> Function() onChanged;
   final Future<void> Function(String text, String toast) copy;
   const _SitemapTab(
-      {required this.pending, required this.onMarked, required this.copy});
+      {required this.kinds, required this.onChanged, required this.copy});
   @override
   State<_SitemapTab> createState() => _SitemapTabState();
 }
 
 class _SitemapTabState extends State<_SitemapTab> {
   final Set<String> _excluded = {};
+  String? _kindKey;
   String? _xml;
   bool _busy = false;
 
+  /// The chosen kind, or the first one with anything waiting.
+  _SitemapKind get _kind => widget.kinds.firstWhere(
+      (x) => x.key == _kindKey,
+      orElse: () => widget.kinds.firstWhere((x) => x.items.isNotEmpty,
+          orElse: () => widget.kinds.first));
+
   List<Map<String, dynamic>> get _chosen =>
-      widget.pending.where((v) => !_excluded.contains(v['id'])).toList();
+      _kind.items.where((v) => !_excluded.contains(v['id'])).toList();
+
+  int get _total => widget.kinds.fold(0, (n, k) => n + k.items.length);
 
   String _generate() {
     // Always yesterday's date; only the time of day is randomised.
     final rnd = Random();
     final y = DateTime.now().toUtc().subtract(const Duration(days: 1));
     final dayStart = DateTime.utc(y.year, y.month, y.day);
+    final path = _kind.path;
+    final field = _kind.slugField;
     final stamps = _chosen
         .map((v) => (
-              slug: v['webflow_slug'] as String,
+              slug: '${v[field]}',
               at: dayStart.add(Duration(seconds: rnd.nextInt(86400)))
             ))
         .toList()
@@ -4104,7 +4225,7 @@ class _SitemapTabState extends State<_SitemapTab> {
     final fmt = DateFormat("yyyy-MM-dd'T'HH:mm:ss");
     return stamps
         .map((s) => '<url>\n'
-            '<loc>https://www.nomadwise.io/coworking/${s.slug}</loc>\n'
+            '<loc>https://www.nomadwise.io/$path/${s.slug}</loc>\n'
             '<lastmod>${fmt.format(s.at)}+00:00</lastmod>\n'
             '<priority>0.80</priority>\n'
             '</url>')
@@ -4114,7 +4235,8 @@ class _SitemapTabState extends State<_SitemapTab> {
   Future<void> _alreadyAdded(Map<String, dynamic> v) async {
     setState(() => _busy = true);
     try {
-      await widget.onMarked([v['id'] as String]);
+      await _kind.mark([v['id'] as String]);
+      await widget.onChanged();
       if (mounted) {
         setState(() {
           _excluded.remove(v['id']);
@@ -4131,8 +4253,7 @@ class _SitemapTabState extends State<_SitemapTab> {
 
   @override
   Widget build(BuildContext context) {
-    final pending = widget.pending;
-    if (pending.isEmpty) {
+    if (_total == 0) {
       return ListView(padding: const EdgeInsets.all(24), children: const [
         SizedBox(height: 48),
         Icon(Icons.account_tree_outlined, size: 40, color: Brand.inkMuted),
@@ -4142,32 +4263,81 @@ class _SitemapTabState extends State<_SitemapTab> {
             style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
         SizedBox(height: 6),
         Text(
-            'Every released page has its entry. Newly released pages '
-            'appear here with a ready-to-paste block.',
+            'Every released listing, region and location page has its '
+            'entry. Anything new appears here with a ready-to-paste block.',
             textAlign: TextAlign.center,
             style: TextStyle(
                 fontSize: 13.5, color: Brand.inkMuted, height: 1.5)),
       ]);
     }
+
+    final kind = _kind;
+    final items = kind.items;
     return ListView(padding: const EdgeInsets.all(14), children: [
-      const Padding(
-        padding: EdgeInsets.fromLTRB(2, 6, 2, 10),
-        child: Text(
-            'Released pages missing from the custom sitemap, checked '
-            'against the live sitemap every night. Untick any you want to '
-            'leave out, generate, copy, paste into the sitemap in Webflow, '
-            'then mark them as added. The tick on the right removes a page '
-            'you know is already in the sitemap.',
-            style: TextStyle(fontSize: 12.5, color: Brand.inkMuted, height: 1.4)),
+      // Which kind of page. The region and location pages are the
+      // directory URLs, so they get their own tabs rather than being
+      // mixed in with several hundred listings.
+      SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+            children: widget.kinds
+                .map((k) => Padding(
+                      padding: const EdgeInsets.only(right: 8, bottom: 4),
+                      child: ChoiceChip(
+                        label: Text('${k.label}  ${k.items.length}'),
+                        selected: k.key == kind.key,
+                        showCheckmark: false,
+                        selectedColor: Brand.ink,
+                        labelStyle: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            color: k.key == kind.key
+                                ? Colors.white
+                                : k.items.isEmpty
+                                    ? Brand.inkMuted
+                                    : Brand.ink),
+                        onSelected: (_) => setState(() {
+                          _kindKey = k.key;
+                          _excluded.clear();
+                          _xml = null;
+                        }),
+                      ),
+                    ))
+                .toList()),
       ),
-      ...pending.map((v) => CheckboxListTile(
+      Padding(
+        padding: const EdgeInsets.fromLTRB(2, 10, 2, 10),
+        child: Text(
+            kind.key == 'listings'
+                ? 'Released pages missing from the custom sitemap, checked '
+                    'against the live sitemap every night. Untick any you '
+                    'want to leave out, generate, copy, paste into the '
+                    'sitemap in Webflow, then mark them as added. The tick '
+                    'on the right removes a page you know is already there.'
+                : '${kind.label} created in Webflow whose page is not in the '
+                    'custom sitemap. These are the directory URLs that rank '
+                    'for a whole city or area, so they are worth adding '
+                    'promptly. Same routine: generate, copy, paste into the '
+                    'sitemap, mark as added.',
+            style: const TextStyle(
+                fontSize: 12.5, color: Brand.inkMuted, height: 1.4)),
+      ),
+      if (items.isEmpty)
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 20),
+          child: Text('No ${kind.label.toLowerCase()} waiting.',
+              style: const TextStyle(color: Brand.inkMuted, fontSize: 13)),
+        ),
+      ...items.map((v) => CheckboxListTile(
             dense: true,
             controlAffinity: ListTileControlAffinity.leading,
             contentPadding: EdgeInsets.zero,
             value: !_excluded.contains(v['id']),
             title: Text(v['name'] ?? '',
                 style: const TextStyle(fontWeight: FontWeight.w600)),
-            subtitle: Text('/coworking/${v['webflow_slug']}',
+            subtitle: Text(
+                '/${kind.path}/${v[kind.slugField]}'
+                '${kind.where(v).isEmpty ? '' : '  ·  ${kind.where(v)}'}',
                 style: const TextStyle(fontSize: 12)),
             // "Already in the sitemap": drops the page from this list
             // without generating anything. Safe to get wrong: the
@@ -4219,8 +4389,9 @@ class _SitemapTabState extends State<_SitemapTab> {
                   : () async {
                       setState(() => _busy = true);
                       try {
-                        await widget.onMarked(
+                        await kind.mark(
                             _chosen.map((v) => v['id'] as String).toList());
+                        await widget.onChanged();
                         if (mounted) setState(() => _xml = null);
                       } finally {
                         if (mounted) setState(() => _busy = false);

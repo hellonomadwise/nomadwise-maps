@@ -1098,6 +1098,46 @@ class SupabaseService {
     }).inFilter('id', venueIds);
   }
 
+  /// The log of directory pages set up since it started: regions,
+  /// locations and countries first seen in Webflow, newest first,
+  /// still waiting for their custom sitemap entry. Pages that predate
+  /// the log are untracked and never appear (migration 70).
+  Future<List<Map<String, dynamic>>> _sitemapLog(
+      String table, String cols) async {
+    try {
+      final rows = await _db
+          .from(table)
+          .select(cols)
+          .eq('sitemap_tracked', true)
+          .isFilter('sitemap_added_at', null)
+          .not('slug', 'is', null)
+          .order('first_seen_at', ascending: false);
+      return (rows as List).map((r) => Map<String, dynamic>.from(r)).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> sitemapPendingRegions() => _sitemapLog(
+      'webflow_regions', 'id, name, slug, country, source, first_seen_at');
+
+  Future<List<Map<String, dynamic>>> sitemapPendingLocations() => _sitemapLog(
+      'webflow_locations',
+      'id, name, slug, country, region_id, source, first_seen_at');
+
+  Future<List<Map<String, dynamic>>> sitemapPendingCountries() => _sitemapLog(
+      'webflow_countries', 'id, name, slug, source, first_seen_at');
+
+  /// Ticks region or location pages off the sitemap list. [table] is
+  /// 'webflow_regions' or 'webflow_locations'.
+  Future<void> markTaxonomySitemapAdded(
+      String table, List<String> ids) async {
+    if (ids.isEmpty) return;
+    await _db.from(table).update({
+      'sitemap_added_at': DateTime.now().toUtc().toIso8601String()
+    }).inFilter('id', ids);
+  }
+
   Future<void> setSubmissionStatus(String submissionId, String status) =>
       _db.from('submissions').update({
         'status': status,

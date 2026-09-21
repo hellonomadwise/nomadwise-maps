@@ -556,3 +556,33 @@ build: a long secret in the address rather than a password, emailed
 after payment, with submissions going through the same review as
 everything else. Until then those details come by email and go in
 through the control centre.
+
+## Directory pages in the sitemap tab (Sep 2026)
+
+The Sitemap section now covers three kinds of page, not one: the
+listings (/coworking/<slug>), the region pages (/region/<slug>) and
+the location pages (/locations/<slug>), each with its own chip and
+count. A region or location created in Webflow and never added to the
+custom sitemap earns nothing, and those pages rank for a whole city or
+area, so one of them missing costs more than a missing listing does.
+
+The mechanism is the one that already worked: webflow_regions and
+webflow_locations gain sitemap_added_at (migration 69), the nightly
+read of the live sitemap in webflow_sync.py marks and unmarks them,
+and the tab generates the same <url> blocks to paste.
+
+But a diff against everything that exists treats a page made two
+years ago the same as one made yesterday, and the work is not
+"everything ever missed", it is "these were set up recently, are
+they in yet". So migration 70 turns the list into a log: every
+region, location and country the sync sees for the first time from
+now on is recorded with when it appeared and where it came from (the
+app's creator, or made by hand in Webflow), newest first, and stays
+on the list until its entry exists. Everything older is marked
+untracked and never appears, so the log starts clean. Country pages
+join the list for the same reason the others did.
+
+The one-off sweep of pages quietly missed before the log began is a
+separate job, deliberately not done now. When it is wanted it is one
+statement per table — set sitemap_tracked = true — and the nightly
+read does the rest.
