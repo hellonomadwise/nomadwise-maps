@@ -1,5 +1,10 @@
 # Nomadwise For Spaces: the members area
 
+Naming rule (Leonie, 21 Sep): "members area" is internal shorthand only.
+Anything an owner sees says **Owner account** and **Manage my listing**,
+never "members area", so nobody mistakes it for sign-in software for
+their own members, which other platforms sell.
+
 A reaction to the concept mockups (owner journey and members area, 21 Sep
 2026), and where the work sits in the queue.
 

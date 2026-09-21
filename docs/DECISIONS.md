@@ -603,3 +603,21 @@ with no account and no review; a check is required only where a space
 is already claimed or something looks wrong. Sign-in comes later, as a
 way to manage an existing membership, never as a gate in front of the
 card.
+
+## Wording owners see (21 Sep, Leonie's review of the comparison)
+
+- "Members area" is internal only. Owners see **Owner account** and
+  **Manage my listing**. Reason: other platforms sell members-area
+  software for a space's own customers, so the phrase misleads.
+- "Written to be quoted by Google and AI assistants" was read as being
+  about the description. It is about how the page is built (facts and
+  structured data any search engine or assistant can read), so it now
+  says **Page built to be found by Google and AI assistants**, on free
+  and Verified alike.
+- Order within the Verified group on a city or area page: proposed WiFi
+  speed, fastest first, rating as tie-break, no reading last. Leonie to
+  confirm or suggest otherwise. Position inside the group is never sold.
+- Analytics for Verified: lead with actions (website clicks, map opens,
+  booking requests); views only with context against nearby spaces;
+  nothing public, nothing for free listings. Open whether to offer any
+  analytics at all.

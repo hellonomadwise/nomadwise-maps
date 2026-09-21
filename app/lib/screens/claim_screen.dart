@@ -820,8 +820,8 @@ class _ClaimScreenState extends State<ClaimScreen> {
           'Your description, your prices, your pictures, instead of '
               'whatever Google shows.'),
       (Icons.travel_explore, Brand.red, 'Found by Google and by AI',
-          'Your page is written to be quoted by ChatGPT, Claude and '
-              'Perplexity when someone asks where to work.'),
+          'Your page is built so Google, ChatGPT and Perplexity can find '
+              'it and quote it when someone asks where to work.'),
       (Icons.insights_outlined, Brand.red, 'A report every quarter',
           'How many people saw your page, where they came from, how many '
               'asked to book.'),
