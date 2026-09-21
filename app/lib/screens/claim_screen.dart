@@ -875,13 +875,33 @@ class _ClaimScreenState extends State<ClaimScreen> {
                     ),
                   ]),
             )),
-        if (compact)
-          Padding(
-            padding: const EdgeInsets.only(top: 2),
-            child: Text('€99 a year, billed annually.',
+        if (compact) ...[
+          const Divider(height: 1, color: Brand.border),
+          SizedBox(height: wide ? 18 : 14),
+          Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+            Text('€99',
                 style: TextStyle(
-                    fontWeight: FontWeight.w700, fontSize: wide ? 14 : 13)),
-          ),
+                    fontWeight: FontWeight.w800,
+                    fontSize: wide ? 34 : 28,
+                    height: 1,
+                    letterSpacing: -1)),
+            const SizedBox(width: 8),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 3),
+              child: Text('a year',
+                  style: TextStyle(
+                      color: Brand.inkSecondary,
+                      fontSize: wide ? 15 : 14,
+                      fontWeight: FontWeight.w600)),
+            ),
+          ]),
+          const SizedBox(height: 6),
+          Text('Billed once a year. Cancel any time.',
+              style: TextStyle(
+                  fontSize: wide ? 13.5 : 12.5,
+                  height: 1.45,
+                  color: Brand.inkSecondary)),
+        ],
       ]),
     );
   }
