@@ -132,19 +132,19 @@ Key RPCs: `claim_search`, `start_claim`, `claim_paid`, `apply_claim`,
 
 ## In progress or waiting on a person
 
-- **Webflow Designer work (Jonathan):** Verified badge on the
-  Coworking template (built, styled, conditional on the Verified
-  switch; publish pending); sort order Listing Rank Z to A on the
-  Region and Location templates; the two booking buttons (free:
-  "Contact the space" linking out; Verified: request form); repoint
-  "Is this your business?" to `https://nomadmaps.io/?claim` with the
-  page snippet in `docs/WEBFLOW_CLAIM_LINK.md`.
+- **Webflow Designer work (Jonathan):** done on 22 Sep: Verified
+  badge on the Coworking template, "Is this your business?" repointed
+  to the claim form with the site-wide snippet, the card ribbon
+  renamed Verified, and the list sort on the Region and Location
+  templates set to Listing Rank Z to A, then WiFi rating, then Google
+  reviews. Still to do: the two booking buttons (free: "Contact the
+  space" linking out; Verified: request form), which wait on Resend.
 - **Resend:** account, DNS, API key in the Supabase Vault as
   `resend_api_key`. Until then no email leaves the system (owner
   "your page is live" email, booking request delivery).
-- **Rotation inside the Verified group:** the nightly sync should
-  write a rotating Listing Rank per Verified venue instead of "1".
-  Decided, not built.
+- **Rotation inside the Verified group:** built 22 Sep
+  (`rotate_verified()` in the nightly sync); first run 04:23 UTC on
+  23 Sep.
 - **Contact click counting** on free pages, for the upgrade email.
 - **Owner account** ("Owner account" and "Manage my listing" to
   owners, never "members area"): free tier with locked Verified rows,

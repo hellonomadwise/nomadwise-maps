@@ -14,20 +14,25 @@ needed: the snippet finds any link pointing at the claim form.
 
 ## 2. The snippet (page settings)
 
-Pages, hover the Coworking Template, cog, Custom code, "Before
-</body> tag", at the very end:
+Site settings, Custom code, Footer code (site-wide, since the page's
+own body code is at its 10,000 character limit). Stamps the page on
+every claim link across the site; adds the space on listing pages:
 
 ```html
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-  var slug = location.pathname.split('/').filter(Boolean).pop() || '';
   var here = location.pathname;
+  var onListing = here.indexOf('/coworking/') === 0;
+  var slug = onListing ? (here.split('/').filter(Boolean).pop() || '') : '';
   document.querySelectorAll('a[href*="nomadmaps.io/?claim"]').forEach(function (a) {
-    a.href = 'https://nomadmaps.io/?claim=' + encodeURIComponent(slug) +
+    a.href = 'https://nomadmaps.io/?claim' +
+             (slug ? '=' + encodeURIComponent(slug) : '') +
              '&from=' + encodeURIComponent(here);
   });
-  var b = document.getElementById('enquire');
-  if (b) b.href = 'https://nomadmaps.io/?enquire=' + encodeURIComponent(slug);
+  if (onListing) {
+    var b = document.getElementById('enquire');
+    if (b) b.href = 'https://nomadmaps.io/?enquire=' + encodeURIComponent(slug);
+  }
 });
 </script>
 ```
