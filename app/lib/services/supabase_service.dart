@@ -862,6 +862,14 @@ class SupabaseService {
 
   /// Saves plain links for a venue's Google photos (merge, never
   /// overwrite), so later views cost nothing. Any signed-in nomad.
+  /// The app found a venue's Google photos dead (names expire after
+  /// about four weeks): put it at the front of tonight's refresh.
+  Future<void> reportStalePhotos(String venueId) async {
+    try {
+      await _db.rpc('report_stale_photos', params: {'p_venue': venueId});
+    } catch (_) {}
+  }
+
   Future<void> cacheGooglePhotos(String venueId, Map<String, String> urls) async {
     try {
       await _db.rpc('cache_google_photos',

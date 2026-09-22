@@ -162,9 +162,15 @@ def status_patch(v, bs):
     elif not v.get('closed_seen_at'):
         patch['closed_seen_at'] = now_
     return patch
-MAX_AGE_DAYS = 30     # refresh each venue at most once a month — with
-                      # ~660 venues after the Webflow import this keeps
-                      # snapshot calls inside Google's free monthly tier
+MAX_AGE_DAYS = 21     # Google photo names (and the plain links made
+                      # from them) stop working roughly four weeks after
+                      # they were issued, so a monthly refresh left the
+                      # oldest venues with dead photos (seen 22 Sep 2026:
+                      # every venue synced ~30 days earlier showed a
+                      # blank photo box). Three weeks keeps a margin.
+RESOLVE_AT_REFRESH = 6  # plain links made for this many photos at each
+                        # refresh, so the app never falls back to the
+                        # billed media endpoint for a fresh venue
 MAX_PER_RUN = 300     # hard cap per run, bounds worst-case API spend
 
 
@@ -175,6 +181,30 @@ def snapshot_details(place_id):
             'X-Goog-Api-Key': PLACES_KEY,
             'X-Goog-FieldMask': SNAPSHOT_FIELDS,
         })
+
+
+def resolve_photo_links(details, previous):
+    """Plain image links for the snapshot's photos: one media call per
+    photo (billed once), reusing any link already held for the same
+    photo name. Links for names Google no longer lists are dropped,
+    because they die with the name and would only mislead the app."""
+    names = [p.get('name') for p in (details.get('photos') or [])
+             if p.get('name')][:RESOLVE_AT_REFRESH]
+    known = dict(previous or {})
+    out = {n: known[n] for n in names if n in known}
+    for n in names:
+        if n in out:
+            continue
+        try:
+            m = req(f'https://places.googleapis.com/v1/{n}/media'
+                    '?maxWidthPx=1600&maxHeightPx=1600&skipHttpRedirect=true',
+                    headers={'X-Goog-Api-Key': PLACES_KEY}) or {}
+        except Exception:  # noqa: BLE001
+            continue
+        uri = m.get('photoUri')
+        if uri:
+            out[n] = uri
+    return out
 
 
 def slim(details):
@@ -203,7 +233,7 @@ try:
     rows = req(
         f'{SUPABASE_URL}/rest/v1/venues'
         '?select=id,name,google_place_id,g_synced_at,closed_seen_at,'
-        'ptype:g_details->>primaryType'
+        'google_photo_urls,ptype:g_details->>primaryType'
         '&google_place_id=not.is.null',
         headers=sb_headers())
 except Exception as e:  # noqa: BLE001
@@ -240,6 +270,8 @@ for v in stale[:MAX_PER_RUN]:
         patch = {
             'g_details': slim(details),
             'g_synced_at': datetime.now(timezone.utc).isoformat(),
+            'google_photo_urls': resolve_photo_links(
+                details, v.get('google_photo_urls')),
         }
         if details.get('rating') is not None:
             patch['google_rating_snapshot'] = details['rating']

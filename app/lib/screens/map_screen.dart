@@ -3990,7 +3990,13 @@ class _DiscoveredCardState extends State<_DiscoveredCard> {
 class _CardPhotoPager extends StatefulWidget {
   final List<String> names;
   final double height;
-  const _CardPhotoPager(this.names, {this.height = 210, super.key});
+
+  /// When set, a photo that fails to load is treated as an expired
+  /// Google photo name: fresh names are fetched once for this venue
+  /// and the venue is flagged for tonight's refresh.
+  final Venue? venue;
+  const _CardPhotoPager(this.names,
+      {this.height = 210, this.venue, super.key});
 
   @override
   State<_CardPhotoPager> createState() => _CardPhotoPagerState();
@@ -4000,9 +4006,44 @@ class _CardPhotoPagerState extends State<_CardPhotoPager> {
   int _page = 0;
   static const _maxPhotos = 6;
 
+  /// Names in use: the widget's until a dead one triggers a refresh.
+  List<String>? _fresh;
+  bool _healing = false;
+
+  @override
+  void didUpdateWidget(covariant _CardPhotoPager old) {
+    super.didUpdateWidget(old);
+    if (old.venue?.id != widget.venue?.id) {
+      _fresh = null;
+      _healing = false;
+    }
+  }
+
+  /// Google photo names stop working about four weeks after they were
+  /// issued, and the stored snapshot can be that old. One live call
+  /// gives working names for this session; the flag makes the nightly
+  /// job refresh the snapshot and its free links for everyone else.
+  void _heal() {
+    final v = widget.venue;
+    if (_healing || _fresh != null || v?.googlePlaceId == null) return;
+    _healing = true;
+    Future.microtask(() async {
+      final live = await PlacesService().details(v!.googlePlaceId!);
+      SupabaseService().reportStalePhotos(v.id);
+      if (!mounted) return;
+      if (live != null && live.photoNames.isNotEmpty) {
+        v.live = live;
+        setState(() {
+          _fresh = v.visiblePhotoNames.take(_maxPhotos).toList();
+          _page = 0;
+        });
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    final names = widget.names.take(_maxPhotos).toList();
+    final names = (_fresh ?? widget.names).take(_maxPhotos).toList();
     if (names.isEmpty) return const SizedBox.shrink();
     return SizedBox(
       height: widget.height,
@@ -4016,8 +4057,10 @@ class _CardPhotoPagerState extends State<_CardPhotoPager> {
             fit: BoxFit.cover,
             width: double.infinity,
             height: widget.height,
-            errorBuilder: (_, __, ___) =>
-                Container(color: Brand.goldTint),
+            errorBuilder: (_, __, ___) {
+              _heal();
+              return Container(color: Brand.goldTint);
+            },
           ),
         ),
         if (names.length > 1)
@@ -4090,6 +4133,7 @@ class _VenueCard extends StatelessWidget {
               children: [
                 _CardPhotoPager(
                     venue.visiblePhotoNames.take(6).toList(),
+                    venue: venue,
                     key: ValueKey(venue.id)),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(18, 14, 18, 18),

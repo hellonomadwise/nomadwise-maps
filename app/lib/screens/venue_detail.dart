@@ -117,6 +117,23 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
     if (mounted) setState(_rebuildPhotos);
   }
 
+  /// A broken Google photo means its name has expired (about four
+  /// weeks after issue). Fetch fresh names once and flag the venue so
+  /// tonight's refresh fixes it for everyone.
+  bool _healed = false;
+  void _healPhotos() {
+    if (_healed || venue.googlePlaceId == null) return;
+    _healed = true;
+    Future.microtask(() async {
+      final live = await _places.details(venue.googlePlaceId!);
+      _supabase.reportStalePhotos(venue.id);
+      if (!mounted || live == null || live.photoNames.isEmpty) return;
+      venue.live = live;
+      _googleNames = live.photoNames.take(6).toList();
+      setState(_rebuildPhotos);
+    });
+  }
+
   void _rebuildPhotos() {
     // Admins see every photo (hidden ones dimmed, to un-hide);
     // everyone else sees the curated set only.
@@ -615,15 +632,19 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
           itemCount: _photos.length,
           onPageChanged: (i) => setState(() => _photoIndex = i),
           itemBuilder: (_, i) {
+            final key = i < _photoKeys.length ? _photoKeys[i] : null;
             final img = Image.network(
               _photos[i],
               fit: BoxFit.cover,
               width: double.infinity,
-              errorBuilder: (_, __, ___) => Container(
-                  color: Brand.lightGrey,
-                  child: const Center(
-                      child: Icon(Icons.broken_image_outlined,
-                          color: Colors.grey))),
+              errorBuilder: (_, __, ___) {
+                if (key != null) _healPhotos();
+                return Container(
+                    color: Brand.lightGrey,
+                    child: const Center(
+                        child: Icon(Icons.broken_image_outlined,
+                            color: Colors.grey)));
+              },
               loadingBuilder: (_, child, progress) => progress == null
                   ? child
                   : Container(
@@ -632,7 +653,6 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
                           child: CircularProgressIndicator(
                               color: Brand.red, strokeWidth: 2))),
             );
-            final key = i < _photoKeys.length ? _photoKeys[i] : null;
             final isHidden = key != null && _hidden.contains(key);
             return isHidden ? Opacity(opacity: .3, child: img) : img;
           },

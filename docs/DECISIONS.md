@@ -706,3 +706,20 @@ form exists only on Verified pages, where it goes to the owner's
 inbox. Contact clicks on free pages are counted for the upgrade email
 to the space ("43 people tried to contact you from Nomadwise last
 month"). Enquiries On already switches between the two buttons.
+
+## Google photos going blank (22 Sep)
+
+Cause: Google photo names, and the plain image links resolved from
+them, stop working about four weeks after they are issued. The
+nightly job refreshed each venue's snapshot every 30 days, so venues
+at the end of their cycle showed a blank photo box (Cafe Gavlen and
+Original Coffee by the Lakes, synced 23 Aug; Copenhagen Coffee Lab
+Santa Clara, 25 Aug), while venues refreshed more recently were fine.
+Fix, three parts: the refresh cycle is 21 days; each refresh also
+resolves the fresh photo names to plain links and drops links for
+names Google no longer lists (`resolve_photo_links` in
+enrich_venues.py); and the app heals itself, so a broken photo on a
+card or the detail page fetches fresh names once for that session
+and calls `report_stale_photos()` (migration 74), which puts the venue
+at the front of tonight's refresh. Cost lever: `RESOLVE_AT_REFRESH`
+(6 photos per venue per refresh).
