@@ -27,13 +27,22 @@ The same badge can go on the listing cards inside the city and area
 pages (the collection lists on the Region and Location templates):
 add it to the card and set the same condition.
 
-## 2. Verified above free listings in city and area lists
+## 2. Verified above free listings, rotating, then WiFi for the rest
 
-On the Region template and the Location template, select the
-collection list of listings, open its settings, and add a sort:
-Listing Rank, Z to A. Keep whatever sort you had as the second rule
-(rating, name), so Verified listings come first and the rest keep
-their old order. Because the field is text, "1" sorts above "0".
+On the Region template and the Location template, the collection
+list of listings sorts by, in this order:
+
+1. **Listing Rank, Z to A** (replaces the older "Verified, Is On
+   First" rule; delete that one)
+2. WiFi Rating, largest to smallest
+3. Google Reviews, largest to smallest
+
+Listing Rank is "0" for every free listing and a "9xx" number for
+each Verified one, reshuffled every night by the sync with the day as
+the seed. So Verified spaces always sit above free ones, take turns
+at the top among themselves, and the free listings below are ordered
+by WiFi rating, then reviews. A freshly Verified page carries "1"
+until that night's rotation, which still sorts above "0".
 
 ## 3. The Book Your Desk button
 

@@ -1310,7 +1310,8 @@ for v in retire_:
 # ------------------------------------------------------------ listing plans
 # The app's plan becomes the page's fields: Verified switch (the old
 # premium-member slug), Enquiries On (booking-engine), Listing Rank
-# (booking-model, "1" or "0", sorted Z to A in the Designer) and the
+# (booking-model: "0" for free; "1" for a Verified page until the
+# nightly rotation gives it a "9xx" rank; sorted Z to A) and the
 # Enquiry Email (coworking-space-email-3). A live page is republished
 # so the badge shows within minutes; a draft just gets the fields.
 DEFAULT_ENQUIRY_EMAIL = 'hello@nomadwise.io'
@@ -1361,6 +1362,63 @@ for v in listing_:
                prefer='return=minimal')
         except Exception:  # noqa: BLE001
             pass
+
+# ------------------------------------------------------- verified rotation
+# Inside the Verified group nobody buys position and nothing an owner
+# types decides it (Leonie, 21 Sep): the Verified spaces take turns.
+# Every night each Verified page gets a fresh Listing Rank between
+# "999" and "900", shuffled with the day as the seed, so the order on
+# every city and area page changes daily while every Verified space
+# still sorts above every free one ("0"). The Designer sorts the lists
+# by Listing Rank Z to A, then WiFi rating, then Google reviews, which
+# is what orders the free listings.
+import random  # noqa: E402
+
+
+def rotate_verified():
+    if PUSH_ONLY:
+        return
+    try:
+        rows = sb('venues?listing_tier=eq.verified&webflow_cms_id=not.is.null'
+                  '&select=id,name,webflow_cms_id&order=name.asc&limit=200') or []
+    except Exception as e:  # noqa: BLE001
+        report.setdefault('warnings', []).append(f'rotation read: {e}')
+        return
+    if len(rows) < 2:
+        report['rotation'] = f'{len(rows)} verified, nothing to rotate'
+        return
+    today = datetime.date.today().isoformat()
+    random.Random(today).shuffle(rows)
+    live_ids = []
+    done = 0
+    for i, v in enumerate(rows[:99]):
+        rank = str(999 - i)
+        cms = v['webflow_cms_id']
+        try:
+            item = wf(f'/v2/collections/{COLLECTION_ID}/items/{cms}') or {}
+            wf_write(f'/v2/collections/{COLLECTION_ID}/items/{cms}', 'PATCH',
+                     {'fieldData': {'booking-model': rank}})
+            if not item.get('isDraft') and not item.get('isArchived') \
+                    and item.get('lastPublished'):
+                live_ids.append(cms)
+            done += 1
+            time.sleep(0.6)
+        except Exception as e:  # noqa: BLE001
+            report['errors'].append(f"rotation {v.get('name')}: {e}")
+    # One publish call for the lot, so the new order is live at once.
+    for start in range(0, len(live_ids), 100):
+        try:
+            wf_write(f'/v2/collections/{COLLECTION_ID}/items/publish', 'POST',
+                     {'itemIds': live_ids[start:start + 100]})
+            time.sleep(0.6)
+        except Exception as e:  # noqa: BLE001
+            report['errors'].append(f'rotation publish: {e}')
+    report['rotation'] = {'day': today, 'ranked': done,
+                          'republished': len(live_ids),
+                          'order': [v.get('name') for v in rows[:99]]}
+
+
+rotate_verified()
 
 loc_rows = []
 for loc in locations:

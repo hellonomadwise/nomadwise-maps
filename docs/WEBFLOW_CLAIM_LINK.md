@@ -8,41 +8,36 @@ right space and the phone ping says where the visitor came from.
 
 ## 1. The link (Designer)
 
-Coworking Template page, select the "Is this your business?" link
-(click the text, then check the breadcrumb says Link or Text Link).
-Settings panel (press D):
-
-- Link: URL, `https://nomadmaps.io/?claim`
-- Open in new tab: on
-- ID: `claim-link`
+Coworking Template page, select the "Is this your business?" link and
+set its URL to `https://nomadmaps.io/?claim`, open in new tab. No ID
+needed: the snippet finds any link pointing at the claim form.
 
 ## 2. The snippet (page settings)
 
-Pages, hover the Coworking Template, cog, scroll to Custom code,
-"Before </body> tag". Paste:
+Pages, hover the Coworking Template, cog, Custom code, "Before
+</body> tag", at the very end:
 
 ```html
 <script>
-  (function () {
-    var slug = location.pathname.split('/').filter(Boolean).pop() || '';
-    var here = location.pathname;
-    var a = document.getElementById('claim-link');
-    if (a) {
-      a.href = 'https://nomadmaps.io/?claim=' + encodeURIComponent(slug) +
-               '&from=' + encodeURIComponent(here);
-    }
-    var b = document.getElementById('enquire');
-    if (b) {
-      b.href = 'https://nomadmaps.io/?enquire=' + encodeURIComponent(slug);
-    }
-  })();
+document.addEventListener('DOMContentLoaded', function () {
+  var slug = location.pathname.split('/').filter(Boolean).pop() || '';
+  var here = location.pathname;
+  document.querySelectorAll('a[href*="nomadmaps.io/?claim"]').forEach(function (a) {
+    a.href = 'https://nomadmaps.io/?claim=' + encodeURIComponent(slug) +
+             '&from=' + encodeURIComponent(here);
+  });
+  var b = document.getElementById('enquire');
+  if (b) b.href = 'https://nomadmaps.io/?enquire=' + encodeURIComponent(slug);
+});
 </script>
 ```
 
-(The second block is for the Verified booking button from
+(The `enquire` part is for the Verified booking button from
 WEBFLOW_VERIFIED_SETUP.md; harmless until that button exists.)
 
-Save, Publish.
+Save, Publish. Without the snippet the ping can only say "from
+nomadwise.io/", because browsers pass no more than the site name
+between two different sites.
 
 ## What happens then
 

@@ -693,10 +693,14 @@ own photos and words, their event or offer in the advert slot.
 
 Any owner-supplied number (WiFi speed, ratings) can be gamed, so the
 order inside the Verified group rotates nightly with the site rebuild.
-Build: the nightly sync writes a rotating Listing Rank per Verified
-venue (zero-padded so the text sort holds) instead of a fixed "1";
-free stays "0". WiFi speed stays a fact on the page, owner-reported
-figures marked as such.
+Built 22 Sep: `rotate_verified()` in webflow_sync.py runs on the
+nightly job, gives each Verified page a rank from "999" down,
+shuffled with the date as seed, and republishes the live ones in one
+call. Free stays "0"; a newly Verified page carries "1" until that
+night. The Designer sort is Listing Rank Z to A, then WiFi Rating,
+then Google Reviews, so free listings are ordered by WiFi (Jonathan,
+22 Sep). WiFi speed stays a fact on the page, owner-reported figures
+marked as such.
 
 ## Free listings: no request form (21 Sep, Leonie)
 
