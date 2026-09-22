@@ -864,9 +864,9 @@ class _ClaimScreenState extends State<ClaimScreen> {
       (Icons.photo_library_outlined, Brand.red, 'Your own photos and words',
           'Your description, your prices, your pictures, instead of '
               'whatever Google shows.'),
-      (Icons.travel_explore, Brand.red, 'Found by Google and by AI',
-          'Your page is built so Google, ChatGPT and Perplexity can find '
-              'it and quote it when someone asks where to work.'),
+      (Icons.travel_explore, Brand.red, 'Found by Google and AI',
+          'Your page is built so search engines and AI assistants can '
+              'find it and quote it when someone asks where to work.'),
       (Icons.campaign_outlined, Brand.red, 'Your event or offer on your page',
           'The advert slot on your page carries your message instead of '
               'ours.'),

@@ -11,11 +11,10 @@ date promised, "owner account" never "members area".
 
 ## Be the space Google and AI assistants recommend in your city
 
-Nomads no longer browse directories. They ask Google, ChatGPT or
-Perplexity "where can I work from in Lisbon?" and go where the answer
-sends them. Those answers are built from pages like ours: clear,
-structured, trusted listings of cafes, coworking spaces and colivings,
-kept accurate.
+Nomads ask Google or an AI assistant "where can I work from in
+Lisbon?" and go where the answer sends them. Those answers come from
+directories they trust, and ours is one of them: clear, structured
+pages for cafes, coworking spaces and colivings, kept accurate.
 
 nomadwise.io lists over a thousand places to work from across [x]
 countries, and every page is written to be found and quoted by search
