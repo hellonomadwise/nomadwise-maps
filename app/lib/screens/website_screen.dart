@@ -931,9 +931,11 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         label: 'Closed',
         count: _closed.length,
         color: Brand.red,
-        hint: 'Google reports these places as no longer operating. Retire '
-            'the page (it comes off the site, the address redirects to the '
-            'city page) or say it is still open. Checked about monthly.',
+        hint: 'Google reports these places as no longer operating. '
+            'Temporary closures are often worth waiting out; closed for '
+            'good usually means retire. Retire the page (it comes off the '
+            'site, the address redirects to the city page) or say it is '
+            'still open. Checked about monthly.',
         empty: 'No closures waiting. Every page is checked against Google '
             'about once a month; anything that closes lands here.'
       ),
@@ -974,7 +976,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       'fresh' => g.fresh.map(_freshCard).toList(),
       'preparing' => g.preparing.map(_preparingTile).toList(),
       'hidden' => _hidden.map(_hiddenTile).toList(),
-      'closed' => _closed.map(_closedCard).toList(),
+      'closed' => _closedCards(),
       'paid' => [
           ..._held.map(_heldCard),
           ..._orders.map(_orderCard),
@@ -1240,6 +1242,79 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         _ => 'not operating',
       };
 
+  // Two kinds of closure, filtered separately: a temporary closure is
+  // usually worth waiting out, a permanent one is a retire.
+  static String _closedKind(String? bs) =>
+      bs == 'CLOSED_TEMPORARILY' ? 'temp' : 'gone';
+
+  /// 'all', 'temp' or 'gone'.
+  String _closedFilter = 'all';
+
+  List<Widget> _closedCards() {
+    final temp = _closed.where((v) => _closedKind(v['business_status']) == 'temp');
+    final gone = _closed.where((v) => _closedKind(v['business_status']) == 'gone');
+    final shown = switch (_closedFilter) {
+      'temp' => temp,
+      'gone' => gone,
+      _ => _closed,
+    };
+    final choices = [
+      ('all', 'All', _closed.length, Brand.inkSecondary),
+      ('temp', 'Temporarily closed', temp.length, Brand.goldTextDark),
+      ('gone', 'Closed for good', gone.length, Brand.red),
+    ];
+    return [
+      Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: [
+            for (final (k, label, n, color) in choices)
+              ChoiceChip(
+                selected: _closedFilter == k,
+                showCheckmark: false,
+                onSelected: (_) => setState(() => _closedFilter = k),
+                selectedColor: color,
+                backgroundColor: Brand.surface,
+                side: BorderSide(
+                    color: _closedFilter == k ? color : Brand.border),
+                labelStyle: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                    color: _closedFilter == k
+                        ? Colors.white
+                        : Brand.inkSecondary),
+                label: Text('$label  $n'),
+              ),
+          ],
+        ),
+      ),
+      if (shown.isEmpty)
+        _groupEmpty(_closedFilter == 'temp'
+            ? 'Nothing is temporarily closed.'
+            : 'Nothing is closed for good.')
+      else
+        ...shown.map(_closedCard),
+    ];
+  }
+
+  Widget _closedTag(String? bs) {
+    final temp = _closedKind(bs) == 'temp';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+          color: temp ? Brand.goldTint : Brand.accentTint,
+          borderRadius: BorderRadius.circular(8)),
+      child: Text(temp ? 'TEMPORARY' : 'FOR GOOD',
+          style: TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w800,
+              letterSpacing: .5,
+              color: temp ? Brand.goldTextDark : Brand.red)),
+    );
+  }
+
   Future<void> _retire(Map<String, dynamic> v) async {
     final ok = await showDialog<bool>(
         context: context,
@@ -1298,9 +1373,17 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
             child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(v['name'] ?? '',
-                      style: const TextStyle(
-                          fontWeight: FontWeight.w700, fontSize: 15)),
+                  Row(children: [
+                    Flexible(
+                      child: Text(v['name'] ?? '',
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w700, fontSize: 15)),
+                    ),
+                    if (!retired) ...[
+                      const SizedBox(width: 8),
+                      _closedTag(v['business_status']),
+                    ],
+                  ]),
                   const SizedBox(height: 2),
                   Text(
                       [
