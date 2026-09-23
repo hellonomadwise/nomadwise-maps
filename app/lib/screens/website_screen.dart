@@ -2729,6 +2729,23 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
 
   // -------------------------------------------------------------- drafts
 
+  Future<void> _startPushRun() async {
+    String msg;
+    try {
+      final r = await _supabase.requestWebsitePush();
+      msg = r == 'requested'
+          ? 'Run requested. GitHub starts it within a minute; pull down '
+              'to refresh in a few minutes.'
+          : 'No GitHub token in the Supabase Vault (github_actions_token), '
+              'so the run has to be started on GitHub: Actions, Website '
+              'push, Run workflow.';
+    } catch (e) {
+      msg = 'Could not request the run: $e';
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
   Widget _draftsTab() {
     final approved = _approvedTonight;
     if (_drafts.isEmpty && approved.isEmpty) {
@@ -2739,8 +2756,17 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     return ListView(padding: const EdgeInsets.all(14), children: [
       if (approved.isNotEmpty) ...[
         _section('APPROVED, BEING CREATED', approved.length,
-            'The Webflow draft and its Images entry are built within '
-            'about ten minutes. Pull down to refresh.'),
+            'Approving starts a run on GitHub that builds the Webflow '
+            'draft and its Images entry, usually within a few minutes. '
+            'Pull down to refresh. Still here after ten minutes? Start '
+            'the run again.'),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: OutlinedButton.icon(
+              onPressed: _startPushRun,
+              icon: const Icon(Icons.play_arrow_outlined, size: 18),
+              label: const Text('Start the run now')),
+        ),
         ...approved.map((v) => _card(
               tint: Brand.successTint,
               child: Row(children: [

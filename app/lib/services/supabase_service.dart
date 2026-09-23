@@ -834,6 +834,14 @@ class SupabaseService {
   Future<void> rejectClaim(String id, String reason) =>
       _db.rpc('reject_claim', params: {'p_claim': id, 'p_reason': reason});
 
+  /// Starts the website push run on GitHub now (founders only).
+  /// Returns 'requested', or 'no_token' when the GitHub token is not
+  /// in the Vault.
+  Future<String> requestWebsitePush() async {
+    final res = await _db.rpc('request_website_push');
+    return '$res';
+  }
+
   /// Booking requests per listing (admin), newest first.
   Future<List<Map<String, dynamic>>> enquiries({int limit = 400}) async {
     try {
