@@ -679,6 +679,63 @@ def day_fields(v):
     return out
 
 
+FRESH_FIELDS = ','.join([
+    'displayName', 'rating', 'userRatingCount',
+    'currentOpeningHours', 'regularOpeningHours',
+    'location', 'shortFormattedAddress', 'primaryType', 'types',
+    'businessStatus',
+])
+
+
+def fresh_google(v):
+    """Make sure a space about to get a page carries Google's opening
+    hours and rating. A space added in the app and approved the same
+    day has no nightly snapshot yet (seen 23 Sep 2026: most new pages
+    went out with no hours), so the push run fetches one itself: one
+    details call per new listing, and it is kept in g_details so the
+    nightly refresh, the app and the preview all see it too. Photos are
+    left to the nightly run (g_synced_at stays as it was)."""
+    g = v.get('g_details') or {}
+    have_hours = bool((g.get('regularOpeningHours') or {})
+                      .get('weekdayDescriptions'))
+    have_rating = v.get('google_rating_snapshot') is not None
+    pid = v.get('google_place_id')
+    if (have_hours and have_rating) or not (PLACES_KEY and pid):
+        return v
+    try:
+        d = _call(f'https://places.googleapis.com/v1/places/{pid}',
+                  {'X-Goog-Api-Key': PLACES_KEY,
+                   'X-Goog-FieldMask': FRESH_FIELDS}) or {}
+    except Exception as e:  # noqa: BLE001
+        report.setdefault('google_fresh_errors', []).append(
+            f"{v.get('name')}: {str(e)[:120]}")
+        return v
+    merged = dict(g)
+    for k in ('displayName', 'rating', 'userRatingCount',
+              'currentOpeningHours', 'regularOpeningHours', 'location',
+              'shortFormattedAddress', 'types'):
+        if d.get(k) is not None:
+            merged[k] = d[k]
+    merged['primaryType'] = d.get('primaryType') or merged.get(
+        'primaryType') or 'unknown'
+    patch = {'g_details': merged}
+    if d.get('rating') is not None:
+        patch['google_rating_snapshot'] = d['rating']
+    if d.get('userRatingCount') is not None:
+        patch['google_reviews_snapshot'] = d['userRatingCount']
+    if d.get('businessStatus'):
+        patch['business_status'] = d['businessStatus']
+    try:
+        sb(f"venues?id=eq.{v['id']}", method='PATCH', body=patch,
+           prefer='return=minimal')
+    except Exception as e:  # noqa: BLE001
+        report.setdefault('google_fresh_errors', []).append(
+            f"{v.get('name')}: save {str(e)[:120]}")
+    v.update(patch)
+    report.setdefault('google_fresh', []).append(v.get('name'))
+    return v
+
+
 def region_rows(regions, country_by_id):
     """The Regions collection, flattened for the app's dropdown."""
     out = []
@@ -1363,6 +1420,69 @@ for v in listing_:
         except Exception:  # noqa: BLE001
             pass
 
+# ------------------------------------------------------- hours backfill
+# Pages the control centre created before it fetched Google's hours at
+# creation (23 Sep 2026) went out with empty opening hours. Nightly:
+# every control-centre page whose Webflow item has no hours gets them
+# from the venue's Google snapshot (fetched now if missing), and the
+# rating and review count when those are empty too. A page that is
+# live is republished so the change shows.
+if not PUSH_ONLY and items:
+    def backfill_hours():
+        try:
+            rows = sb_all(
+                'venues?website_approved_at=not.is.null'
+                '&webflow_cms_id=not.is.null'
+                '&select=id,name,webflow_cms_id,google_place_id,'
+                'opening_hours,g_details,google_rating_snapshot,'
+                'google_reviews_snapshot') or []
+        except Exception as e:  # noqa: BLE001
+            report.setdefault('warnings', []).append(f'hours read: {e}')
+            return
+        by_id = {i['id']: i for i in items}
+        done, checked = [], 0
+        for v in rows:
+            item = by_id.get(v['webflow_cms_id'])
+            if not item or item.get('isArchived'):
+                continue
+            f = item.get('fieldData') or {}
+            has_hours = any(f.get(k) for k in (
+                'weekday-hours', 'weekend-hours', 'wednesday', 'thursday',
+                'friday', 'saturday', 'sunday'))
+            has_rating = f.get('rating') not in (None, '', 0)
+            if has_hours and has_rating:
+                continue
+            if checked >= 40:   # bounds Google and Webflow calls per night
+                break
+            checked += 1
+            v = fresh_google(v)
+            patch = {}
+            if not has_hours:
+                patch.update(day_fields(v))
+            if not has_rating and v.get('google_rating_snapshot') is not None:
+                patch['rating'] = v['google_rating_snapshot']
+                if v.get('google_reviews_snapshot') is not None:
+                    patch['reviews'] = v['google_reviews_snapshot']
+            if not patch:
+                continue
+            cms = v['webflow_cms_id']
+            try:
+                wf_write(f'/v2/collections/{COLLECTION_ID}/items/{cms}',
+                         'PATCH', {'fieldData': patch})
+                time.sleep(0.6)
+                if cms in live_ids and not item.get('isDraft'):
+                    wf_write(f'/v2/collections/{COLLECTION_ID}/items/publish',
+                             'POST', {'itemIds': [cms]})
+                    time.sleep(0.6)
+                done.append({'name': v.get('name'),
+                             'fields': sorted(patch)})
+            except Exception as e:  # noqa: BLE001
+                report.setdefault('warnings', []).append(
+                    f"hours backfill {v.get('name')}: {str(e)[:160]}")
+        report['hours_backfilled'] = done
+
+    backfill_hours()
+
 # ------------------------------------------------------- verified rotation
 # Inside the Verified group nobody buys position and nothing an owner
 # types decides it (Leonie, 21 Sep): the Verified spaces take turns.
@@ -1681,6 +1801,7 @@ if queued:
             report['needs_location'].append(
                 {'name': v['name'], 'why': 'no Google Place ID'})
             continue
+        v = fresh_google(v)  # hours and rating before the page is built
         region, loc = resolve_place(v)
         if not region and (v.get('website_new_region')
                            or v.get('website_new_location')):
