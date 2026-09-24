@@ -52,6 +52,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   List<Map<String, dynamic>> _orders = [];
   List<Map<String, dynamic>> _held = [];
   List<Map<String, dynamic>> _started = [];
+  List<Map<String, dynamic>> _ownerDrafts = [];
   List<Map<String, dynamic>> _locations = [];
   List<Map<String, dynamic>> _countries = [];
   String? _error;
@@ -89,6 +90,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         _supabase.sitemapPendingCountries(),
         _supabase.heldClaims(),
         _supabase.openClaims(),
+        _supabase.ownerDraftsToReview(),
       ]);
       if (!mounted) return;
       setState(() {
@@ -118,6 +120,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                             .subtract(const Duration(days: 30))) ==
                     true)
             .toList();
+        _ownerDrafts = results[17];
         _error = null;
       });
     } catch (e) {
@@ -941,6 +944,18 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
             'plan to mark the first one Verified.'
       ),
       (
+        key: 'owner',
+        label: 'Owner changes',
+        count: _ownerDrafts.length,
+        color: Brand.goldTextDark,
+        hint: 'Changes owners submitted from their Owner account: '
+            'description, prices, hours, facts, photos, contact, and on '
+            'Verified pages the message for the advert slot. Nothing is on '
+            'the page until you put it there. Send back anything that '
+            'oversells; the note reaches the owner.',
+        empty: 'No owner changes waiting.'
+      ),
+      (
         key: 'closed',
         label: 'Closed',
         count: _closed.length,
@@ -991,6 +1006,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       'preparing' => g.preparing.map(_preparingTile).toList(),
       'hidden' => _hidden.map(_hiddenTile).toList(),
       'closed' => _closedCards(),
+      'owner' => _ownerDrafts.map(_ownerDraftCard).toList(),
       'paid' => [
           ..._held.map(_heldCard),
           ..._orders.map(_orderCard),
@@ -1249,6 +1265,245 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   }
 
   /// A space marked "Not for the site": its reason, and a way back.
+  // ------------------------------------------------------- owner changes
+
+  /// One submitted draft: what the owner wants on the page, next to
+  /// what the page has now, field by field, with the two decisions.
+  Widget _ownerDraftCard(Map<String, dynamic> d) {
+    final v = Map<String, dynamic>.from(d['venue'] as Map? ?? {});
+    final draft = Map<String, dynamic>.from(d['draft'] as Map? ?? {});
+    final oc = Map<String, dynamic>.from(v['owner_content'] as Map? ?? {});
+    final verified = v['listing_tier'] == 'verified';
+    String s(dynamic x) => (x ?? '').toString().trim();
+    final rows = <(String, String, String)>[]; // label, before, after
+    void row(String label, dynamic before, dynamic after) {
+      final b = s(before), a = s(after);
+      if (a.isEmpty && b.isEmpty) return;
+      if (a == b) return;
+      rows.add((label, b, a));
+    }
+
+    row('Description', oc['description'], draft['description']);
+    final np = Map<String, dynamic>.from(draft['prices'] as Map? ?? {});
+    final op = Map<String, dynamic>.from(oc['prices'] as Map? ?? {});
+    for (final (k, label) in [
+      ('day', 'Day pass'),
+      ('week', 'Week pass'),
+      ('month', 'Month pass'),
+      ('coffee', 'Cappuccino')
+    ]) {
+      row(label, op[k], np[k]);
+    }
+    final nh = Map<String, dynamic>.from(draft['hours'] as Map? ?? {});
+    final oh = Map<String, dynamic>.from(v['opening_hours'] as Map? ?? {});
+    for (final (k, label) in [
+      ('mon', 'Monday'),
+      ('tue', 'Tuesday'),
+      ('wed', 'Wednesday'),
+      ('thu', 'Thursday'),
+      ('fri', 'Friday'),
+      ('sat', 'Saturday'),
+      ('sun', 'Sunday')
+    ]) {
+      row(label, oh[k], nh[k]);
+    }
+    final nf = Map<String, dynamic>.from(draft['facts'] as Map? ?? {});
+    final of = Map<String, dynamic>.from(v['facts'] as Map? ?? {});
+    for (final (k, label) in [
+      ('laptops_allowed', 'Laptops welcome'),
+      ('power_outlets', 'Plug sockets'),
+      ('good_for_calls', 'Good for calls'),
+      ('quiet_space', 'Quiet area'),
+      ('comfortable_seating', 'Comfortable seating'),
+      ('aircon', 'Aircon'),
+      ('access_24h', '24 hour access'),
+      ('call_room', 'Call room'),
+      ('monitor', 'Monitors'),
+      ('office_chairs', 'Office chairs'),
+      ('cozy', 'Cozy')
+    ]) {
+      String yn(dynamic x) => x == null ? '' : (x == true ? 'Yes' : 'No');
+      row(label, yn(of[k]), yn(nf[k]));
+    }
+    row('Website', v['website'], draft['website']);
+    row('Instagram', v['instagram'], draft['instagram']);
+    row('WhatsApp', oc['whatsapp'], draft['whatsapp']);
+    row('Booking requests to', '', draft['enquiry_email']);
+    final photos = List<String>.from((draft['photos'] ?? const []) as List);
+    final oldPhotos = List<String>.from((oc['photos'] ?? const []) as List);
+    final m = Map<String, dynamic>.from(draft['mention'] as Map? ?? {});
+    final om = Map<String, dynamic>.from(oc['mention'] as Map? ?? {});
+    if (verified) {
+      row('Message kind', om['kind'], m['kind']);
+      row('Message headline', om['title'], m['title']);
+      row('Message text', om['body'], m['body']);
+      row('Message button', om['cta'], m['cta']);
+      row('Message link', om['url'], m['url']);
+    } else if (s(m['title']).isNotEmpty) {
+      rows.add(('Message (not applied: free page)', '', s(m['title'])));
+    }
+
+    return _card(
+      tint: Brand.goldTint,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+                color: Brand.goldTextDark,
+                borderRadius: BorderRadius.circular(8)),
+            child: const Text('OWNER CHANGES',
+                style: TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: .5,
+                    color: Colors.white)),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text('${v['name'] ?? 'A space'}',
+                style: const TextStyle(
+                    fontWeight: FontWeight.w700, fontSize: 15)),
+          ),
+          if (d['venue_id'] != null)
+            IconButton(
+                tooltip: 'Open the space',
+                onPressed: () => _openVenue({'id': d['venue_id']}),
+                icon: const Icon(Icons.chevron_right)),
+        ]),
+        Text(
+            '${[v['city'], v['country']].where((x) => (x ?? '').toString().isNotEmpty).join(', ')}'
+            '  ·  ${verified ? 'Verified' : 'Free'}  ·  ${d['owner_email'] ?? ''}'
+            '  ·  submitted ${_ago(d['submitted_at'])}',
+            style: const TextStyle(fontSize: 12, color: Brand.inkSecondary)),
+        const SizedBox(height: 10),
+        if (rows.isEmpty && photos.isEmpty)
+          const Text('Nothing differs from the page. Put it on or send it back.',
+              style: TextStyle(fontSize: 12.5, color: Brand.inkSecondary)),
+        for (final (label, before, after) in rows)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(label,
+                  style: const TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w800,
+                      color: Brand.inkSecondary)),
+              if (before.isNotEmpty)
+                Text(before,
+                    style: const TextStyle(
+                        fontSize: 12.5,
+                        color: Brand.inkMuted,
+                        decoration: TextDecoration.lineThrough)),
+              Text(after.isEmpty ? '(cleared)' : after,
+                  style: const TextStyle(fontSize: 13, height: 1.4)),
+            ]),
+          ),
+        if (photos.isNotEmpty) ...[
+          Text(
+              'Photos (${photos.length})'
+              '${oldPhotos.isNotEmpty ? ', replacing ${oldPhotos.length} on file' : ''}',
+              style: const TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w800,
+                  color: Brand.inkSecondary)),
+          const SizedBox(height: 6),
+          Wrap(spacing: 6, runSpacing: 6, children: [
+            for (final p in photos)
+              InkWell(
+                onTap: () => launchUrl(Uri.parse(p),
+                    mode: LaunchMode.externalApplication),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.network(p,
+                      width: 96, height: 72, fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                          width: 96, height: 72, color: Brand.field)),
+                ),
+              ),
+          ]),
+          const SizedBox(height: 8),
+        ],
+        const SizedBox(height: 4),
+        Wrap(spacing: 8, runSpacing: 8, children: [
+          FilledButton.icon(
+              onPressed: () => _applyOwnerDraft(d),
+              style: FilledButton.styleFrom(backgroundColor: Brand.success),
+              icon: const Icon(Icons.check, size: 18),
+              label: const Text('Put it on the page')),
+          TextButton(
+              onPressed: () => _declineOwnerDraft(d),
+              child: const Text('Send back')),
+        ]),
+      ]),
+    );
+  }
+
+  Future<void> _applyOwnerDraft(Map<String, dynamic> d) async {
+    final name = '${(d['venue'] as Map?)?['name'] ?? 'the space'}';
+    try {
+      await _supabase.ownerApplyDraft('${d['id']}');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('$name: on its way to the page. The site updates '
+              'within a few minutes.')));
+      await _load();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('That did not apply: $e'),
+          backgroundColor: Brand.red));
+    }
+  }
+
+  Future<void> _declineOwnerDraft(Map<String, dynamic> d) async {
+    final name = '${(d['venue'] as Map?)?['name'] ?? 'the space'}';
+    final ctl = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Send the changes back to $name?'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Text(
+              'The page stays as it is. The owner sees your note in their '
+              'Owner account and can edit and submit again.',
+              style: TextStyle(fontSize: 13.5, height: 1.4)),
+          const SizedBox(height: 14),
+          TextField(
+              controller: ctl,
+              autofocus: true,
+              minLines: 2,
+              maxLines: 4,
+              decoration: const InputDecoration(
+                  labelText: 'Note to the owner',
+                  hintText: 'e.g. "best coffee in town" is not something we '
+                      'can print; say what makes it good instead.',
+                  border: OutlineInputBorder())),
+        ]),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Keep reviewing')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Send back')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await _supabase.ownerDeclineDraft('${d['id']}', ctl.text.trim());
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Sent back with your note.')));
+      await _load();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('That did not send: $e'), backgroundColor: Brand.red));
+    }
+  }
+
   // ------------------------------------------------------------ closed
 
   static String _statusWords(String? bs) => switch (bs) {
@@ -1776,10 +2031,13 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     final v = (c['venues'] is Map)
         ? Map<String, dynamic>.from(c['venues'] as Map)
         : <String, dynamic>{};
+    final free = c['status'] == 'free_pending';
+    final newSpace = c['is_new_space'] == true && v.isEmpty;
     final spaceName = (v['name'] ?? c['space_name'] ?? 'A space').toString();
-    final where = [v['city'], v['country']]
-        .where((x) => (x ?? '').toString().isNotEmpty)
-        .join(', ');
+    final where = [
+      v['city'] ?? c['space_city'],
+      v['country'] ?? c['space_country']
+    ].where((x) => (x ?? '').toString().isNotEmpty).join(', ');
     final who = [
       c['owner_name'],
       if ((c['owner_role'] ?? '').toString().isNotEmpty) c['owner_role'],
@@ -1811,16 +2069,16 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       if ((c['note'] ?? '').toString().isNotEmpty) 'Note: ${c['note']}',
     ];
     return _card(
-      tint: Brand.goldTint,
+      tint: free ? Brand.successTint : Brand.goldTint,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
-                color: Brand.goldTextDark,
+                color: free ? Brand.success : Brand.goldTextDark,
                 borderRadius: BorderRadius.circular(8)),
-            child: const Text('PAID, APPROVE?',
-                style: TextStyle(
+            child: Text(free ? 'FREE CLAIM, APPROVE?' : 'PAID, APPROVE?',
+                style: const TextStyle(
                     fontSize: 10.5,
                     fontWeight: FontWeight.w800,
                     letterSpacing: .5,
@@ -1874,8 +2132,13 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         Padding(
           padding: const EdgeInsets.only(top: 6),
           child: Text(
-              'Paid ${_ago(c['paid_at'] ?? c['created_at'])} through the claim '
-              'form. Nothing on the page has changed yet.',
+              free
+                  ? 'Free claim ${_ago(c['created_at'])} through the claim '
+                      'form. Approving records them as the owner of the page; '
+                      'the plan stays free and nothing visible changes.'
+                      '${newSpace ? ' A space not on the map yet: approving creates it in the publishing queue.' : ''}'
+                  : 'Paid ${_ago(c['paid_at'] ?? c['created_at'])} through the claim '
+                      'form. Nothing on the page has changed yet.',
               style: const TextStyle(fontSize: 12.5, color: Brand.inkSecondary)),
         ),
         const SizedBox(height: 10),
@@ -1884,7 +2147,9 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
               onPressed: () => _approveClaim(c, spaceName),
               style: FilledButton.styleFrom(backgroundColor: Brand.success),
               icon: const Icon(Icons.check, size: 18),
-              label: const Text('Approve, make it Verified')),
+              label: Text(free
+                  ? 'Approve, they own the page'
+                  : 'Approve, make it Verified')),
           TextButton(
               onPressed: () => _rejectClaim(c, spaceName),
               child: const Text('Reject')),
@@ -1902,8 +2167,10 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       await _supabase.approveClaim(c['id']);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('$spaceName is now Verified. The page updates at '
-              'the next push.')));
+          content: Text(c['status'] == 'free_pending'
+              ? '$spaceName: owner recorded. The plan stays free.'
+              : '$spaceName is now Verified. The page updates at '
+                  'the next push.')));
       await _load();
     } catch (e) {
       if (!mounted) return;
@@ -1920,12 +2187,16 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       builder: (ctx) => AlertDialog(
         title: Text('Reject the claim on $spaceName?'),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Text(
-              'The page stays exactly as it is. Refund the payment in the '
-              'Stripe dashboard (Customers, then the subscription, then '
-              'Cancel and refund). The reason is kept with the claim so a '
-              'repeat is recognised.',
-              style: TextStyle(fontSize: 13.5, height: 1.4)),
+          Text(
+              c['status'] == 'free_pending'
+                  ? 'The page stays exactly as it is. Nothing to refund. '
+                      'The reason is kept with the claim so a repeat is '
+                      'recognised.'
+                  : 'The page stays exactly as it is. Refund the payment in the '
+                      'Stripe dashboard (Customers, then the subscription, then '
+                      'Cancel and refund). The reason is kept with the claim so a '
+                      'repeat is recognised.',
+              style: const TextStyle(fontSize: 13.5, height: 1.4)),
           const SizedBox(height: 14),
           TextField(
               controller: ctl,
@@ -1952,8 +2223,10 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     try {
       await _supabase.rejectClaim(c['id'], ctl.text.trim());
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Rejected. Remember the refund in Stripe.')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(c['status'] == 'free_pending'
+              ? 'Rejected.'
+              : 'Rejected. Remember the refund in Stripe.')));
       await _load();
     } catch (e) {
       if (!mounted) return;

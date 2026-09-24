@@ -130,6 +130,8 @@ Key RPCs: `claim_search`, `start_claim`, `claim_paid`, `apply_claim`,
 - Phone pings verified end to end on 22 Sep (ntfy topic, and the
   database's `notify_phone()` through `pg_net`). Earlier "no ping"
   reports came from migrations 70 to 73 not yet being applied.
+- 24 Sep: the claim page's free door (migration 77) and the Owner
+  account (migration 78, `owner_screen.dart`, Owner changes tab).
 - 23 Sep: the Closed tab filters temporary vs closed for good, with a
   tag on each card. An approval now always starts the push run
   (migration 76; the old two-minute throttle dropped it) and the
@@ -159,10 +161,12 @@ Key RPCs: `claim_search`, `start_claim`, `claim_paid`, `apply_claim`,
   (`rotate_verified()` in the nightly sync); first run 04:23 UTC on
   23 Sep.
 - **Contact click counting** on free pages, for the upgrade email.
-- **Owner account** ("Owner account" and "Manage my listing" to
-  owners, never "members area"): free tier with locked Verified rows,
-  owner page for photos, description, prices, hours, all reviewed
-  before going live. Next after Webflow and Resend.
+- **Owner account** built 24 Sep at `?owner` (`docs/OWNER_ACCOUNT.md`):
+  sign-in by email link or Google, My listing editor with preview,
+  Your message (Verified) for the advert slot, Membership; review in
+  the control centre's Owner changes tab. Pending: Jonathan's Designer
+  step (advert slot ID, hidden owner-message text, Best Text and More
+  Info blocks), Resend for the emails, Stripe portal link in config.
 
 ## How to write for this project (learned in chat, not obvious from code)
 

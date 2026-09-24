@@ -727,3 +727,38 @@ card or the detail page fetches fresh names once for that session
 and calls `report_stale_photos()` (migration 74), which puts the venue
 at the front of tonight's refresh. Cost lever: `RESOLVE_AT_REFRESH`
 (6 photos per venue per refresh).
+
+## The free door on the claim page (24 September 2026)
+
+The claim page has two doors, as planned from the start: "Claim for
+free" and Verified. A free claim is the same form without payment. It
+lands in Paid listings as "FREE CLAIM, APPROVE?" with the same
+ownership check as a paid one. Approving records the person as the
+owner on the venue (`listing_owner_name`, `listing_owner_email`); the
+plan stays free and nothing visible changes on the page. A free claim
+for a space not on the map creates it in the normal publishing queue.
+Rejecting leaves everything untouched, nothing to refund. The recorded
+owner email is what the owner account will log in with, and who the
+Verified offer email goes to.
+
+Reference for the owner account: Jonathan's concept demos of 21 Sep
+(START-HERE, owner-journey, members-area). We follow them for the
+free listing, ownership check by email domain or manual review, the
+"My listing" editor with preview, the advert-slot message editor and
+the Membership page. We deliberately differ on three points already
+decided with Leonie: pay first and approve after (the demo verifies
+ownership before checkout); no Performance page and no analytics; no
+"nomad perks" as a separate feature (the advert slot carries an event
+or offer).
+
+## The Owner account is built (24 September 2026)
+
+nomadmaps.io/?owner, see `docs/OWNER_ACCOUNT.md`. Sign in by email
+link or Google with the claim's email. My listing (description,
+prices, hours, facts, photos, contact) with a live preview; Your
+message (Verified only) for the advert slot; Membership. Everything
+is a draft until a founder puts it on the page from the new Owner
+changes tab in the control centre; Send back carries a note. The
+sync writes the content to Webflow within minutes; the message rides
+in the unused "Nomadwise Offers" field and the site snippet draws it
+in the advert slot (Designer step pending). No analytics, no perks.

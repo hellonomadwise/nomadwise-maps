@@ -30,6 +30,76 @@ class SupabaseService {
             : AppConfig.authRedirect,
       );
 
+  /// Owner account sign-in: a link by email, no password. The link
+  /// brings them back to the page they asked from (the Owner account).
+  Future<void> sendSignInLink(String email) => _db.auth.signInWithOtp(
+        email: email.trim().toLowerCase(),
+        emailRedirectTo: kIsWeb
+            ? '${Uri.base.origin}${Uri.base.path}?owner'
+            : AppConfig.authRedirect,
+        shouldCreateUser: true,
+      );
+
+  /// Google sign-in that comes back to the Owner account.
+  Future<void> signInWithGoogleTo(String returnTo) => _db.auth.signInWithOAuth(
+        OAuthProvider.google,
+        redirectTo: kIsWeb ? returnTo : AppConfig.authRedirect,
+        queryParams: const {'prompt': 'select_account'},
+      );
+
+  String? get userEmail => currentUser?.email?.toLowerCase();
+
+  // ---------- owner account ----------
+
+  /// The spaces the signed-in email may manage, with any draft.
+  Future<List<Map<String, dynamic>>> ownerVenues() async {
+    final res = await _db.rpc('owner_venues');
+    return (res as List? ?? const [])
+        .map((r) => Map<String, dynamic>.from(r as Map))
+        .toList();
+  }
+
+  /// Save the owner's draft; submit = true sends it for review.
+  Future<Map<String, dynamic>> ownerSaveDraft(
+      String venueId, Map<String, dynamic> draft,
+      {bool submit = false}) async {
+    final res = await _db.rpc('owner_save_draft', params: {
+      'p_venue': venueId,
+      'p_draft': draft,
+      'p_submit': submit,
+    });
+    return Map<String, dynamic>.from(res as Map);
+  }
+
+  /// Uploads one owner photo; returns its public link.
+  Future<String> ownerUploadPhoto(Uint8List bytes, String ext) async {
+    final uid = currentUser!.id;
+    final safe = ext.toLowerCase() == 'png' ? 'png' : 'jpg';
+    final path = '$uid/${DateTime.now().millisecondsSinceEpoch}.$safe';
+    await _db.storage.from('owner-photos').uploadBinary(path, bytes,
+        fileOptions: FileOptions(
+            contentType: safe == 'png' ? 'image/png' : 'image/jpeg'));
+    return _db.storage.from('owner-photos').getPublicUrl(path);
+  }
+
+  /// Control centre: owner drafts waiting for review.
+  Future<List<Map<String, dynamic>>> ownerDraftsToReview() async {
+    try {
+      final res = await _db.rpc('owner_drafts_to_review');
+      return (res as List? ?? const [])
+          .map((r) => Map<String, dynamic>.from(r as Map))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> ownerApplyDraft(String id) =>
+      _db.rpc('owner_apply_draft', params: {'p_draft': id});
+
+  Future<void> ownerDeclineDraft(String id, String note) =>
+      _db.rpc('owner_decline_draft', params: {'p_draft': id, 'p_note': note});
+
   Future<void> signInWithGoogle() => _db.auth.signInWithOAuth(
         OAuthProvider.google,
         // Web: come back to the page the user is on (the app itself).
@@ -804,18 +874,20 @@ class SupabaseService {
   Future<void> abandonClaim(String id) =>
       _db.rpc('abandon_claim', params: {'p_claim': id});
 
-  /// Paid claims on pages already on the site, waiting for a founder
-  /// to approve before anything on the page changes.
+  /// Claims waiting for a founder: paid claims on pages already on
+  /// the site, and free claims (owner on record, no payment).
   Future<List<Map<String, dynamic>>> heldClaims() async {
     try {
       final rows = await _db
           .from('listing_claims')
           .select('id, venue_id, owner_name, owner_email, owner_phone, '
-              'owner_role, enquiry_email, space_name, space_website, '
+              'owner_role, enquiry_email, space_name, space_city, '
+              'space_country, space_website, '
               'space_instagram, note, paid_at, created_at, order_json, '
+              'status, plan, is_new_space, '
               'venues(name, city, country, website, listing_owner_email)')
-          .eq('status', 'awaiting_approval')
-          .order('paid_at', ascending: false)
+          .inFilter('status', ['awaiting_approval', 'free_pending'])
+          .order('created_at', ascending: false)
           .limit(50);
       return (rows as List).map((r) => Map<String, dynamic>.from(r)).toList();
     } catch (_) {

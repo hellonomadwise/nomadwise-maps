@@ -22,6 +22,15 @@ class AppConfig {
   static const stripeVerifiedLink =
       'https://buy.stripe.com/5kQ00i1AG9zM95q79p63K03';
 
+  /// Stripe's customer portal login link (Stripe dashboard: Settings,
+  /// Billing, Customer portal, "Customer portal link"). Owners use it
+  /// to change their card or cancel renewal. Empty until set up: the
+  /// Owner account then points at the link in the receipt instead.
+  static const stripePortalLink = '';
+
+  /// Where the Owner account lives; used in emails and after a claim.
+  static const ownerAccountUrl = 'https://nomadmaps.io/?owner';
+
   // ---- Coin economy ----
   /// Reviewing/screening a space that isn't listed yet (identity comes
   /// from Google, so it's easier than the old "add a venue", hence 50).

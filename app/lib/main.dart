@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'config.dart';
 import 'screens/claim_screen.dart';
+import 'screens/owner_screen.dart';
 import 'screens/enquiry_screen.dart';
 import 'screens/map_screen.dart';
 import 'theme.dart';
@@ -43,6 +44,7 @@ class NomadwiseMapsApp extends StatelessWidget {
     //   ?enquire=<slug>  the Request a booking form on a Verified page
     //   ?claim[=<name or slug>][&from=<page>]  the owner's claim-and-pay flow
     //   ?claimed         where Stripe returns them after paying
+    //   ?owner           the Owner account (manage my listing)
     // Anything else is the map.
     final enquire = _param('enquire');
     final Widget home;
@@ -52,6 +54,8 @@ class NomadwiseMapsApp extends StatelessWidget {
       home = const ClaimedScreen();
     } else if (_has('claim')) {
       home = ClaimScreen(seed: _param('claim'), from: _param('from'));
+    } else if (_has('owner')) {
+      home = const OwnerScreen();
     } else {
       home = const MapScreen();
     }

@@ -1079,7 +1079,11 @@ try:
     listing_ = sb('venues?listing_sync_requested_at=not.is.null'
                   '&webflow_cms_id=not.is.null&listing_synced_at=is.null'
                   '&select=id,name,webflow_cms_id,listing_tier,'
-                  'listing_enquiry_email,listing_sync_requested_at'
+                  'listing_enquiry_email,listing_sync_requested_at,'
+                  'owner_content,owner_content_at,website,instagram,'
+                  'opening_hours,website_photos,power_outlets,aircon,'
+                  'comfortable_seating,cozy,quiet_space,good_for_calls,'
+                  'call_room,monitor,office_chairs,access_24h'
                   '&limit=30') or []
 except Exception as e:  # noqa: BLE001
     report.setdefault('warnings', []).append(f'listing plans read: {e}')
@@ -1378,6 +1382,74 @@ DEFAULT_ENQUIRY_EMAIL = 'hello@nomadwise.io'
 ENQUIRIES_LIVE = True   # the form shipped with migration 66
 
 
+def owner_fields(v):
+    """What an owner wrote in their Owner account, once a founder put
+    it on the page (venues.owner_content), as Webflow fields:
+    description into Best Text, prices into More Info, the facts and
+    hours into their columns, links, and for a Verified page the
+    message that replaces the advert slot (one JSON field the site's
+    snippet renders; see docs/OWNER_ACCOUNT.md)."""
+    oc = v.get('owner_content') or {}
+    if not oc and not v.get('owner_content_at'):
+        return {}
+    out = {}
+    desc = (oc.get('description') or '').strip()
+    if desc:
+        out['best-text'] = rich(html_escape(desc))
+    prices = oc.get('prices') or {}
+    lines = []
+    for key, label in (('day', 'Day pass'), ('week', 'Week pass'),
+                       ('month', 'Month pass'), ('coffee', 'Cappuccino')):
+        val = (prices.get(key) or '').strip()
+        if val:
+            lines.append(f'<p><strong>{label}:</strong> {html_escape(val)}</p>')
+    if lines:
+        out['more-info-rich-text'] = ''.join(lines)
+    coffee = (prices.get('coffee') or '').strip()
+    if coffee:
+        out['price-of-coffee'] = coffee
+    if v.get('website'):
+        out['website-url'] = v['website']
+    if v.get('instagram'):
+        out['instagram'] = v['instagram']
+    wa = (oc.get('whatsapp') or '').strip()
+    if wa:
+        digits = re.sub(r'[^0-9]', '', wa)
+        if digits:
+            out['whatsapp'] = f'https://wa.me/{digits}'
+    out.update(day_fields(v))
+    for col, slug_, label in (
+            ('power_outlets', 'enough-plug-sockets', 'Enough Plug Sockets'),
+            ('aircon', 'sea-view', 'Aircon'),
+            ('comfortable_seating', 'comfortable-seating', 'Comfortable Seating'),
+            ('cozy', 'cozy', 'Cozy'),
+            ('quiet_space', 'gluten-friendly-option-gf', 'Quiet Space'),
+            ('good_for_calls', 'good-for-calls', 'Good for Calls'),
+            ('call_room', 'isolated-quiet-room', 'Skype Room'),
+            ('monitor', 'monitor-available', 'Monitor Available'),
+            ('office_chairs', 'office-chairs', 'Office Chairs'),
+            ('access_24h', '24hr-member-access', '24 Hour Access')):
+        if v.get(col) is not None:
+            out[slug_] = word(v.get(col), label)
+    m = oc.get('mention') or {}
+    if v.get('listing_tier') == 'verified' and (m.get('title') or '').strip():
+        out['discount-available-2'] = json.dumps({
+            'kind': (m.get('kind') or 'Event')[:20],
+            'title': (m.get('title') or '')[:90],
+            'body': (m.get('body') or '')[:300],
+            'cta': (m.get('cta') or 'Find out more')[:40],
+            'url': (m.get('url') or '')[:300],
+        }, ensure_ascii=False)
+    else:
+        out['discount-available-2'] = ''
+    return out
+
+
+def html_escape(t):
+    return (str(t).replace('&', '&amp;').replace('<', '&lt;')
+            .replace('>', '&gt;'))
+
+
 def sync_listing(v):
     cms = v['webflow_cms_id']
     verified = v.get('listing_tier') == 'verified'
@@ -1389,6 +1461,7 @@ def sync_listing(v):
         'booking-model': '1' if verified else '0',
         'coworking-space-email-3': email if verified else DEFAULT_ENQUIRY_EMAIL,
     }
+    fields.update(owner_fields(v))
     wf_write(f'/v2/collections/{COLLECTION_ID}/items/{cms}', 'PATCH',
              {'fieldData': fields})
     time.sleep(0.6)

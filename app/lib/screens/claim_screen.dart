@@ -283,6 +283,59 @@ class _ClaimScreenState extends State<ClaimScreen> {
     }
   }
 
+  /// The free door: the same claim, no payment. Lands as a claim
+  /// waiting for approval in the control centre.
+  Future<void> _claimFree() async {
+    if (_website.text.isNotEmpty) return; // a bot
+    final name = _ownerName.text.trim();
+    final email = _ownerEmail.text.trim().toLowerCase();
+    if (name.length < 2 || !email.contains('@') || email.length < 5) {
+      setState(() => _error = 'Your name and a working email are needed.');
+      return;
+    }
+    setState(() {
+      _sending = true;
+      _error = null;
+    });
+    try {
+      final res = await _supabase.startClaim({
+        'plan': 'free',
+        if (_picked != null) 'venue_id': _picked!['id'],
+        'owner_name': name,
+        'owner_email': email,
+        'owner_role': _ownerRole.text.trim(),
+        'owner_phone': _ownerPhone.text.trim(),
+        'enquiry_email': _enquiryEmail.text.trim(),
+        'note': _note.text.trim(),
+        'space_website': _siteUrl.text.trim(),
+        'space_instagram': _instagram.text.trim(),
+        if (_picked == null) ...{
+          'space_name': _pickedPlace?.main ?? '',
+          'space_type': _newType,
+          'space_address': _newAddress ?? '',
+          'space_city': _newCity ?? '',
+          'space_country': _newCountry ?? '',
+          'space_place_id': _pickedPlace?.placeId ?? '',
+          if (_newLat != null) 'space_lat': '$_newLat',
+          if (_newLng != null) 'space_lng': '$_newLng',
+        },
+      });
+      final claimId = '${res?['claim_id'] ?? ''}';
+      if (claimId.isEmpty) throw Exception('no claim id');
+      Analytics.capture('claim_free', {
+        'space': _spaceName,
+        'new_space': _picked == null,
+      });
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(MaterialPageRoute(
+          builder: (_) => const ClaimedScreen(free: true)));
+    } catch (e) {
+      if (mounted) setState(() => _error = _plain(e));
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
   static String _plain(Object e) {
     final s = '$e';
     final m = RegExp(r'(Too many|A working|Your name|The name|This listing|'
@@ -766,9 +819,49 @@ class _ClaimScreenState extends State<ClaimScreen> {
           _split(
             wide,
             main: _valueBlock(wide),
-            side: _checkoutCard(wide),
+            side: Column(children: [
+              _checkoutCard(wide),
+              const SizedBox(height: 14),
+              _freeCard(wide),
+            ]),
           ),
         ],
+      );
+
+  /// The other door: listed for free, owner on record, no payment.
+  Widget _freeCard(bool wide) => Container(
+        padding: EdgeInsets.all(wide ? 22 : 16),
+        decoration: BoxDecoration(
+          color: Brand.field,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Brand.border),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('Or claim it for free',
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+          const SizedBox(height: 6),
+          Text(
+              _alreadyPublished
+                  ? 'Your page stays as it is and stays free. We confirm '
+                      'you run the space, then you are its owner on record: '
+                      'corrections go on at your say-so, and you can go '
+                      'Verified any time.'
+                  : 'Your space joins our publishing queue as a free '
+                      'listing, built from public information. We confirm '
+                      'you run it, then you are its owner on record, and '
+                      'you can go Verified any time.',
+              style: const TextStyle(
+                  color: Brand.inkSecondary, fontSize: 12.5, height: 1.45)),
+          const SizedBox(height: 14),
+          OutlinedButton(
+            onPressed: _sending ? null : _claimFree,
+            style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(46)),
+            child: Text(_sending ? 'One moment' : 'Claim for free',
+                style: const TextStyle(
+                    fontSize: 14, fontWeight: FontWeight.w700)),
+          ),
+        ]),
       );
 
   Widget _checkoutCard(bool wide) => Container(
@@ -956,7 +1049,11 @@ class _ClaimScreenState extends State<ClaimScreen> {
 /// that says what happens next, so nobody is left on Stripe's own page
 /// wondering whether anything reached us.
 class ClaimedScreen extends StatelessWidget {
-  const ClaimedScreen({super.key});
+  const ClaimedScreen({super.key, this.free = false});
+
+  /// A free claim: no payment, the page stays free, we confirm the
+  /// person runs the space and record them as its owner.
+  final bool free;
 
   @override
   Widget build(BuildContext context) {
@@ -975,11 +1072,11 @@ class ClaimedScreen extends StatelessWidget {
                   height: wide ? 88 : 76,
                   decoration: const BoxDecoration(
                       color: Brand.successTint, shape: BoxShape.circle),
-                  child: Icon(Icons.verified,
+                  child: Icon(free ? Icons.check : Icons.verified,
                       size: wide ? 42 : 36, color: Brand.success),
                 ),
                 SizedBox(height: wide ? 24 : 18),
-                Text('You are Verified',
+                Text(free ? 'Claim received' : 'You are Verified',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                         fontWeight: FontWeight.w800,
@@ -987,11 +1084,19 @@ class ClaimedScreen extends StatelessWidget {
                         letterSpacing: -0.5)),
                 const SizedBox(height: 12),
                 Text(
-                    'Thank you. Your payment reached us and your claim is '
-                    'in the queue.\n\n'
-                    'We will email you as soon as your Verified page is live, '
-                    'with a private link for adding your photos, your '
-                    'description and your prices.',
+                    free
+                        ? 'Thank you. We check that the space is yours, then '
+                            'you are its owner on record: corrections to the '
+                            'page go on at your say-so, and you can go '
+                            'Verified at any time.\n\n'
+                            'Once approved, sign in at nomadmaps.io/?owner with '
+                            'this email to manage your listing.'
+                        : 'Thank you. Your payment reached us and your claim is '
+                            'in the queue.\n\n'
+                            'We will email you as soon as your Verified page is live. '
+                            'Your photos, description and prices go in through your '
+                            'Owner account at nomadmaps.io/?owner, with the email '
+                            'you just used.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                         color: Brand.inkSecondary,
