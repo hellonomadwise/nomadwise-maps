@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nomadwise for spaces: get your cafe, coworking or coliving in front of nomads</title>
+<meta name="description" content="A free listing on nomadwise.io, or Verified for 99 EUR a year: the badge, a place above every free listing, booking requests to your inbox, your own photos and words, your event or offer on your page.">
+<link rel="icon" href="/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{--ink:#142032;--ink2:#5C6773;--muted:#96A0AC;--red:#E0442E;--red-tint:#FCEEEC;--green:#1F6B41;--green-tint:#E4F2EA;--bg:#F7F8F9;--surface:#fff;--border:rgba(20,32,50,.10)}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 "Instrument Sans",system-ui,sans-serif}
+  a{color:inherit}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 20px}
+  header{background:var(--surface);border-bottom:1px solid var(--border)}
+  header .wrap{display:flex;align-items:center;justify-content:space-between;height:64px}
+  .brand{font-weight:800;color:var(--red);font-size:20px;text-decoration:none}
+  .brand span{font-size:12px;letter-spacing:.12em;font-weight:700;color:var(--ink2);margin-left:8px;text-transform:lowercase}
+  nav a{text-decoration:none;font-weight:600;font-size:14px;margin-left:18px;color:var(--ink2)}
+  nav a.btn{color:var(--ink);border:1px solid var(--border);padding:8px 14px;border-radius:9px;background:var(--surface)}
+  .btn{display:inline-block;text-decoration:none;font-weight:700;font-size:15px;padding:12px 18px;border-radius:10px}
+  .btn.primary{background:var(--red);color:#fff}
+  .btn.outline{border:1px solid var(--border);background:var(--surface);color:var(--ink)}
+  .eyebrow{font-size:12px;letter-spacing:.14em;text-transform:uppercase;font-weight:700;color:var(--ink2)}
+  .hero{padding:56px 0 36px;display:grid;grid-template-columns:1.1fr .9fr;gap:36px;align-items:center}
+  h1{font-size:clamp(32px,5vw,50px);line-height:1.08;letter-spacing:-.03em;margin:12px 0 16px}
+  h1 em{font-style:normal;color:var(--red)}
+  .lead{font-size:18px;color:var(--ink2);max-width:520px}
+  .actions{margin-top:22px;display:flex;gap:10px;flex-wrap:wrap}
+  .fine{font-size:12.5px;color:var(--muted);margin-top:10px}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:22px}
+  .page-card .photo{height:150px;border-radius:12px;background:linear-gradient(135deg,#E8563F,#D63A24);position:relative}
+  .page-card .photo b{position:absolute;left:12px;top:12px;background:var(--green);color:#fff;font-size:11px;padding:4px 8px;border-radius:7px;letter-spacing:.06em}
+  .page-card h3{margin:14px 0 2px;font-size:19px}
+  .page-card .where{color:var(--ink2);font-size:13px}
+  .pills{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0}
+  .pill{background:var(--green-tint);color:var(--green);font-weight:700;font-size:11.5px;padding:4px 9px;border-radius:8px}
+  .msg{background:var(--green-tint);border-radius:12px;padding:14px;margin-top:12px}
+  .msg small{display:block;font-size:10.5px;letter-spacing:.08em;color:var(--green);font-weight:800;text-transform:uppercase}
+  .msg strong{display:block;font-size:15px;margin-top:4px}
+  .msg p{margin:4px 0 0;font-size:13px;color:var(--ink2)}
+  section{padding:26px 0}
+  h2{font-size:26px;letter-spacing:-.02em;margin:0 0 6px}
+  .sub{color:var(--ink2);margin:0 0 20px}
+  .three{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  .three h3{font-size:16px;margin:8px 0 4px}
+  .three p{margin:0;color:var(--ink2);font-size:14px}
+  .icon{width:38px;height:38px;border-radius:10px;background:var(--red-tint);display:flex;align-items:center;justify-content:center;color:var(--red);font-weight:800}
+  .plans{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .plan h3{margin:0;font-size:20px}
+  .plan .price{font-size:32px;font-weight:800;letter-spacing:-.02em;margin:8px 0 2px}
+  .plan .price small{font-size:14px;font-weight:500;color:var(--ink2)}
+  .plan ul{padding-left:0;list-style:none;margin:14px 0 18px}
+  .plan li{padding:5px 0 5px 26px;position:relative;font-size:14.5px}
+  .plan li:before{content:"";position:absolute;left:2px;top:11px;width:12px;height:7px;border-left:2.5px solid var(--green);border-bottom:2.5px solid var(--green);transform:rotate(-45deg)}
+  .plan.verified{border-color:var(--green)}
+  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  .steps .n{display:inline-block;background:var(--green-tint);color:var(--green);font-weight:800;font-size:12px;padding:3px 8px;border-radius:7px}
+  .steps h3{font-size:16px;margin:10px 0 4px}
+  .steps p{margin:0;color:var(--ink2);font-size:14px}
+  details{border-top:1px solid var(--border);padding:12px 0}
+  summary{font-weight:700;cursor:pointer}
+  details p{color:var(--ink2);margin:8px 0 0;font-size:14.5px;max-width:720px}
+  footer{border-top:1px solid var(--border);margin-top:30px;padding:22px 0 40px;color:var(--muted);font-size:13px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px}
+  footer a{color:var(--ink2);text-decoration:none;font-weight:600}
+  @media (max-width:820px){.hero{grid-template-columns:1fr;padding-top:32px}.three,.plans,.steps{grid-template-columns:1fr}nav a:not(.btn){display:none}}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <a class="brand" href="https://www.nomadwise.io">nomadwise<span>for spaces</span></a>
+  <nav><a href="https://www.nomadwise.io/coworking-global">Explore spaces</a><a href="https://www.nomadwise.io/list-my-coworking-space-on-nomadwise">How it works</a><a class="btn" href="/owner">Owner sign in</a></nav>
+</div></header>
+
+<main class="wrap">
+  <section class="hero">
+    <div>
+      <div class="eyebrow">For cafes, coworking and coliving spaces</div>
+      <h1>Be the space nomads <em>find first.</em></h1>
+      <p class="lead">Nomads ask Google or an AI assistant where to work in your city and go where the answer sends them. Those answers come from directories they trust, and nomadwise.io is one of them. Your page is free. Verified puts it in front.</p>
+      <div class="actions">
+        <a class="btn primary" href="/claim">Find or claim my space</a>
+        <a class="btn outline" href="/owner">Owner sign in</a>
+      </div>
+      <p class="fine">Listing is free and stays free. Verified is 99 EUR a year, billed once a year, cancel any time.</p>
+    </div>
+    <div class="card page-card">
+      <div class="photo"><b>VERIFIED</b></div>
+      <h3>Your space</h3>
+      <div class="where">Your neighbourhood, your city</div>
+      <div class="pills"><span class="pill">Laptops welcome</span><span class="pill">Plug sockets</span><span class="pill">Good for calls</span><span class="pill">Quiet area</span></div>
+      <div class="msg"><small>From your space</small><strong>Join our Friday community lunch</strong><p>Your event or offer, where nomadwise.io would otherwise show an advert.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="three">
+      <div class="card"><div class="icon">1</div><h3>Make your space stand out</h3><p>Your own description, photos, prices and opening hours, kept up to date from your Owner account.</p></div>
+      <div class="card"><div class="icon">2</div><h3>Be found by Google and AI</h3><p>Every page is built so search engines and AI assistants can find it and quote it when someone asks where to work.</p></div>
+      <div class="card"><div class="icon">3</div><h3>Welcome customers directly</h3><p>Booking requests straight to your inbox, no commission, no middleman. You keep the customer.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Two ways to be on nomadwise.io</h2>
+    <p class="sub">Both start with the same two-minute claim. Choose at the end.</p>
+    <div class="plans">
+      <div class="card plan">
+        <h3>Free</h3>
+        <div class="price">0 <small>always</small></div>
+        <ul>
+          <li>A page built from public information, with a Contact the space button</li>
+          <li>An Owner account to correct the facts and add your description, prices, hours and photos</li>
+          <li>Every change read by a person before it goes on</li>
+        </ul>
+        <a class="btn outline" href="/claim">Claim for free</a>
+      </div>
+      <div class="card plan verified">
+        <h3>Verified</h3>
+        <div class="price">99 EUR <small>a year</small></div>
+        <ul>
+          <li>The Verified badge on your page and in every list you appear in</li>
+          <li>A place above every free listing in your city and area</li>
+          <li>Booking requests sent straight to your inbox, no commission</li>
+          <li>Your own photos, description and prices instead of whatever Google shows</li>
+          <li>Your event or offer in the advert slot on your page, instead of ours</li>
+        </ul>
+        <a class="btn primary" href="/claim">Go Verified</a>
+        <p class="fine">Billed once a year through Stripe. Cancel any time; the listing stays, back on the free plan.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Simple from the first step</h2>
+    <div class="steps">
+      <div class="card"><span class="n">01</span><h3>Find your space</h3><p>Search our map, or add it from Google Maps if it is not there yet. No duplicates, no account to create.</p></div>
+      <div class="card"><span class="n">02</span><h3>Tell us who you are</h3><p>Your name, your email, where booking requests should go. We check the claim before anything changes on the page.</p></div>
+      <div class="card"><span class="n">03</span><h3>Free, or Verified</h3><p>Claim for free, or pay 99 EUR through Stripe. Then sign in to your Owner account and make the page yours.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>What owners ask</h2>
+    <details><summary>We are already listed. Why pay?</summary><p>Because people are already looking at your page and cannot ask you anything from it. Verified adds the button that turns a look into a booking request, and the badge and placement above free listings that make it more likely they look at you at all.</p></details>
+    <details><summary>Who writes the description?</summary><p>You do, and we read it before it goes live. Facts and photos are yours; we keep the tone honest, so no "best in town". That is what makes a nomad trust the page.</p></details>
+    <details><summary>Do customers book through nomadwise.io?</summary><p>No. A Verified page sends the request to your inbox and you take it from there. No commission, no middleman.</p></details>
+    <details><summary>Can we cancel?</summary><p>Yes, at any time from the link in your receipt. The plan runs to the end of the paid year, then your listing goes back to free and stays.</p></details>
+    <details><summary>Does it work for cafes?</summary><p>Yes. Cafes with good WiFi and a laptop-friendly attitude are exactly what nomads search for, and most of our pages are cafes.</p></details>
+  </section>
+</main>
+
+<footer class="wrap">
+  <div>Nomadwise, work from anywhere. Questions: <a href="mailto:hello@nomadwise.io">hello@nomadwise.io</a></div>
+  <div><a href="https://www.nomadwise.io">nomadwise.io</a> · <a href="/">Nomad Maps</a> · <a href="/owner">Owner sign in</a></div>
+</footer>
+</body>
+</html>

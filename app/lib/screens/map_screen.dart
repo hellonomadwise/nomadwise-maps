@@ -1745,6 +1745,16 @@ class _MapScreenState extends State<MapScreen> {
             },
           ),
           _menuRow(
+            icon: Icons.storefront_outlined,
+            label: 'Own a space?',
+            sub: 'Manage your listing on nomadwise.io, free or Verified',
+            onTap: () {
+              Navigator.pop(context);
+              launchUrl(Uri.parse('https://nomadmaps.io/spaces'),
+                  mode: LaunchMode.platformDefault);
+            },
+          ),
+          _menuRow(
             icon: Icons.description_outlined,
             label: 'Terms of service',
             sub: 'Coins, fair play, your data',
