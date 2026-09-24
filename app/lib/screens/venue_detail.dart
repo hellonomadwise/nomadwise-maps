@@ -213,6 +213,31 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
 
   /// Build the story card and hand it to the phone's share sheet
   /// (Instagram Stories, WhatsApp, wherever they like).
+  /// A link that opens this space on the map, not just the app.
+  String _shareLink() {
+    final pid = venue.googlePlaceId;
+    if (pid == null || pid.isEmpty) return 'https://nomadmaps.io/';
+    final at = venue.lat != null && venue.lng != null
+        ? '&at=${venue.lat},${venue.lng},16'
+        : '';
+    return 'https://nomadmaps.io/?place=${Uri.encodeComponent(pid)}$at';
+  }
+
+  /// The words that travel with the card in WhatsApp and friends.
+  String _shareText() {
+    final where = [
+      if (venue.neighbourhood != null && venue.neighbourhood!.isNotEmpty)
+        venue.neighbourhood!,
+      if (venue.city != null && venue.city!.isNotEmpty) venue.city!,
+    ].join(', ');
+    final wifi = venue.wifiTested
+        ? ' WiFi ${venue.wifiSpeedLabel} Mbps.'
+        : '';
+    return '${venue.name}'
+        '${where.isNotEmpty ? ', a place to work in $where' : ''}.'
+        '$wifi ${_shareLink()}';
+  }
+
   Future<void> _share() async {
     setState(() => _sharing = true);
     try {
@@ -241,18 +266,14 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
           XFile.fromData(bytes,
               mimeType: 'image/png', name: 'nomadwise_maps.png')
         ],
-        text: '${venue.name} on Nomadwise Maps: '
-            'https://nomadmaps.io/',
+        text: _shareText(),
       );
     } catch (_) {
       // Device cannot share images (e.g. desktop): share the link.
       try {
-        await Share.share('${venue.name} on Nomadwise Maps: '
-            'https://nomadmaps.io/');
+        await Share.share(_shareText());
       } catch (_) {
-        await Clipboard.setData(const ClipboardData(
-            text:
-                'https://nomadmaps.io/'));
+        await Clipboard.setData(ClipboardData(text: _shareLink()));
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
               content: Text('Link copied to clipboard.')));

@@ -106,17 +106,9 @@ class StoryCard {
       ('Where', place.isEmpty ? 'On the nomad map' : place),
       (
         'WiFi',
-        v.wifiSpeedMbps != null
+        v.wifiTested
             ? '${v.wifiSpeedLabel} Mbps'
             : 'Not tested yet'
-      ),
-      (
-        'Laptops',
-        switch (v.laptopsAllowed) {
-          true => 'Welcome',
-          false => 'Not allowed',
-          null => 'Unknown',
-        }
       ),
     ];
     var ry = y + 60;
@@ -134,9 +126,35 @@ class StoryCard {
       ry += 116;
     }
 
+    // ---- green pills: one per upside the space has ----
+    // Only what is known to be true is shown; a space with nothing
+    // checked yet gets one quiet grey pill instead of a list of
+    // unknowns. "No laptops" is the one downside worth saying.
+    final ups = <String>[
+      if (v.laptopsAllowed == true) 'Laptops welcome',
+      if (v.powerOutlets == true) 'Plug sockets',
+      if (v.goodForCalls == true) 'Good for calls',
+      if (v.quietSpace == true) 'Quiet',
+      if (v.comfortableSeating == true) 'Comfy seats',
+      if (v.aircon == true) 'Aircon',
+      if (v.access24h == true) '24h access',
+      if (v.callRoom == true) 'Call room',
+      if (v.monitorAvailable == true) 'Monitor',
+      if (v.officeChairs == true) 'Office chairs',
+      if (v.cozy == true) 'Cozy',
+    ];
+    if (v.laptopsAllowed == false) {
+      _pills(c, ['No laptops'], ry + 16, const Color(0xFFD64545));
+    } else if (ups.isEmpty) {
+      _pills(c, ['Facts not checked yet'], ry + 16,
+          Colors.white.withValues(alpha: .22));
+    } else {
+      _pills(c, ups, ry + 16, const Color(0xFF2E9E5B), tick: true);
+    }
+
     // ---- link pill ----
     final pill = RRect.fromRectAndRadius(
-        Rect.fromLTWH(90, _h - 300, _w - 180, 104),
+        Rect.fromLTWH(90, _h - 250, _w - 180, 104),
         const Radius.circular(52));
     c.drawRRect(pill, Paint()..color = Colors.white);
     _text(
@@ -145,65 +163,83 @@ class StoryCard {
         37,
         FontWeight.w700,
         const Color(0xFF142032),
-        y: _h - 300 + 31);
-    // Gold earn-coins tag: the recruitment pitch, impossible to miss.
-    final tagTp = TextPainter(
-      text: const TextSpan(
-          text: 'Earn coins for helping · 100 coins = €1',
-          style: TextStyle(
-              fontFamily: 'InstrumentSans',
-              fontSize: 32,
-              fontWeight: FontWeight.w800,
-              color: Color(0xFF142032),
-              height: 1.2)),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    const coinR = 24.0;
-    final tagW = 36 + coinR * 2 + 14 + tagTp.width + 36;
-    final tagH = 84.0;
-    final tagX = (_w - tagW) / 2;
-    final tagY = _h - 176;
-    c.drawRRect(
-        RRect.fromRectAndRadius(
-            Rect.fromLTWH(tagX, tagY, tagW, tagH),
-            Radius.circular(tagH / 2)),
-        Paint()..color = const Color(0xFFF4B23E));
-    // The coin, with a white ring so it stands out on gold.
-    final coinC = Offset(tagX + 36 + coinR, tagY + tagH / 2);
-    c.drawCircle(coinC, coinR + 4, Paint()..color = Colors.white);
-    c.drawCircle(coinC, coinR, Paint()..color = const Color(0xFFF4B23E));
-    c.drawCircle(
-        coinC,
-        coinR,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 4
-          ..color = const Color(0xFFE39B1F));
-    final dollarTp = TextPainter(
-      text: const TextSpan(
-          text: '\$',
-          style: TextStyle(
-              fontFamily: 'InstrumentSans',
-              fontSize: 30,
-              fontWeight: FontWeight.w900,
-              color: Color(0xFF8A5A10),
-              height: 1)),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    dollarTp.paint(
-        c,
-        Offset(coinC.dx - dollarTp.width / 2,
-            coinC.dy - dollarTp.height / 2));
-    tagTp.paint(
-        c,
-        Offset(tagX + 36 + coinR * 2 + 14,
-            tagY + (tagH - tagTp.height) / 2));
+        y: _h - 250 + 31);
 
     final img =
         await rec.endRecording().toImage(_w.toInt(), _h.toInt());
     final bytes =
         await img.toByteData(format: ui.ImageByteFormat.png);
     return bytes?.buffer.asUint8List();
+  }
+
+  /// Rounded pills laid out in centred rows, at most three rows.
+  static void _pills(Canvas c, List<String> labels, double top, Color fill,
+      {bool tick = false}) {
+    const h = 78.0, pad = 30.0, gap = 18.0, size = 32.0;
+    const tickW = 30.0;
+    final painters = <TextPainter>[];
+    final widths = <double>[];
+    for (final s in labels) {
+      final tp = TextPainter(
+        text: TextSpan(
+            text: s,
+            style: const TextStyle(
+                fontFamily: 'InstrumentSans',
+                fontSize: size,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+                height: 1.2)),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      painters.add(tp);
+      widths.add(pad + (tick ? tickW + 12 : 0) + tp.width + pad);
+    }
+    // Break into rows that fit the card width.
+    final rows = <List<int>>[[]];
+    var rowW = 0.0;
+    for (var i = 0; i < labels.length; i++) {
+      final w = widths[i] + (rows.last.isEmpty ? 0 : gap);
+      if (rows.last.isNotEmpty && rowW + w > _w - 160) {
+        if (rows.length == 3) break;
+        rows.add([i]);
+        rowW = widths[i];
+      } else {
+        rows.last.add(i);
+        rowW += w;
+      }
+    }
+    var y = top;
+    for (final row in rows) {
+      final total = row.fold(0.0, (a, i) => a + widths[i]) +
+          gap * (row.length - 1);
+      var x = (_w - total) / 2;
+      for (final i in row) {
+        c.drawRRect(
+            RRect.fromRectAndRadius(
+                Rect.fromLTWH(x, y, widths[i], h),
+                const Radius.circular(h / 2)),
+            Paint()..color = fill);
+        var tx = x + pad;
+        if (tick) {
+          final p = Path()
+            ..moveTo(tx + 3, y + h / 2 + 1)
+            ..lineTo(tx + 11, y + h / 2 + 9)
+            ..lineTo(tx + tickW - 4, y + h / 2 - 11);
+          c.drawPath(
+              p,
+              Paint()
+                ..style = PaintingStyle.stroke
+                ..strokeWidth = 5
+                ..strokeCap = StrokeCap.round
+                ..strokeJoin = StrokeJoin.round
+                ..color = Colors.white);
+          tx += tickW + 12;
+        }
+        painters[i].paint(c, Offset(tx, y + (h - painters[i].height) / 2));
+        x += widths[i] + gap;
+      }
+      y += h + 16;
+    }
   }
 
   /// A five-point star, filled.

@@ -1,7 +1,8 @@
 # Nomad Maps: handoff note
 
-Written 22 September 2026 by the "Nomadwise Maps mobile app" chat, for
-any other chat or person picking up the project. Everything below is
+Written 22 September 2026, refreshed 24 September, by the "Nomadwise
+Maps mobile app" chat, for any other chat or person picking up the
+project. Everything below is
 also in the repository (`docs/`), which is the source of truth; this
 note is the map of it.
 
@@ -129,6 +130,18 @@ Key RPCs: `claim_search`, `start_claim`, `claim_paid`, `apply_claim`,
 - Phone pings verified end to end on 22 Sep (ntfy topic, and the
   database's `notify_phone()` through `pg_net`). Earlier "no ping"
   reports came from migrations 70 to 73 not yet being applied.
+- 23 Sep: the Closed tab filters temporary vs closed for good, with a
+  tag on each card. An approval now always starts the push run
+  (migration 76; the old two-minute throttle dropped it) and the
+  "Approved, being created" section has a "Start the run now" button.
+  Opening hours and rating are fetched from Google before a page is
+  built, and a nightly pass repairs control-centre pages that went out
+  without them (`hours_backfilled` in the enrich log). The share card
+  lost its coin tag and shows green pills per upside; the share
+  message links to the space (`?place=<google place id>&at=lat,lng,16`).
+- PostHog dashboard "Directory: new pages vs existing" (see
+  `docs/PAGE_TRACKER.md`): new = first ever page view on or after
+  13 Sep 2026; no job, no key.
 
 ## In progress or waiting on a person
 
@@ -150,6 +163,45 @@ Key RPCs: `claim_search`, `start_claim`, `claim_paid`, `apply_claim`,
   owners, never "members area"): free tier with locked Verified rows,
   owner page for photos, description, prices, hours, all reviewed
   before going live. Next after Webflow and Resend.
+
+## How to write for this project (learned in chat, not obvious from code)
+
+- No em dashes anywhere. Plain sentences, warm, no hype words.
+- Never name AI products: say "Google and AI assistants", "search
+  engines and AI assistants", "Found by Google and AI".
+- "Owner account" and "Manage my listing" to owners; "members area"
+  is internal only. Never promise a publication timeframe, never
+  "under 2 euro a week" or "one booking covers it", never analytics
+  or page views as part of Verified.
+- Verified is exactly five things (badge, above every free listing,
+  booking requests to inbox, own photos and words, advert slot).
+- Jonathan is not a coder: explain plainly, one decision at a time,
+  say what a change does before how. Leonie reviews everything owner
+  facing and pushes back on anything owners could game.
+- Wording lives in the app, the comparison artifact, the flowchart,
+  the memo, the Webflow page copy and DECISIONS.md: change all of
+  them together.
+
+## Pending on 24 September
+
+- Jonathan uploads the zip with migration 76, website_screen,
+  supabase_service, webflow_sync, story_card, venue_detail,
+  PAGE_TRACKER.md and .gitignore; then check the first
+  `hours_backfilled` run and the `?place=` share link on a real space.
+- Webflow (Jonathan, from `docs/GET_LISTED_PAGE_REPLACE.md`): the Get
+  listed page text; redirects for /pricing, the three "add my
+  business" forms and /sign-up to it; owner links in Navbar and
+  Footer; Country template sort if it lists spaces.
+- Resend (account, DNS, Vault key `resend_api_key`), then owner emails
+  and the two booking buttons; contact-click counting; owner account;
+  free-claim ownership check; "temporarily closed until" toggle;
+  owner-supplied facts surviving refresh; change log.
+- Optional: make the build fail visibly when a migration fails; tidy
+  the Webflow body code; delete the stray `claim_screen_1.dart`,
+  top-level `stripe_sync.py` and `__pycache__` on GitHub.
+- Attaching the repository to a Claude task (GitHub app installed for
+  hellonomadwise/nomadwise-maps) lets the chat push to a branch and
+  open pull requests, replacing zip uploads with a review step.
 
 ## Decisions that shape everything (full list in `docs/DECISIONS.md`)
 
