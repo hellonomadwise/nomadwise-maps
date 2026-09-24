@@ -358,9 +358,12 @@ class _OwnerScreenState extends State<OwnerScreen> {
     );
   }
 
-  Widget _frame(bool wide, Widget child, {double maxWidth = 1100}) => Center(
-        child: SingleChildScrollView(
-          padding: EdgeInsets.all(wide ? 28 : 16),
+  Widget _frame(bool wide, Widget child, {double maxWidth = 1100}) =>
+      SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(wide ? 28 : 16, wide ? 22 : 12,
+            wide ? 28 : 16, 40),
+        child: Align(
+          alignment: Alignment.topCenter,
           child: ConstrainedBox(
               constraints: BoxConstraints(maxWidth: maxWidth), child: child),
         ),
@@ -381,7 +384,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
         wide,
         maxWidth: 520,
         Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          SizedBox(height: wide ? 30 : 10),
+          SizedBox(height: wide ? 60 : 16),
           Text('Owner account',
               style: TextStyle(
                   fontWeight: FontWeight.w800,
@@ -470,7 +473,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
           ),
           const SizedBox(height: 18),
           Text(
-              'Not claimed your space yet? Start at nomadmaps.io/?claim. '
+              'Not claimed your space yet? Start at nomadmaps.io/claim. '
               'Questions: hello@nomadwise.io',
               style: TextStyle(color: Brand.inkMuted, fontSize: 12.5)),
         ]),
@@ -512,11 +515,33 @@ class _OwnerScreenState extends State<OwnerScreen> {
   Widget _account(bool wide) {
     final v = _venue!;
     final nav = _nav(wide);
-    final body = switch (_tab) {
+    // Every tab has the same shape: the main panel on the left, the
+    // page preview on the right, so switching tabs never moves the
+    // furniture.
+    final main = switch (_tab) {
       _Tab.listing => _listingTab(wide),
       _Tab.message => _messageTab(wide),
       _Tab.membership => _membershipTab(wide),
     };
+    final side = _tab == _Tab.message && _verified
+        ? _messagePreview()
+        : _preview();
+    final body = Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _statusBanner(),
+          if (wide)
+            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Expanded(flex: 3, child: main),
+              const SizedBox(width: 18),
+              Expanded(flex: 2, child: side),
+            ])
+          else ...[
+            main,
+            const SizedBox(height: 16),
+            side,
+          ],
+        ]);
     return _frame(
       wide,
       maxWidth: 1180,
@@ -876,21 +901,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
             style: TextStyle(color: Brand.inkMuted, fontSize: 12)),
       ]),
     );
-    final preview = _preview();
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      _statusBanner(),
-      if (wide)
-        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Expanded(flex: 3, child: editor),
-          const SizedBox(width: 18),
-          Expanded(flex: 2, child: preview),
-        ])
-      else ...[
-        editor,
-        const SizedBox(height: 16),
-        preview,
-      ],
-    ]);
+    return editor;
   }
 
   /// A plain picture of what the page will show, updated as they type.
@@ -1187,34 +1198,25 @@ class _OwnerScreenState extends State<OwnerScreen> {
             style: TextStyle(color: Brand.inkMuted, fontSize: 12)),
       ]),
     );
-    final preview = _panel(
-      tint: Brand.bg,
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('What nomads see',
-            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
-        const SizedBox(height: 12),
-        if (_mentionTitle.text.trim().isEmpty)
-          const Text('Write a headline and it appears here.',
-              style: TextStyle(color: Brand.inkMuted, fontSize: 13))
-        else
-          _mentionCard(),
-      ]),
-    );
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      _statusBanner(),
-      if (wide)
-        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Expanded(flex: 3, child: editor),
-          const SizedBox(width: 18),
-          Expanded(flex: 2, child: preview),
-        ])
-      else ...[
-        editor,
-        const SizedBox(height: 16),
-        preview,
-      ],
-    ]);
+    return editor;
   }
+
+  Widget _messagePreview() => _panel(
+        tint: Brand.bg,
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('What nomads see',
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+          const SizedBox(height: 4),
+          const Text('In the advert slot on your page.',
+              style: TextStyle(color: Brand.inkMuted, fontSize: 12)),
+          const SizedBox(height: 12),
+          if (_mentionTitle.text.trim().isEmpty)
+            const Text('Write a headline and it appears here.',
+                style: TextStyle(color: Brand.inkMuted, fontSize: 13))
+          else
+            _mentionCard(),
+        ]),
+      );
 
   // ------------------------------------------------------------ membership
 
