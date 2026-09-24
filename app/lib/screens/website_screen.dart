@@ -51,6 +51,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   List<Map<String, dynamic>> _enquiries = [];
   List<Map<String, dynamic>> _orders = [];
   List<Map<String, dynamic>> _held = [];
+  List<Map<String, dynamic>> _started = [];
   List<Map<String, dynamic>> _locations = [];
   List<Map<String, dynamic>> _countries = [];
   String? _error;
@@ -87,6 +88,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         _supabase.sitemapPendingLocations(),
         _supabase.sitemapPendingCountries(),
         _supabase.heldClaims(),
+        _supabase.openClaims(),
       ]);
       if (!mounted) return;
       setState(() {
@@ -106,6 +108,16 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         _sitemapLocations = results[13];
         _sitemapCountries = results[14];
         _held = results[15];
+        // Claims that stopped before paying, last 30 days: the owner
+        // filled in the form, so a founder can still follow up.
+        _started = (results[16] as List<Map<String, dynamic>>)
+            .where((c) =>
+                c['status'] == 'started' &&
+                DateTime.tryParse('${c['created_at']}')
+                        ?.isAfter(DateTime.now()
+                            .subtract(const Duration(days: 30))) ==
+                    true)
+            .toList();
         _error = null;
       });
     } catch (e) {
@@ -918,11 +930,13 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       (
         key: 'paid',
         label: 'Paid listings',
-        count: _held.length + _paid.length + _orders.length,
+        count: _held.length + _paid.length + _orders.length + _started.length,
         color: Brand.success,
-        hint: 'Verified listings: who pays, when it renews, and whether the '
-            'badge is on the page. Any space gets a plan from its Listing '
-            'plan button (here, or on the Released list).',
+        hint: 'Every claim from the claim form: paid claims waiting for '
+            'approval first, then payments needing a match, then forms '
+            'started but not paid (last 30 days), then the Verified '
+            'listings: who pays, when it renews, whether the badge is on '
+            'the page.',
         empty: 'No paid listings yet. Open a released page and tap Listing '
             'plan to mark the first one Verified.'
       ),
@@ -980,6 +994,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       'paid' => [
           ..._held.map(_heldCard),
           ..._orders.map(_orderCard),
+          ..._started.map(_startedCard),
           ..._paid.map(_paidCard)
         ],
       _ => <Widget>[],
@@ -1946,6 +1961,104 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
           content: Text('That did not reject: $e'),
           backgroundColor: Brand.red));
     }
+  }
+
+  /// A claim form that was filled in but not paid (yet). The owner
+  /// told us who they are and which space; worth a nudge by hand.
+  Widget _startedCard(Map<String, dynamic> c) {
+    final space = (c['space_name'] ?? '').toString().isNotEmpty
+        ? c['space_name']
+        : 'Space not named';
+    final where = [
+      if ((c['space_city'] ?? '').toString().isNotEmpty) c['space_city'],
+      if ((c['space_country'] ?? '').toString().isNotEmpty)
+        c['space_country'],
+    ].join(', ');
+    final who = [
+      if ((c['owner_name'] ?? '').toString().isNotEmpty) c['owner_name'],
+      if ((c['owner_role'] ?? '').toString().isNotEmpty) c['owner_role'],
+      if ((c['owner_email'] ?? '').toString().isNotEmpty) c['owner_email'],
+      if ((c['owner_phone'] ?? '').toString().isNotEmpty) c['owner_phone'],
+    ].join('  ·  ');
+    final extra = [
+      if ((c['enquiry_email'] ?? '').toString().isNotEmpty)
+        'Booking requests to: ${c['enquiry_email']}',
+      if ((c['space_website'] ?? '').toString().isNotEmpty)
+        'Website: ${c['space_website']}',
+      if ((c['space_instagram'] ?? '').toString().isNotEmpty)
+        'Instagram: ${c['space_instagram']}',
+      if ((c['note'] ?? '').toString().isNotEmpty) 'Note: ${c['note']}',
+    ];
+    return _card(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+                color: Brand.inkSecondary,
+                borderRadius: BorderRadius.circular(8)),
+            child: const Text('STARTED, NOT PAID',
+                style: TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: .5,
+                    color: Colors.white)),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(space,
+                style: const TextStyle(
+                    fontWeight: FontWeight.w700, fontSize: 15)),
+          ),
+        ]),
+        if (where.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Text(where,
+                style: const TextStyle(
+                    fontSize: 12, color: Brand.inkSecondary)),
+          ),
+        const SizedBox(height: 8),
+        if (who.isNotEmpty)
+          Text(who, style: const TextStyle(fontSize: 12.5)),
+        for (final line in extra)
+          Padding(
+            padding: const EdgeInsets.only(top: 3),
+            child: Text(line, style: const TextStyle(fontSize: 12.5)),
+          ),
+        Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Text(
+              'Filled in the claim form ${_ago(c['created_at'])} and stopped '
+              'at payment. '
+              '${c['is_new_space'] == true ? 'A space not on the map yet. ' : ''}'
+              'Nothing on the site changes until they pay.',
+              style: const TextStyle(fontSize: 12.5, color: Brand.inkSecondary)),
+        ),
+        const SizedBox(height: 10),
+        Wrap(spacing: 8, runSpacing: 8, children: [
+          if ((c['owner_email'] ?? '').toString().isNotEmpty)
+            OutlinedButton.icon(
+                onPressed: () => launchUrl(
+                    Uri.parse('mailto:${c['owner_email']}'
+                        '?subject=${Uri.encodeComponent('Your $space listing on nomadwise.io')}'),
+                    mode: LaunchMode.externalApplication),
+                icon: const Icon(Icons.mail_outline, size: 18),
+                label: const Text('Email them')),
+          if (c['venue_id'] != null)
+            OutlinedButton.icon(
+                onPressed: () => _openVenue({'id': c['venue_id']}),
+                icon: const Icon(Icons.storefront_outlined, size: 18),
+                label: const Text('Open the space')),
+          TextButton(
+              onPressed: () async {
+                await _supabase.abandonClaim('${c['id']}');
+                _load();
+              },
+              child: const Text('Dismiss')),
+        ]),
+      ]),
+    );
   }
 
   Widget _orderCard(Map<String, dynamic> o) {
