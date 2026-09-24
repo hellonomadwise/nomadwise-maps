@@ -217,10 +217,8 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
   String _shareLink() {
     final pid = venue.googlePlaceId;
     if (pid == null || pid.isEmpty) return 'https://nomadmaps.io/';
-    final at = venue.lat != null && venue.lng != null
-        ? '&at=${venue.lat},${venue.lng},16'
-        : '';
-    return 'https://nomadmaps.io/?place=${Uri.encodeComponent(pid)}$at';
+    // Short on purpose: the app finds the space and flies there itself.
+    return 'https://nomadmaps.io/?p=${Uri.encodeComponent(pid)}';
   }
 
   /// The words that travel with the card in WhatsApp and friends.

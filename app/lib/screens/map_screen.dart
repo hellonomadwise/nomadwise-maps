@@ -303,11 +303,13 @@ class _MapScreenState extends State<MapScreen> {
           _userLng = ln;
           _initZoom =
               (p.length > 2 ? double.tryParse(p[2]) : null) ?? 13;
+          _startAt = LatLng(la, ln);
+          _startZoom = _initZoom;
           haveStart = true;
           deepLinked = true;
         }
       }
-      final place = qp['place'];
+      final place = qp['place'] ?? qp['p'];
       if (place != null && place.isNotEmpty) {
         _deepLinkPlaceId = place;
         deepLinked = true;
@@ -506,6 +508,23 @@ class _MapScreenState extends State<MapScreen> {
   /// A ?place=GOOGLE_PLACE_ID link: open that exact space, whether
   /// it is a screened venue, a known discovery, or brand new to us.
   String? _deepLinkPlaceId;
+  // Where a shared link points. Used for the map's first frame, and
+  // kept separate from the person's own position so a late GPS fix
+  // cannot drag the map back to them (seen 24 Sep 2026).
+  LatLng? _startAt;
+  double? _startZoom;
+  CameraUpdate? _pendingCamera;
+
+  void _goTo(LatLng at, double zoom) {
+    _startAt = at;
+    _startZoom = zoom;
+    final update = CameraUpdate.newLatLngZoom(at, zoom);
+    if (_map != null) {
+      _map!.animateCamera(update);
+    } else {
+      _pendingCamera = update; // applied the moment the map exists
+    }
+  }
 
   Future<void> _openDeepLinkPlace(String pid) async {
     final v =
@@ -516,8 +535,7 @@ class _MapScreenState extends State<MapScreen> {
         _selected = v;
         _selectedDiscovered = null;
       });
-      _map?.animateCamera(
-          CameraUpdate.newLatLngZoom(LatLng(v.lat!, v.lng!), 16));
+      _goTo(LatLng(v.lat!, v.lng!), 16);
       return;
     }
     final live = await _places.details(pid);
@@ -539,8 +557,7 @@ class _MapScreenState extends State<MapScreen> {
       // Make sure the pin they were linked to is actually visible.
       if (!d.promising) _showUnscreened = true;
     });
-    _map?.animateCamera(
-        CameraUpdate.newLatLngZoom(LatLng(d.lat, d.lng), 16));
+    _goTo(LatLng(d.lat, d.lng), 16);
   }
 
   /// Remember where the map is pointing so next open starts there.
@@ -2422,8 +2439,8 @@ class _MapScreenState extends State<MapScreen> {
           : Stack(children: [
               GoogleMap(
                 initialCameraPosition: CameraPosition(
-                    target: LatLng(_userLat ?? 20, _userLng ?? 0),
-                    zoom: _initZoom),
+                    target: _startAt ?? LatLng(_userLat ?? 20, _userLng ?? 0),
+                    zoom: _startZoom ?? _initZoom),
                 // Google's own business icons (cafes, bars, shops) are
                 // hidden: tapping them opened Google's card with a link
                 // OUT of the app. Our pins are the only tappable places;
@@ -2436,7 +2453,14 @@ class _MapScreenState extends State<MapScreen> {
                 myLocationButtonEnabled: false,
                 zoomControlsEnabled: false,
                 markers: _markers,
-                onMapCreated: (c) => _map = c,
+                onMapCreated: (c) {
+                  _map = c;
+                  final pending = _pendingCamera;
+                  if (pending != null) {
+                    _pendingCamera = null;
+                    c.animateCamera(pending);
+                  }
+                },
                 onCameraIdle: () async {
                   final b = await _map?.getVisibleRegion();
                   if (mounted && b != null) {
