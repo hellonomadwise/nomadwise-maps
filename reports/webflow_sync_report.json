@@ -1,0 +1,69 @@
+{
+  "started": "2026-09-26T09:26:03.118377+00:00",
+  "items_read": 1036,
+  "live_items": 1007,
+  "sitemap_source": "snapshot 2026-09-12",
+  "matched_by_place_id": 983,
+  "matched_by_cms_id": 16,
+  "inserted": 0,
+  "updated": 999,
+  "marked_removed": 0,
+  "status_counts": {
+    "released": 998,
+    "removed": 1
+  },
+  "no_place_id": [],
+  "inserted_names": [],
+  "skipped_not_live_new": 28,
+  "queued_for_site": 1,
+  "created_on_site": [],
+  "needs_location": [],
+  "errors": [
+    "listing plan Instant Crunch Saldanha: HTTP Error 400: Bad Request"
+  ],
+  "sitemap_entries": 1007,
+  "sitemap_marked": 0,
+  "sitemap_unmarked": 0,
+  "sitemap_region_entries": 156,
+  "sitemap_region_marked": 0,
+  "sitemap_region_unmarked": 0,
+  "sitemap_locations_entries": 284,
+  "sitemap_locations_marked": 0,
+  "sitemap_locations_unmarked": 0,
+  "sitemap_country_entries": 62,
+  "sitemap_country_marked": 0,
+  "sitemap_country_unmarked": 0,
+  "prepared": [
+    {
+      "name": "Hygge Kaffe",
+      "slug": "portugal-lisbon-hygge-kaffe",
+      "region": "Lisbon"
+    }
+  ],
+  "awaiting_approval": [
+    "Hygge Kaffe"
+  ],
+  "taxonomy_requests": 0,
+  "retire_requests": 0,
+  "listing_requests": 1,
+  "regions_copied": 165,
+  "google_fresh": [
+    "co.work"
+  ],
+  "hours_backfilled": [],
+  "rotation": {
+    "day": "2026-09-26",
+    "ranked": 6,
+    "republished": 6,
+    "order": [
+      "Neighbors and Nomads Coworking",
+      "Nomio Coworking Lounge",
+      "Monday",
+      "SOKKOOL Coliving & Coworking",
+      "Ofis Voyvoda Istanbul",
+      "DEOS Coworking"
+    ]
+  },
+  "locations_copied": 346,
+  "finished": "2026-09-26T09:26:43.772111+00:00"
+}
