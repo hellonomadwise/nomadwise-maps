@@ -2060,8 +2060,11 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     final domain = email.contains('@') ? email.split('@').last : '';
     final match = site.isNotEmpty && domain.isNotEmpty && host(site) == domain;
     final previous = (v['listing_owner_email'] ?? '').toString();
+    final address = (c['space_address'] ?? '').toString();
+    final placeId = (c['space_place_id'] ?? '').toString();
     final lines = <String>[
       if (who.isNotEmpty) who,
+      if (address.isNotEmpty) 'Address: $address',
       if ((c['enquiry_email'] ?? '').toString().isNotEmpty)
         'Booking requests to ${c['enquiry_email']}',
       if ((c['space_website'] ?? '').toString().isNotEmpty)
@@ -2168,6 +2171,9 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
           _lookupButton(Icons.search, 'Google',
               'https://www.google.com/search?q='
               '${Uri.encodeQueryComponent('$spaceName ${where.isNotEmpty ? where : ''}'.trim())}'),
+          if (placeId.isNotEmpty)
+            _lookupButton(Icons.map_outlined, 'Map',
+                'https://www.google.com/maps/place/?q=place_id:$placeId'),
           if ((c['space_instagram'] ?? '').toString().isNotEmpty)
             _lookupButton(Icons.camera_alt_outlined, 'Instagram',
                 _instagramUrl(c['space_instagram'].toString())),

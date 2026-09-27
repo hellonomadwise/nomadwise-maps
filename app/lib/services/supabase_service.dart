@@ -904,7 +904,7 @@ class SupabaseService {
           .from('listing_claims')
           .select('id, venue_id, owner_name, owner_email, owner_phone, '
               'owner_role, enquiry_email, space_name, space_city, '
-              'space_country, space_website, '
+              'space_country, space_address, space_place_id, space_website, '
               'space_instagram, note, paid_at, created_at, order_json, '
               'status, plan, is_new_space, '
               'venues(name, city, country, website, listing_owner_email)')

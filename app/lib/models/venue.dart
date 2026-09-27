@@ -354,6 +354,10 @@ class Venue {
 class PlaceLive {
   final String? displayName;
   final String? city;
+
+  /// The country, from Google's address components (the short address
+  /// often leaves it off, e.g. Sri Lankan addresses end in the town).
+  final String? country;
   final num? rating;
   final int? userRatingCount;
   final bool? openNow;
@@ -379,6 +383,7 @@ class PlaceLive {
   PlaceLive.fromJson(Map<String, dynamic> j)
       : displayName = j['displayName']?['text'],
         city = _cityFrom(j['addressComponents']),
+        country = _componentFrom(j['addressComponents'], 'country'),
         rating = j['rating'],
         userRatingCount = j['userRatingCount'],
         openNow = (j['currentOpeningHours'] ?? j['regularOpeningHours'])
@@ -397,6 +402,15 @@ class PlaceLive {
             ((j['currentOpeningHours'] ?? j['regularOpeningHours'])
                     ?['weekdayDescriptions'] as List?)
                 ?.cast<String>();
+
+  static String? _componentFrom(dynamic components, String wanted) {
+    if (components is! List) return null;
+    for (final c in components) {
+      final types = (c['types'] as List?)?.cast<String>() ?? [];
+      if (types.contains(wanted)) return c['longText'] ?? c['shortText'];
+    }
+    return null;
+  }
 
   /// The place's city, from Google's address components.
   static String? _cityFrom(dynamic components) {

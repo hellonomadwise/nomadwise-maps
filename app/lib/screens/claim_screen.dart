@@ -287,7 +287,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
     setState(() {
       _newAddress = addr;
       _newCity = d?.city;
-      _newCountry = _countryFrom(addr);
+      _newCountry = d?.country ?? _countryFrom(addr);
       _newLat = d?.lat;
       _newLng = d?.lng;
       _newType = (d?.primaryType == 'coworking_space' ||
