@@ -46,6 +46,9 @@ class PlacesService {
     'location',
     'shortFormattedAddress',
     'addressComponents',
+    'internationalPhoneNumber',
+    'nationalPhoneNumber',
+    'websiteUri',
     'photos',
   ];
 

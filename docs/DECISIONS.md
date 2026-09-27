@@ -762,3 +762,19 @@ changes tab in the control centre; Send back carries a note. The
 sync writes the content to Webflow within minutes; the message rides
 in the unused "Nomadwise Offers" field and the site snippet draws it
 in the advert slot (Designer step pending). No analytics, no perks.
+
+## 27 Sep 2026: the Owners tab, and proving ownership
+
+The control-centre tab "Paid listings" is now **Owners**: everyone
+who has claimed a page, free or Verified. Sections in order: waiting
+for a decision (paid and free claims), payments to match, forms
+started and not finished, Verified listings (paid, or made Verified
+by us), free listings with an owner on record.
+
+Every claim card checks the claimant against what Google lists for
+the place: the phone number and the website. A match on either is
+called strong (only the business changes those on its Google
+listing). No match is "not proven yet, one phone call away", with
+Google's number on the card to ring. The phone number a claimant
+gives is never used to guess where the space is: the country comes
+from Google's address components.

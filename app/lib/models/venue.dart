@@ -358,6 +358,10 @@ class PlaceLive {
   /// The country, from Google's address components (the short address
   /// often leaves it off, e.g. Sri Lankan addresses end in the town).
   final String? country;
+
+  /// Google's listed phone and website, for checking a claim against.
+  final String? phone;
+  final String? website;
   final num? rating;
   final int? userRatingCount;
   final bool? openNow;
@@ -384,6 +388,8 @@ class PlaceLive {
       : displayName = j['displayName']?['text'],
         city = _cityFrom(j['addressComponents']),
         country = _componentFrom(j['addressComponents'], 'country'),
+        phone = j['internationalPhoneNumber'] ?? j['nationalPhoneNumber'],
+        website = j['websiteUri'],
         rating = j['rating'],
         userRatingCount = j['userRatingCount'],
         openNow = (j['currentOpeningHours'] ?? j['regularOpeningHours'])

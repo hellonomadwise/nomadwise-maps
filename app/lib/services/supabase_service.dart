@@ -907,7 +907,8 @@ class SupabaseService {
               'space_country, space_address, space_place_id, space_website, '
               'space_instagram, note, paid_at, created_at, order_json, '
               'status, plan, is_new_space, '
-              'venues(name, city, country, website, listing_owner_email)')
+              'venues(name, city, country, website, listing_owner_email, '
+              'google_place_id)')
           .inFilter('status', ['awaiting_approval', 'free_pending'])
           .order('created_at', ascending: false)
           .limit(50);
@@ -1071,6 +1072,25 @@ class SupabaseService {
           .select(_websiteCols)
           .or('listing_tier.neq.free,webflow_verified.eq.true')
           .order('listing_renews_at', ascending: true, nullsFirst: false);
+      return (rows as List)
+          .map((r) => Map<String, dynamic>.from(r))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Free pages with an owner on record (an approved free claim), so
+  /// the Owners tab can list them apart from the Verified ones.
+  Future<List<Map<String, dynamic>>> websiteFreeOwned() async {
+    try {
+      final rows = await _db
+          .from('venues')
+          .select(_websiteCols)
+          .not('listing_owner_email', 'is', null)
+          .eq('listing_tier', 'free')
+          .or('webflow_verified.is.null,webflow_verified.eq.false')
+          .order('created_at', ascending: false);
       return (rows as List)
           .map((r) => Map<String, dynamic>.from(r))
           .toList();

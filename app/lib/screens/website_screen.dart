@@ -37,6 +37,7 @@ class WebsiteScreen extends StatefulWidget {
 
 class _WebsiteScreenState extends State<WebsiteScreen> {
   final _supabase = SupabaseService();
+  final _places = PlacesService();
 
   List<Map<String, dynamic>>? _inbox;
   List<Map<String, dynamic>> _drafts = [];
@@ -53,6 +54,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   List<Map<String, dynamic>> _orders = [];
   List<Map<String, dynamic>> _held = [];
   List<Map<String, dynamic>> _started = [];
+  List<Map<String, dynamic>> _freeOwned = [];
   List<Map<String, dynamic>> _ownerDrafts = [];
   List<Map<String, dynamic>> _locations = [];
   List<Map<String, dynamic>> _countries = [];
@@ -92,6 +94,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         _supabase.heldClaims(),
         _supabase.openClaims(),
         _supabase.ownerDraftsToReview(),
+        _supabase.websiteFreeOwned(),
       ]);
       if (!mounted) return;
       setState(() {
@@ -122,6 +125,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                     true)
             .toList();
         _ownerDrafts = results[17];
+        _freeOwned = results[18];
         _error = null;
       });
     } catch (e) {
@@ -933,16 +937,16 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       ),
       (
         key: 'paid',
-        label: 'Paid listings',
+        label: 'Owners',
         count: _held.length + _paid.length + _orders.length + _started.length,
         color: Brand.success,
-        hint: 'Every claim from the claim form: paid claims waiting for '
-            'approval first, then payments needing a match, then forms '
-            'started but not paid (last 30 days), then the Verified '
-            'listings: who pays, when it renews, whether the badge is on '
-            'the page.',
-        empty: 'No paid listings yet. Open a released page and tap Listing '
-            'plan to mark the first one Verified.'
+        hint: 'Everyone who has claimed a page, free or Verified. Claims '
+            'waiting for a decision first, then payments needing a match, '
+            'then forms started but not finished (last 30 days), then the '
+            'Verified listings (paid, or made Verified by us) and the free '
+            'pages with an owner on record.',
+        empty: 'No claims or owners yet. Open a released page and tap '
+            'Listing plan to mark the first one Verified.'
       ),
       (
         key: 'owner',
@@ -1010,10 +1014,29 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       'owner' => _ownerDrafts.map(_ownerDraftCard).toList(),
       'paid' => [
           _journeysCard(),
-          ..._held.map(_heldCard),
-          ..._orders.map(_orderCard),
-          ..._started.map(_startedCard),
-          ..._paid.map(_paidCard)
+          if (_held.isNotEmpty) ...[
+            _ownersSection('Waiting for your decision', _held.length),
+            ..._held.map(_heldCard),
+          ],
+          if (_orders.isNotEmpty) ...[
+            _ownersSection('Payments to match', _orders.length),
+            ..._orders.map(_orderCard),
+          ],
+          if (_started.isNotEmpty) ...[
+            _ownersSection('Started the form, did not finish',
+                _started.length),
+            ..._started.map(_startedCard),
+          ],
+          _ownersSection('Verified listings', _paid.length),
+          ..._paid.map(_paidCard),
+          _ownersSection('Free listings with an owner', _freeOwned.length),
+          if (_freeOwned.isEmpty)
+            const Padding(
+              padding: EdgeInsets.fromLTRB(4, 0, 4, 12),
+              child: Text('None yet. An approved free claim lands here.',
+                  style: TextStyle(fontSize: 12.5, color: Brand.inkMuted)),
+            ),
+          ..._freeOwned.map(_paidCard),
         ],
       _ => <Widget>[],
     };
@@ -1902,16 +1925,16 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
           'switch the badge off.',
           style: TextStyle(fontSize: 12.5, color: Brand.goldTextDark)));
     }
+    final who = [
+      if ((v['listing_owner_name'] ?? '').toString().isNotEmpty)
+        v['listing_owner_name'],
+      if ((v['listing_owner_email'] ?? '').toString().isNotEmpty)
+        v['listing_owner_email'],
+    ].join('  ·  ');
+    if (who.isNotEmpty) {
+      lines.add(Text('Owner: $who', style: const TextStyle(fontSize: 12.5)));
+    }
     if (verified) {
-      final who = [
-        if ((v['listing_owner_name'] ?? '').toString().isNotEmpty)
-          v['listing_owner_name'],
-        if ((v['listing_owner_email'] ?? '').toString().isNotEmpty)
-          v['listing_owner_email'],
-      ].join('  ·  ');
-      if (who.isNotEmpty) {
-        lines.add(Text(who, style: const TextStyle(fontSize: 12.5)));
-      }
       lines.add(Text(
           'Enquiries to ${(v['listing_enquiry_email'] ?? '').toString().isEmpty ? 'hello@nomadwise.io (none set)' : v['listing_enquiry_email']}',
           style: const TextStyle(fontSize: 12.5)));
@@ -2029,6 +2052,111 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   // A paid claim on a page that is already on the site. Nothing on the
   // page has changed yet: Approve makes it Verified, Reject leaves the
   // page alone and points at the Stripe refund.
+  Widget _ownersSection(String title, int count) => Padding(
+        padding: const EdgeInsets.fromLTRB(4, 14, 4, 8),
+        child: Text('${title.toUpperCase()}  ·  $count',
+            style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                letterSpacing: .8,
+                color: Brand.inkMuted)),
+      );
+
+  /// Does the claimant look like the owner? Compares what they typed
+  /// with what Google lists for the place: the phone number and the
+  /// website. A phone match is strong (only the business changes the
+  /// number on its Google listing); a website domain match likewise;
+  /// nothing to compare means "ring the number Google lists and ask".
+  Widget _ownerCheck(Map<String, dynamic> c, String placeId) {
+    final givenPhone = _digits((c['owner_phone'] ?? '').toString());
+    final email = (c['owner_email'] ?? '').toString().toLowerCase();
+    final domain = email.contains('@') ? email.split('@').last : '';
+    final givenSite = (c['space_website'] ?? '').toString();
+    String host(String u) => u
+        .replaceFirst(RegExp(r'^https?://'), '')
+        .replaceFirst(RegExp(r'^www\.'), '')
+        .split('/')
+        .first
+        .toLowerCase();
+    return FutureBuilder<PlaceLive?>(
+      future: _places.details(placeId),
+      builder: (context, snap) {
+        if (!snap.hasData) {
+          return const Padding(
+            padding: EdgeInsets.only(top: 6),
+            child: Text('Checking against the Google listing...',
+                style: TextStyle(fontSize: 12, color: Brand.inkMuted)),
+          );
+        }
+        final g = snap.data!;
+        final gPhone = _digits(g.phone ?? '');
+        final gHost = (g.website ?? '').isEmpty ? '' : host(g.website!);
+        final phoneMatch = givenPhone.length >= 7 &&
+            gPhone.length >= 7 &&
+            (givenPhone.endsWith(gPhone.substring(gPhone.length - 7)) ||
+                gPhone.endsWith(givenPhone.substring(givenPhone.length - 7)));
+        final siteMatch = gHost.isNotEmpty &&
+            ((domain.isNotEmpty && gHost == domain) ||
+                (givenSite.isNotEmpty && host(givenSite) == gHost));
+        final rows = <(IconData, Color, String)>[
+          if (gPhone.isEmpty)
+            (Icons.phone_disabled_outlined, Brand.inkMuted,
+                'Google lists no phone number for this place.')
+          else if (givenPhone.isEmpty)
+            (Icons.phone_outlined, Brand.goldTextDark,
+                'They gave no phone. Google lists ${g.phone}: ring it and ask for ${c['owner_name']}.')
+          else if (phoneMatch)
+            (Icons.check_circle_outline, Brand.success,
+                'Phone matches the Google listing (${g.phone}).')
+          else
+            (Icons.error_outline, Brand.goldTextDark,
+                'Phone differs from the Google listing (${g.phone}). Ring that one and ask for ${c['owner_name']}.'),
+          if (gHost.isEmpty)
+            (Icons.language, Brand.inkMuted,
+                'Google lists no website for this place.')
+          else if (siteMatch)
+            (Icons.check_circle_outline, Brand.success,
+                'Website matches the Google listing ($gHost).')
+          else
+            (Icons.language, Brand.goldTextDark,
+                'Google lists $gHost; the claim came from $domain. Common with Gmail; the Instagram and a phone call settle it.'),
+        ];
+        final strong = phoneMatch || siteMatch;
+        return Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                    strong
+                        ? 'Ownership: strong, the claim matches what Google lists.'
+                        : 'Ownership: not proven yet, one phone call away.',
+                    style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                        color: strong ? Brand.success : Brand.goldTextDark)),
+                for (final r in rows)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 3),
+                    child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(r.$1, size: 15, color: r.$2),
+                          const SizedBox(width: 6),
+                          Expanded(
+                              child: Text(r.$3,
+                                  style: TextStyle(
+                                      fontSize: 12, color: r.$2))),
+                        ]),
+                  ),
+              ]),
+        );
+      },
+    );
+  }
+
+  static String _digits(String s) => s.replaceAll(RegExp(r'[^0-9]'), '');
+
   Widget _heldCard(Map<String, dynamic> c) {
     final v = (c['venues'] is Map)
         ? Map<String, dynamic>.from(c['venues'] as Map)
@@ -2127,6 +2255,8 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                     color: match ? Brand.success : Brand.goldTextDark)),
           ),
         ]),
+        if ((v['google_place_id'] ?? placeId).toString().isNotEmpty)
+          _ownerCheck(c, (v['google_place_id'] ?? placeId).toString()),
         if (previous.isNotEmpty && previous != email)
           Padding(
             padding: const EdgeInsets.only(top: 4),
