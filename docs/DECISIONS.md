@@ -774,7 +774,9 @@ by us), free listings with an owner on record.
 Every claim card checks the claimant against what Google lists for
 the place: the phone number and the website. A match on either is
 called strong (only the business changes those on its Google
-listing). No match is "not proven yet, one phone call away", with
-Google's number on the card to ring. The phone number a claimant
+listing). No match is "not proven yet, one WhatsApp message away", with a
+button that opens WhatsApp to Google's listed number with the
+question already typed (calls do not reliably reach the countries
+our spaces are in; WhatsApp does). The phone number a claimant
 gives is never used to guess where the space is: the country comes
 from Google's address components.

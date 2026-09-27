@@ -2104,13 +2104,13 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                 'Google lists no phone number for this place.')
           else if (givenPhone.isEmpty)
             (Icons.phone_outlined, Brand.goldTextDark,
-                'They gave no phone. Google lists ${g.phone}: ring it and ask for ${c['owner_name']}.')
+                'They gave no phone. Google lists ${g.phone}: message it on WhatsApp and ask for ${c['owner_name']}.')
           else if (phoneMatch)
             (Icons.check_circle_outline, Brand.success,
                 'Phone matches the Google listing (${g.phone}).')
           else
             (Icons.error_outline, Brand.goldTextDark,
-                'Phone differs from the Google listing (${g.phone}). Ring that one and ask for ${c['owner_name']}.'),
+                'Phone differs from the Google listing (${g.phone}). Message that one on WhatsApp and ask for ${c['owner_name']}.'),
           if (gHost.isEmpty)
             (Icons.language, Brand.inkMuted,
                 'Google lists no website for this place.')
@@ -2122,6 +2122,17 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                 'Google lists $gHost; the claim came from $domain. Common with Gmail; the Instagram and a phone call settle it.'),
         ];
         final strong = phoneMatch || siteMatch;
+        // The check-in message, to the number Google lists (the one
+        // only the business could have put there). Calls do not
+        // always reach these countries; WhatsApp does.
+        final space = (c['space_name'] ??
+                (c['venues'] is Map ? c['venues']['name'] : null) ??
+                'your space')
+            .toString();
+        final ask = 'Hi, this is Jonathan from nomadwise.io. Someone called '
+            '${c['owner_name']} has just claimed the $space page on our '
+            'directory. Is that you, or someone from your team? A quick '
+            'yes is all we need before we hand over the page. Thanks!';
         return Padding(
           padding: const EdgeInsets.only(top: 6),
           child: Column(
@@ -2130,11 +2141,27 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                 Text(
                     strong
                         ? 'Ownership: strong, the claim matches what Google lists.'
-                        : 'Ownership: not proven yet, one phone call away.',
+                        : 'Ownership: not proven yet, one WhatsApp message away.',
                     style: TextStyle(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w700,
                         color: strong ? Brand.success : Brand.goldTextDark)),
+                if (gPhone.isNotEmpty && !strong)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: OutlinedButton.icon(
+                        onPressed: () => launchUrl(
+                            Uri.parse('https://wa.me/$gPhone?text='
+                                '${Uri.encodeComponent(ask)}'),
+                            mode: LaunchMode.platformDefault,
+                            webOnlyWindowName: '_blank'),
+                        icon: const Icon(Icons.chat_outlined, size: 16),
+                        label: Text("WhatsApp Google's number (${g.phone})"),
+                        style: OutlinedButton.styleFrom(
+                            foregroundColor: Brand.goldTextDark,
+                            textStyle: const TextStyle(
+                                fontSize: 12.5, fontWeight: FontWeight.w600))),
+                  ),
                 for (final r in rows)
                   Padding(
                     padding: const EdgeInsets.only(top: 3),
