@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Owner account · Nomadwise Maps</title>
+<meta name="robots" content="noindex">
+<!-- nomadmaps.io/owner is the address people are given; the app itself
+     reads the ?owner door. This page only forwards, keeping any extra
+     parameters (the sign-in link's tokens arrive in the hash). -->
+<script>
+  var q = location.search ? location.search.replace(/^\?/, '&') : '';
+  location.replace('/?owner' + q + location.hash);
+</script>
+<meta http-equiv="refresh" content="0; url=/?owner">
+</head>
+<body>Opening your Owner account…</body>
+</html>

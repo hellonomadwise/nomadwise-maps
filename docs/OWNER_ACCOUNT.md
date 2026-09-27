@@ -1,10 +1,17 @@
-# The Owner account (nomadmaps.io/?owner)
+# The Owner account (nomadmaps.io/owner)
 
 Built 24 September 2026 from Jonathan's concept pages of 21 Sep
 (owner journey, members area), within what was agreed with Leonie:
 no analytics, no separate perks, pay first and approve after. To an
 owner it is "Owner account" and "Manage my listing", branded
 "nomadwise for spaces"; "members area" stays internal.
+
+The address people are given is nomadmaps.io/owner (and
+nomadmaps.io/claim for the claim form). Those are two tiny pages in
+`app/web/owner/` and `app/web/claim/` that forward to the app's
+`?owner` and `?claim` doors, keeping whatever the sign-in link
+appends. Supabase's redirect allow list holds `https://nomadmaps.io/**`,
+which covers them.
 
 ## What an owner can do
 

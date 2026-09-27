@@ -29,7 +29,7 @@ class AppConfig {
   static const stripePortalLink = '';
 
   /// Where the Owner account lives; used in emails and after a claim.
-  static const ownerAccountUrl = 'https://nomadmaps.io/?owner';
+  static const ownerAccountUrl = 'https://nomadmaps.io/owner';
 
   // ---- Coin economy ----
   /// Reviewing/screening a space that isn't listed yet (identity comes

@@ -753,7 +753,7 @@ or offer).
 
 ## The Owner account is built (24 September 2026)
 
-nomadmaps.io/?owner, see `docs/OWNER_ACCOUNT.md`. Sign in by email
+nomadmaps.io/owner, see `docs/OWNER_ACCOUNT.md`. Sign in by email
 link or Google with the claim's email. My listing (description,
 prices, hours, facts, photos, contact) with a live preview; Your
 message (Verified only) for the advert slot; Membership. Everything

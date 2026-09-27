@@ -35,7 +35,7 @@ class SupabaseService {
   Future<void> sendSignInLink(String email) => _db.auth.signInWithOtp(
         email: email.trim().toLowerCase(),
         emailRedirectTo: kIsWeb
-            ? '${Uri.base.origin}${Uri.base.path}?owner'
+            ? '${Uri.base.origin}/owner'
             : AppConfig.authRedirect,
         shouldCreateUser: true,
       );

@@ -1089,13 +1089,13 @@ class ClaimedScreen extends StatelessWidget {
                             'you are its owner on record: corrections to the '
                             'page go on at your say-so, and you can go '
                             'Verified at any time.\n\n'
-                            'Once approved, sign in at nomadmaps.io/?owner with '
+                            'Once approved, sign in at nomadmaps.io/owner with '
                             'this email to manage your listing.'
                         : 'Thank you. Your payment reached us and your claim is '
                             'in the queue.\n\n'
                             'We will email you as soon as your Verified page is live. '
                             'Your photos, description and prices go in through your '
-                            'Owner account at nomadmaps.io/?owner, with the email '
+                            'Owner account at nomadmaps.io/owner, with the email '
                             'you just used.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
@@ -1103,6 +1103,17 @@ class ClaimedScreen extends StatelessWidget {
                         height: 1.65,
                         fontSize: wide ? 15 : 14)),
                 SizedBox(height: wide ? 28 : 22),
+                FilledButton.icon(
+                    onPressed: () => launchUrl(
+                        Uri.parse(AppConfig.ownerAccountUrl),
+                        webOnlyWindowName: '_self'),
+                    style: FilledButton.styleFrom(
+                        backgroundColor: Brand.red,
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 14, horizontal: 22)),
+                    icon: const Icon(Icons.person_outline, size: 16),
+                    label: const Text('Go to my Owner account')),
+                const SizedBox(height: 10),
                 OutlinedButton.icon(
                     onPressed: () => launchUrl(
                         Uri.parse('https://www.nomadwise.io'),
