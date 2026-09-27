@@ -126,7 +126,14 @@ def _call(url, headers, method='GET', body=None, retries=3):
             if e.code == 429 and attempt < retries - 1:
                 time.sleep(int(e.headers.get('Retry-After', '15')) + 1)
                 continue
-            raise
+            # Say why: Webflow names the field it refused.
+            try:
+                detail = e.read().decode()[:400]
+            except Exception:  # noqa: BLE001
+                detail = ''
+            raise urllib.error.HTTPError(
+                e.url, e.code, f'{e.reason}: {detail}' if detail else e.reason,
+                e.headers, None) from None
 
 
 def wf(path, params=None):
@@ -1450,6 +1457,62 @@ def html_escape(t):
             .replace('>', '&gt;'))
 
 
+_field_types = None
+
+
+def field_types():
+    """slug -> Webflow field type for the Coworking collection, read
+    once. Lets owner-typed values be shaped to what the field takes
+    (a Link needs https://, a Number needs a number), instead of a
+    400 from Webflow that stops the whole listing update."""
+    global _field_types
+    if _field_types is None:
+        try:
+            col = wf(f'/v2/collections/{COLLECTION_ID}') or {}
+            _field_types = {f.get('slug'): f.get('type')
+                            for f in (col.get('fields') or [])}
+        except Exception:  # noqa: BLE001
+            _field_types = {}
+    return _field_types
+
+
+def as_link(val, kind=None):
+    t = str(val or '').strip()
+    if not t:
+        return None
+    if kind == 'instagram' and not re.match(r'https?://', t):
+        return 'https://www.instagram.com/' + t.lstrip('@').strip('/')
+    if not re.match(r'https?://', t):
+        t = 'https://' + t
+    return t
+
+
+def shape_fields(fields):
+    """Make each value fit its Webflow field type; drop what cannot."""
+    types = field_types()
+    out = {}
+    for slug_, val in fields.items():
+        ftype = types.get(slug_)
+        if val is None or ftype is None:
+            out[slug_] = val
+            continue
+        if ftype == 'Link':
+            link = as_link(val, 'instagram' if slug_ == 'instagram' else None)
+            if link:
+                out[slug_] = link
+        elif ftype == 'Number':
+            m = re.search(r'[0-9]+(?:[.,][0-9]+)?', str(val))
+            if m:
+                out[slug_] = float(m.group(0).replace(',', '.'))
+        elif ftype == 'Switch':
+            out[slug_] = bool(val)
+        elif ftype in ('PlainText', 'RichText', 'Email', 'Phone'):
+            out[slug_] = str(val)
+        else:
+            out[slug_] = val
+    return out
+
+
 def sync_listing(v):
     cms = v['webflow_cms_id']
     verified = v.get('listing_tier') == 'verified'
@@ -1462,6 +1525,7 @@ def sync_listing(v):
         'coworking-space-email-3': email if verified else DEFAULT_ENQUIRY_EMAIL,
     }
     fields.update(owner_fields(v))
+    fields = shape_fields(fields)
     wf_write(f'/v2/collections/{COLLECTION_ID}/items/{cms}', 'PATCH',
              {'fieldData': fields})
     time.sleep(0.6)
