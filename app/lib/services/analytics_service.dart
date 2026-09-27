@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../config.dart';
 import 'ua_stub.dart' if (dart.library.html) 'ua_web.dart' as ua;
 
 /// Sends product analytics events to PostHog (EU cloud).
@@ -161,6 +162,41 @@ class Analytics {
       'properties': {'app': 'nomadwise-maps', ...merged},
       'timestamp': DateTime.now().toUtc().toIso8601String(),
     });
+  }
+
+  /// Like [capture], but for the moment the visitor leaves the page:
+  /// the browser sends it after the page is gone, when an ordinary
+  /// request would be cut off. Synchronous, so it can run inside the
+  /// browser's pagehide event; uses whatever identity is cached.
+  static void beacon(String event, [Map<String, dynamic>? props]) {
+    if (_internal ?? false) return;
+    final id = _distinctId ?? 'anon-fallback';
+    final merged = <String, dynamic>{...?props};
+    try {
+      ua.sendBeacon(
+          '${AppConfig.supabaseUrl}/rest/v1/app_events',
+          jsonEncode({
+            'anon_id': id,
+            'name': event,
+            if (merged.isNotEmpty) 'props': merged,
+          }),
+          {
+            'apikey': AppConfig.supabaseAnonKey,
+            'Authorization': 'Bearer ${AppConfig.supabaseAnonKey}',
+            'Prefer': 'return=minimal',
+          });
+    } catch (_) {}
+    try {
+      ua.sendBeacon(
+          '$_host/capture/',
+          jsonEncode({
+            'api_key': _apiKey,
+            'event': event,
+            'distinct_id': id,
+            'properties': {'app': 'nomadwise-maps', ...merged},
+            'timestamp': DateTime.now().toUtc().toIso8601String(),
+          }));
+    } catch (_) {}
   }
 
   /// Mirror the event into Supabase so the admin can browse activity

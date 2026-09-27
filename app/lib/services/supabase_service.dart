@@ -523,6 +523,28 @@ class SupabaseService {
   /// ('team' | 'friend'; absent = genuine customer).
   /// Devices (anonymous ids) that have ever signed into a team
   /// account, excluded from analytics even when browsing signed out.
+  /// Every claim-page event of the last [days] days, oldest first, for
+  /// the Claim journeys view. Admin only (the table's policy).
+  Future<List<Map<String, dynamic>>> claimJourneyEvents(
+      {int days = 30}) async {
+    try {
+      final since = DateTime.now()
+          .toUtc()
+          .subtract(Duration(days: days))
+          .toIso8601String();
+      final rows = await _db
+          .from('app_events')
+          .select('anon_id, user_id, name, props, created_at')
+          .like('name', 'claim_%')
+          .gte('created_at', since)
+          .order('created_at', ascending: true)
+          .limit(5000);
+      return (rows as List).cast<Map<String, dynamic>>();
+    } catch (_) {
+      return [];
+    }
+  }
+
   Future<Set<String>> teamDevices() async {
     try {
       final rows = await _db.from('team_devices').select('anon_id');

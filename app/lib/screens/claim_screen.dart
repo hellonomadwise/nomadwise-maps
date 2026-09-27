@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -89,6 +90,65 @@ class _ClaimScreenState extends State<ClaimScreen> {
   bool _sending = false;
   String? _error;
 
+  // ---- the journey, for the admin's Claim journeys view ----
+  // One id per opening of the page; every event carries it, the step
+  // it happened on and the seconds since the page opened, so the
+  // whole visit reads as a story afterwards.
+  final String _visit =
+      '${DateTime.now().millisecondsSinceEpoch.toRadixString(36)}'
+      '${Random().nextInt(0xFFFF).toRadixString(36)}';
+  final DateTime _openedAt = DateTime.now();
+  bool _done = false; // went to Stripe or claimed free: not "left"
+  final Set<String> _filled = {}; // fields typed into, logged once each
+
+  int get _secs => DateTime.now().difference(_openedAt).inSeconds;
+
+  static String _stepName(_Step s) => switch (s) {
+        _Step.find => 'find',
+        _Step.addSpace => 'add_space',
+        _Step.about => 'about',
+        _Step.pay => 'plan',
+      };
+
+  void _track(String event, [Map<String, dynamic>? props]) {
+    Analytics.capture(event, {
+      'visit': _visit,
+      'step': _stepName(_step),
+      'secs': _secs,
+      ...?props,
+    });
+  }
+
+  /// Every change of step goes through here so it is recorded.
+  void _go(_Step next, {String? how}) {
+    if (next == _step) return;
+    _track('claim_step', {
+      'to': _stepName(next),
+      if (how != null) 'how': how,
+      if (_spaceName.isNotEmpty) 'space': _spaceName,
+    });
+    _step = next;
+  }
+
+  void _watchField(TextEditingController c, String field) {
+    c.addListener(() {
+      if (c.text.trim().isEmpty || _filled.contains(field)) return;
+      _filled.add(field);
+      _track('claim_typed', {'field': field});
+    });
+  }
+
+  void _onLeave() {
+    if (_done) return;
+    Analytics.beacon('claim_left', {
+      'visit': _visit,
+      'step': _stepName(_step),
+      'secs': _secs,
+      if (_spaceName.isNotEmpty) 'space': _spaceName,
+      'filled': _filled.toList(),
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -97,7 +157,25 @@ class _ClaimScreenState extends State<ClaimScreen> {
       _search.text = seed;
       _runSearch(seed);
     }
-    Analytics.capture('claim_opened', {'seed': seed, 'from': widget.from});
+    _track('claim_opened', {
+      'seed': seed,
+      'from': widget.from,
+      'referrer': ua.referrer(),
+      'device': ua.deviceKind(),
+    });
+    for (final f in {
+      _ownerName: 'name',
+      _ownerRole: 'role',
+      _ownerEmail: 'email',
+      _ownerPhone: 'phone',
+      _enquiryEmail: 'enquiry_email',
+      _siteUrl: 'website',
+      _instagram: 'instagram',
+      _note: 'note',
+    }.entries) {
+      _watchField(f.key, f.value);
+    }
+    ua.setPageHideHandler(_onLeave);
     // Ring the phone, unless the visitor is a crawler.
     if (!Analytics.isBot) {
       _supabase.claimOpened(
@@ -110,6 +188,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
 
   @override
   void dispose() {
+    ua.setPageHideHandler(null);
     _searchTimer?.cancel();
     _placeTimer?.cancel();
     for (final c in [
@@ -160,6 +239,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
     setState(() => _searching = true);
     final rows = await _supabase.claimSearch(q);
     if (!mounted) return;
+    _track('claim_searched', {'q': q.trim(), 'results': rows.length});
     // A link from a listing page carries that page's slug: when the
     // search finds exactly that page, it is chosen without a tap.
     final exact = rows.where((r) => r['webflow_slug'] == q.trim()).toList();
@@ -173,7 +253,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
           _step == _Step.find) {
         _picked = exact.first;
         _search.text = '${exact.first['name']}';
-        _step = _Step.about;
+        _go(_Step.about, how: 'link_matched');
       }
     });
   }
@@ -188,6 +268,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
       setState(() => _placeBusy = true);
       final out = await _places.autocomplete(q);
       if (!mounted) return;
+      _track('claim_place_searched', {'q': q.trim(), 'results': out.length});
       setState(() {
         _suggestions = out;
         _placeBusy = false;
@@ -216,7 +297,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
               ? 'cafe'
               : _newType;
       _placeBusy = false;
-      _step = _Step.about;
+      _go(_Step.about, how: 'google_place');
     });
   }
 
@@ -267,7 +348,8 @@ class _ClaimScreenState extends State<ClaimScreen> {
       });
       final claimId = '${res?['claim_id'] ?? ''}';
       if (claimId.isEmpty) throw Exception('no claim id');
-      Analytics.capture('claim_to_payment', {
+      _done = true;
+      _track('claim_to_payment', {
         'space': _spaceName,
         'new_space': _picked == null,
       });
@@ -277,6 +359,8 @@ class _ClaimScreenState extends State<ClaimScreen> {
       await launchUrl(url,
           mode: LaunchMode.platformDefault, webOnlyWindowName: '_self');
     } catch (e) {
+      _done = false;
+      _track('claim_failed', {'why': _plain(e), 'plan': 'verified'});
       if (mounted) setState(() => _error = _plain(e));
     } finally {
       if (mounted) setState(() => _sending = false);
@@ -322,7 +406,8 @@ class _ClaimScreenState extends State<ClaimScreen> {
       });
       final claimId = '${res?['claim_id'] ?? ''}';
       if (claimId.isEmpty) throw Exception('no claim id');
-      Analytics.capture('claim_free', {
+      _done = true;
+      _track('claim_free', {
         'space': _spaceName,
         'new_space': _picked == null,
       });
@@ -330,6 +415,8 @@ class _ClaimScreenState extends State<ClaimScreen> {
       Navigator.of(context).pushReplacement(MaterialPageRoute(
           builder: (_) => const ClaimedScreen(free: true)));
     } catch (e) {
+      _done = false;
+      _track('claim_failed', {'why': _plain(e), 'plan': 'free'});
       if (mounted) setState(() => _error = _plain(e));
     } finally {
       if (mounted) setState(() => _sending = false);
@@ -389,12 +476,14 @@ class _ClaimScreenState extends State<ClaimScreen> {
   void _back() {
     setState(() {
       _error = null;
-      _step = switch (_step) {
-        _Step.pay => _Step.about,
-        _Step.about => _picked != null ? _Step.find : _Step.addSpace,
-        _Step.addSpace => _Step.find,
-        _Step.find => _Step.find,
-      };
+      _go(
+          switch (_step) {
+            _Step.pay => _Step.about,
+            _Step.about => _picked != null ? _Step.find : _Step.addSpace,
+            _Step.addSpace => _Step.find,
+            _Step.find => _Step.find,
+          },
+          how: 'back');
     });
   }
 
@@ -505,7 +594,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
             alignment: Alignment.centerLeft,
             child: OutlinedButton.icon(
               onPressed: () => setState(() {
-                _step = _Step.addSpace;
+                _go(_Step.addSpace, how: 'not_here');
                 _picked = null;
                 _placeSearch.text = _search.text;
                 if (_search.text.trim().length >= 2) {
@@ -558,13 +647,15 @@ class _ClaimScreenState extends State<ClaimScreen> {
             : () => setState(() {
                   _picked = h;
                   _pickedPlace = null;
-                  _step = _Step.about;
+                  _go(_Step.about,
+                      how: onSite ? 'picked_listed' : 'picked_unpublished');
                 }),
       ),
     );
   }
 
   void _alreadyVerified(String name) {
+    _track('claim_already_verified', {'space': name});
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -735,13 +826,16 @@ class _ClaimScreenState extends State<ClaimScreen> {
               final name = _ownerName.text.trim();
               final email = _ownerEmail.text.trim();
               if (name.length < 2 || !email.contains('@')) {
+                _track('claim_blocked', {
+                  'why': name.length < 2 ? 'no_name' : 'no_email',
+                });
                 setState(() =>
                     _error = 'Your name and a working email are needed.');
                 return;
               }
               setState(() {
                 _error = null;
-                _step = _Step.pay;
+                _go(_Step.pay, how: 'continue');
               });
             },
             style: FilledButton.styleFrom(

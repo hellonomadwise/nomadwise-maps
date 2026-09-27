@@ -13,6 +13,7 @@ import '../services/places_service.dart';
 import '../services/supabase_service.dart';
 import '../theme.dart';
 import '../widgets/ui.dart';
+import 'claim_journeys_screen.dart';
 import 'venue_detail.dart';
 
 /// Admin-only: the nomadwise.io control centre.
@@ -1008,6 +1009,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       'closed' => _closedCards(),
       'owner' => _ownerDrafts.map(_ownerDraftCard).toList(),
       'paid' => [
+          _journeysCard(),
           ..._held.map(_heldCard),
           ..._orders.map(_orderCard),
           ..._started.map(_startedCard),
@@ -2238,6 +2240,29 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
 
   /// A claim form that was filled in but not paid (yet). The owner
   /// told us who they are and which space; worth a nudge by hand.
+  /// The way into Claim journeys: every visit to the claim page, step
+  /// by step, and where it stopped.
+  Widget _journeysCard() => Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        decoration: BoxDecoration(
+          color: Brand.surface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Brand.border),
+        ),
+        child: ListTile(
+          leading: const Icon(Icons.route_outlined, color: Brand.accent),
+          title: const Text('Claim journeys',
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+          subtitle: const Text(
+              'Every visit to the claim page: what they did, how far they '
+              'got, where they stopped.',
+              style: TextStyle(fontSize: 12.5, color: Brand.inkSecondary)),
+          trailing: const Icon(Icons.chevron_right, color: Brand.inkMuted),
+          onTap: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => const ClaimJourneysScreen())),
+        ),
+      );
+
   Widget _startedCard(Map<String, dynamic> c) {
     final space = (c['space_name'] ?? '').toString().isNotEmpty
         ? c['space_name']
