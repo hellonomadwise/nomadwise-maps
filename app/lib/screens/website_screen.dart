@@ -14,6 +14,7 @@ import '../services/supabase_service.dart';
 import '../theme.dart';
 import '../widgets/ui.dart';
 import 'claim_journeys_screen.dart';
+import 'email_log_screen.dart';
 import 'venue_detail.dart';
 
 /// Admin-only: the nomadwise.io control centre.
@@ -1014,6 +1015,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       'owner' => _ownerDrafts.map(_ownerDraftCard).toList(),
       'paid' => [
           _journeysCard(),
+          _emailsCard(),
           if (_held.isNotEmpty) ...[
             _ownersSection('Waiting for your decision', _held.length),
             ..._held.map(_heldCard),
@@ -2447,6 +2449,29 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
 
   /// A claim form that was filled in but not paid (yet). The owner
   /// told us who they are and which space; worth a nudge by hand.
+  /// The way into the email log: what went to owners, and what
+  /// Postmark said about each.
+  Widget _emailsCard() => Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        decoration: BoxDecoration(
+          color: Brand.surface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Brand.border),
+        ),
+        child: ListTile(
+          leading: const Icon(Icons.mail_outline, color: Brand.accent),
+          title: const Text('Emails to owners',
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+          subtitle: const Text(
+              'Every email the system sent an owner, and whether Postmark '
+              'accepted it. Send yourself a test.',
+              style: TextStyle(fontSize: 12.5, color: Brand.inkSecondary)),
+          trailing: const Icon(Icons.chevron_right, color: Brand.inkMuted),
+          onTap: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => const EmailLogScreen())),
+        ),
+      );
+
   /// The way into Claim journeys: every visit to the claim page, step
   /// by step, and where it stopped.
   Widget _journeysCard() => Container(
@@ -2971,6 +2996,47 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         ),
       );
 
+  /// On a page with an owner on record: who they are and what they
+  /// told us on the claim form (hours, rooms, sockets...), so the
+  /// person publishing the page can put it on without asking twice.
+  Widget _ownerNote(Map<String, dynamic> v) {
+    final owner = (v['listing_owner_name'] ?? '').toString();
+    final email = (v['listing_owner_email'] ?? '').toString();
+    final notes = (v['listing_notes'] ?? '').toString().trim();
+    if (owner.isEmpty && email.isEmpty && notes.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      decoration: BoxDecoration(
+          color: Brand.successTint, borderRadius: BorderRadius.circular(10)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(
+            'OWNER ON RECORD'
+            '${v['listing_tier'] == 'verified' ? '  ·  VERIFIED' : '  ·  FREE'}',
+            style: const TextStyle(
+                fontSize: 10.5,
+                fontWeight: FontWeight.w800,
+                letterSpacing: .5,
+                color: Brand.success)),
+        if (owner.isNotEmpty || email.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 3),
+            child: Text([owner, email].where((x) => x.isNotEmpty).join('  ·  '),
+                style: const TextStyle(fontSize: 12.5)),
+          ),
+        if (notes.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(notes,
+                style: const TextStyle(
+                    fontSize: 12.5, color: Brand.inkSecondary, height: 1.4)),
+          ),
+      ]),
+    );
+  }
+
   Widget _freshCard(Map<String, dynamic> v) {
     final hasPlace = v['google_place_id'] != null;
     final rating = v['google_rating_snapshot'];
@@ -2985,6 +3051,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         _title(v, badge: 'NEW', badgeColor: Brand.violet),
         const SizedBox(height: 8),
         _taxonomyRow(v),
+        _ownerNote(v),
         const SizedBox(height: 8),
         Wrap(spacing: 6, runSpacing: 6, children: [
           if (noLaptops) const StatusChip('No laptops', dotColor: Brand.red),
@@ -3068,6 +3135,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       tint: Brand.goldTint,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         _title(v, badge: 'REGION', badgeColor: Brand.goldTextDark),
+        _ownerNote(v),
         const SizedBox(height: 8),
         Text(why, style: const TextStyle(fontSize: 13, height: 1.4)),
         if (names.isNotEmpty) ...[
@@ -3128,6 +3196,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     return _card(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         _title(v, badge: 'REVIEW'),
+        _ownerNote(v),
         const SizedBox(height: 10),
 
         // The address it will get. Editable until approval.

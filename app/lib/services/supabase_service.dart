@@ -1099,6 +1099,16 @@ class SupabaseService {
     }
   }
 
+  /// The owner-email log with Postmark's answer, newest first.
+  /// Throws when migration 82 is not installed yet.
+  Future<List<Map<String, dynamic>>> adminEmailLog({int limit = 50}) async {
+    final rows = await _db.rpc('admin_email_log', params: {'p_limit': limit});
+    return (rows as List).cast<Map<String, dynamic>>();
+  }
+
+  Future<void> adminSendTestEmail(String to) =>
+      _db.rpc('admin_send_test_email', params: {'p_to': to});
+
   /// Paid Verified checkouts that could not be matched to a space.
   Future<List<Map<String, dynamic>>> unmatchedStripeOrders() async {
     try {
