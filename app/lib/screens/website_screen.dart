@@ -822,7 +822,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
           ? const Center(child: CircularProgressIndicator(color: Brand.red))
           : _error != null
               ? _errorView()
-              : _wrap(_pipeline()),
+              : SelectionArea(child: _wrap(_pipeline())),
     );
   }
 
@@ -2160,8 +2160,52 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                 onPressed: () => _openVenue({'id': c['venue_id']}),
                 child: const Text('Open the space')),
         ]),
+        const SizedBox(height: 4),
+        // Look them up before deciding: their Google listing (the
+        // search result with the business panel, not the map), their
+        // Instagram, and a way to write back.
+        Wrap(spacing: 4, runSpacing: 0, children: [
+          _lookupButton(Icons.search, 'Google',
+              'https://www.google.com/search?q='
+              '${Uri.encodeQueryComponent('$spaceName ${where.isNotEmpty ? where : ''}'.trim())}'),
+          if ((c['space_instagram'] ?? '').toString().isNotEmpty)
+            _lookupButton(Icons.camera_alt_outlined, 'Instagram',
+                _instagramUrl(c['space_instagram'].toString())),
+          if ((c['space_website'] ?? '').toString().isNotEmpty)
+            _lookupButton(Icons.language, 'Website',
+                _withScheme(c['space_website'].toString())),
+          if (email.isNotEmpty)
+            _lookupButton(Icons.mail_outline, 'Email',
+                'mailto:$email?subject=${Uri.encodeComponent('Your $spaceName listing on nomadwise.io')}'),
+          if ((c['owner_phone'] ?? '').toString().isNotEmpty)
+            _lookupButton(Icons.chat_outlined, 'WhatsApp',
+                'https://wa.me/${c['owner_phone'].toString().replaceAll(RegExp(r'[^0-9]'), '')}'),
+        ]),
       ]),
     );
+  }
+
+  Widget _lookupButton(IconData icon, String label, String url) =>
+      TextButton.icon(
+        onPressed: () => launchUrl(Uri.parse(url),
+            mode: LaunchMode.platformDefault, webOnlyWindowName: '_blank'),
+        icon: Icon(icon, size: 16),
+        label: Text(label),
+        style: TextButton.styleFrom(
+            foregroundColor: Brand.inkSecondary,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            textStyle:
+                const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
+      );
+
+  static String _withScheme(String u) =>
+      u.startsWith('http') ? u : 'https://$u';
+
+  /// "@kopi_club" or a full link, either way a link.
+  static String _instagramUrl(String raw) {
+    final t = raw.trim();
+    if (t.startsWith('http')) return t;
+    return 'https://www.instagram.com/${t.replaceFirst('@', '')}';
   }
 
   Future<void> _approveClaim(Map<String, dynamic> c, String spaceName) async {
@@ -2355,6 +2399,17 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
               },
               child: const Text('Dismiss')),
         ]),
+        if (space != 'Space not named') ...[
+          const SizedBox(height: 4),
+          Wrap(spacing: 4, children: [
+            _lookupButton(Icons.search, 'Google',
+                'https://www.google.com/search?q='
+                '${Uri.encodeQueryComponent('$space $where'.trim())}'),
+            if ((c['space_instagram'] ?? '').toString().isNotEmpty)
+              _lookupButton(Icons.camera_alt_outlined, 'Instagram',
+                  _instagramUrl(c['space_instagram'].toString())),
+          ]),
+        ],
       ]),
     );
   }
