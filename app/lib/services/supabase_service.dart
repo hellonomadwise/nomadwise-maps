@@ -298,8 +298,8 @@ class SupabaseService {
     String? venueId,
     required Map<String, dynamic> payload,
     Uint8List? photoBytes,
-    required double gpsLat,
-    required double gpsLng,
+    double? gpsLat, // null only for a founder without a fix
+    double? gpsLng,
     double? gpsDistanceM,
   }) async {
     final uid = currentUser!.id;

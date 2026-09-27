@@ -505,19 +505,27 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
     }
     setState(() => _saving = true);
     try {
-      // GPS check: where is the user right now?
+      // GPS check: where is the user right now? Proof of presence for
+      // a nomad; a founder adding a place from a laptop may go without
+      // (the reviewer then sees no distance on the card).
       final pos = await LocationService.current();
-      if (pos == null) {
+      if (pos == null && !await _supabase.isAdmin()) {
         _snack('Please allow location access to submit your update.');
+        setState(() => _saving = false);
+        return;
+      }
+      if (pos == null && (_placeLat == null && _confirmTarget?.lat == null)) {
+        _snack('No location known for this space. Pick it from the '
+            'search suggestions so the pin has somewhere to go.');
         setState(() => _saving = false);
         return;
       }
       double? distance;
       final v = _confirmTarget;
-      if (v?.lat != null && v?.lng != null) {
+      if (pos != null && v?.lat != null && v?.lng != null) {
         distance = Venue.haversineM(
             pos.latitude, pos.longitude, v!.lat!, v.lng!);
-      } else if (_placeLat != null && _placeLng != null) {
+      } else if (pos != null && _placeLat != null && _placeLng != null) {
         distance = Venue.haversineM(
             pos.latitude, pos.longitude, _placeLat!, _placeLng!);
       }
@@ -546,8 +554,8 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
           if (_resolvedNow.isNotEmpty) 'google_photo_urls': _resolvedNow,
           'city': _cityForSave,
           // Venue pin sits where Google says the place is.
-          'lat': _placeLat ?? pos.latitude,
-          'lng': _placeLng ?? pos.longitude,
+          'lat': _placeLat ?? pos?.latitude,
+          'lng': _placeLng ?? pos?.longitude,
           if (_wifi.text.trim().isNotEmpty)
             'wifi_speed_mbps': _typedMbps(),
             if (_badPhotos.isNotEmpty)
@@ -561,8 +569,8 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
         venueId: venueId,
         payload: payload,
         photoBytes: _photo,
-        gpsLat: pos.latitude,
-        gpsLng: pos.longitude,
+        gpsLat: pos?.latitude,
+        gpsLng: pos?.longitude,
         gpsDistanceM: distance,
       );
 
@@ -580,8 +588,8 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
             if (_measuredNetHash != null)
               'network_hash': _measuredNetHash,
           },
-          gpsLat: pos.latitude,
-          gpsLng: pos.longitude,
+          gpsLat: pos?.latitude,
+          gpsLng: pos?.longitude,
           gpsDistanceM: distance,
         );
       }
@@ -598,8 +606,8 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
             'ssid': _wifiSsid.text.trim(),
             if (netHash != null) 'network_hash': netHash,
           },
-          gpsLat: pos.latitude,
-          gpsLng: pos.longitude,
+          gpsLat: pos?.latitude,
+          gpsLng: pos?.longitude,
           gpsDistanceM: distance,
         );
       }
