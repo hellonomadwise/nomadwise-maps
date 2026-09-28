@@ -41,7 +41,7 @@ class NomadwiseMapsApp extends StatelessWidget {
   Widget build(BuildContext context) {
     // Three public doors into the app, all query parameters so the
     // static build needs no routing:
-    //   ?enquire=<slug>  the Request a booking form on a Verified page
+    //   ?enquire=<slug>  the Send an enquiry form on a Verified page
     //   ?claim[=<name or slug>][&from=<page>]  the owner's claim-and-pay flow
     //   ?claimed         where Stripe returns them after paying
     //   ?owner           the Owner account (manage my listing)

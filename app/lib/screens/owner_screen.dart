@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -42,6 +43,10 @@ class _OwnerScreenState extends State<OwnerScreen> {
   final _email = TextEditingController();
   bool _sending = false;
   bool _linkSent = false;
+
+  /// Claims made with this email that we have not approved yet: shown
+  /// with where they stand instead of "no space on this account".
+  List<Map<String, dynamic>> _pending = [];
 
   // Editor state (one draft per space, rebuilt when the space changes)
   final _description = TextEditingController();
@@ -101,6 +106,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
     super.initState();
     _auth = _supabase.authChanges.listen((_) => _load());
     _load();
+    _prefillEmail();
     for (final c in [
       _description, _priceDay, _priceWeek, _priceMonth, _priceCoffee,
       _website, _instagram, _whatsapp, _enquiryEmail,
@@ -120,6 +126,22 @@ class _OwnerScreenState extends State<OwnerScreen> {
     super.dispose();
   }
 
+  /// The email they claimed with, from the link (?email=) or from the
+  /// claim made on this device, so signing in is one tap.
+  Future<void> _prefillEmail() async {
+    var em = '';
+    try {
+      em = Uri.base.queryParameters['email'] ?? '';
+    } catch (_) {}
+    if (!em.contains('@')) {
+      em = '${(await SupabaseService.lastClaim())?['email'] ?? ''}';
+    }
+    final found = em.trim().toLowerCase();
+    if (found.contains('@') && _email.text.trim().isEmpty && mounted) {
+      setState(() => _email.text = found);
+    }
+  }
+
   Future<void> _load() async {
     if (!_supabase.signedIn) {
       if (mounted) setState(() => _loading = false);
@@ -127,9 +149,11 @@ class _OwnerScreenState extends State<OwnerScreen> {
     }
     try {
       final rows = await _supabase.ownerVenues();
+      final pending = await _supabase.ownerPendingClaims();
       if (!mounted) return;
       setState(() {
         _venues = rows;
+        _pending = pending;
         _loading = false;
         _error = null;
         if (_current >= rows.length) _current = 0;
@@ -337,6 +361,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
                   if (mounted) {
                     setState(() {
                       _venues = [];
+                      _pending = [];
                       _linkSent = false;
                     });
                   }
@@ -352,6 +377,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
               child: CircularProgressIndicator(color: Brand.red));
         }
         if (!_supabase.signedIn) return _signIn(wide);
+        if (_venues.isEmpty && _pending.isNotEmpty) return _pendingView(wide);
         if (_venues.isEmpty) return _noSpaces(wide);
         return _account(wide);
       }),
@@ -392,7 +418,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
                   letterSpacing: -0.5)),
           const SizedBox(height: 8),
           const Text(
-              'Manage your listing on nomadwise.io: your description, '
+              'Manage your listing on Nomadwise: your description, '
               'prices, hours, photos and facts. Sign in with the email you '
               'used to claim your space; no password.',
               style: TextStyle(
@@ -456,8 +482,9 @@ class _OwnerScreenState extends State<OwnerScreen> {
                         ),
                         const SizedBox(height: 10),
                         OutlinedButton.icon(
-                          onPressed: () => _supabase
-                              .signInWithGoogleTo(AppConfig.ownerAccountUrl),
+                          onPressed: () => _supabase.signInWithGoogleTo(
+                              AppConfig.ownerAccountUrl,
+                              loginHint: _email.text.trim()),
                           style: OutlinedButton.styleFrom(
                               minimumSize: const Size.fromHeight(46)),
                           icon: const Icon(Icons.login, size: 18),
@@ -478,6 +505,230 @@ class _OwnerScreenState extends State<OwnerScreen> {
               style: TextStyle(color: Brand.inkMuted, fontSize: 12.5)),
         ]),
       );
+
+  // ------------------------------------------------------ claim pending
+
+  /// Signed in, claim made, not approved yet: the space, where the
+  /// claim stands, and the account laid out but locked, so the owner
+  /// sees they are almost there.
+  Widget _pendingView(bool wide) {
+    final c = _pending.first;
+    final name = '${c['name'] ?? 'Your space'}';
+    final kind = SupabaseService.spaceKind('${c['type'] ?? ''}');
+    final verified = c['plan'] != 'free';
+    final paid = c['paid'] == true;
+    final started = c['status'] == 'started';
+    final where = [c['neighbourhood'], c['city']]
+        .where((x) => x != null && '$x'.isNotEmpty)
+        .join(', ');
+
+    final steps = <(String, _Step)>[
+      ('Claimed', _Step.done),
+      if (verified) ('Paid', paid ? _Step.done : _Step.todo),
+      ('Ownership check', started && verified ? _Step.todo : _Step.now),
+      (verified ? 'Verified' : 'Yours to manage', _Step.todo),
+    ];
+
+    return _frame(
+      wide,
+      maxWidth: 1000,
+      Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(children: [
+          const Icon(Icons.storefront_outlined,
+              size: 18, color: Brand.inkSecondary),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(name,
+                style:
+                    const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+          ),
+          if (where.isNotEmpty) ...[
+            const SizedBox(width: 10),
+            Flexible(
+              child: Text(where,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                      color: Brand.inkSecondary, fontSize: 13.5)),
+            ),
+          ],
+        ]),
+        const SizedBox(height: 14),
+        _panel(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(
+                started && verified
+                    ? "You've started claiming your $kind"
+                    : "You've claimed your $kind, you're almost there",
+                style:
+                    const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+            const SizedBox(height: 16),
+            _stepsRow(steps, wide),
+            const SizedBox(height: 16),
+            Text(
+                started && verified
+                    ? 'The payment was not finished, so nothing has changed '
+                        'yet. Finish it and we take it from there.'
+                    : 'We confirm every claim really comes from the '
+                        'business before handing the page over. We email '
+                        'you at ${_supabase.userEmail ?? 'this address'} as '
+                        'soon as that is done, and everything below opens.',
+                style: const TextStyle(
+                    fontSize: 14, height: 1.55, color: Brand.inkSecondary)),
+            if (started && verified) ...[
+              const SizedBox(height: 14),
+              FilledButton(
+                  onPressed: () => launchUrl(
+                      Uri.parse('https://nomadmaps.io/?claim='
+                          '${Uri.encodeQueryComponent(name)}'),
+                      webOnlyWindowName: '_self'),
+                  style: FilledButton.styleFrom(backgroundColor: Brand.red),
+                  child: const Text('Finish my claim')),
+            ],
+            if (c['page_url'] != null) ...[
+              const SizedBox(height: 10),
+              TextButton.icon(
+                  onPressed: () => launchUrl(Uri.parse('${c['page_url']}')),
+                  icon: const Icon(Icons.open_in_new, size: 16),
+                  label: const Text('See the page as it is today')),
+            ],
+          ]),
+        ),
+        const SizedBox(height: 18),
+        _lockedAccount(name, wide),
+        const SizedBox(height: 14),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton(
+              onPressed: _load, child: const Text('Check again')),
+        ),
+      ]),
+    );
+  }
+
+  Widget _stepsRow(List<(String, _Step)> steps, bool wide) {
+    Widget dot(_Step st) => Container(
+          width: 26,
+          height: 26,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: switch (st) {
+              _Step.done => Brand.success,
+              _Step.now => Brand.goldTint,
+              _Step.todo => Brand.field,
+            },
+            border: st == _Step.now
+                ? Border.all(color: Brand.goldTextDark, width: 1.5)
+                : null,
+          ),
+          child: switch (st) {
+            _Step.done =>
+              const Icon(Icons.check, size: 16, color: Colors.white),
+            _Step.now => const Icon(Icons.hourglass_top,
+                size: 14, color: Brand.goldTextDark),
+            _Step.todo => null,
+          },
+        );
+    final items = [
+      for (final (label, st) in steps)
+        Row(mainAxisSize: MainAxisSize.min, children: [
+          dot(st),
+          const SizedBox(width: 8),
+          Text(label,
+              style: TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: st == _Step.todo ? FontWeight.w500 : FontWeight.w700,
+                  color: st == _Step.todo ? Brand.inkMuted : Brand.ink)),
+        ]),
+    ];
+    return Wrap(
+      spacing: wide ? 26 : 16,
+      runSpacing: 10,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: items,
+    );
+  }
+
+  /// The account as it will be, blurred and locked.
+  Widget _lockedAccount(String name, bool wide) {
+    Widget field(String label) => Container(
+          height: 44,
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          alignment: Alignment.centerLeft,
+          decoration: BoxDecoration(
+            color: Brand.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Brand.border),
+          ),
+          child: Text(label,
+              style: const TextStyle(color: Brand.inkMuted, fontSize: 13)),
+        );
+    Widget section(String title, List<String> fields) => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title,
+                style: const TextStyle(
+                    fontWeight: FontWeight.w700, fontSize: 14.5)),
+            const SizedBox(height: 8),
+            for (final f in fields) field(f),
+            const SizedBox(height: 10),
+          ],
+        );
+    final mock = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      section('Your listing details', ['What makes your space special?']),
+      section('Photos', ['Add your own photos']),
+      section('Passes and prices', ['Day pass', 'Week pass', 'Month pass']),
+      section('Opening hours', ['Monday', 'Tuesday', 'Wednesday']),
+      section('Your message', ['An event or offer for your page']),
+    ]);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: Stack(children: [
+        Container(
+          padding: const EdgeInsets.all(22),
+          color: Brand.bg,
+          child: IgnorePointer(
+            child: ImageFiltered(
+              imageFilter: ImageFilter.blur(sigmaX: 3.5, sigmaY: 3.5),
+              child: Opacity(opacity: 0.8, child: mock),
+            ),
+          ),
+        ),
+        Positioned.fill(
+          child: Center(
+            child: Container(
+              margin: const EdgeInsets.all(20),
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+              constraints: const BoxConstraints(maxWidth: 420),
+              decoration: BoxDecoration(
+                color: Brand.surface,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Brand.border),
+                boxShadow: const [
+                  BoxShadow(color: Color(0x14000000), blurRadius: 16)
+                ],
+              ),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                const Icon(Icons.lock_outline, color: Brand.inkSecondary),
+                const SizedBox(height: 8),
+                Text("Opens as soon as we've confirmed you run $name",
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w700, fontSize: 14.5)),
+                const SizedBox(height: 4),
+                const Text(
+                    'Your description, photos, prices, hours and your own '
+                    'message for the page.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                        fontSize: 13, height: 1.45, color: Brand.inkSecondary)),
+              ]),
+            ),
+          ),
+        ),
+      ]),
+    );
+  }
 
   Widget _noSpaces(bool wide) => _frame(
         wide,
@@ -869,8 +1120,8 @@ class _OwnerScreenState extends State<OwnerScreen> {
                 width: 260,
                 child: TextField(
                     controller: _enquiryEmail,
-                    decoration: _dec('Booking requests go to',
-                        hint: 'bookings@yourspace.com'))),
+                    decoration: _dec('Enquiries go to',
+                        hint: 'hello@yourspace.com'))),
         ]),
         const SizedBox(height: 22),
         if (_savedNote != null)
@@ -1031,7 +1282,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
         const SizedBox(height: 12),
         Wrap(spacing: 8, runSpacing: 8, children: [
           if (_verified)
-            _fakeButton('Request a booking', filled: true)
+            _fakeButton('Send an enquiry', filled: true)
           else
             _fakeButton('Contact the space', filled: true),
           if (_website.text.trim().isNotEmpty) _fakeButton('Website'),
@@ -1105,7 +1356,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
               'announcement where nomadwise.io would otherwise show an '
               'advert. Yours shows the advert. Go Verified and this tab '
               'opens up, along with the badge, a place above every free '
-              'listing, booking requests to your inbox and your own photos '
+              'listing, enquiries to your inbox and your own photos '
               'and words.',
               style: TextStyle(
                   fontSize: 13.5, height: 1.5, color: Brand.inkSecondary)),
@@ -1235,7 +1486,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
     final rows = const [
       'The Verified badge on your page and in every list you appear in',
       'A place above every free listing in your city and area',
-      'Booking requests sent straight to your inbox, no commission',
+      'Enquiries sent straight to your inbox, no commission',
       'Your own photos, description and prices instead of Google\'s',
       'Your event or offer in the advert slot on your page',
     ];
@@ -1322,3 +1573,5 @@ class _OwnerScreenState extends State<OwnerScreen> {
     );
   }
 }
+
+enum _Step { done, now, todo }

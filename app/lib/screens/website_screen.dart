@@ -115,6 +115,21 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   List<Map<String, dynamic>> _hidden = [];
   List<Map<String, dynamic>> _closed = [];
   List<Map<String, dynamic>> _paid = [];
+
+  /// When each space's current owner was approved (latest claim), so
+  /// the Owners tab lists the newest first.
+  Map<String, DateTime?> _ownerSince = {};
+
+  /// Newest first: by approval of the owner's claim, else the date paid,
+  /// else when the space was added.
+  List<Map<String, dynamic>> _newestFirst(List<Map<String, dynamic>> rows) {
+    DateTime when(Map<String, dynamic> v) =>
+        _ownerSince['${v['id']}'] ??
+        DateTime.tryParse('${v['listing_paid_at']}') ??
+        DateTime.tryParse('${v['created_at']}') ??
+        DateTime(2000);
+    return [...rows]..sort((a, b) => when(b).compareTo(when(a)));
+  }
   List<Map<String, dynamic>> _enquiries = [];
   List<Map<String, dynamic>> _orders = [];
   List<Map<String, dynamic>> _held = [];
@@ -164,6 +179,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         _supabase.openClaims(),
         _supabase.ownerDraftsToReview(),
         _supabase.websiteFreeOwned(),
+        _supabase.approvedClaimDates(),
       ]);
       if (!mounted) return;
       setState(() {
@@ -195,6 +211,10 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
             .toList();
         _ownerDrafts = results[17];
         _freeOwned = results[18];
+        _ownerSince = {
+          for (final r in results[19].reversed)
+            '${r['venue_id']}': DateTime.tryParse('${r['approved_at']}'),
+        };
         _error = null;
       });
     } catch (e) {
@@ -1119,7 +1139,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
             ..._started.map(_startedCard),
           ],
           _ownersSection('Verified listings', _paid.length),
-          ..._paid.map(_paidCard),
+          ..._newestFirst(_paid).map(_paidCard),
           _ownersSection('Free listings with an owner', _freeOwned.length),
           if (_freeOwned.isEmpty)
             const Padding(
@@ -1127,7 +1147,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
               child: Text('None yet. An approved free claim lands here.',
                   style: TextStyle(fontSize: 12.5, color: Brand.inkMuted)),
             ),
-          ..._freeOwned.map(_paidCard),
+          ..._newestFirst(_freeOwned).map(_paidCard),
         ],
       _ => <Widget>[],
     };
@@ -1452,7 +1472,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     row('Website', v['website'], draft['website']);
     row('Instagram', v['instagram'], draft['instagram']);
     row('WhatsApp', oc['whatsapp'], draft['whatsapp']);
-    row('Booking requests to', '', draft['enquiry_email']);
+    row('Enquiries to', '', draft['enquiry_email']);
     final photos = List<String>.from((draft['photos'] ?? const []) as List);
     final oldPhotos = List<String>.from((oc['photos'] ?? const []) as List);
     final m = Map<String, dynamic>.from(draft['mention'] as Map? ?? {});
@@ -1917,7 +1937,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
             child: SizedBox(
               height: MediaQuery.of(ctx).size.height * .75,
               child: ListView(padding: const EdgeInsets.all(16), children: [
-                Text('Booking requests for ${v['name']}',
+                Text('Enquiries for ${v['name']}',
                     style: const TextStyle(
                         fontWeight: FontWeight.w700, fontSize: 16)),
                 const SizedBox(height: 4),
@@ -2072,7 +2092,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     final failed = reqs.where((e) => e['status'] == 'failed').length;
     if (reqs.isNotEmpty) {
       lines.add(Text(
-          '${reqs.length} booking request${reqs.length == 1 ? '' : 's'}, '
+          '${reqs.length} enquir${reqs.length == 1 ? 'y' : 'ies'}, '
           'last one ${_ago(reqs.first['created_at'])}'
           '${failed > 0 ? '  ·  $failed not delivered' : ''}',
           style: TextStyle(
@@ -2218,7 +2238,8 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                 'Website matches the Google listing ($gHost).')
           else
             (Icons.language, Brand.goldTextDark,
-                'Google lists $gHost; the claim came from $domain. Common with Gmail; the Instagram and a phone call settle it.'),
+                'Google lists $gHost; the claim came from $domain. Common with Gmail; '
+                '${gPhone.isNotEmpty ? "a WhatsApp to Google's number settles it." : 'a message to their Instagram, or to the email on $gHost, settles it.'}'),
         ];
         final strong = phoneMatch || siteMatch;
         // The check-in message, to the number Google lists (the one
@@ -2240,7 +2261,11 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                 Text(
                     strong
                         ? 'Ownership: strong, the claim matches what Google lists.'
-                        : 'Ownership: not proven yet, one WhatsApp message away.',
+                        : gPhone.isNotEmpty
+                            ? 'Ownership: not proven yet, one WhatsApp message away.'
+                            : 'Ownership: not proven yet. Google has no phone for '
+                                'this place: message their Instagram, or the email '
+                                'on their website, and ask for ${c['owner_name']}.',
                     style: TextStyle(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w700,
@@ -2283,6 +2308,21 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
 
   static String _digits(String s) => s.replaceAll(RegExp(r'[^0-9]'), '');
 
+  /// " EUR 99" or " EUR 0 (code TESTVERIFIED)", from the Stripe order
+  /// kept on the claim; empty when it is not known.
+  static String _paidAmount(Map<String, dynamic> c) {
+    final o = c['order_json'];
+    if (o is! Map || o['amount'] == null) return '';
+    final amt = (o['amount'] as num?)?.toDouble() ?? 0;
+    final cur = '${o['currency'] ?? 'EUR'}';
+    final shown = amt == amt.roundToDouble()
+        ? amt.toStringAsFixed(0)
+        : amt.toStringAsFixed(2);
+    final code = (o['promo_code'] ?? '').toString();
+    final disc = (o['amount_discount'] as num?)?.toDouble() ?? 0;
+    return ' $cur $shown${code.isNotEmpty ? ' (code $code)' : disc > 0 ? ' (with a discount)' : ''}';
+  }
+
   Widget _heldCard(Map<String, dynamic> c) {
     final v = (c['venues'] is Map)
         ? Map<String, dynamic>.from(c['venues'] as Map)
@@ -2315,12 +2355,18 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     final match = site.isNotEmpty && domain.isNotEmpty && host(site) == domain;
     final previous = (v['listing_owner_email'] ?? '').toString();
     final address = (c['space_address'] ?? '').toString();
-    final placeId = (c['space_place_id'] ?? '').toString();
+    // The claim's own place id (a new space) or the listing's.
+    final placeId = (c['space_place_id'] ?? '').toString().isNotEmpty
+        ? c['space_place_id'].toString()
+        : (v['google_place_id'] ?? '').toString();
+    final insta = (c['space_instagram'] ?? '').toString().isNotEmpty
+        ? c['space_instagram'].toString()
+        : (v['instagram'] ?? '').toString();
     final lines = <String>[
       if (who.isNotEmpty) who,
       if (address.isNotEmpty) 'Address: $address',
       if ((c['enquiry_email'] ?? '').toString().isNotEmpty)
-        'Booking requests to ${c['enquiry_email']}',
+        'Enquiries to ${c['enquiry_email']}',
       if ((c['space_website'] ?? '').toString().isNotEmpty)
         'Website given: ${c['space_website']}',
       if ((c['space_instagram'] ?? '').toString().isNotEmpty)
@@ -2381,8 +2427,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                     color: match ? Brand.success : Brand.goldTextDark)),
           ),
         ]),
-        if ((v['google_place_id'] ?? placeId).toString().isNotEmpty)
-          _ownerCheck(c, (v['google_place_id'] ?? placeId).toString()),
+        if (placeId.isNotEmpty) _ownerCheck(c, placeId),
         if (previous.isNotEmpty && previous != email)
           Padding(
             padding: const EdgeInsets.only(top: 4),
@@ -2398,8 +2443,8 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                       'form. Approving records them as the owner of the page; '
                       'the plan stays free and nothing visible changes.'
                       '${newSpace ? ' A space not on the map yet: approving creates it in the publishing queue.' : ''}'
-                  : 'Paid ${_ago(c['paid_at'] ?? c['created_at'])} through the claim '
-                      'form. Nothing on the page has changed yet.',
+                  : 'Paid${_paidAmount(c)} ${_ago(c['paid_at'] ?? c['created_at'])} '
+                      'through the claim form. Nothing on the page has changed yet.',
               style: const TextStyle(fontSize: 12.5, color: Brand.inkSecondary)),
         ),
         const SizedBox(height: 10),
@@ -2430,12 +2475,11 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
           if (placeId.isNotEmpty)
             _lookupButton(Icons.map_outlined, 'Map',
                 'https://www.google.com/maps/place/?q=place_id:$placeId'),
-          if ((c['space_instagram'] ?? '').toString().isNotEmpty)
+          if (insta.isNotEmpty)
             _lookupButton(Icons.camera_alt_outlined, 'Instagram',
-                _instagramUrl(c['space_instagram'].toString())),
-          if ((c['space_website'] ?? '').toString().isNotEmpty)
-            _lookupButton(Icons.language, 'Website',
-                _withScheme(c['space_website'].toString())),
+                _instagramUrl(insta)),
+          if (site.isNotEmpty)
+            _lookupButton(Icons.language, 'Website', _withScheme(site)),
           if (email.isNotEmpty)
             _lookupButton(Icons.mail_outline, 'Email',
                 'mailto:$email?subject=${Uri.encodeComponent('Your $spaceName listing on nomadwise.io')}'),
@@ -2609,7 +2653,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     ].join('  ·  ');
     final extra = [
       if ((c['enquiry_email'] ?? '').toString().isNotEmpty)
-        'Booking requests to: ${c['enquiry_email']}',
+        'Enquiries to: ${c['enquiry_email']}',
       if ((c['space_website'] ?? '').toString().isNotEmpty)
         'Website: ${c['space_website']}',
       if ((c['space_instagram'] ?? '').toString().isNotEmpty)
@@ -4792,7 +4836,7 @@ class _ListingPlanPageState extends State<_ListingPlanPage> {
           'year: a Verified badge, your own description, photos and hours, '
           'a place above every free listing in ${city.isEmpty ? 'your city' : city}, '
           'structured data and a link to your site (the signals Google and '
-          'the AI assistants use to recommend places), a Request a booking '
+          'the AI assistants use to recommend places), a Send an enquiry '
           'button that sends enquiries straight to your inbox, and your '
           'own event or offer in the advert slot on your page.',
       '',
@@ -4893,7 +4937,7 @@ class _ListingPlanPageState extends State<_ListingPlanPage> {
                 'Verified is the paid plan: the badge on the page and the '
                 'map pin, a place above every free listing in its city and '
                 'area, and the '
-                'Request a booking button sending enquiries to the address '
+                'Send an enquiry button sending enquiries to the address '
                 'below. Saving updates the page within a minute or two.',
                 style: TextStyle(
                     fontSize: 12.5, height: 1.45, color: Brand.inkSecondary)),
@@ -4934,7 +4978,7 @@ class _ListingPlanPageState extends State<_ListingPlanPage> {
                 controller: _enquiryEmail,
                 keyboardType: TextInputType.emailAddress,
                 decoration: const InputDecoration(
-                    labelText: 'Enquiry email (booking requests go here)',
+                    labelText: 'Enquiry email (enquiries go here)',
                     helperText:
                         'Leave empty to send them to hello@nomadwise.io.',
                     helperMaxLines: 2)),

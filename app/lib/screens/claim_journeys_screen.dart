@@ -488,7 +488,7 @@ class _ClaimJourneysScreenState extends State<ClaimJourneysScreen> {
     'role': 'their role',
     'email': 'their email',
     'phone': 'a phone number',
-    'enquiry_email': 'where booking requests should go',
+    'enquiry_email': 'where enquiries should go',
     'website': 'their website',
     'instagram': 'their Instagram',
     'note': 'a note to us',

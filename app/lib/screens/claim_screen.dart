@@ -349,6 +349,10 @@ class _ClaimScreenState extends State<ClaimScreen> {
       final claimId = '${res?['claim_id'] ?? ''}';
       if (claimId.isEmpty) throw Exception('no claim id');
       _done = true;
+      await SupabaseService.rememberClaim(
+          email: email,
+          space: _spaceName,
+          type: _picked != null ? '${_picked!['type'] ?? ''}' : _newType);
       _track('claim_to_payment', {
         'space': _spaceName,
         'new_space': _picked == null,
@@ -407,6 +411,10 @@ class _ClaimScreenState extends State<ClaimScreen> {
       final claimId = '${res?['claim_id'] ?? ''}';
       if (claimId.isEmpty) throw Exception('no claim id');
       _done = true;
+      await SupabaseService.rememberClaim(
+          email: email,
+          space: _spaceName,
+          type: _picked != null ? '${_picked!['type'] ?? ''}' : _newType);
       _track('claim_free', {
         'space': _spaceName,
         'new_space': _picked == null,
@@ -786,7 +794,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
       TextField(
           controller: _enquiryEmail,
           keyboardType: TextInputType.emailAddress,
-          decoration: _field('Where should booking requests go? (optional)',
+          decoration: _field('Where should enquiries go? (optional)',
               helper: "Leave blank and we'll send them to the email above.")),
       const SizedBox(height: 16),
       _pair(
@@ -848,8 +856,8 @@ class _ClaimScreenState extends State<ClaimScreen> {
     ];
 
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      _heading(wide, 2, 'About you',
-          'So we know who to reply to, and where booking requests from your '
+      _heading(wide, 2, 'Owner details',
+          'So we know who to reply to, and where enquiries from your '
               'page should land.'),
       SizedBox(height: wide ? 26 : 18),
       ConstrainedBox(
@@ -1045,8 +1053,8 @@ class _ClaimScreenState extends State<ClaimScreen> {
           'Verified spaces are listed ahead of every unpaid space on their '
               'city and area pages.'),
       (Icons.mark_email_read_outlined, Brand.red,
-          'Booking requests to your inbox',
-          'A request button on your page that emails you directly. '
+          'Enquiries to your inbox',
+          'A Send an enquiry button on your page that emails you directly. '
               'No commission, no middleman.'),
       (Icons.photo_library_outlined, Brand.red, 'Your own photos and words',
           'Your description, your prices, your pictures, instead of '
@@ -1139,10 +1147,12 @@ class _ClaimScreenState extends State<ClaimScreen> {
   }
 }
 
-/// Where Stripe sends the owner back to after paying: a plain thank you
-/// that says what happens next, so nobody is left on Stripe's own page
-/// wondering whether anything reached us.
-class ClaimedScreen extends StatelessWidget {
+/// Where Stripe sends the owner back to after paying (and where the
+/// free claim lands): says what they did, in their words ("You've
+/// claimed your cafe"), and what happens next, so nobody is left
+/// wondering whether anything reached us. The Owner account button
+/// carries the email they claimed with, so signing in is one tap.
+class ClaimedScreen extends StatefulWidget {
   const ClaimedScreen({super.key, this.free = false});
 
   /// A free claim: no payment, the page stays free, we confirm the
@@ -1150,7 +1160,46 @@ class ClaimedScreen extends StatelessWidget {
   final bool free;
 
   @override
+  State<ClaimedScreen> createState() => _ClaimedScreenState();
+}
+
+class _ClaimedScreenState extends State<ClaimedScreen> {
+  Map<String, dynamic>? _claim;
+
+  @override
+  void initState() {
+    super.initState();
+    SupabaseService.lastClaim().then((c) {
+      if (mounted) setState(() => _claim = c);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final free = widget.free;
+    final email = '${_claim?['email'] ?? ''}';
+    final space = '${_claim?['space'] ?? ''}'.trim();
+    final kind = SupabaseService.spaceKind('${_claim?['type'] ?? ''}');
+    final spaceName = space.isEmpty ? 'your $kind' : space;
+    final ownerUrl = email.contains('@')
+        ? 'https://nomadmaps.io/?owner&email=${Uri.encodeQueryComponent(email)}'
+        : AppConfig.ownerAccountUrl;
+    final heading = free
+        ? "You've claimed your $kind"
+        : "Payment received, you're almost there";
+    final text = free
+        ? '${space.isEmpty ? '' : 'Thank you for claiming $space. '}'
+            'Next we confirm $spaceName is yours; we email you'
+            '${email.contains('@') ? ' at $email' : ''} as soon as that is '
+            'done, and you are its owner on record.\n\n'
+            'Your Owner account is ready now: sign in to see where things '
+            'stand.'
+        : "You've claimed your $kind${space.isEmpty ? '' : ', $space'}, and "
+            'your payment has reached us. Next we confirm $spaceName is '
+            'yours, then Verified goes on and we email you'
+            '${email.contains('@') ? ' at $email' : ''}.\n\n'
+            'Your Owner account is ready now: sign in to see where things '
+            'stand.';
     return Scaffold(
       backgroundColor: Brand.bg,
       body: LayoutBuilder(builder: (context, box) {
@@ -1166,31 +1215,18 @@ class ClaimedScreen extends StatelessWidget {
                   height: wide ? 88 : 76,
                   decoration: const BoxDecoration(
                       color: Brand.successTint, shape: BoxShape.circle),
-                  child: Icon(free ? Icons.check : Icons.verified,
+                  child: Icon(Icons.check,
                       size: wide ? 42 : 36, color: Brand.success),
                 ),
                 SizedBox(height: wide ? 24 : 18),
-                Text(free ? 'Claim received' : 'You are Verified',
+                Text(heading,
                     textAlign: TextAlign.center,
                     style: TextStyle(
                         fontWeight: FontWeight.w800,
                         fontSize: wide ? 30 : 23,
                         letterSpacing: -0.5)),
                 const SizedBox(height: 12),
-                Text(
-                    free
-                        ? 'Thank you. We check that the space is yours, then '
-                            'you are its owner on record: corrections to the '
-                            'page go on at your say-so, and you can go '
-                            'Verified at any time.\n\n'
-                            'Once approved, sign in at nomadmaps.io/owner with '
-                            'this email to manage your listing.'
-                        : 'Thank you. Your payment reached us and your claim is '
-                            'in the queue.\n\n'
-                            'We will email you as soon as your Verified page is live. '
-                            'Your photos, description and prices go in through your '
-                            'Owner account at nomadmaps.io/owner, with the email '
-                            'you just used.',
+                Text(text,
                     textAlign: TextAlign.center,
                     style: TextStyle(
                         color: Brand.inkSecondary,
@@ -1198,8 +1234,7 @@ class ClaimedScreen extends StatelessWidget {
                         fontSize: wide ? 15 : 14)),
                 SizedBox(height: wide ? 28 : 22),
                 FilledButton.icon(
-                    onPressed: () => launchUrl(
-                        Uri.parse(AppConfig.ownerAccountUrl),
+                    onPressed: () => launchUrl(Uri.parse(ownerUrl),
                         webOnlyWindowName: '_self'),
                     style: FilledButton.styleFrom(
                         backgroundColor: Brand.red,

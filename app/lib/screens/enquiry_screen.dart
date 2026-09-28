@@ -5,7 +5,7 @@ import '../services/analytics_service.dart';
 import '../services/supabase_service.dart';
 import '../theme.dart';
 
-/// The Request a booking form. A nomad arrives here from a Verified
+/// The Send an enquiry form. A nomad arrives here from a Verified
 /// listing on nomadwise.io (nomadmaps.io/?enquire=<slug>), fills in a
 /// few lines, and the request goes to the space's own inbox with a
 /// copy to Nomadwise. No account, no payment, one screen.
@@ -121,7 +121,7 @@ class _EnquiryScreenState extends State<EnquiryScreen> {
     return Scaffold(
       backgroundColor: Brand.bg,
       appBar: AppBar(
-        title: const Text('Request a booking'),
+        title: const Text('Send an enquiry'),
         leading: IconButton(
             tooltip: 'Back to the listing',
             icon: const Icon(Icons.arrow_back),
@@ -154,7 +154,7 @@ class _EnquiryScreenState extends State<EnquiryScreen> {
           const SizedBox(height: 6),
           const Text(
               'Go back to nomadwise.io and try the button again, or email '
-              'hello@nomadwise.io and we will pass your request on.',
+              'hello@nomadwise.io and we will pass your enquiry on.',
               textAlign: TextAlign.center,
               style: TextStyle(color: Brand.inkMuted, height: 1.5)),
           const SizedBox(height: 16),
@@ -183,7 +183,7 @@ class _EnquiryScreenState extends State<EnquiryScreen> {
                   const TextStyle(fontWeight: FontWeight.w700, fontSize: 18)),
           const SizedBox(height: 8),
           Text(
-              'They have your request and will reply to ${_email.text.trim()} '
+              'They have your enquiry and will reply to ${_email.text.trim()} '
               'directly. Most spaces answer within a day or two.',
               textAlign: TextAlign.center,
               style: const TextStyle(
@@ -298,7 +298,7 @@ class _EnquiryScreenState extends State<EnquiryScreen> {
               backgroundColor: Brand.red,
               padding: const EdgeInsets.symmetric(vertical: 16)),
           icon: const Icon(Icons.send, size: 18),
-          label: Text(_sending ? 'Sending' : 'Send request')),
+          label: Text(_sending ? 'Sending' : 'Send enquiry')),
       const SizedBox(height: 10),
       const Text(
           'Your details go to this space and to Nomadwise, and to no one '

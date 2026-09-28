@@ -848,3 +848,32 @@ the limit, and at 80% and 100% of the map-load cap
 (api_limits.map_loads_per_day, 2,300, to match the "Map loads per
 day" quota set by hand in Google Cloud). The app counts its own map
 loads ("Dynamic Maps") for that.
+
+## After the first full paid test (28 Sep 2026)
+
+The paid path worked end to end (claim, pay with a 100% code, payment
+picked up, approve, Verified, cancel, back to free). What it turned up,
+fixed in migration 91 and the app:
+
+- Owner account before approval shows the claim and where it stands
+  (Claimed, Paid, Ownership check, Verified) with the account laid out
+  but locked, instead of "No space on this account yet"
+  (owner_pending_claims). Sign-in is pre-filled with the claim email
+  (?owner&email=, or the claim made on this device), and Google gets a
+  login_hint.
+- Owner-facing words say what they did: "You've claimed your cafe /
+  coworking space". The thank-you page says "Payment received, you're
+  almost there" until we approve; it no longer says "You are Verified".
+- Emails: hidden preview line (no more "nomadwiseFOR SPACES"),
+  "nomadwise.io" in a sentence is not turned into a homepage link, no
+  time promises, no booking button, only what is on the page. The
+  page's button is "Send an enquiry" (a form that emails the space).
+- Cancelling Verified emails the owner and pings the phone
+  (plan_ended, called by the Stripe sync).
+- Phone pings: "Someone is claiming X", the real amount and code, and
+  "Owners" instead of "Paid listings".
+- Owners tab: ownership line without Google's phone (Instagram or the
+  website's email, never a phone call), Map and Website buttons from
+  the listing, "Enquiries to", the amount paid, newest first.
+- claim_paid() is no longer callable from the browser (anyone with a
+  claim id could have marked it paid).

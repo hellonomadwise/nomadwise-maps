@@ -41,11 +41,49 @@ class SupabaseService {
       );
 
   /// Google sign-in that comes back to the Owner account.
-  Future<void> signInWithGoogleTo(String returnTo) => _db.auth.signInWithOAuth(
+  /// [loginHint]: the email we expect (the one the space was claimed
+  /// with), so Google goes straight to that account.
+  Future<void> signInWithGoogleTo(String returnTo, {String? loginHint}) =>
+      _db.auth.signInWithOAuth(
         OAuthProvider.google,
         redirectTo: kIsWeb ? returnTo : AppConfig.authRedirect,
-        queryParams: const {'prompt': 'select_account'},
+        queryParams: {
+          'prompt': 'select_account',
+          if (loginHint != null && loginHint.contains('@'))
+            'login_hint': loginHint,
+        },
       );
+
+  /// The claim the owner made on this device, remembered for the
+  /// thank-you page and the Owner account's sign-in (email, space,
+  /// type). Null when there is none.
+  static Future<Map<String, dynamic>?> lastClaim() async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      final raw = p.getString('last_claim');
+      if (raw == null) return null;
+      return Map<String, dynamic>.from(jsonDecode(raw) as Map);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static Future<void> rememberClaim(
+      {required String email, String? space, String? type}) async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      await p.setString('last_claim',
+          jsonEncode({'email': email, 'space': space, 'type': type}));
+    } catch (_) {}
+  }
+
+  /// "cafe", "coworking space" or "space", for sentences.
+  static String spaceKind(String? type) => switch ((type ?? '').toLowerCase()) {
+        'cafe' => 'cafe',
+        'coworking' => 'coworking space',
+        'coliving' => 'coliving space',
+        _ => 'space',
+      };
 
   String? get userEmail => currentUser?.email?.toLowerCase();
 
@@ -57,6 +95,18 @@ class SupabaseService {
     return (res as List? ?? const [])
         .map((r) => Map<String, dynamic>.from(r as Map))
         .toList();
+  }
+
+  /// Claims made with the signed-in email that are not approved yet.
+  Future<List<Map<String, dynamic>>> ownerPendingClaims() async {
+    try {
+      final res = await _db.rpc('owner_pending_claims');
+      return (res as List? ?? const [])
+          .map((r) => Map<String, dynamic>.from(r as Map))
+          .toList();
+    } catch (_) {
+      return const [];
+    }
   }
 
   /// Save the owner's draft; submit = true sends it for review.
@@ -959,8 +1009,8 @@ class SupabaseService {
               'space_country, space_address, space_place_id, space_website, '
               'space_instagram, note, paid_at, created_at, order_json, '
               'status, plan, is_new_space, '
-              'venues(name, city, country, website, listing_owner_email, '
-              'google_place_id)')
+              'venues(name, city, country, website, instagram, '
+              'listing_owner_email, google_place_id)')
           .inFilter('status', ['awaiting_approval', 'free_pending'])
           .order('created_at', ascending: false)
           .limit(50);
@@ -1127,6 +1177,23 @@ class SupabaseService {
       return (rows as List)
           .map((r) => Map<String, dynamic>.from(r))
           .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Approved claims (venue and when), newest first, for ordering the
+  /// Owners tab.
+  Future<List<Map<String, dynamic>>> approvedClaimDates() async {
+    try {
+      final rows = await _db
+          .from('listing_claims')
+          .select('venue_id, approved_at')
+          .not('approved_at', 'is', null)
+          .not('venue_id', 'is', null)
+          .order('approved_at', ascending: false)
+          .limit(500);
+      return (rows as List).map((r) => Map<String, dynamic>.from(r)).toList();
     } catch (_) {
       return [];
     }

@@ -208,6 +208,23 @@ for s in sessions:
     email = (cd.get('email') or '').strip().lower()
     name = (cd.get('name') or '').strip()
     period_end = period_end_of(sub)
+    # A discount or promotion code (a test code, a comp): shown on the
+    # phone ping and the control centre card. Reading the code's text
+    # needs one more call; if the key may not read it, the amount of
+    # the discount is still known.
+    discount = ((s.get('total_details') or {}).get('amount_discount') or 0) / 100.0
+    promo = None
+    for d in (s.get('discounts') or []):
+        pc = d.get('promotion_code')
+        if isinstance(pc, dict):
+            promo = pc.get('code')
+        elif isinstance(pc, str) and pc:
+            try:
+                promo = (stripe(f'/promotion_codes/{pc}') or {}).get('code')
+            except Exception:  # noqa: BLE001
+                promo = None
+        if promo:
+            break
     order = {
         'session_id': s['id'],
         'customer_id': s.get('customer') if isinstance(s.get('customer'), str) else (s.get('customer') or {}).get('id'),
@@ -217,6 +234,8 @@ for s in sessions:
         'space_name': custom(s, 'name') or None,
         'space_link': custom(s, 'link') or None,
         'amount': (s.get('amount_total') or 0) / 100.0,
+        'amount_discount': discount or None,
+        'promo_code': promo,
         'currency': (s.get('currency') or '').upper() or None,
         'paid_at': day(s.get('created') or int(now.timestamp())),
         'renews_at': day(period_end) if period_end else None,
@@ -240,7 +259,7 @@ for s in sessions:
     if not venue:
         report['unmatched'] += 1
         notify('Verified paid, needs matching',
-               f"{order['space_name'] or email or 'someone'} paid; match it in Paid listings")
+               f"{order['space_name'] or email or 'someone'} paid; match it in Owners")
         continue
     if settled:
         # claim_paid() in the database already set the plan, created the
@@ -269,8 +288,9 @@ for s in sessions:
         sb(f"venues?id=eq.{venue['id']}", method='PATCH', body=patch,
            prefer='return=minimal')
         report['matched'] += 1
+        code = f", code {order['promo_code']}" if order.get('promo_code') else ''
         notify('Verified listing paid',
-               f"{venue['name']} is now Verified ({order['currency']} {order['amount']:.0f})")
+               f"{venue['name']} is now Verified ({order['currency']} {order['amount']:.0f}{code})")
     except Exception as e:  # noqa: BLE001
         report['errors'].append(f"plan {venue['name']}: {e}")
 
@@ -288,6 +308,9 @@ except Exception as e:  # noqa: BLE001
 # free. Unless every single one is missing, which means the key is
 # pointing at the wrong Stripe mode; then nothing is touched.
 gone = []
+# Plans that ended this run: once the page is back to free, the owner
+# gets a plain email and the phone a ping (plan_ended in the database).
+ended = []
 
 for v in paying:
     try:
@@ -306,7 +329,7 @@ for v in paying:
         patch = {'listing_tier': 'free',
                  'listing_sync_requested_at': now_iso, 'listing_synced_at': None}
         report['lapsed'] += 1
-        notify('Verified listing lapsed', f"{v['name']}: subscription {status}")
+        ended.append((v, status))
     elif renews and renews != v.get('listing_renews_at') and v.get('listing_tier') == 'verified':
         patch = {'listing_renews_at': renews}
         report['renewals_refreshed'] += 1
@@ -330,12 +353,20 @@ else:
                           'listing_sync_requested_at': now_iso,
                           'listing_synced_at': None})
             report['lapsed'] += 1
-            notify('Verified listing lapsed',
-                   f"{v['name']}: subscription no longer in Stripe")
+            ended.append((v, 'no longer in Stripe'))
         try:
             sb(f"venues?id=eq.{v['id']}", method='PATCH', body=patch,
                prefer='return=minimal')
         except Exception as e:  # noqa: BLE001
             report['errors'].append(f"forget subscription {v['name']}: {e}")
+
+for v, why in ended:
+    try:
+        sb('rpc/plan_ended', method='POST',
+           body={'p_venue': v['id'], 'p_reason': why})
+    except Exception as e:  # noqa: BLE001
+        # Before migration 91: the old ping, so the ending is not silent.
+        report['warnings'].append(f"plan_ended {v['name']}: {e}")
+        notify('Verified listing lapsed', f"{v['name']}: subscription {why}")
 
 finish(1 if report['errors'] else 0)
