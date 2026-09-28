@@ -69,12 +69,45 @@ class SupabaseService {
   }
 
   static Future<void> rememberClaim(
-      {required String email, String? space, String? type}) async {
+      {required String email,
+      String? space,
+      String? type,
+      String? claimId}) async {
     try {
       final p = await SharedPreferences.getInstance();
-      await p.setString('last_claim',
-          jsonEncode({'email': email, 'space': space, 'type': type}));
+      await p.setString(
+          'last_claim',
+          jsonEncode({
+            'email': email,
+            'space': space,
+            'type': type,
+            'claim_id': claimId,
+          }));
     } catch (_) {}
+  }
+
+  /// The owner is back from Stripe: note when, so the Owner account
+  /// can say "confirming your payment" rather than "not finished".
+  static Future<void> markReturnedFromStripe() async {
+    try {
+      final c = await lastClaim();
+      if (c == null) return;
+      c['returned_at'] = DateTime.now().toUtc().toIso8601String();
+      final p = await SharedPreferences.getInstance();
+      await p.setString('last_claim', jsonEncode(c));
+    } catch (_) {}
+  }
+
+  /// Ask for this claim's payment to be picked up now instead of at
+  /// the next scheduled Stripe sync (migration 92). Safe to call often:
+  /// the database allows one real request per claim every 2 minutes.
+  Future<String?> paymentReturned(String claimId) async {
+    try {
+      final r = await _db.rpc('payment_returned', params: {'p_claim': claimId});
+      return r?.toString();
+    } catch (_) {
+      return null;
+    }
   }
 
   /// "cafe", "coworking space" or "space", for sentences.

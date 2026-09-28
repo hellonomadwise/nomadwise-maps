@@ -877,3 +877,14 @@ fixed in migration 91 and the app:
   the listing, "Enquiries to", the amount paid, newest first.
 - claim_paid() is no longer callable from the browser (anyone with a
   claim id could have marked it paid).
+
+## Payments picked up the moment the owner is back (28 Sep 2026)
+
+In the second paid test the owner, back from Stripe, saw "payment not
+finished" and the phone heard minutes later: payments were only read
+when the Stripe sync next ran (website push every 10 minutes, or
+hourly). Now the thank-you page asks for the sync straight away
+(payment_returned, migration 92: starts the "Stripe plans" workflow
+for that claim, narrowly rate-limited), and the Owner account shows
+"Payment confirming" with a live check while it waits, refreshing by
+itself every 10 seconds until the claim moves on.

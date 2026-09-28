@@ -352,7 +352,8 @@ class _ClaimScreenState extends State<ClaimScreen> {
       await SupabaseService.rememberClaim(
           email: email,
           space: _spaceName,
-          type: _picked != null ? '${_picked!['type'] ?? ''}' : _newType);
+          type: _picked != null ? '${_picked!['type'] ?? ''}' : _newType,
+          claimId: claimId);
       _track('claim_to_payment', {
         'space': _spaceName,
         'new_space': _picked == null,
@@ -414,7 +415,8 @@ class _ClaimScreenState extends State<ClaimScreen> {
       await SupabaseService.rememberClaim(
           email: email,
           space: _spaceName,
-          type: _picked != null ? '${_picked!['type'] ?? ''}' : _newType);
+          type: _picked != null ? '${_picked!['type'] ?? ''}' : _newType,
+          claimId: claimId);
       _track('claim_free', {
         'space': _spaceName,
         'new_space': _picked == null,
@@ -1171,6 +1173,13 @@ class _ClaimedScreenState extends State<ClaimedScreen> {
     super.initState();
     SupabaseService.lastClaim().then((c) {
       if (mounted) setState(() => _claim = c);
+      // Back from Stripe: have the payment picked up now, not at the
+      // next scheduled sync, and remember we are waiting for it.
+      final id = '${c?['claim_id'] ?? ''}';
+      if (!widget.free && id.isNotEmpty) {
+        SupabaseService.markReturnedFromStripe();
+        SupabaseService().paymentReturned(id);
+      }
     });
   }
 

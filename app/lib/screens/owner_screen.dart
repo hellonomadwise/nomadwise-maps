@@ -48,6 +48,14 @@ class _OwnerScreenState extends State<OwnerScreen> {
   /// with where they stand instead of "no space on this account".
   List<Map<String, dynamic>> _pending = [];
 
+  /// The claim made on this device (email, claim id, and when the
+  /// owner came back from Stripe), for the "confirming" state.
+  Map<String, dynamic>? _lastClaim;
+
+  /// While a payment is being confirmed, the page checks again by
+  /// itself every few seconds.
+  Timer? _poll;
+
   // Editor state (one draft per space, rebuilt when the space changes)
   final _description = TextEditingController();
   final _priceDay = TextEditingController();
@@ -123,6 +131,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
   @override
   void dispose() {
     _auth?.cancel();
+    _poll?.cancel();
     super.dispose();
   }
 
@@ -133,8 +142,10 @@ class _OwnerScreenState extends State<OwnerScreen> {
     try {
       em = Uri.base.queryParameters['email'] ?? '';
     } catch (_) {}
+    _lastClaim = await SupabaseService.lastClaim();
+    if (mounted) setState(() {});
     if (!em.contains('@')) {
-      em = '${(await SupabaseService.lastClaim())?['email'] ?? ''}';
+      em = '${_lastClaim?['email'] ?? ''}';
     }
     final found = em.trim().toLowerCase();
     if (found.contains('@') && _email.text.trim().isEmpty && mounted) {
@@ -151,6 +162,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
       final rows = await _supabase.ownerVenues();
       final pending = await _supabase.ownerPendingClaims();
       if (!mounted) return;
+      _watchPayments(pending);
       setState(() {
         _venues = rows;
         _pending = pending;
@@ -167,6 +179,35 @@ class _OwnerScreenState extends State<OwnerScreen> {
         });
       }
     }
+  }
+
+  /// A Verified claim still waiting for its payment: ask for it to be
+  /// picked up now (the database lets one request through every two
+  /// minutes) and look again every few seconds until it lands.
+  void _watchPayments(List<Map<String, dynamic>> pending) {
+    final waiting = pending
+        .where((c) => c['status'] == 'started' && c['plan'] != 'free')
+        .toList();
+    if (waiting.isEmpty) {
+      _poll?.cancel();
+      _poll = null;
+      return;
+    }
+    for (final c in waiting) {
+      _supabase.paymentReturned('${c['claim_id']}');
+    }
+    _poll ??= Timer.periodic(const Duration(seconds: 10), (_) {
+      if (mounted) _load();
+    });
+  }
+
+  /// This device came back from Stripe for this claim in the last few
+  /// hours: the payment is almost certainly on its way.
+  bool _justPaid(Map<String, dynamic> c) {
+    final lc = _lastClaim;
+    if (lc == null || '${lc['claim_id']}' != '${c['claim_id']}') return false;
+    final at = DateTime.tryParse('${lc['returned_at'] ?? ''}');
+    return at != null && DateTime.now().toUtc().difference(at).inHours < 6;
   }
 
   /// The editor starts from the draft if there is one, else from what
@@ -517,15 +558,26 @@ class _OwnerScreenState extends State<OwnerScreen> {
     final kind = SupabaseService.spaceKind('${c['type'] ?? ''}');
     final verified = c['plan'] != 'free';
     final paid = c['paid'] == true;
-    final started = c['status'] == 'started';
+    // Back from Stripe, payment not seen yet: it is being confirmed,
+    // not "unfinished".
+    final confirming =
+        c['status'] == 'started' && verified && _justPaid(c);
+    final started = c['status'] == 'started' && !confirming;
     final where = [c['neighbourhood'], c['city']]
         .where((x) => x != null && '$x'.isNotEmpty)
         .join(', ');
 
     final steps = <(String, _Step)>[
       ('Claimed', _Step.done),
-      if (verified) ('Paid', paid ? _Step.done : _Step.todo),
-      ('Ownership check', started && verified ? _Step.todo : _Step.now),
+      if (verified)
+        (
+          confirming ? 'Payment confirming' : 'Paid',
+          paid ? _Step.done : confirming ? _Step.now : _Step.todo
+        ),
+      (
+        'Ownership check',
+        (started || confirming) && verified ? _Step.todo : _Step.now
+      ),
       (verified ? 'Verified' : 'Yours to manage', _Step.todo),
     ];
 
@@ -565,15 +617,34 @@ class _OwnerScreenState extends State<OwnerScreen> {
             _stepsRow(steps, wide),
             const SizedBox(height: 16),
             Text(
-                started && verified
-                    ? 'The payment was not finished, so nothing has changed '
-                        'yet. Finish it and we take it from there.'
+                confirming
+                    ? 'Your payment is being confirmed with Stripe. This '
+                        'page updates by itself as soon as it is; then we '
+                        'confirm the space is yours and Verified goes on.'
+                    : started && verified
+                    ? 'We have not received a payment yet. If you have just '
+                        'paid, it shows here as soon as Stripe confirms it; '
+                        'if not, finish your claim below.'
                     : 'We confirm every claim really comes from the '
                         'business before handing the page over. We email '
                         'you at ${_supabase.userEmail ?? 'this address'} as '
                         'soon as that is done, and everything below opens.',
                 style: const TextStyle(
                     fontSize: 14, height: 1.55, color: Brand.inkSecondary)),
+            if (confirming) ...[
+              const SizedBox(height: 12),
+              const Row(children: [
+                SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Brand.goldTextDark)),
+                SizedBox(width: 10),
+                Text('Checking with Stripe',
+                    style: TextStyle(
+                        fontSize: 13, color: Brand.goldTextDark)),
+              ]),
+            ],
             if (started && verified) ...[
               const SizedBox(height: 14),
               FilledButton(
