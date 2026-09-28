@@ -1185,7 +1185,8 @@ def unique_slug(base, taken):
 
 def rich(text):
     paras = [p.strip() for p in (text or '').split('\n') if p.strip()]
-    return ''.join(f'<p>{p}</p>' for p in paras) if paras else None
+    return ''.join(f'<h2>{p[3:].strip()}</h2>' if p.startswith('## ')
+                   else f'<p>{p}</p>' for p in paras) if paras else None
 
 
 def create_and_publish(coll, fields):
@@ -1519,7 +1520,11 @@ def plain_text(html):
     import html as _html
     if not html:
         return ''
-    t = re.sub(r'(?i)<br\s*/?>', '\n', str(html))
+    t = str(html)
+    # Headings keep their shape as "## " lines; rich() turns them back.
+    t = re.sub(r'(?is)<h[1-6][^>]*>(.*?)</h[1-6]>',
+               lambda m: '\n## ' + re.sub(r'<[^>]+>', '', m.group(1)).strip() + '\n', t)
+    t = re.sub(r'(?i)<br\s*/?>', '\n', t)
     t = re.sub(r'(?i)</(p|h[1-6]|li|div|blockquote)>', '\n', t)
     t = re.sub(r'<[^>]+>', '', t)
     t = _html.unescape(t).replace('\u00a0', ' ')

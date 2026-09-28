@@ -1193,8 +1193,13 @@ class _OwnerScreenState extends State<OwnerScreen> {
             maxLines: 10,
             maxLength: 3000,
             decoration: _dec('What makes your space special?',
-                hint: 'The workspace, the atmosphere, the people. Plain '
-                    'words work best.')),
+                    hint: 'The workspace, the atmosphere, the people. Plain '
+                        'words work best.')
+                .copyWith(
+                    helperText: 'A line starting with ## is a section '
+                        'heading on your page, like "## Working at '
+                        '${_venue?['name'] ?? 'your space'}".',
+                    helperMaxLines: 2)),
         const SizedBox(height: 14),
         Text(_venue?['type'] == 'cafe' ? 'Prices' : 'Passes and prices',
             style: const TextStyle(fontWeight: FontWeight.w700)),
@@ -1364,14 +1369,41 @@ class _OwnerScreenState extends State<OwnerScreen> {
   }
 
   /// A plain picture of what the page will show, updated as they type.
+  // The page's own words for the work-friendly facts (its tags).
+  static const _siteTags = {
+    'power_outlets': 'Enough Plug Sockets',
+    'aircon': 'Aircon',
+    'comfortable_seating': 'Comfortable Seating',
+    'cozy': 'Cozy',
+    'quiet_space': 'Quiet Space',
+    'good_for_calls': 'Good for Calls',
+    'call_room': 'Skype Room',
+    'monitor': 'Monitor Available',
+    'office_chairs': 'Office Chairs',
+    'access_24h': '24 Hour Access',
+    'laptops_allowed': 'Laptop Friendly',
+  };
+
+  static const _pageRed = Color(0xFFE8464E); // the site's button red
+  static const _pageInk = Color(0xFF333333);
+  static const _pageTag = Color(0xFFE9E9E9);
+
+  /// The listing page as nomadwise.io draws it (28 Sep screenshots of
+  /// Nomio Coworking Lounge), in the order a phone shows it: the main
+  /// column, then the sidebar (hours, links, enquiry button, advert).
   Widget _preview() {
     final v = _venue!;
-    final where = [v['neighbourhood'], v['city']]
+    final area = [v['neighbourhood'], v['city']]
         .where((x) => (x ?? '').toString().isNotEmpty)
         .join(', ');
-    final on = [
+    final country = (v['country'] ?? '').toString();
+    final title = [
+      '${v['name']}${country.isNotEmpty ? ' in $country' : ''}',
+      if ((v['neighbourhood'] ?? '').toString().isNotEmpty) v['neighbourhood'],
+    ].join(' - ');
+    final tags = [
       for (final (key, label) in _factLabels)
-        if (_facts[key] == true) label
+        if (_facts[key] == true) _siteTags[key] ?? label
     ];
     final photos = _photos.isNotEmpty
         ? _photos
@@ -1382,6 +1414,121 @@ class _OwnerScreenState extends State<OwnerScreen> {
       if (_priceMonth.text.trim().isNotEmpty) ('Month pass', _priceMonth.text),
       if (_priceCoffee.text.trim().isNotEmpty) ('Cappuccino', _priceCoffee.text),
     ];
+    final isCafe = v['type'] == 'cafe';
+
+    Widget stat(IconData icon, String text, {Color color = Brand.inkSecondary}) =>
+        Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 15, color: color),
+          const SizedBox(width: 4),
+          Text(text,
+              style: const TextStyle(
+                  fontSize: 13, fontWeight: FontWeight.w600, color: _pageInk)),
+        ]);
+
+    final main = _pageCard(
+        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(title,
+          style: const TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 19,
+              height: 1.2,
+              color: _pageInk)),
+      const SizedBox(height: 8),
+      Wrap(
+          spacing: 12,
+          runSpacing: 6,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            if (area.isNotEmpty)
+              Row(mainAxisSize: MainAxisSize.min, children: [
+                const Icon(Icons.location_on, size: 15, color: _pageRed),
+                Text(area,
+                    style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: _pageRed)),
+              ]),
+            if (country.isNotEmpty)
+              Text(country,
+                  style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: _pageInk)),
+            if (_verified)
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                    color: const Color(0xFFE4F2EA),
+                    borderRadius: BorderRadius.circular(8)),
+                child: const Text('Verified',
+                    style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1F6B41))),
+              ),
+          ]),
+      const SizedBox(height: 8),
+      Wrap(spacing: 14, runSpacing: 6, children: [
+        if (v['wifi_speed_mbps'] != null)
+          stat(Icons.wifi, '${v['wifi_speed_mbps']}Mbps'),
+        if (v['google_rating_snapshot'] != null)
+          stat(Icons.star, '${v['google_rating_snapshot']} '
+              '(${v['google_reviews_snapshot'] ?? 0})',
+              color: const Color(0xFFF4B23E)),
+        stat(Icons.laptop, isCafe ? 'Cafe' : 'Coworking Space'),
+      ]),
+      const SizedBox(height: 12),
+      _photoGrid(photos),
+      const SizedBox(height: 12),
+      Wrap(spacing: 6, runSpacing: 6, children: [
+        if (_verified) _pageButton('Send an enquiry'),
+        _pageButton('See Accommodation options nearby'),
+      ]),
+      if (tags.isNotEmpty) ...[
+        const SizedBox(height: 12),
+        Wrap(spacing: 6, runSpacing: 6, children: [
+          for (final t in tags)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+              decoration: BoxDecoration(
+                  color: _pageTag, borderRadius: BorderRadius.circular(6)),
+              child: Text(t,
+                  style: const TextStyle(
+                      fontSize: 11.5, color: Color(0xFF6B6B6B))),
+            ),
+        ]),
+      ],
+      const SizedBox(height: 12),
+      const Text('Something need updating? Let us know.',
+          style: TextStyle(
+              fontSize: 11.5,
+              color: _pageRed,
+              decoration: TextDecoration.underline,
+              decorationColor: _pageRed)),
+      const SizedBox(height: 14),
+      ..._descriptionBlocks(),
+      if (prices.isNotEmpty) ...[
+        const SizedBox(height: 10),
+        const Text('Prices',
+            style: TextStyle(
+                fontWeight: FontWeight.w700, fontSize: 15, color: _pageInk)),
+        const SizedBox(height: 6),
+        for (final (label, val) in prices)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 3),
+            child: Text.rich(TextSpan(children: [
+              TextSpan(
+                  text: '$label: ',
+                  style: const TextStyle(fontWeight: FontWeight.w700)),
+              TextSpan(text: val.trim()),
+            ]), style: const TextStyle(fontSize: 12.5, color: _pageInk)),
+          ),
+      ],
+      const SizedBox(height: 14),
+      _mapBlock(v, area),
+    ]));
+
     return _panel(
       tint: Brand.bg,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -1394,139 +1541,188 @@ class _OwnerScreenState extends State<OwnerScreen> {
                 style: TextStyle(fontSize: 11.5, color: Brand.inkMuted)),
         ]),
         const SizedBox(height: 2),
-        const Text('Your page on nomadwise.io, in short: same parts, same '
-            'order.',
-            style: TextStyle(fontSize: 11.5, color: Brand.inkMuted)),
+        const Text(
+            'Your page as a phone shows it. On a computer, the hours, '
+            'links, enquiry button and advert sit in a column on the right.',
+            style: TextStyle(fontSize: 11.5, color: Brand.inkMuted, height: 1.4)),
         const SizedBox(height: 12),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: photos.isEmpty
-              ? Container(
-                  height: 150,
-                  color: Brand.field,
-                  alignment: Alignment.center,
-                  child: const Text('No photo yet',
-                      style: TextStyle(color: Brand.inkMuted)))
-              : Image.network(photos.first,
-                  height: 150,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) =>
-                      Container(height: 150, color: Brand.field)),
-        ),
-        const SizedBox(height: 12),
-        Row(children: [
-          Expanded(
-            child: Text('${v['name']}',
-                style: const TextStyle(
-                    fontWeight: FontWeight.w800, fontSize: 18)),
-          ),
-          if (_verified) _chip('Verified', Brand.success),
-        ]),
-        if (where.isNotEmpty)
-          Text(where,
-              style: const TextStyle(fontSize: 12.5, color: Brand.inkSecondary)),
-        if (v['google_rating_snapshot'] != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Text(
-                '★ ${v['google_rating_snapshot']} (${v['google_reviews_snapshot'] ?? 0})'
-                '${v['wifi_speed_mbps'] != null ? '  ·  WiFi ${v['wifi_speed_mbps']} Mbps' : ''}',
-                style: const TextStyle(
-                    fontSize: 12.5, color: Brand.goldTextDark)),
-          ),
-        if (_instagram.text.trim().isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Row(children: [
-              const Icon(Icons.camera_alt_outlined,
-                  size: 14, color: Brand.inkSecondary),
-              const SizedBox(width: 5),
-              Text(_igShown(_instagram.text),
-                  style: const TextStyle(
-                      fontSize: 12.5, color: Brand.inkSecondary)),
-            ]),
-          ),
+        main,
         const SizedBox(height: 10),
-        Text(
-            _description.text.trim().isEmpty
-                ? 'Your description appears here.'
-                : _description.text.trim(),
-            style: TextStyle(
-                fontSize: 13.5,
-                height: 1.5,
-                color: _description.text.trim().isEmpty
-                    ? Brand.inkMuted
-                    : Brand.ink)),
-        if (on.isNotEmpty) ...[
-          const SizedBox(height: 10),
-          Wrap(spacing: 6, runSpacing: 6, children: [
-            for (final f in on)
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                decoration: BoxDecoration(
-                    color: Brand.successTint,
-                    borderRadius: BorderRadius.circular(8)),
-                child: Text(f,
-                    style: const TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w700,
-                        color: Brand.success)),
-              ),
-          ]),
-        ],
-        if (prices.isNotEmpty) ...[
-          const SizedBox(height: 12),
-          for (final (label, val) in prices)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: Row(children: [
-                Text(label,
-                    style: const TextStyle(
-                        fontSize: 13, color: Brand.inkSecondary)),
-                const Spacer(),
-                Text(val.trim(),
-                    style: const TextStyle(
-                        fontSize: 13, fontWeight: FontWeight.w700)),
-              ]),
-            ),
-        ],
-        const SizedBox(height: 12),
-        for (final day in _days)
-          if (_hours[day]!.text.trim().isNotEmpty)
-            Row(children: [
-              Text(_dayNames[day]!,
-                  style: const TextStyle(
-                      fontSize: 12.5, color: Brand.inkSecondary)),
-              const Spacer(),
-              Text(_hours[day]!.text.trim(),
-                  style: const TextStyle(fontSize: 12.5)),
-            ]),
-        const SizedBox(height: 12),
-        Wrap(spacing: 8, runSpacing: 8, children: [
-          if (_verified)
-            _fakeButton('Send an enquiry', filled: true)
-          else
-            _fakeButton('Contact the space', filled: true),
-          if (_website.text.trim().isNotEmpty) _fakeButton('Website'),
-          if (_whatsapp.text.trim().isNotEmpty) _fakeButton('WhatsApp'),
-        ]),
-        const SizedBox(height: 14),
-        _mapBlock(where),
-        const SizedBox(height: 16),
-        // The sidebar: beside the details on a computer, under them on
-        // a phone. Its advert slot carries a Verified page's message.
-        const Text('SIDEBAR',
-            style: TextStyle(
-                fontSize: 10.5,
-                letterSpacing: 1,
-                fontWeight: FontWeight.w800,
-                color: Brand.inkMuted)),
-        const SizedBox(height: 6),
-        _advertSlot(),
+        _sidebar(),
       ]),
     );
+  }
+
+  Widget _pageCard(Widget child) => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFEDEDED)),
+        ),
+        child: child,
+      );
+
+  Widget _pageButton(String label, {bool wide = false}) => Container(
+        width: wide ? double.infinity : null,
+        alignment: wide ? Alignment.center : null,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        decoration: BoxDecoration(
+            color: _pageRed, borderRadius: BorderRadius.circular(8)),
+        child: Text(label,
+            style: const TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w500,
+                color: Colors.white)),
+      );
+
+  /// One large photo and four small ones, as on the page.
+  Widget _photoGrid(List<String> photos) {
+    Widget img(int i) => ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: i < photos.length
+              ? Image.network(photos[i],
+                  fit: BoxFit.cover,
+                  width: double.infinity,
+                  height: double.infinity,
+                  errorBuilder: (_, __, ___) => Container(color: Brand.field))
+              : Container(color: Brand.field),
+        );
+    if (photos.isEmpty) {
+      return Container(
+          height: 120,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+              color: Brand.field, borderRadius: BorderRadius.circular(8)),
+          child: const Text('No photos yet',
+              style: TextStyle(color: Brand.inkMuted)));
+    }
+    return SizedBox(
+      height: 130,
+      child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Expanded(flex: 2, child: img(0)),
+        const SizedBox(width: 4),
+        Expanded(
+          flex: 2,
+          child: Column(children: [
+            Expanded(
+                child: Row(children: [
+              Expanded(child: img(1)),
+              const SizedBox(width: 4),
+              Expanded(child: img(2)),
+            ])),
+            const SizedBox(height: 4),
+            Expanded(
+                child: Row(children: [
+              Expanded(child: img(3)),
+              const SizedBox(width: 4),
+              Expanded(child: img(4)),
+            ])),
+          ]),
+        ),
+      ]),
+    );
+  }
+
+  /// The description as the page sets it: a line starting "## " is a
+  /// section heading ("Working at ..."), the rest are paragraphs.
+  List<Widget> _descriptionBlocks() {
+    final text = _description.text.trim();
+    if (text.isEmpty) {
+      return const [
+        Text('Your description appears here.',
+            style: TextStyle(fontSize: 12.5, color: Brand.inkMuted)),
+      ];
+    }
+    return [
+      for (final line in text.split('\n').map((l) => l.trim()))
+        if (line.isNotEmpty)
+          line.startsWith('## ')
+              ? Padding(
+                  padding: const EdgeInsets.only(top: 6, bottom: 4),
+                  child: Text(line.substring(3),
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 15,
+                          height: 1.25,
+                          color: _pageInk)),
+                )
+              : Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(line,
+                      style: const TextStyle(
+                          fontSize: 12.5, height: 1.5, color: _pageInk)),
+                ),
+    ];
+  }
+
+  /// The sidebar: opening hours, the round link buttons, the enquiry
+  /// button (Verified) and the advert slot.
+  Widget _sidebar() {
+    Widget circle(IconData icon, Color color) => Container(
+          width: 34,
+          height: 34,
+          margin: const EdgeInsets.only(right: 8),
+          decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              border: Border.all(color: const Color(0xFFE0E0E0))),
+          child: Icon(icon, size: 17, color: color),
+        );
+    final days = [
+      for (final day in _days)
+        if (_hours[day]!.text.trim().isNotEmpty) day
+    ];
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      _pageCard(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('Opening Hours',
+            style: TextStyle(
+                fontWeight: FontWeight.w700, fontSize: 15, color: _pageInk)),
+        const SizedBox(height: 8),
+        if (days.isEmpty)
+          const Text('Your opening hours appear here.',
+              style: TextStyle(fontSize: 12, color: Brand.inkMuted))
+        else
+          for (final day in days)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 3),
+              child: Row(children: [
+                SizedBox(
+                  width: 90,
+                  child: Text(_dayNames[day]!,
+                      style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: _pageInk)),
+                ),
+                Expanded(
+                  child: Text(_hours[day]!.text.trim(),
+                      style: const TextStyle(fontSize: 12, color: _pageInk)),
+                ),
+              ]),
+            ),
+      ])),
+      const SizedBox(height: 10),
+      Row(children: [
+        if (_website.text.trim().isNotEmpty) circle(Icons.link, _pageInk),
+        circle(Icons.location_on, _pageRed),
+        if (_instagram.text.trim().isNotEmpty)
+          circle(Icons.camera_alt_outlined, const Color(0xFFD62976)),
+        if (_instagram.text.trim().isNotEmpty)
+          Flexible(
+            child: Text(_igShown(_instagram.text),
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 11.5, color: Brand.inkMuted)),
+          ),
+      ]),
+      if (_verified) ...[
+        const SizedBox(height: 10),
+        _pageButton('Send an enquiry', wide: true),
+      ],
+      const SizedBox(height: 10),
+      _advertSlot(),
+    ]);
   }
 
   /// "@handle" however it was typed (a link, with or without the @).
@@ -1538,25 +1734,61 @@ class _OwnerScreenState extends State<OwnerScreen> {
     return '@${h.replaceFirst(RegExp(r'^@+'), '')}';
   }
 
-  /// Where the Google map sits on the page. Drawn, not loaded: a real
-  /// map here would cost a Google call on every keystroke's redraw.
-  Widget _mapBlock(String where) => Container(
-        height: 96,
+  /// Where the Google map sits on the page, drawn like it: the place
+  /// card top left, the red pin in the middle. Drawn, not loaded (a
+  /// real map would cost a Google call on every redraw).
+  Widget _mapBlock(Map<String, dynamic> v, String area) => Container(
+        height: 150,
         decoration: BoxDecoration(
-          color: const Color(0xFFE8EEF1),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Brand.border),
+          color: const Color(0xFFE3F1E6),
+          borderRadius: BorderRadius.circular(8),
         ),
-        alignment: Alignment.center,
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Icon(Icons.location_on, color: Brand.red, size: 26),
-          Text(where.isEmpty ? 'Google map' : 'Google map: $where',
-              style: const TextStyle(fontSize: 12, color: Brand.inkSecondary)),
+        child: Stack(children: [
+          Positioned(
+            left: 8,
+            top: 8,
+            right: 60,
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(4),
+                  boxShadow: Brand.shadowResting),
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('${v['name']}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: 11.5, fontWeight: FontWeight.w700)),
+                    if (area.isNotEmpty)
+                      Text(area,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              fontSize: 10.5, color: Brand.inkSecondary)),
+                  ]),
+            ),
+          ),
+          const Align(
+            alignment: Alignment(0, 0.35),
+            child: Icon(Icons.location_on, color: Color(0xFFD93025), size: 30),
+          ),
+          const Positioned(
+            bottom: 6,
+            left: 0,
+            right: 0,
+            child: Text('Google map',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 10.5, color: Brand.inkMuted)),
+          ),
         ]),
       );
 
-  /// The advert slot as it shows today: your message on a Verified page
-  /// with one written, else the advert (and on Verified, a pointer).
+  /// The advert slot as it shows today: a Verified page's own message
+  /// when one is written, else the partner advert.
   Widget _advertSlot() {
     if (_verified && _mentionTitle.text.trim().isNotEmpty) {
       return _mentionCard();
@@ -1565,33 +1797,25 @@ class _OwnerScreenState extends State<OwnerScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Brand.surface,
+        color: const Color(0xFF4A5A66),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Brand.inkFaint),
       ),
-      child: Text(
-          _verified
-              ? 'Advert slot: your message goes here. Write it under Your '
-                  'message.'
-              : 'Advert slot: a Nomadwise advert shows here. Verified pages '
-                  'show their own event or offer instead.',
-          style: const TextStyle(
-              fontSize: 12.5, height: 1.45, color: Brand.inkSecondary)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('Advert',
+            style: TextStyle(
+                fontSize: 14, fontWeight: FontWeight.w800, color: Colors.white)),
+        const SizedBox(height: 4),
+        Text(
+            _verified
+                ? 'Your own event or offer replaces this advert. Write it '
+                    'under Your message.'
+                : 'A partner advert shows here. Verified pages show their '
+                    'own event or offer instead.',
+            style: const TextStyle(
+                fontSize: 12, height: 1.4, color: Color(0xFFDCE3E8))),
+      ]),
     );
   }
-
-  Widget _fakeButton(String label, {bool filled = false}) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-            color: filled ? Brand.red : Colors.transparent,
-            border: Border.all(color: filled ? Brand.red : Brand.border),
-            borderRadius: BorderRadius.circular(8)),
-        child: Text(label,
-            style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w700,
-                color: filled ? Colors.white : Brand.ink)),
-      );
 
   Widget _mentionCard() => Container(
         padding: const EdgeInsets.all(14),
@@ -1751,67 +1975,28 @@ class _OwnerScreenState extends State<OwnerScreen> {
               style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
           const SizedBox(height: 4),
           const Text(
-              'In the advert slot in your page\'s sidebar: beside your '
-              'details on a computer, under them on a phone.',
+              'Your message takes the advert\'s place at the foot of your '
+              'page\'s sidebar: on the right on a computer, after the '
+              'details on a phone.',
               style: TextStyle(color: Brand.inkMuted, fontSize: 12, height: 1.4)),
           const SizedBox(height: 12),
-          // A sketch of the page with the slot in place.
-          LayoutBuilder(builder: (context, box) {
-            Widget bar(double w, {double h = 8}) => Container(
-                width: w,
-                height: h,
-                margin: const EdgeInsets.only(bottom: 6),
+          if (_mentionTitle.text.trim().isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                    color: Brand.border,
-                    borderRadius: BorderRadius.circular(4)));
-            final card = _mentionTitle.text.trim().isEmpty
-                ? Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Brand.successTint,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Brand.success),
-                    ),
-                    child: const Text(
-                        'Your message goes here. Write a headline and it '
-                        'appears.',
-                        style: TextStyle(fontSize: 12.5, color: Brand.success)))
-                : _mentionCard();
-            return Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Brand.surface,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Brand.border),
-              ),
-              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Expanded(
-                  flex: 3,
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Container(
-                        height: 60,
-                        margin: const EdgeInsets.only(bottom: 8),
-                        decoration: BoxDecoration(
-                            color: Brand.field,
-                            borderRadius: BorderRadius.circular(8))),
-                    Text('${_venue?['name'] ?? ''}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w800, fontSize: 12.5)),
-                    const SizedBox(height: 6),
-                    bar(box.maxWidth * .4),
-                    bar(box.maxWidth * .35),
-                    bar(box.maxWidth * .38),
-                    bar(box.maxWidth * .3),
-                  ]),
+                  color: Brand.successTint,
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                const SizedBox(width: 10),
-                Expanded(flex: 2, child: card),
-              ]),
-            );
-          }),
+                child: const Text(
+                    'Write a headline and your message replaces the advert '
+                    'below.',
+                    style: TextStyle(fontSize: 12.5, color: Brand.success)),
+              ),
+            ),
+          _sidebar(),
         ]),
       );
 

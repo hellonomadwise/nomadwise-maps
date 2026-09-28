@@ -944,3 +944,20 @@ Decided with Jonathan (28 Sep):
   adds (photos and words are free for every owner).
 - **"This place was added by…"** comes off the listing template
   (Webflow Designer, by hand).
+
+## 28 Sep 2026: the Owner account preview follows the live page
+
+Rebuilt from screenshots of Nomio Coworking Lounge's page, in the
+order a phone shows it: title ("<name> in <country> - <area>"), the
+red place line with country and the Verified pill, wifi / rating /
+type, one large photo and four small, the red buttons (Send an
+enquiry on Verified, See Accommodation options nearby), grey tags in
+the page's own words (Enough Plug Sockets, Skype Room...), the
+"Something need updating?" link, the description with its section
+headings, prices, the map; then the sidebar: Opening Hours, the round
+link buttons (website, map, Instagram), Send an enquiry, and the
+advert slot (the owner's green message card on Verified). The map is
+drawn, not loaded, to keep Google calls off every redraw. Description
+headings travel as "## " lines (copied from the page that way, turned
+back into headings by the push); migration 97 re-copies the owned
+pages' text so the headings come through.
