@@ -833,3 +833,18 @@ are not counted.
 
 Also: a discovered-place card asked Google for the same reviews twice
 at once (signals and quotes); the second now waits for the first.
+
+## Daily Google limit and phone pings (28 Sep 2026)
+
+Google's own quotas cannot cap Places lookups per day (only per
+minute), so the limit lives in our code (migration 90). Every counted
+call gets Google's list price; public.google_budget() gives today's
+estimated spend. At £10 a day (api_limits.places_gbp_per_day) the jobs
+(scripts/google_meter.py) and the app (services/google_meter.dart)
+stop calling Google until midnight UTC; free calls (photo names, IDs)
+still go through. The estimate ignores Google's free allowance, so it
+runs high. The phone is pinged once a day each at half the limit, at
+the limit, and at 80% and 100% of the map-load cap
+(api_limits.map_loads_per_day, 2,300, to match the "Map loads per
+day" quota set by hand in Google Cloud). The app counts its own map
+loads ("Dynamic Maps") for that.

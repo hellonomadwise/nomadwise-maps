@@ -15,6 +15,7 @@ import '../models/discovered_place.dart';
 import '../models/venue.dart';
 import '../services/analytics_service.dart';
 import '../services/location_service.dart';
+import '../services/google_meter.dart';
 import '../services/places_service.dart';
 import '../services/supabase_service.dart';
 import '../theme.dart';
@@ -2466,6 +2467,7 @@ class _MapScreenState extends State<MapScreen> {
                 markers: _markers,
                 onMapCreated: (c) {
                   _map = c;
+                  GoogleMeter.countMapLoad();
                   final pending = _pendingCamera;
                   if (pending != null) {
                     _pendingCamera = null;

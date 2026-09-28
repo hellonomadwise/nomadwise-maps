@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../services/google_meter.dart';
 import '../services/places_service.dart';
 
 /// A Google photo (by photo name) or any image link, loaded the
@@ -53,7 +54,9 @@ class GooglePhoto extends StatelessWidget {
       builder: (_, snap) {
         if (snap.connectionState != ConnectionState.done) return loading;
         if (snap.data == null) {
-          onBroken?.call();
+          // Paused by the daily Google limit: not a dead photo, so no
+          // fresh names are fetched for it.
+          if (!GoogleMeter.paused) onBroken?.call();
           return broken;
         }
         return _image(PlacesService.photoUrl(name, maxWidth: maxWidth));

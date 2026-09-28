@@ -36,7 +36,12 @@ class _GoogleUsageScreenState extends State<GoogleUsageScreen> {
     _load();
   }
 
+  Map<String, dynamic>? _budget;
+
   Future<void> _load() async {
+    _supabase.googleBudget().then((b) {
+      if (mounted) setState(() => _budget = b);
+    });
     try {
       final rows = await _supabase.apiUsage(days: 35);
       if (mounted) {
@@ -86,6 +91,10 @@ class _GoogleUsageScreenState extends State<GoogleUsageScreen> {
                   if (_error == null && rows.isEmpty)
                     _note('Nothing counted yet. The first numbers arrive '
                         'with the next job run or app visit.'),
+                  if (_budget != null) ...[
+                    _todayCard(_budget!),
+                    const SizedBox(height: 14),
+                  ],
                   if (rows.isNotEmpty) ...[
                     _monthCard(rows),
                     const SizedBox(height: 14),
@@ -104,6 +113,40 @@ class _GoogleUsageScreenState extends State<GoogleUsageScreen> {
         child: Text(t,
             style: const TextStyle(fontSize: 13, color: Brand.goldTextDark)),
       );
+
+  /// Today against the daily limits (migration 90).
+  Widget _todayCard(Map<String, dynamic> b) {
+    final spent = (b['spent_gbp'] as num?)?.toDouble() ?? 0;
+    final lim = (b['limit_gbp'] as num?)?.toDouble() ?? 10;
+    final loads = (b['map_loads'] as num?)?.toInt() ?? 0;
+    final cap = (b['map_cap'] as num?)?.toInt() ?? 0;
+    final over = b['over'] == true;
+    return _box([
+      const Text('Today (UTC)',
+          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+      const SizedBox(height: 8),
+      Text(
+          over
+              ? 'Lookups paused: about £${spent.toStringAsFixed(2)} of the '
+                  '£${lim.toStringAsFixed(0)} daily limit used. Google is not '
+                  'asked again until midnight UTC.'
+              : 'Lookups: about £${spent.toStringAsFixed(2)} of the '
+                  '£${lim.toStringAsFixed(0)} daily limit.',
+          style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: over ? Brand.red : Brand.ink)),
+      const SizedBox(height: 4),
+      Text('Map loads: $loads of the $cap daily cap.',
+          style: const TextStyle(fontSize: 13)),
+      const SizedBox(height: 6),
+      const Text(
+          'Estimated at Google\'s list prices without the free monthly '
+          'allowance, so the real bill is lower. Your phone is pinged at '
+          'half the limit, at the limit, and at 80% and 100% of the map cap.',
+          style: TextStyle(fontSize: 12, color: Brand.inkSecondary)),
+    ]);
+  }
 
   /// This month so far, per bill line, split by who made the calls.
   Widget _monthCard(List<Map<String, dynamic>> rows) {

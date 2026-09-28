@@ -620,6 +620,16 @@ class SupabaseService {
     } catch (_) {}
   }
 
+  /// Today's estimated Google spend and the daily limit (migration 90).
+  Future<Map<String, dynamic>?> googleBudget() async {
+    try {
+      final r = await _db.rpc('google_budget');
+      return r is Map ? Map<String, dynamic>.from(r) : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Admin: Google calls per day, job and bill line, newest first.
   Future<List<Map<String, dynamic>>> apiUsage({int days = 35}) async {
     final since = DateTime.now()

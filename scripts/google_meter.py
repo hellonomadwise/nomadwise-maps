@@ -11,6 +11,14 @@ One line in a script turns it on:
 It wraps urllib's urlopen, so every Google call the script makes is
 seen without touching the calls themselves. Best-effort: if anything
 here fails, the job carries on exactly as before.
+
+It also keeps the daily spending limit (migration 90): at the start
+it asks the database what today's Google lookups have cost so far
+(list prices), adds what this run spends, and once the day's limit is
+reached it refuses further Google lookups with an error, as if Google
+had refused them, until midnight UTC. Counts are saved every 200
+calls as well as at the end, so the phone ping and the other jobs see
+a big run while it is still going.
 """
 import atexit
 import datetime
@@ -47,6 +55,26 @@ _NAMES = ['Essentials (IDs Only)', 'Essentials', 'Pro', 'Enterprise',
 _counts = {}
 _source = 'unknown'
 _real_urlopen = urllib.request.urlopen
+
+# Google's list price per 1,000 calls in US dollars (kept in step
+# with public.api_list_price_usd in migration 90).
+PRICE_USD = {
+    'Place Details Essentials': 5, 'Place Details Pro': 17,
+    'Place Details Enterprise': 20, 'Place Details Enterprise + Atmosphere': 25,
+    'Place Details Photos': 7, 'Text Search Pro': 32,
+    'Text Search Enterprise': 35, 'Text Search Enterprise + Atmosphere': 40,
+    'Nearby Search Pro': 32, 'Nearby Search Enterprise': 35,
+    'Nearby Search Enterprise + Atmosphere': 40,
+    'Autocomplete Requests': 2.83,
+}
+_budget = {'spent': 0.0, 'limit': None, 'fx': 0.75}
+_run_gbp = 0.0
+_unsaved = 0
+_blocked = 0
+
+
+class DailyLimitReached(Exception):
+    """Raised instead of calling Google once today's limit is spent."""
 
 
 def _tier(mask):
@@ -99,6 +127,13 @@ def _metered(req, *a, **kw):
         pass
     if line is None:
         return _real_urlopen(req, *a, **kw)
+    global _run_gbp, _unsaved, _blocked
+    price = PRICE_USD.get(line, 0) / 1000.0 * _budget['fx']
+    lim = _budget['limit']
+    if price > 0 and lim is not None and _budget['spent'] + _run_gbp >= lim:
+        _blocked += 1
+        raise DailyLimitReached(
+            f'daily Google limit of £{lim} reached; not calling Google')
     row = _counts.setdefault(line, [0, 0])
     try:
         resp = _real_urlopen(req, *a, **kw)
@@ -106,31 +141,73 @@ def _metered(req, *a, **kw):
         row[1] += 1        # refused calls are not billed; counted apart
         raise
     row[0] += 1
+    _run_gbp += price
+    _unsaved += 1
+    if _unsaved >= 200:
+        _save()
     return resp
 
 
-def _flush():
-    if not _counts:
-        return
+_saved = {}
+
+
+def _save():
+    """Adds the calls not yet saved to today's counts, then refreshes
+    today's spend from the database (other jobs and visitors too)."""
+    global _unsaved, _run_gbp
+    _unsaved = 0
+    delta = {}
+    for k, v in _counts.items():
+        s = _saved.get(k, [0, 0])
+        if v[0] - s[0] or v[1] - s[1]:
+            delta[k] = {'calls': v[0] - s[0], 'errors': v[1] - s[1]}
     url = os.environ.get('SUPABASE_URL', '').rstrip('/')
     key = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
-    summary = {k: {'calls': v[0], 'errors': v[1]} for k, v in _counts.items()}
-    print('Google calls this run (' + _source + '):',
-          json.dumps(summary, indent=2))
     if not (url and key):
         return
-    body = json.dumps({
-        'p_day': datetime.datetime.now(datetime.timezone.utc).date().isoformat(),
-        'p_source': _source,
-        'p_counts': summary,
-    }).encode()
+    if delta and _post('record_api_usage', {
+            'p_day': datetime.datetime.now(
+                datetime.timezone.utc).date().isoformat(),
+            'p_source': _source, 'p_counts': delta}) is not False:
+        for k, v in _counts.items():
+            _saved[k] = list(v)
+        _run_gbp = 0.0      # now inside the database's figure
+    _refresh_budget()
+
+
+def _post(fn, payload):
+    url = os.environ.get('SUPABASE_URL', '').rstrip('/')
+    key = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
     try:
-        _real_urlopen(urllib.request.Request(
-            f'{url}/rest/v1/rpc/record_api_usage', data=body, method='POST',
-            headers={'apikey': key, 'Authorization': f'Bearer {key}',
-                     'Content-Type': 'application/json'}), timeout=20).read()
+        with _real_urlopen(urllib.request.Request(
+                f'{url}/rest/v1/rpc/{fn}', data=json.dumps(payload).encode(),
+                method='POST',
+                headers={'apikey': key, 'Authorization': f'Bearer {key}',
+                         'Content-Type': 'application/json'}),
+                timeout=20) as r:
+            txt = r.read().decode()
+            return json.loads(txt) if txt else None
     except Exception as e:  # noqa: BLE001
-        print(f'Google call counts not saved (migration 89 not run yet?): {e}')
+        print(f'google_meter: {fn} failed ({e})')
+        return False
+
+
+def _refresh_budget():
+    b = _post('google_budget', {})
+    if isinstance(b, dict) and b.get('limit_gbp') is not None:
+        _budget['spent'] = float(b.get('spent_gbp') or 0)
+        _budget['limit'] = float(b['limit_gbp'])
+        _budget['fx'] = float(b.get('fx') or 0.75)
+
+
+def _flush():
+    summary = {k: {'calls': v[0], 'errors': v[1]} for k, v in _counts.items()}
+    if summary:
+        print('Google calls this run (' + _source + '):',
+              json.dumps(summary, indent=2))
+    if _blocked:
+        print(f'Daily Google limit reached: {_blocked} calls not made.')
+    _save()
 
 
 def install(source):
@@ -139,3 +216,6 @@ def install(source):
     if urllib.request.urlopen is not _metered:
         urllib.request.urlopen = _metered
         atexit.register(_flush)
+        if os.environ.get('SUPABASE_URL') and os.environ.get(
+                'SUPABASE_SERVICE_ROLE_KEY'):
+            _refresh_budget()
