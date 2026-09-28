@@ -888,3 +888,59 @@ hourly). Now the thank-you page asks for the sync straight away
 for that claim, narrowly rate-limited), and the Owner account shows
 "Payment confirming" with a live check while it waits, refreshing by
 itself every 10 seconds until the claim moves on.
+
+## 28 Sep 2026: "Something need updating?" moves into Nomad Maps
+
+The link on every listing page went to a retired form. It now opens
+nomadmaps.io/?update=<slug>. The page separates two people: whoever
+runs the space is sent to claim it (free) and change it themselves;
+visitors say what has changed (chips plus a note, when they were last
+there, optional name and email). Reports go to `listing_updates`
+(migration 94, admin-only reads, 5 an hour per space, 60 an hour in
+all), ping the phone, and show in the control centre under Owner
+changes, Suggested updates, to fix and mark done or dismiss.
+
+## 28 Sep 2026: Leonie's owner-journey review, first round
+
+Decided with Jonathan (28 Sep):
+
+- **Brand.** Nomad Maps now uses Nomadwise red #FF444F (was an orange
+  red, #E0442E), the site's page background #F7F7F7, and Roboto, the
+  font of nomadwise.io and the logo (was Instrument Sans). App-wide,
+  map included: one brand, not a separate business colour.
+- **Claim step 3 is "Choose your plan":** a Free vs Verified table with
+  ticks, then "Claim for free" and "Go Verified: continue to payment"
+  side by side. Claiming is free; Verified is the optional upgrade.
+  The side panel on steps 1 and 2 leads with "Claiming your page is
+  free". No lock icon; one small line "Secure payment with Stripe".
+- **Not only owners.** The claim form asks for a role (Owner, Manager,
+  Marketing, Other staff, with an optional job title). Wording is "we
+  check you are with the team" instead of "we confirm it is yours",
+  in the app and the claim emails (migration 95). How we check: an
+  email at the business's own domain matching its website (shown as
+  strong in Owners), else one message to the business's own Instagram,
+  WhatsApp (the number Google lists) or website email; a document
+  only as a last resort, by email.
+- **Phone:** country code from a searchable list (defaults to the
+  space's country), number digits only, saved as "+351 912345678".
+  **Instagram:** the @ is shown in front; a typed @ or a pasted
+  profile link becomes the bare handle; anything else is refused.
+- **Claim email vs signed-in account:** the email typed in the form
+  owns the claim. Signed in as someone else, the form says so.
+- **Business sign-in:** the Owner account's sign-in is titled
+  "Business sign-in" (for coworking spaces and cafes), with listing
+  words only. The nomads' sign-in (reviews, coins) links to it. The
+  app also opens the Owner account on /owner and the claim form on
+  /claim if a forwarding page is skipped.
+- **Owner account:** edits autosave as a draft (3 seconds after
+  typing stops, and before Go Verified leaves the page); Save draft
+  and Submit for review sit in a bar at the top. The description box
+  opens with the page's own description (copied from Webflow's Best
+  Text by the website push, migration 96); left unchanged, the page
+  keeps its formatting. The preview adds the Instagram handle, the
+  map's place and the sidebar advert slot; the Your message tab shows
+  where on the page the message sits. "Go Verified" buttons carry no
+  price. The Verified list in Membership now names only what Verified
+  adds (photos and words are free for every owner).
+- **"This place was added by…"** comes off the listing template
+  (Webflow Designer, by hand).

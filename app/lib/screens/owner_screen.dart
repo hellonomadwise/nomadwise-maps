@@ -77,6 +77,14 @@ class _OwnerScreenState extends State<OwnerScreen> {
   bool _dirty = false;
   bool _saving = false;
   String? _savedNote;
+  // Autosave: edits are kept as a draft a few seconds after typing
+  // stops, so leaving the page (to Go Verified, say) loses nothing
+  // (Leonie's review, 28 Sep).
+  Timer? _autoTimer;
+  bool _autosaving = false;
+  int _editSeq = 0;
+  DateTime _lastEdit = DateTime(2000);
+  DateTime? _autoSavedAt;
 
   static const _days = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
   static const _dayNames = {
@@ -122,16 +130,64 @@ class _OwnerScreenState extends State<OwnerScreen> {
       ..._hours.values,
     ]) {
       c.addListener(() {
+        _editSeq++;
+        _lastEdit = DateTime.now();
         if (!_dirty && mounted) setState(() => _dirty = true);
         if (mounted) setState(() {}); // live preview
       });
     }
+    _autoTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (_dirty &&
+          DateTime.now().difference(_lastEdit) > const Duration(seconds: 2)) {
+        _autosave();
+      }
+    });
+  }
+
+  /// Keep the edits as a draft, quietly. Nothing changes on the page;
+  /// the editor is not reloaded (that would move the cursor).
+  Future<void> _autosave() async {
+    final v = _venue;
+    if (v == null || !_dirty || _saving || _autosaving) return;
+    if (!_supabase.signedIn) return;
+    _autosaving = true;
+    final seq = _editSeq;
+    final data = _collect();
+    if (mounted) setState(() {});
+    try {
+      final res = await _supabase.ownerSaveDraft(v['id'], data, submit: false);
+      if (!mounted) return;
+      setState(() {
+        if (_editSeq == seq) _dirty = false;
+        _autoSavedAt = DateTime.now();
+        v['draft'] = {
+          ...?(v['draft'] is Map
+              ? Map<String, dynamic>.from(v['draft'] as Map)
+              : null),
+          'id': res['id'],
+          'status': res['status'],
+          'draft': data,
+        };
+      });
+    } catch (_) {
+      // Stays "unsaved"; the next tick tries again.
+    } finally {
+      _autosaving = false;
+      if (mounted) setState(() {});
+    }
+  }
+
+  /// Save now, then go: for links that leave the page.
+  Future<void> _saveThenOpen(String url) async {
+    await _autosave();
+    await launchUrl(Uri.parse(url), webOnlyWindowName: '_self');
   }
 
   @override
   void dispose() {
     _auth?.cancel();
     _poll?.cancel();
+    _autoTimer?.cancel();
     super.dispose();
   }
 
@@ -223,7 +279,12 @@ class _OwnerScreenState extends State<OwnerScreen> {
     String s(dynamic x) => (x ?? '').toString();
     final prices = Map<String, dynamic>.from(
         (d['prices'] ?? oc['prices'] ?? {}) as Map);
-    _description.text = s(d['description'] ?? oc['description']);
+    // The page's own description when nothing newer: the owner edits
+    // our words instead of starting from a blank box.
+    String firstText(List<dynamic> xs) =>
+        xs.map(s).firstWhere((t) => t.trim().isNotEmpty, orElse: () => '');
+    _description.text = firstText(
+        [d['description'], oc['description'], v['page_description']]);
     _priceDay.text = s(prices['day']);
     _priceWeek.text = s(prices['week']);
     _priceMonth.text = s(prices['month']);
@@ -312,6 +373,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
       if (!mounted) return;
       setState(() {
         _dirty = false;
+        _autoSavedAt = DateTime.now();
         _savedNote = submit
             ? 'Sent for review. We read every change before it goes on '
                 'the page, usually within a day or two.'
@@ -452,7 +514,14 @@ class _OwnerScreenState extends State<OwnerScreen> {
         maxWidth: 520,
         Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           SizedBox(height: wide ? 60 : 16),
-          Text('Owner account',
+          const Text('FOR COWORKING SPACES AND CAFES',
+              style: TextStyle(
+                  color: Brand.red,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.8)),
+          const SizedBox(height: 6),
+          Text('Business sign-in',
               style: TextStyle(
                   fontWeight: FontWeight.w800,
                   fontSize: wide ? 30 : 24,
@@ -460,8 +529,8 @@ class _OwnerScreenState extends State<OwnerScreen> {
           const SizedBox(height: 8),
           const Text(
               'Manage your listing on Nomadwise: your description, '
-              'prices, hours, photos and facts. Sign in with the email you '
-              'used to claim your space; no password.',
+              'prices, hours, photos and facts. Sign in with the email your '
+              'space was claimed with; no password.',
               style: TextStyle(
                   color: Brand.inkSecondary, fontSize: 14.5, height: 1.5)),
           const SizedBox(height: 22),
@@ -540,9 +609,16 @@ class _OwnerScreenState extends State<OwnerScreen> {
                       ]),
           ),
           const SizedBox(height: 18),
-          Text(
-              'Not claimed your space yet? Start at nomadmaps.io/claim. '
-              'Questions: hello@nomadwise.io',
+          Wrap(crossAxisAlignment: WrapCrossAlignment.center, children: [
+            const Text('Not claimed your space yet?',
+                style: TextStyle(color: Brand.inkMuted, fontSize: 12.5)),
+            TextButton(
+                onPressed: () => launchUrl(
+                    Uri.parse('https://nomadmaps.io/?claim'),
+                    webOnlyWindowName: '_self'),
+                child: const Text('Claim it for free')),
+          ]),
+          const Text('Questions: hello@nomadwise.io',
               style: TextStyle(color: Brand.inkMuted, fontSize: 12.5)),
         ]),
       );
@@ -575,7 +651,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
           paid ? _Step.done : confirming ? _Step.now : _Step.todo
         ),
       (
-        'Ownership check',
+        "We check it's you",
         (started || confirming) && verified ? _Step.todo : _Step.now
       ),
       (verified ? 'Verified' : 'Yours to manage', _Step.todo),
@@ -620,13 +696,15 @@ class _OwnerScreenState extends State<OwnerScreen> {
                 confirming
                     ? 'Your payment is being confirmed with Stripe. This '
                         'page updates by itself as soon as it is; then we '
-                        'confirm the space is yours and Verified goes on.'
+                        'check you are with the team and Verified goes on.'
                     : started && verified
                     ? 'We have not received a payment yet. If you have just '
                         'paid, it shows here as soon as Stripe confirms it; '
                         'if not, finish your claim below.'
-                    : 'We confirm every claim really comes from the '
-                        'business before handing the page over. We email '
+                    : 'We check every claim comes from the business (the '
+                        'owner or someone on the team) before handing the '
+                        'page over, usually with one quick message to the '
+                        "business's own Instagram, WhatsApp or email. We email "
                         'you at ${_supabase.userEmail ?? 'this address'} as '
                         'soon as that is done, and everything below opens.',
                 style: const TextStyle(
@@ -782,7 +860,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
               child: Column(mainAxisSize: MainAxisSize.min, children: [
                 const Icon(Icons.lock_outline, color: Brand.inkSecondary),
                 const SizedBox(height: 8),
-                Text("Opens as soon as we've confirmed you run $name",
+                Text("Opens as soon as we've confirmed you're with $name",
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                         fontWeight: FontWeight.w700, fontSize: 14.5)),
@@ -851,6 +929,8 @@ class _OwnerScreenState extends State<OwnerScreen> {
     final body = Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (_tab == _Tab.listing || (_tab == _Tab.message && _verified))
+            _actionBar(wide),
           _statusBanner(),
           if (wide)
             Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -1031,6 +1111,63 @@ class _OwnerScreenState extends State<OwnerScreen> {
     );
   }
 
+  /// Save draft and Submit for review, at the top where they are easy
+  /// to find, with what has happened to the edits so far.
+  Widget _actionBar(bool wide) {
+    final err = _savedNote != null &&
+        (_savedNote!.startsWith('That') ||
+            _savedNote!.startsWith('The ') ||
+            _savedNote!.startsWith('Could') ||
+            _savedNote!.startsWith('Five'));
+    final (IconData icon, Color color, String text) = _saving || _autosaving
+        ? (Icons.sync, Brand.inkSecondary, 'Saving your draft')
+        : err
+            ? (Icons.error_outline, Brand.red, _savedNote!)
+            : _dirty
+                ? (Icons.edit_outlined, Brand.goldTextDark, 'Unsaved changes')
+                : _autoSavedAt != null
+                    ? (Icons.cloud_done_outlined, Brand.success,
+                        'Draft saved. Nothing changes on your page until '
+                            'you submit for review.')
+                    : (Icons.info_outline, Brand.inkSecondary,
+                        'Edits are saved as a draft as you go. Submit for '
+                            'review when you are ready.');
+    final buttons = Wrap(spacing: 8, runSpacing: 8, children: [
+      OutlinedButton(
+          onPressed: _saving ? null : () => _save(submit: false),
+          child: const Text('Save draft')),
+      FilledButton(
+          onPressed: _saving ? null : () => _save(submit: true),
+          style: FilledButton.styleFrom(backgroundColor: Brand.red),
+          child: Text(_saving ? 'One moment' : 'Submit for review')),
+    ]);
+    final status = Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Icon(icon, size: 17, color: color),
+      const SizedBox(width: 8),
+      Expanded(
+          child: Text(text,
+              style: TextStyle(fontSize: 12.5, height: 1.4, color: color))),
+    ]);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
+      decoration: BoxDecoration(
+        color: Brand.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Brand.border),
+      ),
+      child: wide
+          ? Row(children: [
+              Expanded(child: status),
+              const SizedBox(width: 12),
+              buttons,
+            ])
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [status, const SizedBox(height: 8), buttons]),
+    );
+  }
+
   InputDecoration _dec(String label, {String? hint}) => InputDecoration(
       labelText: label,
       hintText: hint,
@@ -1207,15 +1344,15 @@ class _OwnerScreenState extends State<OwnerScreen> {
                         ? Brand.red
                         : Brand.success)),
           ),
-        Wrap(spacing: 8, runSpacing: 8, children: [
-          OutlinedButton(
-              onPressed: _saving ? null : () => _save(submit: false),
-              child: const Text('Save draft')),
-          FilledButton(
+        // Save draft and Submit also sit at the top (the action bar);
+        // this one saves scrolling back up after the last field.
+        Align(
+          alignment: Alignment.centerLeft,
+          child: FilledButton(
               onPressed: _saving ? null : () => _save(submit: true),
               style: FilledButton.styleFrom(backgroundColor: Brand.red),
               child: Text(_saving ? 'One moment' : 'Submit for review')),
-        ]),
+        ),
         const SizedBox(height: 8),
         const Text(
             'Ratings, reviews and WiFi tests come from Google and from '
@@ -1256,6 +1393,10 @@ class _OwnerScreenState extends State<OwnerScreen> {
             const Text('Unsaved edits',
                 style: TextStyle(fontSize: 11.5, color: Brand.inkMuted)),
         ]),
+        const SizedBox(height: 2),
+        const Text('Your page on nomadwise.io, in short: same parts, same '
+            'order.',
+            style: TextStyle(fontSize: 11.5, color: Brand.inkMuted)),
         const SizedBox(height: 12),
         ClipRRect(
           borderRadius: BorderRadius.circular(12),
@@ -1293,6 +1434,18 @@ class _OwnerScreenState extends State<OwnerScreen> {
                 '${v['wifi_speed_mbps'] != null ? '  ·  WiFi ${v['wifi_speed_mbps']} Mbps' : ''}',
                 style: const TextStyle(
                     fontSize: 12.5, color: Brand.goldTextDark)),
+          ),
+        if (_instagram.text.trim().isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Row(children: [
+              const Icon(Icons.camera_alt_outlined,
+                  size: 14, color: Brand.inkSecondary),
+              const SizedBox(width: 5),
+              Text(_igShown(_instagram.text),
+                  style: const TextStyle(
+                      fontSize: 12.5, color: Brand.inkSecondary)),
+            ]),
           ),
         const SizedBox(height: 10),
         Text(
@@ -1359,11 +1512,71 @@ class _OwnerScreenState extends State<OwnerScreen> {
           if (_website.text.trim().isNotEmpty) _fakeButton('Website'),
           if (_whatsapp.text.trim().isNotEmpty) _fakeButton('WhatsApp'),
         ]),
-        if (_verified && _mentionTitle.text.trim().isNotEmpty) ...[
-          const SizedBox(height: 14),
-          _mentionCard(),
-        ],
+        const SizedBox(height: 14),
+        _mapBlock(where),
+        const SizedBox(height: 16),
+        // The sidebar: beside the details on a computer, under them on
+        // a phone. Its advert slot carries a Verified page's message.
+        const Text('SIDEBAR',
+            style: TextStyle(
+                fontSize: 10.5,
+                letterSpacing: 1,
+                fontWeight: FontWeight.w800,
+                color: Brand.inkMuted)),
+        const SizedBox(height: 6),
+        _advertSlot(),
       ]),
+    );
+  }
+
+  /// "@handle" however it was typed (a link, with or without the @).
+  static String _igShown(String raw) {
+    var h = raw.trim();
+    final m = RegExp(r'instagram\.com/([^/?#\s]+)', caseSensitive: false)
+        .firstMatch(h);
+    if (m != null) h = m.group(1)!;
+    return '@${h.replaceFirst(RegExp(r'^@+'), '')}';
+  }
+
+  /// Where the Google map sits on the page. Drawn, not loaded: a real
+  /// map here would cost a Google call on every keystroke's redraw.
+  Widget _mapBlock(String where) => Container(
+        height: 96,
+        decoration: BoxDecoration(
+          color: const Color(0xFFE8EEF1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Brand.border),
+        ),
+        alignment: Alignment.center,
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Icon(Icons.location_on, color: Brand.red, size: 26),
+          Text(where.isEmpty ? 'Google map' : 'Google map: $where',
+              style: const TextStyle(fontSize: 12, color: Brand.inkSecondary)),
+        ]),
+      );
+
+  /// The advert slot as it shows today: your message on a Verified page
+  /// with one written, else the advert (and on Verified, a pointer).
+  Widget _advertSlot() {
+    if (_verified && _mentionTitle.text.trim().isNotEmpty) {
+      return _mentionCard();
+    }
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Brand.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Brand.inkFaint),
+      ),
+      child: Text(
+          _verified
+              ? 'Advert slot: your message goes here. Write it under Your '
+                  'message.'
+              : 'Advert slot: a Nomadwise advert shows here. Verified pages '
+                  'show their own event or offer instead.',
+          style: const TextStyle(
+              fontSize: 12.5, height: 1.45, color: Brand.inkSecondary)),
     );
   }
 
@@ -1405,11 +1618,20 @@ class _OwnerScreenState extends State<OwnerScreen> {
                   style: const TextStyle(fontSize: 13, height: 1.45)),
             ),
           const SizedBox(height: 10),
-          _fakeButton(
-              _mentionCta.text.trim().isEmpty
-                  ? 'Find out more'
-                  : _mentionCta.text.trim(),
-              filled: true),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+            decoration: BoxDecoration(
+                color: const Color(0xFF1F6B41),
+                borderRadius: BorderRadius.circular(9)),
+            child: Text(
+                _mentionCta.text.trim().isEmpty
+                    ? 'Find out more'
+                    : _mentionCta.text.trim(),
+                style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white)),
+          ),
         ]),
       );
 
@@ -1426,18 +1648,17 @@ class _OwnerScreenState extends State<OwnerScreen> {
               'Verified pages carry the space\'s own event, offer or '
               'announcement where nomadwise.io would otherwise show an '
               'advert. Yours shows the advert. Go Verified and this tab '
-              'opens up, along with the badge, a place above every free '
-              'listing, enquiries to your inbox and your own photos '
-              'and words.',
+              'opens up, along with the Verified badge, a place above '
+              'every free listing and a "Send an enquiry" button that '
+              'emails you directly.',
               style: TextStyle(
                   fontSize: 13.5, height: 1.5, color: Brand.inkSecondary)),
           const SizedBox(height: 16),
           FilledButton(
-              onPressed: () => launchUrl(
-                  Uri.parse('https://nomadmaps.io/?claim'),
-                  webOnlyWindowName: '_self'),
+              onPressed: () => _saveThenOpen('https://nomadmaps.io/?claim='
+                  '${Uri.encodeComponent('${_venue?['webflow_slug'] ?? _venue?['name'] ?? ''}')}'),
               style: FilledButton.styleFrom(backgroundColor: Brand.red),
-              child: const Text('Go Verified, 99 EUR a year')),
+              child: const Text('Go Verified')),
         ]),
       );
     }
@@ -1506,15 +1727,15 @@ class _OwnerScreenState extends State<OwnerScreen> {
             child: Text(_savedNote!,
                 style: const TextStyle(fontSize: 13, color: Brand.inkSecondary)),
           ),
-        Wrap(spacing: 8, runSpacing: 8, children: [
-          OutlinedButton(
-              onPressed: _saving ? null : () => _save(submit: false),
-              child: const Text('Save draft')),
-          FilledButton(
+        // Save draft and Submit also sit at the top (the action bar);
+        // this one saves scrolling back up after the last field.
+        Align(
+          alignment: Alignment.centerLeft,
+          child: FilledButton(
               onPressed: _saving ? null : () => _save(submit: true),
               style: FilledButton.styleFrom(backgroundColor: Brand.red),
               child: Text(_saving ? 'One moment' : 'Submit for review')),
-        ]),
+        ),
         const SizedBox(height: 8),
         const Text('To take the message down, clear the headline and submit.',
             style: TextStyle(color: Brand.inkMuted, fontSize: 12)),
@@ -1529,14 +1750,68 @@ class _OwnerScreenState extends State<OwnerScreen> {
           const Text('What nomads see',
               style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
           const SizedBox(height: 4),
-          const Text('In the advert slot on your page.',
-              style: TextStyle(color: Brand.inkMuted, fontSize: 12)),
+          const Text(
+              'In the advert slot in your page\'s sidebar: beside your '
+              'details on a computer, under them on a phone.',
+              style: TextStyle(color: Brand.inkMuted, fontSize: 12, height: 1.4)),
           const SizedBox(height: 12),
-          if (_mentionTitle.text.trim().isEmpty)
-            const Text('Write a headline and it appears here.',
-                style: TextStyle(color: Brand.inkMuted, fontSize: 13))
-          else
-            _mentionCard(),
+          // A sketch of the page with the slot in place.
+          LayoutBuilder(builder: (context, box) {
+            Widget bar(double w, {double h = 8}) => Container(
+                width: w,
+                height: h,
+                margin: const EdgeInsets.only(bottom: 6),
+                decoration: BoxDecoration(
+                    color: Brand.border,
+                    borderRadius: BorderRadius.circular(4)));
+            final card = _mentionTitle.text.trim().isEmpty
+                ? Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Brand.successTint,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Brand.success),
+                    ),
+                    child: const Text(
+                        'Your message goes here. Write a headline and it '
+                        'appears.',
+                        style: TextStyle(fontSize: 12.5, color: Brand.success)))
+                : _mentionCard();
+            return Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Brand.surface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Brand.border),
+              ),
+              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Expanded(
+                  flex: 3,
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Container(
+                        height: 60,
+                        margin: const EdgeInsets.only(bottom: 8),
+                        decoration: BoxDecoration(
+                            color: Brand.field,
+                            borderRadius: BorderRadius.circular(8))),
+                    Text('${_venue?['name'] ?? ''}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w800, fontSize: 12.5)),
+                    const SizedBox(height: 6),
+                    bar(box.maxWidth * .4),
+                    bar(box.maxWidth * .35),
+                    bar(box.maxWidth * .38),
+                    bar(box.maxWidth * .3),
+                  ]),
+                ),
+                const SizedBox(width: 10),
+                Expanded(flex: 2, child: card),
+              ]),
+            );
+          }),
         ]),
       );
 
@@ -1557,8 +1832,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
     final rows = const [
       'The Verified badge on your page and in every list you appear in',
       'A place above every free listing in your city and area',
-      'Enquiries sent straight to your inbox, no commission',
-      'Your own photos, description and prices instead of Google\'s',
+      'A "Send an enquiry" button that emails you directly, no commission',
       'Your event or offer in the advert slot on your page',
     ];
     return _panel(
@@ -1630,10 +1904,8 @@ class _OwnerScreenState extends State<OwnerScreen> {
             ),
           const SizedBox(height: 14),
           FilledButton(
-              onPressed: () => launchUrl(
-                  Uri.parse(
-                      'https://nomadmaps.io/?claim=${Uri.encodeComponent('${v['webflow_slug'] ?? v['name']}')}'),
-                  webOnlyWindowName: '_self'),
+              onPressed: () => _saveThenOpen(
+                  'https://nomadmaps.io/?claim=${Uri.encodeComponent('${v['webflow_slug'] ?? v['name']}')}'),
               style: FilledButton.styleFrom(backgroundColor: Brand.red),
               child: const Text('Go Verified')),
           const SizedBox(height: 8),

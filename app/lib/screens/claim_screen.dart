@@ -11,6 +11,7 @@ import '../services/supabase_service.dart';
 import '../services/ua_stub.dart' if (dart.library.html) '../services/ua_web.dart'
     as ua;
 import '../theme.dart';
+import '../widgets/phone_field.dart';
 
 /// Claim your space: the owner's way in.
 ///
@@ -75,7 +76,12 @@ class _ClaimScreenState extends State<ClaimScreen> {
 
   // ---- who is paying ----
   final _ownerName = TextEditingController();
-  final _ownerRole = TextEditingController();
+  final _ownerRole = TextEditingController(); // job title, when "Other"
+  // Owner, Manager, Marketing or Other: not only owners claim a page.
+  String? _role;
+  // The phone's country code, picked from a list (typed codes were
+  // often wrong); defaults to the space's country.
+  final _phoneCountry = ValueNotifier<String?>(null);
   final _ownerEmail = TextEditingController();
   final _ownerPhone = TextEditingController();
   final _enquiryEmail = TextEditingController();
@@ -128,6 +134,83 @@ class _ClaimScreenState extends State<ClaimScreen> {
       if (_spaceName.isNotEmpty) 'space': _spaceName,
     });
     _step = next;
+    if (next == _Step.about) {
+      _phoneCountry.value ??= PhoneField.isoFor(
+          _picked != null ? '${_picked!['country'] ?? ''}' : _newCountry);
+      final me = _supabase.userEmail;
+      if (_ownerEmail.text.trim().isEmpty && me != null) _ownerEmail.text = me;
+    }
+  }
+
+  static const _roles = [
+    ('Owner', 'Owner'),
+    ('Manager', 'Manager'),
+    ('Marketing', 'Marketing'),
+    ('Other', 'Other staff'),
+  ];
+
+  String get _roleValue => _role == 'Other'
+      ? (_ownerRole.text.trim().isEmpty
+          ? 'Other staff'
+          : 'Other: ${_ownerRole.text.trim()}')
+      : (_role ?? '');
+
+  /// An Instagram handle without the @, from whatever was typed or
+  /// pasted: "@kelp.cowork", "kelp.cowork", or a profile link. ''
+  /// when empty, null when it cannot be a handle.
+  static String? igHandle(String raw) {
+    var h = raw.trim();
+    if (h.isEmpty) return '';
+    final link = RegExp(r'instagram\.com/([^/?#\s]+)', caseSensitive: false)
+        .firstMatch(h);
+    if (link != null) h = link.group(1)!;
+    h = h.replaceFirst(RegExp(r'^@+'), '').trim();
+    if (h.isEmpty) return '';
+    return RegExp(r'^[A-Za-z0-9._]{1,30}$').hasMatch(h) ? h : null;
+  }
+
+  /// What is missing or wrong on Your details, or null when it is fine.
+  String? _detailsProblem() {
+    final name = _ownerName.text.trim();
+    final email = _ownerEmail.text.trim();
+    if (name.length < 2) return 'Your name is needed.';
+    if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email)) {
+      return 'A working email is needed.';
+    }
+    if (_role == null) return 'Tell us your role at the space.';
+    final phone = PhoneField.problem(_phoneCountry.value, _ownerPhone.text);
+    if (phone != null) return phone;
+    if (igHandle(_instagram.text) == null) {
+      return 'That Instagram handle has characters Instagram does not '
+          'allow. Letters, numbers, dots and underscores only.';
+    }
+    return null;
+  }
+
+  /// The claim as the database wants it, for both doors.
+  Map<String, dynamic> _claimFields() {
+    final ig = igHandle(_instagram.text) ?? '';
+    return {
+      if (_picked != null) 'venue_id': _picked!['id'],
+      'owner_name': _ownerName.text.trim(),
+      'owner_email': _ownerEmail.text.trim().toLowerCase(),
+      'owner_role': _roleValue,
+      'owner_phone': PhoneField.compose(_phoneCountry.value, _ownerPhone.text),
+      'enquiry_email': _enquiryEmail.text.trim(),
+      'note': _note.text.trim(),
+      'space_website': _siteUrl.text.trim(),
+      'space_instagram': ig.isEmpty ? '' : '@$ig',
+      if (_picked == null) ...{
+        'space_name': _pickedPlace?.main ?? '',
+        'space_type': _newType,
+        'space_address': _newAddress ?? '',
+        'space_city': _newCity ?? '',
+        'space_country': _newCountry ?? '',
+        'space_place_id': _pickedPlace?.placeId ?? '',
+        if (_newLat != null) 'space_lat': '$_newLat',
+        if (_newLng != null) 'space_lng': '$_newLng',
+      },
+    };
   }
 
   void _watchField(TextEditingController c, String field) {
@@ -206,6 +289,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
     ]) {
       c.dispose();
     }
+    _phoneCountry.dispose();
     super.dispose();
   }
 
@@ -314,10 +398,10 @@ class _ClaimScreenState extends State<ClaimScreen> {
 
   Future<void> _startAndPay() async {
     if (_website.text.isNotEmpty) return; // a bot
-    final name = _ownerName.text.trim();
     final email = _ownerEmail.text.trim().toLowerCase();
-    if (name.length < 2 || !email.contains('@') || email.length < 5) {
-      setState(() => _error = 'Your name and a working email are needed.');
+    final problem = _detailsProblem();
+    if (problem != null) {
+      setState(() => _error = problem);
       return;
     }
     setState(() {
@@ -325,27 +409,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
       _error = null;
     });
     try {
-      final res = await _supabase.startClaim({
-        if (_picked != null) 'venue_id': _picked!['id'],
-        'owner_name': name,
-        'owner_email': email,
-        'owner_role': _ownerRole.text.trim(),
-        'owner_phone': _ownerPhone.text.trim(),
-        'enquiry_email': _enquiryEmail.text.trim(),
-        'note': _note.text.trim(),
-        'space_website': _siteUrl.text.trim(),
-        'space_instagram': _instagram.text.trim(),
-        if (_picked == null) ...{
-          'space_name': _pickedPlace?.main ?? '',
-          'space_type': _newType,
-          'space_address': _newAddress ?? '',
-          'space_city': _newCity ?? '',
-          'space_country': _newCountry ?? '',
-          'space_place_id': _pickedPlace?.placeId ?? '',
-          if (_newLat != null) 'space_lat': '$_newLat',
-          if (_newLng != null) 'space_lng': '$_newLng',
-        },
-      });
+      final res = await _supabase.startClaim(_claimFields());
       final claimId = '${res?['claim_id'] ?? ''}';
       if (claimId.isEmpty) throw Exception('no claim id');
       _done = true;
@@ -376,10 +440,10 @@ class _ClaimScreenState extends State<ClaimScreen> {
   /// waiting for approval in the control centre.
   Future<void> _claimFree() async {
     if (_website.text.isNotEmpty) return; // a bot
-    final name = _ownerName.text.trim();
     final email = _ownerEmail.text.trim().toLowerCase();
-    if (name.length < 2 || !email.contains('@') || email.length < 5) {
-      setState(() => _error = 'Your name and a working email are needed.');
+    final problem = _detailsProblem();
+    if (problem != null) {
+      setState(() => _error = problem);
       return;
     }
     setState(() {
@@ -389,25 +453,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
     try {
       final res = await _supabase.startClaim({
         'plan': 'free',
-        if (_picked != null) 'venue_id': _picked!['id'],
-        'owner_name': name,
-        'owner_email': email,
-        'owner_role': _ownerRole.text.trim(),
-        'owner_phone': _ownerPhone.text.trim(),
-        'enquiry_email': _enquiryEmail.text.trim(),
-        'note': _note.text.trim(),
-        'space_website': _siteUrl.text.trim(),
-        'space_instagram': _instagram.text.trim(),
-        if (_picked == null) ...{
-          'space_name': _pickedPlace?.main ?? '',
-          'space_type': _newType,
-          'space_address': _newAddress ?? '',
-          'space_city': _newCity ?? '',
-          'space_country': _newCountry ?? '',
-          'space_place_id': _pickedPlace?.placeId ?? '',
-          if (_newLat != null) 'space_lat': '$_newLat',
-          if (_newLng != null) 'space_lng': '$_newLng',
-        },
+        ..._claimFields(),
       });
       final claimId = '${res?['claim_id'] ?? ''}';
       if (claimId.isEmpty) throw Exception('no claim id');
@@ -553,6 +599,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
         labelText: label,
         hintText: hint,
         helperText: helper,
+        helperMaxLines: 3,
         prefixIcon: prefix,
         suffixIcon: suffix,
         filled: true,
@@ -767,18 +814,39 @@ class _ClaimScreenState extends State<ClaimScreen> {
         ),
       ],
       SizedBox(height: wide ? 26 : 18),
-      _pair(
-        wide,
-        TextField(
-            controller: _ownerName,
-            textCapitalization: TextCapitalization.words,
-            decoration: _field('Your name')),
+      TextField(
+          controller: _ownerName,
+          textCapitalization: TextCapitalization.words,
+          decoration: _field('Your name')),
+      const SizedBox(height: 16),
+      const Text('Your role at the space',
+          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
+      const SizedBox(height: 8),
+      Wrap(spacing: 8, runSpacing: 8, children: [
+        for (final (key, label) in _roles)
+          ChoiceChip(
+            label: Text(label),
+            selected: _role == key,
+            showCheckmark: false,
+            selectedColor: Brand.ink,
+            labelStyle: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: _role == key ? Colors.white : Brand.ink),
+            onSelected: (_) {
+              setState(() => _role = key);
+              _track('claim_role', {'role': key});
+            },
+          ),
+      ]),
+      if (_role == 'Other') ...[
+        const SizedBox(height: 12),
         TextField(
             controller: _ownerRole,
             textCapitalization: TextCapitalization.sentences,
-            decoration: _field('Your role (optional)',
-                hint: 'Owner, manager, community lead')),
-      ),
+            decoration: _field('Your job title (optional)',
+                hint: 'Community lead, front desk, founder')),
+      ],
       const SizedBox(height: 16),
       _pair(
         wide,
@@ -786,12 +854,14 @@ class _ClaimScreenState extends State<ClaimScreen> {
             controller: _ownerEmail,
             keyboardType: TextInputType.emailAddress,
             decoration: _field('Your email',
-                helper: 'Receipts and anything we need to ask you.')),
-        TextField(
-            controller: _ownerPhone,
-            keyboardType: TextInputType.phone,
-            decoration: _field('Phone or WhatsApp (optional)')),
+                helper: 'An email at the business\'s own address (like '
+                    'you@yourspace.com) is the quickest way we confirm you.')),
+        PhoneField(
+            number: _ownerPhone,
+            country: _phoneCountry,
+            helper: 'A WhatsApp number is ideal.'),
       ),
+      _signedInNote(),
       const SizedBox(height: 16),
       TextField(
           controller: _enquiryEmail,
@@ -807,7 +877,23 @@ class _ClaimScreenState extends State<ClaimScreen> {
             decoration: _field('Website (optional)', hint: 'yourspace.com')),
         TextField(
             controller: _instagram,
-            decoration: _field('Instagram (optional)', hint: '@yourspace')),
+            decoration: InputDecoration(
+                labelText: 'Instagram (optional)',
+                hintText: 'yourspace',
+                prefixText: '@',
+                helperText: 'Your handle, or paste the profile link.',
+                filled: true,
+                fillColor: Brand.surface),
+            onChanged: (v) {
+              // A pasted link or a typed @ becomes the bare handle; the
+              // @ is already shown in front.
+              final h = igHandle(v);
+              if (h != null && h != v) {
+                _instagram.value = TextEditingValue(
+                    text: h,
+                    selection: TextSelection.collapsed(offset: h.length));
+              }
+            }),
       ),
       const SizedBox(height: 16),
       TextField(
@@ -833,14 +919,10 @@ class _ClaimScreenState extends State<ClaimScreen> {
           width: wide ? 260 : double.infinity,
           child: FilledButton(
             onPressed: () {
-              final name = _ownerName.text.trim();
-              final email = _ownerEmail.text.trim();
-              if (name.length < 2 || !email.contains('@')) {
-                _track('claim_blocked', {
-                  'why': name.length < 2 ? 'no_name' : 'no_email',
-                });
-                setState(() =>
-                    _error = 'Your name and a working email are needed.');
+              final problem = _detailsProblem();
+              if (problem != null) {
+                _track('claim_blocked', {'why': problem});
+                setState(() => _error = problem);
                 return;
               }
               setState(() {
@@ -858,9 +940,10 @@ class _ClaimScreenState extends State<ClaimScreen> {
     ];
 
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      _heading(wide, 2, 'Owner details',
-          'So we know who to reply to, and where enquiries from your '
-              'page should land.'),
+      _heading(wide, 2, 'Your details',
+          'For the owner, or anyone the business has asked to look after '
+              'its page: a manager, the marketing lead. Before we hand the '
+              'page over, we check you are with the team.'),
       SizedBox(height: wide ? 26 : 18),
       ConstrainedBox(
         constraints: BoxConstraints(maxWidth: wide ? 760 : double.infinity),
@@ -869,6 +952,30 @@ class _ClaimScreenState extends State<ClaimScreen> {
       ),
     ]);
   }
+
+  /// Signed in as someone else? The claim belongs to the email typed
+  /// above (it is the one we check and write to); say so, so nobody is
+  /// surprised when their signed-in account does not show the space.
+  Widget _signedInNote() => ValueListenableBuilder<TextEditingValue>(
+        valueListenable: _ownerEmail,
+        builder: (_, v, __) {
+          final me = _supabase.userEmail;
+          final typed = v.text.trim().toLowerCase();
+          if (me == null || !typed.contains('@') || typed == me) {
+            return const SizedBox.shrink();
+          }
+          return Container(
+            margin: const EdgeInsets.only(top: 12),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+                color: Brand.goldTint, borderRadius: BorderRadius.circular(10)),
+            child: Text(
+                'You are signed in as $me. The space will be claimed with '
+                '$typed, so sign in with $typed to manage it.',
+                style: const TextStyle(fontSize: 12.5, height: 1.45)),
+          );
+        },
+      );
 
   /// Side by side on a desktop, stacked on a phone.
   Widget _pair(bool wide, Widget a, Widget b) => wide
@@ -909,139 +1016,176 @@ class _ClaimScreenState extends State<ClaimScreen> {
 
   // ---------------------------------------------------------- step three
 
+  /// Step three: Free and Verified side by side, so what the free
+  /// claim gives is as plain as what Verified adds. Claiming is free;
+  /// Verified is the optional upgrade (Leonie's review, 28 Sep: the
+  /// paid offer alone hid the point of claiming for free).
   Widget _payStep(bool wide) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _heading(wide, 3, 'Your Verified listing', ''),
-          const SizedBox(height: 6),
-          Text('for $_spaceName',
-              style: TextStyle(
-                  color: Brand.inkSecondary,
-                  fontSize: wide ? 16 : 14,
-                  fontWeight: FontWeight.w600)),
-          SizedBox(height: wide ? 28 : 18),
-          _split(
-            wide,
-            main: _valueBlock(wide),
-            side: Column(children: [
-              _checkoutCard(wide),
-              const SizedBox(height: 14),
-              _freeCard(wide),
-            ]),
+          _heading(wide, 3, 'Choose your plan',
+              'Claiming $_spaceName is free. Verified adds more, for 99 EUR '
+                  'a year. You can go Verified later from your Owner account.'),
+          SizedBox(height: wide ? 26 : 18),
+          ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: wide ? 860 : double.infinity),
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _planTable(wide),
+                  if (_error != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 14),
+                      child: Text(_error!,
+                          style:
+                              const TextStyle(color: Brand.red, fontSize: 13)),
+                    ),
+                  const SizedBox(height: 16),
+                  wide
+                      ? Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                              Expanded(child: _freeButton()),
+                              const SizedBox(width: 14),
+                              Expanded(child: _payButton()),
+                            ])
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                              _payButton(),
+                              const SizedBox(height: 12),
+                              _freeButton(),
+                            ]),
+                  const SizedBox(height: 16),
+                  Text(
+                      _alreadyPublished
+                          ? 'Either way, we first check you are with the team '
+                              'at $_spaceName, then the page is yours to manage.'
+                          : 'Either way, your space joins our publishing queue '
+                              'and we email you when the page is live. We first '
+                              'check you are with the team, then it is yours to '
+                              'manage.',
+                      style: const TextStyle(
+                          color: Brand.inkMuted, fontSize: 12.5, height: 1.5)),
+                ]),
           ),
         ],
       );
 
-  /// The other door: listed for free, owner on record, no payment.
-  Widget _freeCard(bool wide) => Container(
-        padding: EdgeInsets.all(wide ? 22 : 16),
-        decoration: BoxDecoration(
-          color: Brand.field,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Brand.border),
-        ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('Or claim it for free',
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
-          const SizedBox(height: 6),
-          Text(
-              _alreadyPublished
-                  ? 'Your page stays as it is and stays free. We confirm '
-                      'you run the space, then you are its owner on record: '
-                      'corrections go on at your say-so, and you can go '
-                      'Verified any time.'
-                  : 'Your space joins our publishing queue as a free '
-                      'listing, built from public information. We confirm '
-                      'you run it, then you are its owner on record, and '
-                      'you can go Verified any time.',
-              style: const TextStyle(
-                  color: Brand.inkSecondary, fontSize: 12.5, height: 1.45)),
-          const SizedBox(height: 14),
-          OutlinedButton(
-            onPressed: _sending ? null : _claimFree,
-            style: OutlinedButton.styleFrom(
-                minimumSize: const Size.fromHeight(46)),
-            child: Text(_sending ? 'One moment' : 'Claim for free',
-                style: const TextStyle(
-                    fontSize: 14, fontWeight: FontWeight.w700)),
-          ),
-        ]),
-      );
+  static const _planRows = <(String, bool)>[
+    ('Your page on Nomadwise, built to be found by Google and AI assistants',
+        true),
+    ('Correct the facts: hours, prices, wifi, contact', true),
+    ('Your own photos and description', true),
+    ('The Verified badge on your page and in every list', false),
+    ('Listed above the free spaces in your city and area', false),
+    ('A "Send an enquiry" button that emails you directly', false),
+    ('Your event or offer in the advert slot on your page', false),
+  ];
 
-  Widget _checkoutCard(bool wide) => Container(
-        padding: EdgeInsets.all(wide ? 24 : 18),
-        decoration: BoxDecoration(
-          color: Brand.surface,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Brand.border),
-          boxShadow: wide ? Brand.shadowResting : null,
-        ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-            Text('€99',
+  /// Free vs Verified with ticks. The Verified column is tinted.
+  Widget _planTable(bool wide) {
+    final colW = wide ? 150.0 : 84.0;
+    Widget cell(Widget child, {bool paid = false, bool top = false}) =>
+        Container(
+          width: colW,
+          color: paid ? Brand.accentTint : null,
+          padding: EdgeInsets.symmetric(vertical: top ? 14 : 11),
+          alignment: Alignment.center,
+          child: child,
+        );
+    Widget tick(bool on) => on
+        ? const Icon(Icons.check_circle, color: Brand.success, size: 20)
+        : const Icon(Icons.remove, color: Brand.inkFaint, size: 18);
+    Widget head(String name, String price, {bool paid = false}) => cell(
+          Column(children: [
+            Text(name,
                 style: TextStyle(
                     fontWeight: FontWeight.w800,
-                    fontSize: wide ? 40 : 32,
-                    height: 1,
-                    letterSpacing: -1)),
-            const SizedBox(width: 8),
-            const Padding(
-              padding: EdgeInsets.only(bottom: 4),
-              child: Text('per year',
-                  style: TextStyle(color: Brand.inkSecondary, fontSize: 14)),
-            ),
+                    fontSize: wide ? 16 : 14,
+                    color: paid ? Brand.red : Brand.ink)),
+            const SizedBox(height: 2),
+            Text(price,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    fontSize: wide ? 12.5 : 11.5, color: Brand.inkSecondary)),
           ]),
-          const SizedBox(height: 8),
-          const Text(
-              'Renews once a year. Cancel any time and it runs to the end of '
-              'the 12 months.',
-              style:
-                  TextStyle(color: Brand.inkMuted, fontSize: 12.5, height: 1.45)),
-          const SizedBox(height: 18),
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: Brand.successTint,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Icon(Icons.bolt, color: Brand.success, size: 20),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                    _alreadyPublished
-                        ? 'Your page is already live. We check the claim, '
-                            'then the badge and your details go on.'
-                        : 'Your listing joins our publishing queue. We will '
-                            'email you as soon as your page is live.',
-                    style: const TextStyle(
-                        fontSize: 12.5, height: 1.45, color: Brand.ink)),
-              ),
-            ]),
-          ),
-          if (_error != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 14),
-              child: Text(_error!,
-                  style: const TextStyle(color: Brand.red, fontSize: 13)),
-            ),
-          const SizedBox(height: 18),
-          FilledButton.icon(
-            onPressed: _sending ? null : _startAndPay,
-            style: FilledButton.styleFrom(
-                backgroundColor: Brand.red,
-                minimumSize: const Size.fromHeight(52)),
-            icon: const Icon(Icons.lock_outline, size: 18),
-            label: Text(_sending ? 'One moment' : 'Continue to payment',
-                style: const TextStyle(
-                    fontSize: 15, fontWeight: FontWeight.w700)),
-          ),
-          const SizedBox(height: 12),
-          const Text('Payment is handled by Stripe. We never see your card.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Brand.inkMuted, fontSize: 11.5)),
+          paid: paid,
+          top: true,
+        );
+    final rows = <Widget>[
+      IntrinsicHeight(
+        child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          const Expanded(child: SizedBox()),
+          head('Free', 'claim for free'),
+          head('Verified', '99 EUR a year', paid: true),
         ]),
+      ),
+      for (final (label, free) in _planRows)
+        IntrinsicHeight(
+          child: Container(
+            decoration: const BoxDecoration(
+                border: Border(top: BorderSide(color: Brand.hairline))),
+            child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(wide ? 18 : 12, 11, 8, 11),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(label,
+                            style: TextStyle(
+                                fontSize: wide ? 14 : 13, height: 1.35)),
+                      ),
+                    ),
+                  ),
+                  cell(tick(free)),
+                  cell(tick(true), paid: true),
+                ]),
+          ),
+        ),
+    ];
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: Brand.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Brand.border),
+      ),
+      child: Column(children: rows),
+    );
+  }
+
+  Widget _freeButton() => OutlinedButton(
+        onPressed: _sending ? null : _claimFree,
+        style: OutlinedButton.styleFrom(
+            minimumSize: const Size.fromHeight(52)),
+        child: Text(_sending ? 'One moment' : 'Claim for free',
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
       );
+
+  Widget _payButton() => Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            FilledButton(
+              onPressed: _sending ? null : _startAndPay,
+              style: FilledButton.styleFrom(
+                  backgroundColor: Brand.red,
+                  minimumSize: const Size.fromHeight(52)),
+              child: Text(
+                  _sending ? 'One moment' : 'Go Verified: continue to payment',
+                  style: const TextStyle(
+                      fontSize: 15, fontWeight: FontWeight.w700)),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+                'Secure payment with Stripe. Renews yearly; cancel any time '
+                'and it runs to the end of the 12 months.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    color: Brand.inkMuted, fontSize: 11.5, height: 1.4)),
+          ]);
 
   // ------------------------------------------------------- what you get
 
@@ -1056,7 +1200,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
               'city and area pages.'),
       (Icons.mark_email_read_outlined, Brand.red,
           'Enquiries to your inbox',
-          'A Send an enquiry button on your page that emails you directly. '
+          'A "Send an enquiry" button on your page that emails you directly. '
               'No commission, no middleman.'),
       (Icons.photo_library_outlined, Brand.red, 'Your own photos and words',
           'Your description, your prices, your pictures, instead of '
@@ -1078,7 +1222,20 @@ class _ClaimScreenState extends State<ClaimScreen> {
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         if (compact) ...[
-          const Text('What a Verified listing gets you',
+          const Text('Claiming your page is free',
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+          const SizedBox(height: 6),
+          Text(
+              'Correct the facts and add your own photos and description '
+              'from your Owner account.',
+              style: TextStyle(
+                  fontSize: wide ? 13.5 : 12.5,
+                  height: 1.5,
+                  color: Brand.inkSecondary)),
+          SizedBox(height: wide ? 18 : 14),
+          const Divider(height: 1, color: Brand.border),
+          SizedBox(height: wide ? 18 : 14),
+          const Text('Verified, when you want more',
               style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
           const SizedBox(height: 16),
         ],
@@ -1198,14 +1355,14 @@ class _ClaimedScreenState extends State<ClaimedScreen> {
         : "Payment received, you're almost there";
     final text = free
         ? '${space.isEmpty ? '' : 'Thank you for claiming $space. '}'
-            'Next we confirm $spaceName is yours; we email you'
+            'Next we check you are with the team at $spaceName; we email you'
             '${email.contains('@') ? ' at $email' : ''} as soon as that is '
-            'done, and you are its owner on record.\n\n'
+            'done, and the page is yours to manage.\n\n'
             'Your Owner account is ready now: sign in to see where things '
             'stand.'
         : "You've claimed your $kind${space.isEmpty ? '' : ', $space'}, and "
-            'your payment has reached us. Next we confirm $spaceName is '
-            'yours, then Verified goes on and we email you'
+            'your payment has reached us. Next we check you are with the '
+            'team at $spaceName, then Verified goes on and we email you'
             '${email.contains('@') ? ' at $email' : ''}.\n\n'
             'Your Owner account is ready now: sign in to see where things '
             'stand.';

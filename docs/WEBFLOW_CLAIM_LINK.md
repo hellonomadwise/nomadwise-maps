@@ -30,6 +30,9 @@ document.addEventListener('DOMContentLoaded', function () {
              '&from=' + encodeURIComponent(here);
   });
   if (onListing) {
+    document.querySelectorAll('a[href*="nomadmaps.io/?update"]').forEach(function (a) {
+      a.href = 'https://nomadmaps.io/?update=' + encodeURIComponent(slug);
+    });
     var b = document.getElementById('enquire');
     if (b) b.href = 'https://nomadmaps.io/?enquire=' + encodeURIComponent(slug);
   }
@@ -55,3 +58,12 @@ between two different sites.
   Visits from elsewhere show the browser's referrer (google.com, a
   newsletter) or "direct".
 - Pings are capped at 30 an hour; the log keeps every visit.
+
+## The "Something need updating? Let us know" link (added 28 Sep)
+
+Same template, same snippet. Select the "Something need updating? Let
+us know" link and set its URL to `https://nomadmaps.io/?update`, open
+in new tab. The snippet turns it into `?update=<slug>`, which opens the
+Suggest an update page for that space: owners are pointed to claiming,
+everyone else tells us what has changed. Reports land in the control
+centre (Owner changes, Suggested updates) and ping the phone.

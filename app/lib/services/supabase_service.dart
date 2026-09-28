@@ -958,7 +958,7 @@ class SupabaseService {
     try {
       final rows = await _db
           .from('venues')
-          .select('id, name, city, neighbourhood, webflow_slug, listing_tier')
+          .select('id, name, city, neighbourhood, webflow_slug, listing_tier, type')
           .eq('webflow_slug', slug)
           .limit(1);
       if ((rows as List).isEmpty) return null;
@@ -967,6 +967,29 @@ class SupabaseService {
       return null;
     }
   }
+
+  /// "Something need updating?" from a listing page: anyone may send
+  /// one; it lands in the control centre (Owner changes).
+  Future<void> submitListingUpdate(Map<String, dynamic> p) =>
+      _db.rpc('submit_listing_update', params: {'p': p});
+
+  /// Suggested updates for the control centre, open ones first.
+  Future<List<Map<String, dynamic>>> listingUpdates({bool openOnly = true}) async {
+    try {
+      var q = _db.from('listing_updates').select();
+      if (openOnly) q = q.eq('status', 'open');
+      final rows = await q.order('created_at', ascending: false).limit(200);
+      return List<Map<String, dynamic>>.from(rows as List);
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> setListingUpdateStatus(String id, String status) =>
+      _db.from('listing_updates').update({
+        'status': status,
+        'handled_at': DateTime.now().toUtc().toIso8601String(),
+      }).eq('id', id);
 
   /// Files a booking request; the database emails it on.
   Future<void> sendEnquiry(Map<String, dynamic> row) =>

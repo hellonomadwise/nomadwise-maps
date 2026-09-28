@@ -5,6 +5,7 @@ import 'config.dart';
 import 'screens/claim_screen.dart';
 import 'screens/owner_screen.dart';
 import 'screens/enquiry_screen.dart';
+import 'screens/update_screen.dart';
 import 'screens/map_screen.dart';
 import 'theme.dart';
 
@@ -29,6 +30,16 @@ class NomadwiseMapsApp extends StatelessWidget {
     }
   }
 
+  /// The address's path, in case a forwarding page (web/owner,
+  /// web/claim) is skipped and the app itself opens on /owner.
+  static String get _path {
+    try {
+      return Uri.base.path;
+    } catch (_) {
+      return '';
+    }
+  }
+
   static bool _has(String key) {
     try {
       return Uri.base.queryParameters.containsKey(key);
@@ -45,16 +56,20 @@ class NomadwiseMapsApp extends StatelessWidget {
     //   ?claim[=<name or slug>][&from=<page>]  the owner's claim-and-pay flow
     //   ?claimed         where Stripe returns them after paying
     //   ?owner           the Owner account (manage my listing)
+    //   ?update=<slug>   Something need updating? (anyone; owners are
+    //                    pointed to claiming)
     // Anything else is the map.
     final enquire = _param('enquire');
     final Widget home;
     if (enquire != null) {
       home = EnquiryScreen(slug: enquire);
+    } else if (_has('update')) {
+      home = UpdateScreen(slug: _param('update') ?? '');
     } else if (_has('claimed')) {
       home = const ClaimedScreen();
-    } else if (_has('claim')) {
+    } else if (_has('claim') || _path.startsWith('/claim')) {
       home = ClaimScreen(seed: _param('claim'), from: _param('from'));
-    } else if (_has('owner')) {
+    } else if (_has('owner') || _path.startsWith('/owner')) {
       home = const OwnerScreen();
     } else {
       home = const MapScreen();

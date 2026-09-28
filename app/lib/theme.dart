@@ -12,8 +12,8 @@ class Brand {
   static const inkFaint = Color(0xFFB6BEC7);
 
   // ---- accent (the one red) ----
-  static const accent = Color(0xFFE0442E);
-  static const accentTint = Color(0xFFFCEEEC);
+  static const accent = Color(0xFFFF444F); // Nomadwise red, as on nomadwise.io
+  static const accentTint = Color(0xFFFFECED);
 
   // ---- gold (everything coins) ----
   static const gold = Color(0xFFF4B23E);
@@ -28,7 +28,7 @@ class Brand {
 
   // ---- surfaces ----
   static const surface = Colors.white;
-  static const bg = Color(0xFFF7F8F9);
+  static const bg = Color(0xFFF7F7F7); // nomadwise.io page background
   static const field = Color(0xFFF3F5F7);
   static const border = Color(0x1A142032); // rgba(20,32,50,.10)
   static const hairline = Color(0x12142032); // rgba(20,32,50,.07)
@@ -56,7 +56,7 @@ class Brand {
   ];
   static const shadowRedCta = [
     BoxShadow(
-        color: Color(0x4DE0442E), blurRadius: 14, offset: Offset(0, 4)),
+        color: Color(0x4DFF444F), blurRadius: 14, offset: Offset(0, 4)),
   ];
   static const shadowNavyCta = [
     BoxShadow(
@@ -68,8 +68,8 @@ class Brand {
   static const charcoal = ink;
   static const amber = gold;
   static const lightGrey = field;
-  static const gradientStart = Color(0xFFE8563F);
-  static const gradientEnd = Color(0xFFD63A24);
+  static const gradientStart = Color(0xFFFF5A63); // the logo pin's gradient
+  static const gradientEnd = Color(0xFFF4303C);
   static const gradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
@@ -80,7 +80,7 @@ class Brand {
 ThemeData nomadwiseTheme() {
   final base = ThemeData(
     useMaterial3: true,
-    fontFamily: 'InstrumentSans',
+    fontFamily: 'Roboto',
     colorScheme: ColorScheme.fromSeed(
       seedColor: Brand.accent,
       primary: Brand.accent,
@@ -93,9 +93,9 @@ ThemeData nomadwiseTheme() {
     textTheme: base.textTheme.apply(
       bodyColor: Brand.ink,
       displayColor: Brand.ink,
-      // If Instrument Sans ever fails on a device, fall back to
-      // Roboto instead of invisible text.
-      fontFamilyFallback: ['Roboto'],
+      // Roboto, the font of nomadwise.io and the logo (28 Sep 2026;
+      // was Instrument Sans).
+      fontFamilyFallback: ['Arial'],
     ),
     appBarTheme: const AppBarTheme(
       backgroundColor: Brand.surface,
@@ -105,7 +105,7 @@ ThemeData nomadwiseTheme() {
       centerTitle: false,
       shape: Border(bottom: BorderSide(color: Brand.hairline)),
       titleTextStyle: TextStyle(
-        fontFamily: 'InstrumentSans',
+        fontFamily: 'Roboto',
         fontWeight: FontWeight.w700,
         fontSize: 19,
         color: Brand.ink,
@@ -127,7 +127,7 @@ ThemeData nomadwiseTheme() {
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 15),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         textStyle: const TextStyle(
-            fontFamily: 'InstrumentSans',
+            fontFamily: 'Roboto',
             fontWeight: FontWeight.w600,
             fontSize: 15),
       ),
@@ -139,7 +139,7 @@ ThemeData nomadwiseTheme() {
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         textStyle: const TextStyle(
-            fontFamily: 'InstrumentSans',
+            fontFamily: 'Roboto',
             fontWeight: FontWeight.w600,
             fontSize: 15),
       ),
@@ -148,7 +148,7 @@ ThemeData nomadwiseTheme() {
       style: TextButton.styleFrom(
         foregroundColor: Brand.accent,
         textStyle: const TextStyle(
-            fontFamily: 'InstrumentSans',
+            fontFamily: 'Roboto',
             fontWeight: FontWeight.w600,
             fontSize: 14),
       ),
@@ -192,12 +192,12 @@ ThemeData nomadwiseTheme() {
     dialogTheme: base.dialogTheme.copyWith(
       backgroundColor: Brand.surface,
       titleTextStyle: const TextStyle(
-          fontFamily: 'InstrumentSans',
+          fontFamily: 'Roboto',
           fontSize: 18,
           fontWeight: FontWeight.w700,
           color: Brand.ink),
       contentTextStyle: const TextStyle(
-          fontFamily: 'InstrumentSans',
+          fontFamily: 'Roboto',
           fontSize: 14,
           height: 1.5,
           color: Brand.inkSecondary),
@@ -205,7 +205,7 @@ ThemeData nomadwiseTheme() {
     snackBarTheme: base.snackBarTheme.copyWith(
       backgroundColor: Brand.ink,
       contentTextStyle: const TextStyle(
-          fontFamily: 'InstrumentSans', color: Colors.white, fontSize: 14),
+          fontFamily: 'Roboto', color: Colors.white, fontSize: 14),
       shape:
           RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       behavior: SnackBarBehavior.floating,

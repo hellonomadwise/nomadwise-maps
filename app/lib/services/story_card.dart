@@ -76,7 +76,7 @@ class StoryCard {
         text: TextSpan(
             text: ratingText,
             style: const TextStyle(
-                fontFamily: 'InstrumentSans',
+                fontFamily: 'Roboto',
                 fontSize: 38,
                 fontWeight: FontWeight.w600,
                 color: Color(0xFFF4B23E),
@@ -184,7 +184,7 @@ class StoryCard {
         text: TextSpan(
             text: s,
             style: const TextStyle(
-                fontFamily: 'InstrumentSans',
+                fontFamily: 'Roboto',
                 fontSize: size,
                 fontWeight: FontWeight.w700,
                 color: Colors.white,
@@ -267,7 +267,7 @@ class StoryCard {
       text: TextSpan(
           text: s,
           style: TextStyle(
-              fontFamily: 'InstrumentSans',
+              fontFamily: 'Roboto',
               fontSize: size,
               fontWeight: w,
               color: color,

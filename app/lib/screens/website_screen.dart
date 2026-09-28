@@ -15,6 +15,7 @@ import '../theme.dart';
 import '../widgets/ui.dart';
 import 'claim_journeys_screen.dart';
 import 'email_log_screen.dart';
+import 'listing_updates_screen.dart';
 import 'venue_detail.dart';
 
 /// Admin-only: the nomadwise.io control centre.
@@ -136,6 +137,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   List<Map<String, dynamic>> _started = [];
   List<Map<String, dynamic>> _freeOwned = [];
   List<Map<String, dynamic>> _ownerDrafts = [];
+  List<Map<String, dynamic>> _updates = [];
   List<Map<String, dynamic>> _locations = [];
   List<Map<String, dynamic>> _countries = [];
   String? _error;
@@ -180,6 +182,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         _supabase.ownerDraftsToReview(),
         _supabase.websiteFreeOwned(),
         _supabase.approvedClaimDates(),
+        _supabase.listingUpdates(),
       ]);
       if (!mounted) return;
       setState(() {
@@ -210,6 +213,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                     true)
             .toList();
         _ownerDrafts = results[17];
+        _updates = results[20];
         _freeOwned = results[18];
         _ownerSince = {
           for (final r in results[19].reversed)
@@ -1061,9 +1065,11 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       (
         key: 'owner',
         label: 'Owner changes',
-        count: _ownerDrafts.length,
+        count: _ownerDrafts.length + _updates.length,
         color: Brand.goldTextDark,
-        hint: 'Changes owners submitted from their Owner account: '
+        hint: 'Suggested updates from anyone (the "Something need '
+            'updating?" link on each page), then changes owners submitted '
+            'from their Owner account: '
             'description, prices, hours, facts, photos, contact, and on '
             'Verified pages the message for the advert slot. Nothing is on '
             'the page until you put it there. Send back anything that '
@@ -1121,7 +1127,16 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       'preparing' => g.preparing.map(_preparingTile).toList(),
       'hidden' => _hidden.map(_hiddenTile).toList(),
       'closed' => _closedCards(),
-      'owner' => _ownerDrafts.map(_ownerDraftCard).toList(),
+      'owner' => [
+          _updatesCard(),
+          if (_ownerDrafts.isEmpty)
+            const Padding(
+              padding: EdgeInsets.fromLTRB(4, 6, 4, 12),
+              child: Text('No owner changes waiting.',
+                  style: TextStyle(fontSize: 12.5, color: Brand.inkMuted)),
+            ),
+          ..._ownerDrafts.map(_ownerDraftCard),
+        ],
       'paid' => [
           _journeysCard(),
           _emailsCard(),
@@ -2610,6 +2625,35 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
           trailing: const Icon(Icons.chevron_right, color: Brand.inkMuted),
           onTap: () => Navigator.of(context).push(MaterialPageRoute(
               builder: (_) => const EmailLogScreen())),
+        ),
+      );
+
+  /// The way into Suggested updates: what visitors told us has changed.
+  Widget _updatesCard() => Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        decoration: BoxDecoration(
+          color: Brand.surface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+              color: _updates.isEmpty ? Brand.border : Brand.goldTextDark),
+        ),
+        child: ListTile(
+          leading: const Icon(Icons.edit_note, color: Brand.accent),
+          title: Text(
+              _updates.isEmpty
+                  ? 'Suggested updates'
+                  : 'Suggested updates (${_updates.length} open)',
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+          subtitle: const Text(
+              'What visitors told us has changed at a space. Fix the page, '
+              'then mark it done, or dismiss it.',
+              style: TextStyle(fontSize: 12.5, color: Brand.inkSecondary)),
+          trailing: const Icon(Icons.chevron_right, color: Brand.inkMuted),
+          onTap: () async {
+            await Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => const ListingUpdatesScreen()));
+            _load();
+          },
         ),
       );
 

@@ -1092,14 +1092,27 @@ try:
                   'owner_content,owner_content_at,website,instagram,'
                   'opening_hours,website_photos,power_outlets,aircon,'
                   'comfortable_seating,cozy,quiet_space,good_for_calls,'
-                  'call_room,monitor,office_chairs,access_24h'
+                  'call_room,monitor,office_chairs,access_24h,'
+                  'page_description'
                   '&limit=30') or []
 except Exception as e:  # noqa: BLE001
     report.setdefault('warnings', []).append(f'listing plans read: {e}')
     listing_ = []
 report['listing_requests'] = len(listing_)
 
-if PUSH_ONLY and not queued and not requests_ and not retire_ and not listing_:
+# Pages with an owner whose words we have not copied yet: the Owner
+# account opens with the page's own description in the box, so the
+# owner edits it instead of starting blank (Leonie's review, 28 Sep).
+try:
+    snap_ = sb('venues?listing_owner_email=not.is.null'
+               '&webflow_cms_id=not.is.null&page_text_at=is.null'
+               '&select=id,name,webflow_cms_id&limit=10') or []
+except Exception as e:  # noqa: BLE001
+    report.setdefault('warnings', []).append(f'page text read: {e}')
+    snap_ = []
+
+if PUSH_ONLY and not queued and not requests_ and not retire_ and not listing_ \
+        and not snap_:
     finish(0)   # nothing to do: the common case, a second of runtime
 
 if PUSH_ONLY:
@@ -1445,6 +1458,10 @@ def owner_fields(v):
         return {}
     out = {}
     desc = (oc.get('description') or '').strip()
+    # Unchanged from the page's own text (the box starts filled with
+    # it): leave the page's formatting alone.
+    if desc and desc == (v.get('page_description') or '').strip():
+        desc = ''
     if desc:
         out['best-text'] = rich(html_escape(desc))
     prices = oc.get('prices') or {}
@@ -1494,6 +1511,20 @@ def owner_fields(v):
     else:
         out['discount-available-2'] = ''
     return out
+
+
+def plain_text(html):
+    """A page's rich text as plain paragraphs, for the Owner account's
+    description box (the same shape rich() turns back into HTML)."""
+    import html as _html
+    if not html:
+        return ''
+    t = re.sub(r'(?i)<br\s*/?>', '\n', str(html))
+    t = re.sub(r'(?i)</(p|h[1-6]|li|div|blockquote)>', '\n', t)
+    t = re.sub(r'<[^>]+>', '', t)
+    t = _html.unescape(t).replace('\u00a0', ' ')
+    lines = [ln.strip() for ln in t.split('\n')]
+    return '\n\n'.join(ln for ln in lines if ln).strip()
 
 
 def html_escape(t):
@@ -1600,6 +1631,42 @@ for v in listing_:
                prefer='return=minimal')
         except Exception:  # noqa: BLE001
             pass
+
+# ------------------------------------------------------- page text
+# Copy the description on the page (Best Text) into venues, for the
+# Owner account. New owners every push (a few calls); every owned page
+# again at night, from the items already read.
+def snapshot_page_text():
+    try:
+        by_id = {i['id']: i for i in (items or [])}
+    except NameError:
+        by_id = {}
+    rows = snap_
+    if not PUSH_ONLY:
+        try:
+            rows = sb_all('venues?listing_owner_email=not.is.null'
+                          '&webflow_cms_id=not.is.null'
+                          '&select=id,name,webflow_cms_id') or []
+        except Exception as e:  # noqa: BLE001
+            report.setdefault('warnings', []).append(f'page text read: {e}')
+            rows = snap_
+    done = 0
+    for v in rows:
+        try:
+            item = by_id.get(v['webflow_cms_id']) or \
+                wf(f"/v2/collections/{COLLECTION_ID}/items/{v['webflow_cms_id']}") or {}
+            text = plain_text((item.get('fieldData') or {}).get('best-text'))
+            sb(f"venues?id=eq.{v['id']}", method='PATCH',
+               body={'page_description': text or None, 'page_text_at': now},
+               prefer='return=minimal')
+            done += 1
+        except Exception as e:  # noqa: BLE001
+            report.setdefault('warnings', []).append(
+                f"page text {v.get('name')}: {str(e)[:160]}")
+    report['page_text_copied'] = done
+
+
+snapshot_page_text()
 
 # ------------------------------------------------------- hours backfill
 # Pages the control centre created before it fetched Google's hours at

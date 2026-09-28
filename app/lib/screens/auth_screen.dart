@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config.dart';
 import '../services/supabase_service.dart';
 import '../theme.dart';
+import 'owner_screen.dart';
 import '../widgets/ui.dart';
 
 /// Email + Google sign-in. (Apple sign-in slots in here later once the
@@ -274,6 +275,17 @@ class _AuthScreenState extends State<AuthScreen> {
                   child: Text(_signUp
                       ? 'Already have an account? Sign in'
                       : 'New here? Create an account')),
+              // Owners have their own door, with their own words: this
+              // screen is the nomads' one (reviews and coins).
+              const SizedBox(height: 18),
+              const Divider(color: Brand.hairline),
+              const SizedBox(height: 6),
+              TextButton.icon(
+                  onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const OwnerScreen())),
+                  icon: const Icon(Icons.storefront_outlined, size: 18),
+                  label: const Text(
+                      'Run a coworking space or cafe? Business sign-in')),
               // Apple sign-in button will live here (post Apple Developer
               // enrolment). Keep structure ready:
               // SignInWithAppleButton(...)

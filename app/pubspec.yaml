@@ -65,5 +65,9 @@ flutter:
           weight: 500
         - asset: assets/fonts/Roboto-Bold.ttf
           weight: 700
+        # Headings ask for 800; nomadwise.io's headings are Roboto Bold,
+        # so 800 draws Bold rather than the much heavier Black.
+        - asset: assets/fonts/Roboto-Bold.ttf
+          weight: 800
         - asset: assets/fonts/Roboto-Black.ttf
           weight: 900

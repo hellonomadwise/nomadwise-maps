@@ -342,7 +342,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                             RichText(
                               text: TextSpan(
                                 style: const TextStyle(
-                                    fontFamily: 'InstrumentSans',
+                                    fontFamily: 'Roboto',
                                     color: Brand.ink,
                                     fontSize: 14,
                                     height: 1.4),
