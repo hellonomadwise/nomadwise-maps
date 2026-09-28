@@ -40,6 +40,70 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   final _supabase = SupabaseService();
   final _places = PlacesService();
 
+  // The tab row on a laptop: arrows appear when chips are cut off.
+  final _tabScroll = ScrollController();
+  bool _tabCanScrollLeft = false;
+  bool _tabCanScrollRight = false;
+
+  void _tabScrolled() {
+    if (!_tabScroll.hasClients) return;
+    final pos = _tabScroll.position;
+    final left = pos.pixels > 4;
+    final right = pos.pixels < pos.maxScrollExtent - 4;
+    if (left != _tabCanScrollLeft || right != _tabCanScrollRight) {
+      setState(() {
+        _tabCanScrollLeft = left;
+        _tabCanScrollRight = right;
+      });
+    }
+  }
+
+  void _tabNudge(bool left) {
+    if (!_tabScroll.hasClients) return;
+    final pos = _tabScroll.position;
+    final target = (pos.pixels + (left ? -260 : 260))
+        .clamp(0.0, pos.maxScrollExtent);
+    _tabScroll.animateTo(target,
+        duration: const Duration(milliseconds: 220), curve: Curves.easeOut);
+  }
+
+  Widget _tabArrow({required bool left}) => Positioned(
+        left: left ? 0 : null,
+        right: left ? null : 0,
+        top: 0,
+        bottom: 0,
+        child: Container(
+          width: 44,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: left ? Alignment.centerRight : Alignment.centerLeft,
+              end: left ? Alignment.centerLeft : Alignment.centerRight,
+              colors: [Brand.bg.withValues(alpha: 0), Brand.bg],
+            ),
+          ),
+          alignment: left ? Alignment.centerLeft : Alignment.centerRight,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Material(
+              color: Brand.surface,
+              shape: const CircleBorder(side: BorderSide(color: Brand.border)),
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: () => _tabNudge(left),
+                child: SizedBox(
+                  width: 30,
+                  height: 30,
+                  child: Icon(
+                      left ? Icons.chevron_left : Icons.chevron_right,
+                      size: 20,
+                      color: Brand.ink),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
   List<Map<String, dynamic>>? _inbox;
   List<Map<String, dynamic>> _drafts = [];
   List<Map<String, dynamic>> _released = [];
@@ -64,6 +128,9 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   @override
   void initState() {
     super.initState();
+    _tabScroll.addListener(_tabScrolled);
+    // Once laid out, decide whether the right arrow is needed.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _tabScrolled());
     _load();
   }
 
@@ -71,6 +138,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   void dispose() {
     _searchTimer?.cancel();
     _searchCtl.dispose();
+    _tabScroll.dispose();
     super.dispose();
   }
 
@@ -146,6 +214,22 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('$made is being created on nomadwise.io; it appears '
               'in the pickers within a minute or two.')));
+    }
+  }
+
+  Future<void> _newCountry() async {
+    final made = await Navigator.push<String>(
+        context,
+        MaterialPageRoute(
+            builder: (_) => _NewRegionPage(
+                supabase: _supabase,
+                countries: _countries,
+                regions: _regions,
+                country: true)));
+    if (made != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('$made is being created on nomadwise.io; it appears '
+              'in the Country picker within a minute or two.')));
     }
   }
 
@@ -809,8 +893,13 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                 ? _newRegion()
                 : k == 'location'
                     ? _newLocation()
-                    : _refreshFromWebflow(),
+                    : k == 'country'
+                        ? _newCountry()
+                        : _refreshFromWebflow(),
             itemBuilder: (_) => const [
+              PopupMenuItem(
+                  value: 'country',
+                  child: Text('Create a Country (country page)')),
               PopupMenuItem(
                   value: 'region', child: Text('Create a Region (city page)')),
               PopupMenuItem(
@@ -1104,11 +1193,16 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       _ => null,
     };
 
+    WidgetsBinding.instance.addPostFrameCallback((_) => _tabScrolled());
     return Column(children: [
-      // The groups, side by side, scrollable on a phone. Tap to switch.
+      // The groups, side by side: a swipe on a phone, arrows at either
+      // end on a laptop (a mouse cannot swipe), which only show when
+      // there is more to see in that direction.
       SizedBox(
         height: 54,
-        child: ListView.separated(
+        child: Stack(children: [
+          ListView.separated(
+          controller: _tabScroll,
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
           itemCount: groups.length,
@@ -1150,6 +1244,9 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
             );
           },
         ),
+          if (_tabCanScrollLeft) _tabArrow(left: true),
+          if (_tabCanScrollRight) _tabArrow(left: false),
+        ]),
       ),
       Expanded(
         child: whole ??
@@ -5434,6 +5531,10 @@ class _NewRegionPage extends StatefulWidget {
   final double? lng;
   final String? venueId;
   final String? state;
+
+  /// True: the same page makes a Country (country page) instead: no
+  /// Country picker, slug is the country's name, zoom suits a country.
+  final bool country;
   const _NewRegionPage(
       {required this.supabase,
       required this.countries,
@@ -5443,7 +5544,8 @@ class _NewRegionPage extends StatefulWidget {
       this.state,
       this.lat,
       this.lng,
-      this.venueId});
+      this.venueId,
+      this.country = false});
   @override
   State<_NewRegionPage> createState() => _NewRegionPageState();
 }
@@ -5454,9 +5556,11 @@ class _NewRegionPageState extends State<_NewRegionPage> {
       TextEditingController(text: widget.lat?.toStringAsFixed(4) ?? '');
   late final _lng =
       TextEditingController(text: widget.lng?.toStringAsFixed(4) ?? '');
-  final _zoom = TextEditingController(text: '12');
+  late final _zoom =
+      TextEditingController(text: widget.country ? '6' : '12');
   final _desc = TextEditingController();
   Map<String, dynamic>? _country;
+  bool get _isCountry => widget.country;
   bool _busy = false;
 
   // City centre lookup: "Name, Country" -> coordinates, the same thing
@@ -5587,6 +5691,7 @@ class _NewRegionPageState extends State<_NewRegionPage> {
 
   String get _lookupQuery {
     final n = _name.text.trim();
+    if (_isCountry) return n;
     final c = '${_country?['name'] ?? ''}'.trim();
     if (n.isEmpty || c.isEmpty) return '';
     return '$n, $c';
@@ -5640,6 +5745,7 @@ class _NewRegionPageState extends State<_NewRegionPage> {
   /// The site's convention: country-city, and country-state-city
   /// where the site already does that (United States, India).
   String get _slugSuggestion {
+    if (_isCountry) return _slug(_name.text);
     final c = _country == null ? '' : _slug('${_country!['name']}');
     final n = _slug(_name.text);
     final st = _slug(widget.state ?? '');
@@ -5651,6 +5757,13 @@ class _NewRegionPageState extends State<_NewRegionPage> {
 
   /// Existing Regions in the same country, as examples of the pattern.
   List<String> get _siblings {
+    if (_isCountry) {
+      return widget.countries
+          .where((c) => c['slug'] != null)
+          .map((c) => '${c['slug']}')
+          .take(3)
+          .toList();
+    }
     final c = _country?['name'];
     if (c == null) return const [];
     return widget.regions
@@ -5672,7 +5785,7 @@ class _NewRegionPageState extends State<_NewRegionPage> {
   Map<String, dynamic>? get _existing {
     final n = _name.text.trim().toLowerCase();
     if (n.isEmpty) return null;
-    return widget.regions
+    return (_isCountry ? widget.countries : widget.regions)
         .where((r) => '${r['name']}'.trim().toLowerCase() == n)
         .firstOrNull;
   }
@@ -5686,8 +5799,8 @@ class _NewRegionPageState extends State<_NewRegionPage> {
         builder: (_) => _RegionPicker(
             regions: widget.countries,
             title: 'Which Country?',
-            subtitle: 'The Countries nomadwise.io already has. A new '
-                'country still needs creating in Webflow first.'));
+            subtitle: 'The Countries nomadwise.io already has. A new one '
+                'is made from the menu: Create a Country.'));
     if (picked != null) {
       _country = picked;
       _refreshSlug();
@@ -5697,9 +5810,11 @@ class _NewRegionPageState extends State<_NewRegionPage> {
 
   Future<void> _create() async {
     final name = _name.text.trim();
-    if (name.isEmpty || _country == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('A name and a Country are needed.')));
+    if (name.isEmpty || (!_isCountry && _country == null)) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(_isCountry
+              ? 'A country name is needed.'
+              : 'A name and a Country are needed.')));
       return;
     }
     if (_slugPreview.isEmpty) {
@@ -5707,9 +5822,11 @@ class _NewRegionPageState extends State<_NewRegionPage> {
           content: Text('The slug cannot be empty.')));
       return;
     }
-    if (widget.regions.any((r) => r['slug'] == _slugPreview)) {
+    if ((_isCountry ? widget.countries : widget.regions)
+        .any((r) => r['slug'] == _slugPreview)) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('A Region already uses /${_slugPreview}.')));
+          content: Text('${_isCountry ? 'A Country' : 'A Region'} already '
+              'uses /${_slugPreview}.')));
       return;
     }
     if (_existing != null) {
@@ -5720,9 +5837,9 @@ class _NewRegionPageState extends State<_NewRegionPage> {
     setState(() => _busy = true);
     try {
       await widget.supabase.createTaxonomyRequest({
-        'kind': 'region',
+        'kind': _isCountry ? 'country' : 'region',
         'name': name,
-        'country_id': _country!['id'],
+        if (!_isCountry) 'country_id': _country!['id'],
         'lat': double.tryParse(_lat.text.trim()),
         'lng': double.tryParse(_lng.text.trim()),
         'zoom': int.tryParse(_zoom.text.trim()),
@@ -5747,17 +5864,25 @@ class _NewRegionPageState extends State<_NewRegionPage> {
     final dup = _existing;
     final nameText = _name.text.trim().isEmpty ? '...' : _name.text.trim();
     return Scaffold(
-      appBar: AppBar(title: const Text('New Region (city page)')),
+      appBar: AppBar(
+          title: Text(_isCountry
+              ? 'New Country (country page)'
+              : 'New Region (city page)')),
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 640),
           child: ListView(padding: const EdgeInsets.all(16), children: [
-            const Text(
-                'A Region is a city page on nomadwise.io. The sync creates '
-                'it exactly like the existing ones and publishes it within a '
-                'minute or two; description and photos can be polished in '
-                'Webflow later.',
-                style: TextStyle(
+            Text(
+                _isCountry
+                    ? 'A Country is a country page on nomadwise.io, the '
+                        'level above the city pages. The sync creates it '
+                        'like the existing ones and publishes it within a '
+                        'minute or two; then Regions can be made under it.'
+                    : 'A Region is a city page on nomadwise.io. The sync creates '
+                        'it exactly like the existing ones and publishes it within a '
+                        'minute or two; description and photos can be polished in '
+                        'Webflow later.',
+                style: const TextStyle(
                     fontSize: 12.5, height: 1.45, color: Brand.inkSecondary)),
             const SizedBox(height: 14),
             TextField(
@@ -5767,9 +5892,11 @@ class _NewRegionPageState extends State<_NewRegionPage> {
                   _scheduleLookup();
                 },
                 textCapitalization: TextCapitalization.words,
-                decoration: const InputDecoration(
-                    labelText: 'City name as shown on the site',
-                    hintText: 'e.g. Porto')),
+                decoration: InputDecoration(
+                    labelText: _isCountry
+                        ? 'Country name as shown on the site'
+                        : 'City name as shown on the site',
+                    hintText: _isCountry ? 'e.g. Sri Lanka' : 'e.g. Porto')),
             if (dup != null)
               Padding(
                 padding: const EdgeInsets.only(top: 6),
@@ -5777,19 +5904,21 @@ class _NewRegionPageState extends State<_NewRegionPage> {
                     style: const TextStyle(fontSize: 12.5, color: Brand.red)),
               ),
             const SizedBox(height: 12),
-            InkWell(
-              onTap: _pickCountry,
-              borderRadius: BorderRadius.circular(12),
-              child: InputDecorator(
-                decoration: const InputDecoration(
-                    labelText: 'Country',
-                    suffixIcon: Icon(Icons.arrow_drop_down)),
-                child: Text(_country?['name'] ?? 'Choose',
-                    style: TextStyle(
-                        color: _country == null ? Brand.inkMuted : null)),
+            if (!_isCountry) ...[
+              InkWell(
+                onTap: _pickCountry,
+                borderRadius: BorderRadius.circular(12),
+                child: InputDecorator(
+                  decoration: const InputDecoration(
+                      labelText: 'Country',
+                      suffixIcon: Icon(Icons.arrow_drop_down)),
+                  child: Text(_country?['name'] ?? 'Choose',
+                      style: TextStyle(
+                          color: _country == null ? Brand.inkMuted : null)),
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
+              const SizedBox(height: 12),
+            ],
             Row(children: [
               Expanded(
                   child: TextField(
@@ -5833,7 +5962,9 @@ class _NewRegionPageState extends State<_NewRegionPage> {
                           height: 14,
                           child: CircularProgressIndicator(strokeWidth: 2))
                       : const Icon(Icons.my_location, size: 16),
-                  label: Text(_locating ? 'Finding' : 'Find city centre')),
+                  label: Text(_locating
+                      ? 'Finding'
+                      : _isCountry ? 'Find country centre' : 'Find city centre')),
               // The by-hand route, for checking the found point or when
               // the lookup draws a blank: opens the site the founder used
               // before, in the browser; paste the numbers back here.
@@ -5850,8 +5981,11 @@ class _NewRegionPageState extends State<_NewRegionPage> {
                 child: _found == null
                     ? Text(
                         _lookupQuery.isEmpty
-                            ? 'Type the city and pick the Country and the '
-                                'centre is looked up for you.'
+                            ? (_isCountry
+                                ? 'Type the country and its centre is looked '
+                                    'up for you.'
+                                : 'Type the city and pick the Country and the '
+                                    'centre is looked up for you.')
                             : _locating
                                 ? 'Looking up $_lookupQuery'
                                 : 'Nothing found for $_lookupQuery. Check '
@@ -5876,13 +6010,16 @@ class _NewRegionPageState extends State<_NewRegionPage> {
                             fontSize: 11.5, color: Brand.inkSecondary)),
               ),
             ]),
-            const Padding(
-              padding: EdgeInsets.only(top: 6),
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
               child: Text(
-                  'Map centre of the city page, found from the city name '
-                  'and Country (the Country keeps same-named cities apart). '
-                  'Zoom 12 suits a city, 10 a large one.',
-                  style: TextStyle(fontSize: 11.5, color: Brand.inkMuted)),
+                  _isCountry
+                      ? 'Map centre of the country page. Zoom 6 suits most '
+                          'countries, 5 a large one, 7 a small one.'
+                      : 'Map centre of the city page, found from the city name '
+                          'and Country (the Country keeps same-named cities apart). '
+                          'Zoom 12 suits a city, 10 a large one.',
+                  style: const TextStyle(fontSize: 11.5, color: Brand.inkMuted)),
             ),
             const SizedBox(height: 10),
             _mapPreview(),
@@ -5891,8 +6028,10 @@ class _NewRegionPageState extends State<_NewRegionPage> {
                 controller: _desc,
                 minLines: 3,
                 maxLines: 8,
-                decoration: const InputDecoration(
-                    labelText: 'About the city (optional)',
+                decoration: InputDecoration(
+                    labelText: _isCountry
+                        ? 'About the country (optional)'
+                        : 'About the city (optional)',
                     hintText:
                         'A paragraph or two. Blank line between paragraphs.',
                     alignLabelWithHint: true)),
@@ -5904,8 +6043,10 @@ class _NewRegionPageState extends State<_NewRegionPage> {
                 onChanged: (_) => setState(() => _slugTouched = true),
                 decoration: InputDecoration(
                     labelText: 'Slug (page address)',
-                    prefixText: '/region/',
-                    helperText: 'Site convention: country-city'
+                    prefixText: _isCountry ? '/country/' : '/region/',
+                    helperText: _isCountry
+                        ? 'Site convention: the country name'
+                        : 'Site convention: country-city'
                         '${_siblings.isEmpty ? '' : ', like ${_siblings.join(', ')}'}',
                     helperMaxLines: 3,
                     suffixIcon: _slugTouched
@@ -5923,7 +6064,7 @@ class _NewRegionPageState extends State<_NewRegionPage> {
               decoration: BoxDecoration(
                   color: Brand.field, borderRadius: BorderRadius.circular(12)),
               child: Text(
-                  'Page: /region/${_slugPreview.isEmpty ? '...' : _slugPreview}\n'
+                  'Page: /${_isCountry ? 'country' : 'region'}/${_slugPreview.isEmpty ? '...' : _slugPreview}\n'
                   'Name: $nameText${_country == null ? '' : ', ${_country!['name']}'}\n'
                   'Label: Cafes & Coworking Spaces in $nameText'
                   '${_country == null ? '' : ', ${_country!['name']}'}',

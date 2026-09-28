@@ -545,6 +545,10 @@ class SupabaseService {
     }
   }
 
+  /// "This was me": the browser behind a visit is ours (or not).
+  Future<void> markTeamDevice(String anonId, bool team) =>
+      _db.rpc('mark_team_device', params: {'p_anon': anonId, 'p_team': team});
+
   Future<Set<String>> teamDevices() async {
     try {
       final rows = await _db.from('team_devices').select('anon_id');

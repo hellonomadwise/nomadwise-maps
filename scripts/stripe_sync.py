@@ -196,8 +196,10 @@ def find_venue(session, email, order=None):
 
 
 for s in sessions:
+    # 'no_payment_required' is a 100% promotion code (a test, or a
+    # listing we comp): still a subscription, still Verified.
     if s['id'] in known or s.get('mode') != 'subscription' \
-            or s.get('payment_status') != 'paid':
+            or s.get('payment_status') not in ('paid', 'no_payment_required'):
         continue
     sub = s.get('subscription') or {}
     if isinstance(sub, str):

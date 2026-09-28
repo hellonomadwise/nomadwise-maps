@@ -14,15 +14,15 @@ first, team devices left out:
   the same device has opened the page before
 - where they arrived from (the nomadwise.io page, another site, or
   direct) and what was already in the search box
-- a four-part bar for how far they got: Find, Space chosen, About
-  you, Free or Verified
+- a four-part bar for how far they got: Find, Space chosen, Owner
+  details, Free or Verified
 - how it ended: went to Stripe, claimed free, left on such a step
   after so long, or still on the page
 
 Tap a card and the whole visit reads in order, with the seconds since
 the page opened: searched "instant crush", 3 results; chose Instant
 Crush, a page already on nomadwise.io; typed their name; typed their
-email; left the page on About you after 1m 10s, having typed their
+email; left the page on the owner details step after 1m 10s, having typed their
 name and email.
 
 The strip at the top counts how many visits reached each step, which
@@ -65,8 +65,17 @@ records nothing.
 
 ## PostHog
 
-The same events can be drawn as a funnel in PostHog (claim_opened,
-claim_step to about, claim_step to plan, claim_to_payment or
-claim_free) once a few visits have flowed through. The in-app view is
-the one to read for a single visitor; PostHog for the shape over
-months.
+Dashboard **Claim page: journeys** (project 99075):
+https://eu.posthog.com/project/99075/dashboard/977896
+
+Four tiles, all last 90 days: the funnel (opened, chose a space,
+reached Free or Verified, finished by Stripe or free claim); visits
+and finishes per day; where visitors leave (the step, and average
+seconds on the page); where visitors come from (the nomadwise.io page
+or outside site, with how many of those visits reached Owner details and
+finished). The tiles fill from the first build that carries the
+events; before that they show nothing or only the old claim_opened
+rows.
+
+The in-app view is the one to read for a single visitor; PostHog for
+the shape over months.

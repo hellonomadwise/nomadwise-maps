@@ -1226,6 +1226,46 @@ def create_region(req):
     return made
 
 
+def create_country(req):
+    """A Country page, made like the Regions: the same kind of fields,
+    filtered to the ones the Countries collection actually has (read
+    from its schema), so a field the collection lacks is never sent."""
+    name = req['name'].strip()
+    try:
+        col = wf(f'/v2/collections/{COUNTRIES_ID}') or {}
+        have = {f.get('slug') for f in (col.get('fields') or [])}
+    except Exception:  # noqa: BLE001
+        have = set()
+    zoom = req.get('zoom') or 6
+    wanted = {
+        'name': name,
+        'slug': unique_slug(slugify(req.get('slug') or '') or slugify(name),
+                            taken_in(countries)),
+        'name-label': name,
+        'category-label': f'Cafes & Coworking Spaces in {name}',
+        'h2-header': f'A little bit about {name}',
+        'h2-description': rich(req.get('description')),
+        'latitude': req.get('lat'),
+        'longitude': req.get('lng'),
+        'zoom-level': zoom,
+        'zoom-level-full-page-map': zoom + 2,
+        'turned-on': True,
+        'opengraph-image': {'url': OG_LOGO},
+        'regions': [],
+    }
+    fields = {k: v for k, v in wanted.items()
+              if v is not None and (not have or k in have)}
+    made = create_and_publish(COUNTRIES_ID, fields)
+    countries.append(made)
+    country_by_id[made['id']] = made
+    cf = made['fieldData']
+    sb('webflow_countries?on_conflict=id', method='POST',
+       body=[{'id': made['id'], 'name': name, 'slug': cf.get('slug'),
+              'updated_at': now}],
+       prefer='resolution=merge-duplicates,return=minimal')
+    return made
+
+
 def create_location(req):
     region = next((r for r in regions if r['id'] == req.get('region_id')), None)
     if not region:
@@ -1284,7 +1324,9 @@ for req in requests_:
                prefer='return=minimal')
             report['refreshed'] = True
             continue
-        made = create_region(req) if req['kind'] == 'region' else create_location(req)
+        made = (create_region(req) if req['kind'] == 'region'
+                else create_country(req) if req['kind'] == 'country'
+                else create_location(req))
         sb(f"taxonomy_requests?id=eq.{req['id']}", method='PATCH',
            body={'status': 'created', 'webflow_id': made['id'],
                  'slug': made['fieldData'].get('slug'), 'done_at': now},

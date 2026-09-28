@@ -60,7 +60,7 @@ Verified listings, and answer booking requests. It powers the
   payments, new submissions, and now claim page visits.
 - **Other tools:** Google Places API (New) for details, photos and the
   add-a-space search; PostHog for analytics; Google Maps for the map.
-  Resend (email) is chosen but not yet set up.
+  Postmark (email) is chosen (over Resend, for reputation and speed) but not yet set up.
 
 ## Where things are in the repository
 
@@ -123,7 +123,7 @@ Key RPCs: `claim_search`, `start_claim`, `claim_paid`, `apply_claim`,
   and Reject), the phone pings, and the claim page visit log with the
   page the visitor came from.
 - Booking requests: the form at `?enquire=<slug>` writes to
-  `enquiries`; the email to the owner waits on Resend.
+  `enquiries`; the email to the owner waits on Postmark.
 - Google photos self-heal (22 Sep): names expire after about four
   weeks; the nightly refresh is now every 21 days and resolves links
   at refresh; the app fetches fresh names when a photo fails.
@@ -153,9 +153,9 @@ Key RPCs: `claim_search`, `start_claim`, `claim_paid`, `apply_claim`,
   renamed Verified, and the list sort on the Region and Location
   templates set to Listing Rank Z to A, then WiFi rating, then Google
   reviews. Still to do: the two booking buttons (free: "Contact the
-  space" linking out; Verified: request form), which wait on Resend.
-- **Resend:** account, DNS, API key in the Supabase Vault as
-  `resend_api_key`. Until then no email leaves the system (owner
+  space" linking out; Verified: request form), which wait on Postmark.
+- **Postmark:** account, DNS, server token in the Supabase Vault as
+  `postmark_server_token`. Until then no email leaves the system (owner
   "your page is live" email, booking request delivery).
 - **Rotation inside the Verified group:** built 22 Sep
   (`rotate_verified()` in the nightly sync); first run 04:23 UTC on
@@ -166,7 +166,7 @@ Key RPCs: `claim_search`, `start_claim`, `claim_paid`, `apply_claim`,
   Your message (Verified) for the advert slot, Membership; review in
   the control centre's Owner changes tab. Pending: Jonathan's Designer
   step (advert slot ID, hidden owner-message text, Best Text and More
-  Info blocks), Resend for the emails, Stripe portal link in config.
+  Info blocks), Postmark for the emails, Stripe portal link in config.
 
 ## How to write for this project (learned in chat, not obvious from code)
 
@@ -186,7 +186,38 @@ Key RPCs: `claim_search`, `start_claim`, `claim_paid`, `apply_claim`,
   the memo, the Webflow page copy and DECISIONS.md: change all of
   them together.
 
-## Pending on 24 September
+## State on 27 September, evening
+
+Live and proven today: Claim journeys (in-app and PostHog); the
+Owners tab with the ownership check against the Google listing and
+the WhatsApp button; address, Map and lookup links on claim cards;
+country from Google's address components; founders may submit a
+review without GPS; owner note on the pipeline cards; owner emails
+at every step through Postmark (migrations 81 to 84), in the house
+style with a button, logged in `owner_emails` and readable in the
+control centre ("Emails to owners", with Send me a test); the
+sign-in email through Postmark SMTP with the matching template; the
+sync shapes owner values to Webflow field types and reports the
+refused field.
+
+First real claim: Kopi Club, Kandy, Sri Lanka (free), approved and
+published the same day. Its "page is live" email went out early
+(the trigger fired on draft creation; fixed in migration 84 to fire
+on release, once per page).
+
+Pending:
+- Jonathan: the Designer checklist (docs/DESIGNER_CHECKLIST.md);
+  Stripe portal link into config; press Start the run now after
+  publishing so pages move to released.
+- Instant Crunch: an owner update was refused by Webflow (400); the
+  sync now shapes values and names the field; retries on the next
+  run, error shows on its Owners card if it fails again.
+- Phone pings still say "Approve it in Paid listings" (tab is now
+  Owners); change when a migration next touches start_claim.
+- Later: automatic WhatsApp verification code at claim time;
+  contact-click counting; change log.
+
+## Pending on 24 September (older)
 
 - Jonathan uploads the zip with migration 76, website_screen,
   supabase_service, webflow_sync, story_card, venue_detail,
@@ -196,7 +227,7 @@ Key RPCs: `claim_search`, `start_claim`, `claim_paid`, `apply_claim`,
   listed page text; redirects for /pricing, the three "add my
   business" forms and /sign-up to it; owner links in Navbar and
   Footer; Country template sort if it lists spaces.
-- Resend (account, DNS, Vault key `resend_api_key`), then owner emails
+- Postmark (account, DNS, Vault key `postmark_server_token`), then owner emails
   and the two booking buttons; contact-click counting; owner account;
   free-claim ownership check; "temporarily closed until" toggle;
   owner-supplied facts surviving refresh; change log.

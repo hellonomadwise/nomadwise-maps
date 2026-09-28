@@ -7,7 +7,7 @@ import '../theme.dart';
 /// Admin only: every visit to the claim page, told as a story.
 ///
 /// One card per opening of nomadmaps.io/?claim: where the visitor came
-/// from, how far they got (Find, Space chosen, About you, Plan), how
+/// from, how far they got (Find, Space chosen, Owner details, Plan), how
 /// it ended (went to Stripe, claimed free, or left, and on which step
 /// after how long), and, opened up, everything they did in order with
 /// the seconds since the page opened.
@@ -117,7 +117,7 @@ class _Visit {
 String _stepLabel(String s) => switch (s) {
       'find' => 'Find your space',
       'add_space' => 'Add your space',
-      'about' => 'About you',
+      'about' => 'Owner details',
       'plan' => 'the Free or Verified choice',
       _ => s,
     };
@@ -142,6 +142,8 @@ class _ClaimJourneysScreenState extends State<ClaimJourneysScreen> {
   Map<String, int> _visitsByDevice = {};
   int _days = 30;
   final Set<String> _open = {};
+  Set<String> _team = {};
+  bool _showTeam = false;
 
   @override
   void initState() {
@@ -152,10 +154,11 @@ class _ClaimJourneysScreenState extends State<ClaimJourneysScreen> {
   Future<void> _load() async {
     final events = await _supabase.claimJourneyEvents(days: _days);
     final team = await _supabase.teamDevices();
+    _team = team;
     final byKey = <String, _Visit>{};
     for (final e in events) {
       final anon = '${e['anon_id']}';
-      if (team.contains(anon)) continue;
+      if (team.contains(anon) && !_showTeam) continue;
       final p = (e['props'] is Map) ? e['props'] as Map : const {};
       // Events from before the journey ids: group by device and hour.
       final t = DateTime.tryParse('${e['created_at']}') ?? DateTime.now();
@@ -184,6 +187,18 @@ class _ClaimJourneysScreenState extends State<ClaimJourneysScreen> {
       appBar: AppBar(
         title: const Text('Claim journeys'),
         actions: [
+          IconButton(
+            tooltip: _showTeam ? 'Hide our own visits' : 'Show our own visits',
+            icon: Icon(_showTeam ? Icons.visibility_off : Icons.visibility,
+                size: 20),
+            onPressed: () {
+              setState(() {
+                _showTeam = !_showTeam;
+                _visits = null;
+              });
+              _load();
+            },
+          ),
           PopupMenuButton<int>(
             initialValue: _days,
             onSelected: (d) {
@@ -237,7 +252,27 @@ class _ClaimJourneysScreenState extends State<ClaimJourneysScreen> {
 
   // ----------------------------------------------------------- summary
 
-  Widget _summary(List<_Visit> visits) {
+  Future<void> _markMe(_Visit v, bool team) async {
+    try {
+      await _supabase.markTeamDevice(v.anon, team);
+      await _load();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(team
+                ? 'Marked as us. Every visit from that browser, past and '
+                    'future, is left out of the numbers.'
+                : 'Unmarked; that browser counts as a visitor again.')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Could not save: $e')));
+      }
+    }
+  }
+
+  Widget _summary(List<_Visit> all) {
+    final visits = all.where((v) => !_team.contains(v.anon)).toList();
     final n = visits.length;
     final chose = visits.where((v) => v.furthest >= 1).length;
     final about = visits.where((v) => v.furthest >= 2).length;
@@ -277,7 +312,7 @@ class _ClaimJourneysScreenState extends State<ClaimJourneysScreen> {
         Row(children: [
           tile('Opened', n),
           tile('Chose a space', chose),
-          tile('About you', about),
+          tile('Owner details', about),
           tile('Free or Verified', plan),
           tile('To Stripe', paid),
           tile('Free claim', free),
@@ -303,6 +338,7 @@ class _ClaimJourneysScreenState extends State<ClaimJourneysScreen> {
     final open = _open.contains(v.key);
     final repeat = (_visitsByDevice[v.anon] ?? 1) > 1;
     final when = DateFormat('EEE d MMM, HH:mm').format(v.start);
+    final isTeam = _team.contains(v.anon);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -351,14 +387,33 @@ class _ClaimJourneysScreenState extends State<ClaimJourneysScreen> {
             const SizedBox(height: 10),
             _progress(v.furthest),
             const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-              decoration: BoxDecoration(
-                  color: bg, borderRadius: BorderRadius.circular(8)),
-              child: Text(outcome,
-                  style: TextStyle(
-                      color: fg, fontWeight: FontWeight.w700, fontSize: 12)),
-            ),
+            Row(children: [
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                    color: bg, borderRadius: BorderRadius.circular(8)),
+                child: Text(outcome,
+                    style: TextStyle(
+                        color: fg, fontWeight: FontWeight.w700, fontSize: 12)),
+              ),
+              const Spacer(),
+              // Founders testing the form: one tap keeps their visits
+              // out of the numbers, by browser, past and future.
+              TextButton.icon(
+                onPressed: () => _markMe(v, !isTeam),
+                icon: Icon(
+                    isTeam ? Icons.person_off_outlined : Icons.person_outline,
+                    size: 15),
+                label: Text(isTeam ? 'Marked as us' : 'This was me'),
+                style: TextButton.styleFrom(
+                    foregroundColor:
+                        isTeam ? Brand.goldTextDark : Brand.inkSecondary,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    textStyle: const TextStyle(
+                        fontSize: 12, fontWeight: FontWeight.w600)),
+              ),
+            ]),
             if (open) ...[
               const SizedBox(height: 14),
               const Divider(height: 1, color: Brand.hairline),
@@ -372,7 +427,7 @@ class _ClaimJourneysScreenState extends State<ClaimJourneysScreen> {
   }
 
   Widget _progress(int furthest) {
-    const labels = ['Find', 'Space chosen', 'About you', 'Free or Verified'];
+    const labels = ['Find', 'Space chosen', 'Owner details', 'Free or Verified'];
     return Row(children: [
       for (var i = 0; i < labels.length; i++) ...[
         Expanded(
@@ -465,7 +520,7 @@ class _ClaimJourneysScreenState extends State<ClaimJourneysScreen> {
           'google_place' => 'Picked $space from Google Maps',
           'not_here' => 'Tapped "My space isn\'t here, add it"',
           'back' => 'Went back to ${_stepLabel(to)}',
-          'continue' => 'Filled in About you and continued to the '
+          'continue' => 'Filled in their details and continued to the '
               'Free or Verified choice',
           _ => 'Moved to ${_stepLabel(to)}',
         };
