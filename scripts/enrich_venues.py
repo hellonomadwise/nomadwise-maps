@@ -168,9 +168,14 @@ MAX_AGE_DAYS = 21     # Google photo names (and the plain links made
                       # oldest venues with dead photos (seen 22 Sep 2026:
                       # every venue synced ~30 days earlier showed a
                       # blank photo box). Three weeks keeps a margin.
-RESOLVE_AT_REFRESH = 6  # plain links made for this many photos at each
-                        # refresh, so the app never falls back to the
-                        # billed media endpoint for a fresh venue
+RESOLVE_AT_REFRESH = 0  # plain links made at each refresh. Was 6: about
+                        # 6,000 billed photo calls every three weeks for
+                        # ~1,000 spaces, most of which nobody opened in
+                        # between (the bulk of the Sep 2026 Google bill).
+                        # Since 28 Sep 2026 the app makes a photo's link
+                        # the first time anyone looks at it and saves it
+                        # on the venue for everyone (cache_google_photos),
+                        # so only photos people see are paid for.
 MAX_PER_RUN = 300     # hard cap per run, bounds worst-case API spend
 
 

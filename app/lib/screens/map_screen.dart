@@ -19,6 +19,7 @@ import '../services/places_service.dart';
 import '../services/supabase_service.dart';
 import '../theme.dart';
 import '../widgets/ui.dart';
+import '../widgets/google_photo.dart';
 import 'add_venue_screen.dart';
 import 'terms_screen.dart';
 import 'admin_screen.dart';
@@ -4088,15 +4089,14 @@ class _CardPhotoPagerState extends State<_CardPhotoPager> {
         PageView.builder(
           itemCount: names.length,
           onPageChanged: (i) => setState(() => _page = i),
-          itemBuilder: (_, i) => Image.network(
-            PlacesService.photoUrl(names[i], maxWidth: 800),
-            fit: BoxFit.cover,
-            width: double.infinity,
+          itemBuilder: (_, i) => GooglePhoto(
+            names[i],
+            venueId: widget.venue?.id,
+            maxWidth: 800,
             height: widget.height,
-            errorBuilder: (_, __, ___) {
-              _heal();
-              return Container(color: Brand.goldTint);
-            },
+            onBroken: _heal,
+            loading: Container(color: Brand.goldTint),
+            broken: Container(color: Brand.goldTint),
           ),
         ),
         if (names.length > 1)

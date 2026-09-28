@@ -17,6 +17,7 @@ import '../services/story_card.dart';
 import '../services/supabase_service.dart';
 import '../theme.dart';
 import '../widgets/ui.dart';
+import '../widgets/google_photo.dart';
 import 'auth_screen.dart';
 
 class VenueDetailScreen extends StatefulWidget {
@@ -294,6 +295,7 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
       try {
         final names = venue.displayPhotos;
         if (names.isNotEmpty) {
+          await PlacesService.linkFor(names.first, venueId: venue.id);
           final res = await http
               .get(Uri.parse(
                   PlacesService.photoUrl(names.first, maxWidth: 1200)))
@@ -702,6 +704,24 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
           onPageChanged: (i) => setState(() => _photoIndex = i),
           itemBuilder: (_, i) {
             final key = i < _photoKeys.length ? _photoKeys[i] : null;
+            if (key != null && !PlacesService.isResolved(key)) {
+              // A Google photo without a link yet: made once, now.
+              final box = Container(
+                  color: Brand.lightGrey,
+                  child: const Center(
+                      child: Icon(Icons.broken_image_outlined,
+                          color: Colors.grey)));
+              final g = GooglePhoto(key,
+                  venueId: venue.id,
+                  onBroken: _healPhotos,
+                  loading: Container(
+                      color: Brand.lightGrey,
+                      child: const Center(
+                          child: CircularProgressIndicator(
+                              color: Brand.red, strokeWidth: 2))),
+                  broken: box);
+              return _isOut(key) ? Opacity(opacity: .3, child: g) : g;
+            }
             final img = Image.network(
               _photos[i],
               fit: BoxFit.cover,

@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../config.dart';
+import 'supabase_service.dart';
 import '../models/discovered_place.dart';
 import '../models/venue.dart';
 
@@ -89,6 +91,63 @@ class PlacesService {
     if (r != null) return _sized(r, maxWidth);
     return 'https://places.googleapis.com/v1/$photoName/media'
         '?maxWidthPx=$maxWidth&key=${AppConfig.googlePlacesKey}';
+  }
+
+  // ---------- photo links on demand ----------
+  // The nightly refresh no longer makes links for every space's
+  // photos (about 6,000 billed calls every three weeks, mostly for
+  // spaces nobody opened). A photo gets its link the first time
+  // anyone actually looks at it: one billed call, saved on the venue
+  // so every later viewer, on any device, gets it free until the
+  // next refresh brings new photo names.
+  static final Map<String, Future<String?>> _inflight = {};
+  static final Set<String> _dead = {};
+  static final Map<String, Map<String, String>> _toSave = {};
+  static Timer? _saveTimer;
+
+  /// A loadable link for a Google photo name (or the link itself when
+  /// it already is one). Null when Google no longer knows the name
+  /// (it expired): the caller treats that as a broken photo.
+  static Future<String?> linkFor(String name, {String? venueId}) {
+    if (name.startsWith('http')) return Future.value(name);
+    final hit = _resolved[name];
+    if (hit != null) return Future.value(hit);
+    if (_dead.contains(name)) return Future.value(null);
+    return _inflight.putIfAbsent(name, () async {
+      try {
+        final resp = await http.get(
+          Uri.parse('https://places.googleapis.com/v1/$name/media'
+              '?maxWidthPx=1600&maxHeightPx=1600&skipHttpRedirect=true'),
+          headers: {'X-Goog-Api-Key': AppConfig.googlePlacesKey},
+        );
+        final uri = resp.statusCode == 200
+            ? jsonDecode(resp.body)['photoUri']
+            : null;
+        if (uri is! String || !uri.startsWith('http')) {
+          _dead.add(name);
+          return null;
+        }
+        _resolved[name] = uri;
+        if (venueId != null) {
+          (_toSave[venueId] ??= {})[name] = uri;
+          _saveTimer ??= Timer(const Duration(seconds: 2), _flushSaves);
+        }
+        return uri;
+      } catch (_) {
+        return null; // a network blip: tried again next time
+      } finally {
+        _inflight.remove(name);
+      }
+    });
+  }
+
+  /// Saves the links made in the last moment, one call per venue.
+  static void _flushSaves() {
+    _saveTimer = null;
+    final batch = Map.of(_toSave);
+    _toSave.clear();
+    batch.forEach((venueId, links) =>
+        SupabaseService().cacheGooglePhotos(venueId, links));
   }
 
   /// Resolves photo names to plain links (one billed call each, once)

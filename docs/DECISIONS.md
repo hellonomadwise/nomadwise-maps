@@ -796,3 +796,23 @@ again" overrules the call for good (`photos_checked` stops the job
 judging it twice). No Google calls: it reads the plain links the
 refresh already made. First run clears up to 500 spaces; the rest
 follow over the next nights.
+
+## Photo links made when someone looks, not for every space (28 Sep 2026)
+
+September's Google bill (£28) was mostly photo links: the nightly
+refresh paid for six photo links per space every three weeks, about
+6,000 calls per round for ~1,000 spaces, and the whole catalogue was
+refreshed on 22-23 Sep so every round lands at once. Google's metrics
+by key showed the server key (the GitHub jobs) making ~95% of Places
+calls; the app's key about 50 a day.
+
+Now the refresh makes no photo links (enrich_venues.py
+RESOLVE_AT_REFRESH = 0). The app makes a photo's link the first time
+anyone sees it (PlacesService.linkFor, widgets/google_photo.dart, on
+map cards, the space page and the share image), one billed call, and
+saves it on the venue for every later visitor (cache_google_photos,
+opened to visitors who are not signed in by migration 88, with checks
+that the photo belongs to that place and the link is a Google image
+link). Only photos people actually look at are paid for. The food
+check covers a photo from the night after its first view; the very
+first viewer of a photo may still see a food one.
