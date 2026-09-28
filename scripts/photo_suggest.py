@@ -25,7 +25,7 @@ leaves the space exactly as it was and the founder can still paste.
 `--learn` also resolves links for a slice of the existing venues each
 night (the backlog), so map cards and space pages stop paying too.
 
-`--food` (nightly, after the snapshot refresh) looks at every venue's
+`--food` (and the end of every `--learn` run) looks at every venue's
 default Google photos, the ones the app shows when no page photos
 were chosen, and marks the food and drink close-ups
 (venues.food_photos) so the app leaves them out. Same brief and
@@ -659,4 +659,7 @@ if LEARN:
     learn()
     resolve_backlog()
 suggest()
+if LEARN:
+    # Nightly: judge the Google photos refreshed since last night.
+    food_pass()
 finish(0)
