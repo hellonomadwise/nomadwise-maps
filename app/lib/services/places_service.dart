@@ -78,6 +78,13 @@ class PlacesService {
   /// Turns a Google photo resource name into a loadable image URL:
   /// the free plain link when known, else Google's media endpoint.
   static String photoUrl(String photoName, {int maxWidth = 900}) {
+    // Already a link (a photo picked for the nomadwise.io page): only
+    // Google's own image links take a size; anything else as it is.
+    if (photoName.startsWith('http')) {
+      return photoName.contains('googleusercontent.com')
+          ? _sized(photoName, maxWidth)
+          : photoName;
+    }
     final r = _resolved[photoName];
     if (r != null) return _sized(r, maxWidth);
     return 'https://places.googleapis.com/v1/$photoName/media'

@@ -68,6 +68,19 @@ class Venue {
       .where((n) => !hiddenPhotos.contains(n))
       .toList();
 
+  /// The photos chosen for this space's nomadwise.io page (picked in
+  /// the control centre, or put on by the owner), as image links.
+  /// Empty when none were chosen, or when they are only the sync's
+  /// unreviewed suggestions for a page not yet on the site.
+  final List<String> websitePhotos;
+
+  /// What the app shows: the page's chosen photos when there are any,
+  /// so the app and nomadwise.io match; otherwise Google's, curated.
+  /// Items are image links or Google photo names; PlacesService.photoUrl
+  /// turns either into something loadable.
+  List<String> get displayPhotos =>
+      websitePhotos.isNotEmpty ? websitePhotos : visiblePhotoNames;
+
   /// Raw database row (kept for offline caching).
   final Map<String, dynamic> raw;
 
@@ -111,6 +124,7 @@ class Venue {
         websiteStatus = j['website_status'],
         hiddenPhotos =
             (j['hidden_photos'] as List?)?.cast<String>() ?? const [],
+        websitePhotos = _websitePhotosFrom(j),
         raw = j {
     // The daily build job caches each venue's Google details in the
     // database (g_details). Loading that copy here means the app does
@@ -125,6 +139,19 @@ class Venue {
       PlacesService.registerResolved(
           Map<String, dynamic>.from(j['google_photo_urls']));
     }
+  }
+
+  static List<String> _websitePhotosFrom(Map<String, dynamic> j) {
+    final list = ((j['website_photos'] as List?) ?? const [])
+        .map((u) => '$u'.trim())
+        .where((u) => u.startsWith('http'))
+        .toList();
+    if (list.isEmpty) return const [];
+    final onSite = j['website_status'] == 'released' ||
+        j['website_status'] == 'published_hidden';
+    // The sync's own suggestions count only once the page is out.
+    if (j['website_photos_auto'] == true && !onSite) return const [];
+    return list;
   }
 
   /// How many of the details the review flow actually asks are still

@@ -123,6 +123,7 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
   bool _healed = false;
   void _healPhotos() {
     if (_healed || venue.googlePlaceId == null) return;
+    if (venue.websitePhotos.isNotEmpty) return;
     _healed = true;
     Future.microtask(() async {
       final live = await _places.details(venue.googlePlaceId!);
@@ -135,6 +136,16 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
   }
 
   void _rebuildPhotos() {
+    // The photos chosen for the nomadwise.io page, when there are any:
+    // the app shows exactly what the website shows.
+    if (venue.websitePhotos.isNotEmpty) {
+      _photos = [...venue.websitePhotos.map((u) => PlacesService.photoUrl(u))];
+      _photoKeys = venue.websitePhotos.map<String?>((_) => null).toList();
+      if (_photoIndex >= _photos.length && _photos.isNotEmpty) {
+        _photoIndex = _photos.length - 1;
+      }
+      return;
+    }
     // Admins see every photo (hidden ones dimmed, to un-hide);
     // everyone else sees the curated set only.
     final names = _isAdmin
@@ -222,18 +233,37 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
   }
 
   /// The words that travel with the card in WhatsApp and friends.
+  /// The message that goes with a shared space: its name, and where it
+  /// is only when the name does not already say (region and country).
   String _shareText() {
-    final where = [
-      if (venue.neighbourhood != null && venue.neighbourhood!.isNotEmpty)
-        venue.neighbourhood!,
-      if (venue.city != null && venue.city!.isNotEmpty) venue.city!,
-    ].join(', ');
+    final name = venue.name.trim();
+    final region = (venue.city ?? '').trim();
+    final country = ('${venue.raw['country'] ?? venue.live?.country ?? ''}').trim();
+    final hood = (venue.neighbourhood ?? '').trim();
+    final plain = _plain(name);
+    final saysWhere = [hood, region, country]
+        .where((x) => x.length >= 3)
+        .any((x) => plain.contains(_plain(x)));
+    final where = saysWhere
+        ? ''
+        : [region, country].where((x) => x.isNotEmpty).join(', ');
     final wifi = venue.wifiTested
         ? ' WiFi ${venue.wifiSpeedLabel} Mbps.'
         : '';
-    return '${venue.name}'
-        '${where.isNotEmpty ? ', a place to work in $where' : ''}.'
-        '$wifi ${_shareLink()}';
+    return '$name${where.isEmpty ? '' : ', $where'}.$wifi\n${_shareLink()}';
+  }
+
+  /// Lower case without accents, so "São Bento" matches "Sao Bento".
+  static String _plain(String s) {
+    const from = 'àáâãäåçèéêëìíîïñòóôõöùúûüýÿ';
+    const to = 'aaaaaaceeeeiiiinooooouuuuyy';
+    final lower = s.toLowerCase();
+    final b = StringBuffer();
+    for (final ch in lower.split('')) {
+      final i = from.indexOf(ch);
+      b.write(i >= 0 ? to[i] : ch);
+    }
+    return b.toString();
   }
 
   Future<void> _share() async {
@@ -242,7 +272,7 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
       // Best backdrop: the space's first Google photo.
       ui.Image? photo;
       try {
-        final names = venue.visiblePhotoNames;
+        final names = venue.displayPhotos;
         if (names.isNotEmpty) {
           final res = await http
               .get(Uri.parse(

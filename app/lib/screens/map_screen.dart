@@ -4060,6 +4060,8 @@ class _CardPhotoPagerState extends State<_CardPhotoPager> {
   void _heal() {
     final v = widget.venue;
     if (_healing || _fresh != null || v?.googlePlaceId == null) return;
+    // The page's chosen photos are plain links that do not expire.
+    if (v!.websitePhotos.isNotEmpty) return;
     _healing = true;
     Future.microtask(() async {
       final live = await PlacesService().details(v!.googlePlaceId!);
@@ -4166,7 +4168,7 @@ class _VenueCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _CardPhotoPager(
-                    venue.visiblePhotoNames.take(6).toList(),
+                    venue.displayPhotos.take(6).toList(),
                     venue: venue,
                     key: ValueKey(venue.id)),
                 Padding(
