@@ -48,6 +48,8 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import google_meter  # noqa: E402
+google_meter.install('photo check' if ('--learn' in sys.argv or '--food' in sys.argv) else 'photo suggestions')
 
 SUPABASE_URL = os.environ.get('SUPABASE_URL', '').rstrip('/')
 SERVICE_KEY = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')

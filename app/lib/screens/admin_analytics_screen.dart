@@ -5,6 +5,7 @@ import '../services/supabase_service.dart';
 import '../theme.dart';
 import '../widgets/ui.dart';
 import 'claim_journeys_screen.dart';
+import 'google_usage_screen.dart';
 
 /// Admin only: who has been in the app (signed in or not) and what
 /// they did, from the events the app records about itself.
@@ -174,6 +175,12 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
               builder: (_) => const ClaimJourneysScreen())),
           icon: const Icon(Icons.route_outlined, size: 18),
           label: const Text('Claim journeys'),
+        ),
+        TextButton.icon(
+          onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => const GoogleUsageScreen())),
+          icon: const Icon(Icons.receipt_long_outlined, size: 18),
+          label: const Text('Google calls'),
         ),
         const SizedBox(width: 6),
       ]),

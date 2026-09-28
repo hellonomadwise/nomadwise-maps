@@ -22,6 +22,8 @@ import re
 import sys
 import urllib.error
 import urllib.request
+import google_meter  # noqa: E402
+google_meter.install('webflow import')
 
 SUPABASE_URL = os.environ['SUPABASE_URL'].rstrip('/')
 SERVICE_KEY = os.environ['SUPABASE_SERVICE_ROLE_KEY']

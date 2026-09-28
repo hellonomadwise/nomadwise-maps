@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:http/http.dart' as http;
 import '../config.dart';
+import 'google_meter.dart';
 import 'supabase_service.dart';
 import '../models/discovered_place.dart';
 import '../models/venue.dart';
@@ -115,7 +115,7 @@ class PlacesService {
     if (_dead.contains(name)) return Future.value(null);
     return _inflight.putIfAbsent(name, () async {
       try {
-        final resp = await http.get(
+        final resp = await GoogleMeter.client.get(
           Uri.parse('https://places.googleapis.com/v1/$name/media'
               '?maxWidthPx=1600&maxHeightPx=1600&skipHttpRedirect=true'),
           headers: {'X-Goog-Api-Key': AppConfig.googlePlacesKey},
@@ -158,7 +158,7 @@ class PlacesService {
     for (final n in names) {
       if (_resolved.containsKey(n)) continue;
       try {
-        final resp = await http.get(
+        final resp = await GoogleMeter.client.get(
           Uri.parse('https://places.googleapis.com/v1/$n/media'
               '?maxWidthPx=1600&maxHeightPx=1600&skipHttpRedirect=true'),
           headers: {'X-Goog-Api-Key': AppConfig.googlePlacesKey},
@@ -181,7 +181,7 @@ class PlacesService {
       return hit.$2;
     }
     try {
-      final resp = await http.get(
+      final resp = await GoogleMeter.client.get(
         Uri.parse('https://places.googleapis.com/v1/places/$placeId'),
         headers: {
           'X-Goog-Api-Key': AppConfig.googlePlacesKey,
@@ -247,7 +247,7 @@ class PlacesService {
   Future<List<DiscoveredPlace>> _nearbyCafes(
       double lat, double lng, double radius) async {
     try {
-      final resp = await http.post(
+      final resp = await GoogleMeter.client.post(
         Uri.parse('https://places.googleapis.com/v1/places:searchNearby'),
         headers: {
           'X-Goog-Api-Key': AppConfig.googlePlacesKey,
@@ -280,7 +280,7 @@ class PlacesService {
   Future<List<DiscoveredPlace>> _textSearchCoworking(
       double lat, double lng, double radius) async {
     try {
-      final resp = await http.post(
+      final resp = await GoogleMeter.client.post(
         Uri.parse('https://places.googleapis.com/v1/places:searchText'),
         headers: {
           'X-Goog-Api-Key': AppConfig.googlePlacesKey,
@@ -331,7 +331,7 @@ class PlacesService {
     final q = query.trim();
     if (q.isEmpty) return null;
     try {
-      final resp = await http.post(
+      final resp = await GoogleMeter.client.post(
         Uri.parse('https://places.googleapis.com/v1/places:searchText'),
         headers: {
           'X-Goog-Api-Key': AppConfig.googlePlacesKey,
@@ -366,7 +366,7 @@ class PlacesService {
     final hit = _photoNameCache[placeId];
     if (hit != null) return hit;
     try {
-      final resp = await http.get(
+      final resp = await GoogleMeter.client.get(
         Uri.parse('https://places.googleapis.com/v1/places/$placeId'),
         headers: {
           'X-Goog-Api-Key': AppConfig.googlePlacesKey,
@@ -427,12 +427,26 @@ class PlacesService {
   Future<List<String>> reviewTexts(String placeId) =>
       _reviewTexts(placeId);
 
+  /// Review lookups already on their way: a card asks twice at once
+  /// (signals and quotes), which used to pay Google twice.
+  final Map<String, Future<List<String>>> _reviewsInflight = {};
+
   /// The place's Google review texts (up to 5, cached).
-  Future<List<String>> _reviewTexts(String placeId) async {
+  Future<List<String>> _reviewTexts(String placeId) {
     final hit = _reviewsCache[placeId];
-    if (hit != null) return hit;
+    if (hit != null) return Future.value(hit);
+    return _reviewsInflight.putIfAbsent(placeId, () async {
+      try {
+        return await _fetchReviewTexts(placeId);
+      } finally {
+        _reviewsInflight.remove(placeId);
+      }
+    });
+  }
+
+  Future<List<String>> _fetchReviewTexts(String placeId) async {
     try {
-      final resp = await http.get(
+      final resp = await GoogleMeter.client.get(
         Uri.parse('https://places.googleapis.com/v1/places/$placeId'),
         headers: {
           'X-Goog-Api-Key': AppConfig.googlePlacesKey,
@@ -531,7 +545,7 @@ class PlacesService {
     // short names ("94") must stay findable.
     if (input.trim().length < 2) return [];
     try {
-      final resp = await http.post(
+      final resp = await GoogleMeter.client.post(
         Uri.parse('https://places.googleapis.com/v1/places:autocomplete'),
         headers: {
           'X-Goog-Api-Key': AppConfig.googlePlacesKey,

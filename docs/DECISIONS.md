@@ -816,3 +816,20 @@ that the photo belongs to that place and the link is a Google image
 link). Only photos people actually look at are paid for. The food
 check covers a photo from the night after its first view; the very
 first viewer of a photo may still see a food one.
+
+## Counting Google calls by job and bill line (28 Sep 2026)
+
+The Google bill names the kind of call (Place Details Pro, Photos...)
+but not which of our jobs made it, and ~7,000 Pro calls in September
+could not be traced from the code alone. Every job now counts its own
+Places calls under the bill's names (scripts/google_meter.py, one
+install line per script, wrapping urllib's urlopen), and so does the
+app (services/google_meter.dart, an http client PlacesService uses for
+every Google call). Counts land per day, job and bill line in
+public.api_usage (migration 89) and show in the control centre,
+Analytics, Google calls. Visitors' counts are forced to source 'app'
+and capped per report. The inline-script audit workflows (run by hand)
+are not counted.
+
+Also: a discovered-place card asked Google for the same reviews twice
+at once (signals and quotes); the second now waits for the first.

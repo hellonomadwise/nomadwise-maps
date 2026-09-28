@@ -8,6 +8,7 @@ Runs in GitHub Actions (workflow: enrich.yml). Needs env vars:
 import json
 import os
 import urllib.request
+import google_meter; google_meter.install('nightly refresh')  # noqa: E401,E702
 from datetime import datetime, timedelta, timezone
 
 SUPABASE_URL = os.environ['SUPABASE_URL'].rstrip('/')

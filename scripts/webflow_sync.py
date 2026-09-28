@@ -53,6 +53,8 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import google_meter  # noqa: E402
+google_meter.install('website push' if '--push-only' in sys.argv else 'website sync')
 
 # --push-only: skip the nightly pull and only prepare / create the
 # queued spaces. Run every few minutes by webflow_push.yml so the

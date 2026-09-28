@@ -608,6 +608,33 @@ class SupabaseService {
     }
   }
 
+  /// Adds a tally of Google calls to today's counts (see GoogleMeter).
+  Future<void> recordApiUsage(
+      String source, Map<String, Map<String, int>> counts) async {
+    try {
+      await _db.rpc('record_api_usage', params: {
+        'p_day': DateTime.now().toUtc().toIso8601String().substring(0, 10),
+        'p_source': source,
+        'p_counts': counts,
+      });
+    } catch (_) {}
+  }
+
+  /// Admin: Google calls per day, job and bill line, newest first.
+  Future<List<Map<String, dynamic>>> apiUsage({int days = 35}) async {
+    final since = DateTime.now()
+        .toUtc()
+        .subtract(Duration(days: days))
+        .toIso8601String()
+        .substring(0, 10);
+    final rows = await _db
+        .from('api_usage')
+        .select()
+        .gte('day', since)
+        .order('day', ascending: false);
+    return List<Map<String, dynamic>>.from(rows);
+  }
+
   /// Admin: replace a venue's list of photos judged to be food
   /// (removing one says "this is fine, show it").
   Future<bool> setFoodPhotos(String venueId, List<String> food) async {
