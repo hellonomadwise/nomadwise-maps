@@ -608,6 +608,17 @@ class SupabaseService {
     }
   }
 
+  /// Admin: replace a venue's list of photos judged to be food
+  /// (removing one says "this is fine, show it").
+  Future<bool> setFoodPhotos(String venueId, List<String> food) async {
+    try {
+      await _db.from('venues').update({'food_photos': food}).eq('id', venueId);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   // ---------- city sweeps (admin) ----------
 
   Future<List<Map<String, dynamic>>> citySweeps() async {

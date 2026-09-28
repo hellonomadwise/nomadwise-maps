@@ -25,6 +25,15 @@ leaves the space exactly as it was and the founder can still paste.
 `--learn` also resolves links for a slice of the existing venues each
 night (the backlog), so map cards and space pages stop paying too.
 
+`--food` (nightly, after the snapshot refresh) looks at every venue's
+default Google photos, the ones the app shows when no page photos
+were chosen, and marks the food and drink close-ups
+(venues.food_photos) so the app leaves them out. Same brief and
+same food rule as the suggestions above; free, since it reads the
+plain links the refresh already made. Each photo is judged once
+(venues.photos_checked); the founder's "show this photo again" on a
+space page overrides a wrong call.
+
 Cost: at most six Photo media calls per space, once, and none when
 the venue's links are already known. Scoring runs locally (CLIP,
 open weights); no API.
@@ -44,6 +53,7 @@ SUPABASE_URL = os.environ.get('SUPABASE_URL', '').rstrip('/')
 SERVICE_KEY = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
 PLACES_KEY = os.environ.get('GOOGLE_PLACES_KEY', '')
 LEARN = '--learn' in sys.argv
+FOOD_ONLY = '--food' in sys.argv
 
 MAX_GOOGLE = 10       # Google returns at most ten photos per place
 SUGGEST = 5           # the page takes five
@@ -98,7 +108,8 @@ report = {'started': datetime.datetime.now(datetime.timezone.utc).isoformat(),
 def finish(code=0):
     report['finished'] = datetime.datetime.now(datetime.timezone.utc).isoformat()
     os.makedirs('ci-debug', exist_ok=True)
-    with open('ci-debug/photo_suggest_report.json', 'w') as fh:
+    name = 'food_photos_report' if FOOD_ONLY else 'photo_suggest_report'
+    with open(f'ci-debug/{name}.json', 'w') as fh:
         json.dump(report, fh, indent=2)
     print(json.dumps(report, indent=2))
     sys.exit(code)
@@ -546,6 +557,104 @@ def resolve_backlog():
     report['backlog_venues'] = done
 
 
+# ---------------------------------------------------------------- food
+FOOD_VENUES_PER_RUN = 500   # about 3,000 photos, ten minutes or so;
+                            # the backlog clears over a few nights,
+                            # then only newly refreshed photos are new
+
+
+def is_food(img, prompts):
+    """The same food rule the suggestions use: this much of CLIP's
+    belief on the food and drink close-up sentences."""
+    probs = softmax([dot(img, p) * 100 for p in prompts])
+    n_pos = len(POSITIVE)
+    return sum(probs[n_pos:n_pos + len(FOOD)]) >= FOOD_HARD
+
+
+def food_pass():
+    """Mark the food photos among each venue's default Google photos.
+    Works from the plain links the nightly refresh keeps, so it costs
+    no Google calls. Names Google no longer lists are dropped from
+    both lists, which keeps them small."""
+    try:
+        sb('venues?select=id,food_photos,photos_checked&limit=1')
+    except Exception as e:  # noqa: BLE001
+        report['errors'].append(
+            f'food_photos not installed yet (migration 87): {e}')
+        return
+    todo, offset = [], 0
+    while True:
+        try:
+            rows = sb('venues?select=id,name,google_photo_urls,food_photos,'
+                      'photos_checked&google_photo_urls=not.is.null'
+                      f'&order=id&limit=1000&offset={offset}') or []
+        except Exception as e:  # noqa: BLE001
+            report['errors'].append(f'venues read: {e}')
+            return
+        for v in rows:
+            links = v.get('google_photo_urls') or {}
+            checked = set(v.get('photos_checked') or [])
+            new = [n for n in links if n not in checked]
+            if new:
+                v['_new'] = new
+                todo.append(v)
+        if len(rows) < 1000:
+            break
+        offset += 1000
+    report['food_backlog'] = len(todo)
+    todo = todo[:FOOD_VENUES_PER_RUN]
+    if not todo:
+        return
+    model = ensure_model()
+    if not model:
+        return
+    prompts = model[1](POSITIVE + NEGATIVE)
+    from concurrent.futures import ThreadPoolExecutor
+
+    def grab(uri):
+        try:
+            return fetch_bytes(thumb_of(uri))
+        except Exception:  # noqa: BLE001
+            return None
+
+    looked, found, venues_done = 0, 0, 0
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        for v in todo:
+            links = v.get('google_photo_urls') or {}
+            names = v['_new']
+            blobs = list(pool.map(grab, [links[n] for n in names]))
+            pairs = [(n, b) for n, b in zip(names, blobs) if b]
+            try:
+                embs = model[0]([b for _, b in pairs]) if pairs else []
+            except Exception as e:  # noqa: BLE001
+                report['errors'].append(f"{v.get('name')}: encode {e}")
+                continue
+            food_now = [n for (n, _), e in zip(pairs, embs)
+                        if is_food(e, prompts)]
+            live = set(links)
+            food = [n for n in (v.get('food_photos') or []) if n in live]
+            food += [n for n in food_now if n not in food]
+            # A photo that could not be downloaded is tried again next run.
+            done = [n for n in (v.get('photos_checked') or []) if n in live]
+            done += [n for n, _ in pairs if n not in done]
+            try:
+                sb(f"venues?id=eq.{v['id']}", method='PATCH',
+                   body={'food_photos': food, 'photos_checked': done},
+                   prefer='return=minimal')
+            except Exception as e:  # noqa: BLE001
+                report['errors'].append(f"{v.get('name')}: food save {e}")
+                continue
+            looked += len(pairs)
+            found += len(food_now)
+            venues_done += 1
+    report['food_venues'] = venues_done
+    report['food_photos_looked_at'] = looked
+    report['food_photos_found'] = found
+
+
+if FOOD_ONLY:
+    food_pass()
+    finish(0)
 if LEARN:
     learn()
     resolve_backlog()

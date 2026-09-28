@@ -780,3 +780,19 @@ question already typed (calls do not reliably reach the countries
 our spaces are in; WhatsApp does). The phone number a claimant
 gives is never used to guess where the space is: the country comes
 from Google's address components.
+
+## Food out of the default Google photos (28 Sep 2026)
+
+When a space has no photos chosen for its nomadwise.io page, the app
+shows Google's photos, often plates of food. The nightly run now
+judges each Google photo once (`photo_suggest.py --food`, after the
+snapshot refresh), with the same model and food rule as the website
+photo suggestions (FOOD prompts, FOOD_HARD), and lists the food and
+drink close-ups in `venues.food_photos` (migration 87). The app leaves
+them out of map cards, space pages and share images; a space whose
+Google photos are all food still shows them rather than a blank card.
+On a space page the founder sees them dimmed and "Show this photo
+again" overrules the call for good (`photos_checked` stops the job
+judging it twice). No Google calls: it reads the plain links the
+refresh already made. First run clears up to 500 spaces; the rest
+follow over the next nights.

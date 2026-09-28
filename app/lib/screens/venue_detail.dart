@@ -98,6 +98,9 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
   // community photo), the venue's hidden set, and admin powers.
   List<String?> _photoKeys = [];
   late final Set<String> _hidden = {...venue.hiddenPhotos};
+  // Photos the nightly job judged to be food: out, like hidden ones,
+  // unless nothing else is left. The founder can show one again.
+  late final Set<String> _food = {...venue.foodPhotos};
   bool _isAdmin = false;
   List<String> _googleNames = [];
   List<String> _communityUrls = [];
@@ -148,9 +151,11 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
     }
     // Admins see every photo (hidden ones dimmed, to un-hide);
     // everyone else sees the curated set only.
+    final kept = _googleNames.where((n) => !_hidden.contains(n)).toList();
+    final noFood = kept.where((n) => !_food.contains(n)).toList();
     final names = _isAdmin
         ? _googleNames
-        : _googleNames.where((n) => !_hidden.contains(n)).toList();
+        : (noFood.isEmpty && _communityUrls.isEmpty ? kept : noFood);
     _photos = [
       ...names.map((n) => PlacesService.photoUrl(n)),
       ..._communityUrls,
@@ -174,7 +179,22 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
     }
   }
 
+  bool _isOut(String? name) =>
+      name != null && (_hidden.contains(name) || _food.contains(name));
+
   void _toggleHidden(String name) {
+    // A photo out because it was judged to be food: showing it again
+    // clears that call, and the job does not make it twice.
+    if (_food.contains(name)) {
+      setState(() {
+        _food.remove(name);
+        _hidden.remove(name);
+        _rebuildPhotos();
+      });
+      _supabase.setFoodPhotos(venue.id, _food.toList());
+      _supabase.setHiddenPhotos(venue.id, _hidden.toList());
+      return;
+    }
     setState(() {
       _hidden.contains(name) ? _hidden.remove(name) : _hidden.add(name);
       _rebuildPhotos();
@@ -702,7 +722,7 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
                           child: CircularProgressIndicator(
                               color: Brand.red, strokeWidth: 2))),
             );
-            final isHidden = key != null && _hidden.contains(key);
+            final isHidden = _isOut(key);
             return isHidden ? Opacity(opacity: .3, child: img) : img;
           },
         ),
@@ -719,10 +739,12 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
               child: IconButton(
                 iconSize: 20,
                 color: Colors.white,
-                tooltip: _hidden.contains(_photoKeys[_photoIndex])
-                    ? 'Show this photo again'
-                    : 'Hide this photo for everyone',
-                icon: Icon(_hidden.contains(_photoKeys[_photoIndex])
+                tooltip: _food.contains(_photoKeys[_photoIndex])
+                    ? 'Hidden as food. Show this photo again'
+                    : _hidden.contains(_photoKeys[_photoIndex])
+                        ? 'Show this photo again'
+                        : 'Hide this photo for everyone',
+                icon: Icon(_isOut(_photoKeys[_photoIndex])
                     ? Icons.visibility_outlined
                     : Icons.visibility_off_outlined),
                 onPressed: () =>

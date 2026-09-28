@@ -63,10 +63,24 @@ class Venue {
   /// Google photos curated away (food close-ups etc).
   final List<String> hiddenPhotos;
 
-  /// Google photo names with the curated-away ones removed.
-  List<String> get visiblePhotoNames => (live?.photoNames ?? [])
-      .where((n) => !hiddenPhotos.contains(n))
-      .toList();
+  /// Google photos the nightly job judged to be food or drink
+  /// close-ups (venues.food_photos). Left out of what the app shows.
+  final List<String> foodPhotos;
+
+  /// Google photo names with the curated-away ones and the food ones
+  /// removed. Food is shown only when a space has nothing else, so a
+  /// card is never left without a photo.
+  List<String> get visiblePhotoNames =>
+      withoutFood((live?.photoNames ?? [])
+          .where((n) => !hiddenPhotos.contains(n))
+          .toList());
+
+  /// [names] without the food photos, unless that leaves none.
+  List<String> withoutFood(List<String> names) {
+    if (foodPhotos.isEmpty) return names;
+    final rest = names.where((n) => !foodPhotos.contains(n)).toList();
+    return rest.isEmpty ? names : rest;
+  }
 
   /// The photos chosen for this space's nomadwise.io page (picked in
   /// the control centre, or put on by the owner), as image links.
@@ -124,6 +138,8 @@ class Venue {
         websiteStatus = j['website_status'],
         hiddenPhotos =
             (j['hidden_photos'] as List?)?.cast<String>() ?? const [],
+        foodPhotos =
+            (j['food_photos'] as List?)?.cast<String>() ?? const [],
         websitePhotos = _websitePhotosFrom(j),
         raw = j {
     // The daily build job caches each venue's Google details in the
