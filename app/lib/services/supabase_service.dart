@@ -1329,6 +1329,59 @@ class SupabaseService {
         'p_shown': shown,
       });
 
+  /// Owner account, Build next: the ideas, with this owner's votes.
+  Future<List<Map<String, dynamic>>> ownerIdeas(String venueId) async {
+    try {
+      final res =
+          await _db.rpc('owner_ideas_for', params: {'p_venue': venueId});
+      return (res as List? ?? const [])
+          .map((r) => Map<String, dynamic>.from(r as Map))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> ownerVoteIdea(String venueId, String key, bool on) =>
+      _db.rpc('owner_vote_idea',
+          params: {'p_venue': venueId, 'p_key': key, 'p_on': on});
+
+  Future<void> ownerSuggestIdea(String venueId, String text) =>
+      _db.rpc('owner_suggest_idea',
+          params: {'p_venue': venueId, 'p_text': text});
+
+  /// Owner account, Plan & billing: plan, card and invoices, read live
+  /// from Stripe (migration 107).
+  Future<Map<String, dynamic>> ownerBilling(String venueId) async {
+    final res = await _db.rpc('owner_billing', params: {'p_venue': venueId});
+    return res is Map ? Map<String, dynamic>.from(res) : {};
+  }
+
+  /// 'cancel' (renewal off, Verified until the end of the paid year)
+  /// or 'resume'.
+  Future<Map<String, dynamic>> ownerBillingAction(
+      String venueId, String action, {String? reason}) async {
+    final res = await _db.rpc('owner_billing_action', params: {
+      'p_venue': venueId,
+      'p_action': action,
+      'p_reason': reason,
+    });
+    return res is Map ? Map<String, dynamic>.from(res) : {};
+  }
+
+  /// A one-off link to Stripe's secure billing page: 'card' or 'home'.
+  Future<String?> ownerBillingPortal(String venueId, String flow) async {
+    final res = await _db.rpc('owner_billing_portal',
+        params: {'p_venue': venueId, 'p_flow': flow});
+    return res is String ? res : null;
+  }
+
+  /// Control centre: ideas ranked by owners' votes, and their own ideas.
+  Future<Map<String, dynamic>> adminOwnerIdeas() async {
+    final res = await _db.rpc('admin_owner_ideas');
+    return res is Map ? Map<String, dynamic>.from(res) : {};
+  }
+
   /// Control centre: what owners told us, question by question.
   Future<List<Map<String, dynamic>>> adminOwnerInsights() async {
     final res = await _db.rpc('admin_owner_insights');

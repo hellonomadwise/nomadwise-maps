@@ -1679,6 +1679,30 @@ def sync_listing(v):
     time.sleep(0.6)
     live = not item.get('isDraft') and not item.get('isArchived') \
         and item.get('lastPublished')
+    # The owner's own photos replace the page's photos (its Images
+    # entry), with the big layout when there are four or more.
+    photos = [str(u) for u in ((v.get('owner_content') or {}).get('photos') or [])
+              if str(u).startswith('http')][:5]
+    img_id = (item.get('fieldData') or {}).get('image-reference')
+    if photos and img_id:
+        caption = (item.get('fieldData') or {}).get('h1-label') or v.get('name') or ''
+        ifd = {'has-enough-images': len(photos) > 3}
+        for n in range(1, 6):
+            suffix = '' if n == 1 else f'-{n}'
+            if n <= len(photos):
+                alt = caption if n == 1 else f'{caption} {n}'
+                ifd[f'image{suffix}'] = {'url': photos[n - 1], 'alt': alt}
+                ifd[f'alt-text{suffix}'] = alt
+                ifd[f'image-title{suffix}'] = caption
+            else:
+                ifd[f'image{suffix}'] = None
+        wf_write(f'/v2/collections/{IMAGES_ID}/items/{img_id}', 'PATCH',
+                 {'fieldData': ifd})
+        time.sleep(0.6)
+        if live:
+            wf_write(f'/v2/collections/{IMAGES_ID}/items/publish', 'POST',
+                     {'itemIds': [img_id]})
+            time.sleep(0.6)
     if live:
         wf_write(f'/v2/collections/{COLLECTION_ID}/items/publish', 'POST',
                  {'itemIds': [cms]})
@@ -1756,8 +1780,11 @@ if not PUSH_ONLY and items:
     def backfill_hours():
         try:
             rows = sb_all(
-                'venues?website_approved_at=not.is.null'
-                '&webflow_cms_id=not.is.null'
+                # Every page we know, not only those the control
+                # centre created: older pages had empty hours too
+                # (Jiboia Studio, 29 Sep 2026).
+                'venues?webflow_cms_id=not.is.null'
+                '&google_place_id=not.is.null'
                 '&select=id,name,webflow_cms_id,google_place_id,'
                 'opening_hours,g_details,google_rating_snapshot,'
                 'google_reviews_snapshot') or []
@@ -1807,6 +1834,47 @@ if not PUSH_ONLY and items:
         report['hours_backfilled'] = done
 
     backfill_hours()
+
+    def fix_image_layout():
+        """'Has Enough Images' picks the big photo grid (four or more
+        photos) or the simple slider. Older pages had it set by hand,
+        so some with five photos still showed the slider (Jiboia
+        Studio). Every night it follows the photo count."""
+        try:
+            imgs = wf_all(f'/v2/collections/{IMAGES_ID}/items')
+        except Exception as e:  # noqa: BLE001
+            report.setdefault('warnings', []).append(f'images read: {e}')
+            return
+        fixes = []
+        for it in imgs:
+            if it.get('isArchived'):
+                continue
+            ifd = it.get('fieldData') or {}
+            want = image_count(ifd) > 3
+            if bool(ifd.get('has-enough-images')) != want:
+                fixes.append((it, want))
+        done = []
+        for i in range(0, len(fixes), 100):
+            chunk = fixes[i:i + 100]
+            try:
+                wf_write(f'/v2/collections/{IMAGES_ID}/items', 'PATCH',
+                         {'items': [{'id': it['id'],
+                                     'fieldData': {'has-enough-images': want}}
+                                    for it, want in chunk]})
+                time.sleep(0.8)
+                live = [it['id'] for it, _ in chunk
+                        if not it.get('isDraft') and it.get('lastPublished')]
+                if live:
+                    wf_write(f'/v2/collections/{IMAGES_ID}/items/publish',
+                             'POST', {'itemIds': live})
+                    time.sleep(0.8)
+                done += [(it.get('fieldData') or {}).get('name') for it, _ in chunk]
+            except Exception as e:  # noqa: BLE001
+                report.setdefault('warnings', []).append(
+                    f'image layout: {str(e)[:160]}')
+        report['image_layout_fixed'] = done
+
+    fix_image_layout()
 
 # ------------------------------------------------------- verified rotation
 # Inside the Verified group nobody buys position and nothing an owner

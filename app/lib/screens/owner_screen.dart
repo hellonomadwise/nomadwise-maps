@@ -11,8 +11,10 @@ import '../config.dart';
 import '../services/analytics_service.dart';
 import '../services/supabase_service.dart';
 import '../theme.dart';
+import '../widgets/billing_panel.dart';
 import '../widgets/currencies.dart';
 import '../widgets/dial_codes.dart';
+import '../widgets/ideas_board.dart';
 import '../widgets/owner_question_card.dart';
 import '../widgets/phone_field.dart';
 import '../widgets/price.dart';
@@ -37,7 +39,7 @@ class OwnerScreen extends StatefulWidget {
 
 const double _wideAt = 960;
 
-enum _Tab { listing, message, membership }
+enum _Tab { listing, message, membership, ideas }
 
 class _OwnerScreenState extends State<OwnerScreen> {
   final _supabase = SupabaseService();
@@ -54,7 +56,10 @@ class _OwnerScreenState extends State<OwnerScreen> {
   // not checked yet: the blurred account), 'free' or 'verified'.
   String _previewAs = 'free';
   int _current = 0;
-  _Tab _tab = _Tab.listing;
+  // Back from Stripe's billing page (?owner&billing): open Plan & billing.
+  _Tab _tab = Uri.base.queryParameters.containsKey('billing')
+      ? _Tab.membership
+      : _Tab.listing;
 
   // Sign-in form
   final _email = TextEditingController();
@@ -1260,7 +1265,18 @@ class _OwnerScreenState extends State<OwnerScreen> {
     final main = switch (_tab) {
       _Tab.listing => _listingTab(wide),
       _Tab.message => _messageTab(wide),
-      _Tab.membership => _membershipTab(wide),
+      _Tab.membership => BillingPanel(
+          key: ValueKey('bill-${v['id']}-$_verified'),
+          venueId: '${v['id']}',
+          venueName: '${v['name'] ?? ''}',
+          preview: _isPreview,
+          tierOverride: _isPreview ? (_verified ? 'verified' : 'free') : null,
+          onGoVerified: () => _saveThenOpen(
+              'https://nomadmaps.io/?claim=${Uri.encodeComponent('${v['webflow_slug'] ?? v['name']}')}')),
+      _Tab.ideas => IdeasBoard(
+          key: ValueKey('ideas-${v['id']}'),
+          venueId: '${v['id']}',
+          preview: _isPreview),
     };
     final preview = _tab == _Tab.message && _verified
         ? _messagePreview()
@@ -1281,7 +1297,10 @@ class _OwnerScreenState extends State<OwnerScreen> {
           if (_tab == _Tab.listing || (_tab == _Tab.message && _verified))
             _actionBar(wide),
           _statusBanner(),
-          if (wide)
+          // Build next is a board of its own, full width.
+          if (_tab == _Tab.ideas)
+            main
+          else if (wide)
             Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Expanded(flex: 3, child: main),
               const SizedBox(width: 18),
@@ -1366,7 +1385,8 @@ class _OwnerScreenState extends State<OwnerScreen> {
     final items = [
       (_Tab.listing, Icons.edit_note_outlined, 'My listing'),
       (_Tab.message, Icons.campaign_outlined, 'Your message'),
-      (_Tab.membership, Icons.workspace_premium_outlined, 'Membership'),
+      (_Tab.membership, Icons.workspace_premium_outlined, 'Plan & billing'),
+      (_Tab.ideas, Icons.lightbulb_outline, 'Build next'),
     ];
     Widget tile((_Tab, IconData, String) it) {
       final on = _tab == it.$1;
@@ -2624,112 +2644,6 @@ class _OwnerScreenState extends State<OwnerScreen> {
         ]),
       );
 
-  // ------------------------------------------------------------ membership
-
-  Widget _membershipTab(bool wide) {
-    final v = _venue!;
-    String date(dynamic x) {
-      final d = DateTime.tryParse('$x');
-      if (d == null) return '';
-      const m = [
-        'January', 'February', 'March', 'April', 'May', 'June', 'July',
-        'August', 'September', 'October', 'November', 'December'
-      ];
-      return '${d.day} ${m[d.month - 1]} ${d.year}';
-    }
-
-    final rows = const [
-      'The Verified badge on your page and in every list you appear in',
-      'A place above every free listing in your city and area',
-      'A "Send an enquiry" button that emails you directly, no commission',
-      'Your event or offer in the advert slot on your page',
-    ];
-    return _panel(
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Text(_verified ? 'Your Verified membership' : 'Your free listing',
-              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
-          const SizedBox(width: 10),
-          _chip(_verified ? 'Active' : 'Free',
-              _verified ? Brand.success : Brand.inkSecondary),
-        ]),
-        const SizedBox(height: 14),
-        if (_verified) ...[
-          Text(
-              'Verified since ${date(v['listing_paid_at'])}. Renews on '
-              '${date(v['listing_renews_at'])} at 99 EUR, billed once a year '
-              'through Stripe.',
-              style: const TextStyle(fontSize: 13.5, height: 1.5)),
-          const SizedBox(height: 14),
-          for (final r in rows)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Icon(Icons.check, size: 16, color: Brand.success),
-                const SizedBox(width: 8),
-                Expanded(child: Text(r, style: const TextStyle(fontSize: 13.5))),
-              ]),
-            ),
-          const SizedBox(height: 14),
-          const Text(
-              'Cancel any time; the listing stays and goes back to the free '
-              'plan at the end of the paid year. To change or cancel, email '
-              'us with the button below and we sort it out for you.',
-              style: TextStyle(
-                  fontSize: 13, height: 1.5, color: Brand.inkSecondary)),
-          const SizedBox(height: 12),
-          Wrap(spacing: 8, runSpacing: 8, children: [
-            // Changes and cancellations come to us by email: owners rarely
-            // keep the Stripe receipt, and it lets us ask why (S3-15).
-            FilledButton.icon(
-                onPressed: () => launchUrl(Uri.parse(
-                    'mailto:hello@nomadwise.io?subject='
-                    '${Uri.encodeComponent('Change my membership: ${v['name'] ?? ''}')}'
-                    '&body=${Uri.encodeComponent('Hi Nomadwise team,\n\nI would like to change my Verified membership for ${v['name'] ?? 'my space'}:\n\n')}')),
-                style: FilledButton.styleFrom(backgroundColor: Brand.ink),
-                icon: const Icon(Icons.mail_outline, size: 18),
-                label: const Text('Change membership')),
-            if (AppConfig.stripePortalLink.isNotEmpty)
-              OutlinedButton.icon(
-                  onPressed: () => launchUrl(
-                      Uri.parse(AppConfig.stripePortalLink),
-                      mode: LaunchMode.externalApplication),
-                  icon: const Icon(Icons.credit_card, size: 18),
-                  label: const Text('Manage billing'))
-
-          ]),
-        ] else ...[
-          const Text(
-              'Your page is on nomadwise.io for free and stays free. As its '
-              'owner you can correct the facts and add your description, '
-              'prices, hours and photos from My listing.',
-              style: TextStyle(fontSize: 13.5, height: 1.5)),
-          const SizedBox(height: 14),
-          const Text('Verified, 99 EUR a year, adds:',
-              style: TextStyle(fontWeight: FontWeight.w700)),
-          const SizedBox(height: 8),
-          for (final r in rows)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Icon(Icons.check, size: 16, color: Brand.success),
-                const SizedBox(width: 8),
-                Expanded(child: Text(r, style: const TextStyle(fontSize: 13.5))),
-              ]),
-            ),
-          const SizedBox(height: 14),
-          FilledButton(
-              onPressed: () => _saveThenOpen(
-                  'https://nomadmaps.io/?claim=${Uri.encodeComponent('${v['webflow_slug'] ?? v['name']}')}'),
-              style: FilledButton.styleFrom(backgroundColor: Brand.red),
-              child: const Text('Go Verified')),
-          const SizedBox(height: 8),
-          const Text('Billed once a year. Cancel any time.',
-              style: TextStyle(color: Brand.inkMuted, fontSize: 12)),
-        ],
-      ]),
-    );
-  }
 }
 
 enum _Step { done, now, todo }

@@ -629,11 +629,11 @@ class _SubmissionCardState extends State<_SubmissionCard> {
   }
 
   static String _websiteLabel(String? status) => switch (status) {
-        'released' => 'Released',
-        'published_hidden' => 'On nomadwise.io, not released yet',
-        'queued' => 'Queued for the site',
+        'released' => 'Page live, in the sitemap',
+        'published_hidden' => 'Page live, not in the sitemap yet',
+        'queued' => 'Queued for a page',
         'removed' => 'Removed from the site',
-        _ => 'Not on the site',
+        _ => 'No page yet',
       };
 
   Widget _featureChip(String label, String key, bool? value) {

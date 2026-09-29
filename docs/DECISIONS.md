@@ -1151,3 +1151,49 @@ by hand the same day.
   corners and Roboto semi-bold, as on nomadwise.io.
 - S3-15 "Change membership" button, an email to hello@nomadwise.io
   with the space's name, so we can help and ask why.
+
+## 29 Sep 2026: owners help decide what we build next
+
+The Owner account has a fourth tab, "Build next": "Help us decide what
+we build next", framed as asking for their help to make the things
+that help spaces like theirs do well. Ten ideas as tap-to-vote cards
+(as many as they like, tap again to take a vote back): day pass
+booking, an enquiries inbox, events, offers for remote workers, a
+WiFi-tested poster and badge, reviews from remote workers, memberships
+sold through the page, team access, ready-made social posts, and a
+featured spot in their city. Below, "Have an idea of your own?" takes
+their words. Founders see the ideas ranked by votes, who voted, and
+every own idea at the top of What owners tell us (migration 106).
+Ideas live in the owner_ideas table, so they change without an app
+update. No promise of dates: "we will let you know when one you voted
+for is ready".
+
+## 29 Sep 2026: Plan & billing, self-serve
+
+Emailing us to change or cancel is not a good service (Jonathan). The
+Owner account's Membership tab becomes "Plan & billing": the plan and
+its status, the next payment, the card on file, every invoice to view
+or download, Free and Verified side by side with "Switch to free"
+(renewal off, Verified to the end of the paid year, optional reason)
+and "Keep Verified" to undo, and Stripe's secure page for the card and
+billing details, opened at the right step. Read live from Stripe from
+Postgres (http extension, a restricted key in the Vault as
+stripe_billing_key; docs/BILLING.md), so no webhooks or extra servers.
+Switches are logged and email the team with the reason. Until the key
+is in the Vault the tab shows our own records and a way to reach us.
+Also: the admin menu now starts with the team's tools, in this order:
+Control centre (renamed from "nomadwise.io"), Analytics, Users,
+Review submissions, Feedback inbox, Sweep a city.
+
+## 29 Sep 2026: the photo layout follows the photo count
+
+A page's Images entry has a "Has Enough Images" switch: on shows the
+big grid (one large photo, four small), off the simple slider. Older
+entries had it set by hand, so Jiboia Studio (five photos) showed the
+slider; fixed by hand the same day. Now every night the sync sets it
+on for four or more photos and off for fewer, on every page, and
+republishes those that are live. When an owner's photos are put on the
+page they now also replace the page's photos (the Images entry had
+not been updated before), with the switch to match. The nightly
+opening-hours fill now covers every page we know, not only those the
+control centre created (Jiboia's hours were empty).

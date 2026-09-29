@@ -18,6 +18,8 @@ class OwnerInsightsScreen extends StatefulWidget {
 class _OwnerInsightsScreenState extends State<OwnerInsightsScreen> {
   final _supabase = SupabaseService();
   List<Map<String, dynamic>>? _rows;
+  Map<String, dynamic> _ideas = {};
+  bool _ideasOpen = false;
   String? _error;
   final Set<String> _open = {};
 
@@ -30,8 +32,13 @@ class _OwnerInsightsScreenState extends State<OwnerInsightsScreen> {
   Future<void> _load() async {
     try {
       final rows = await _supabase.adminOwnerInsights();
+      Map<String, dynamic> ideas = {};
+      try {
+        ideas = await _supabase.adminOwnerIdeas();
+      } catch (_) {} // migration 106 not run yet: just no ideas card
       if (mounted) {
         setState(() {
+          _ideas = ideas;
           _rows = rows;
           _error = null;
         });
@@ -93,6 +100,7 @@ class _OwnerInsightsScreenState extends State<OwnerInsightsScreen> {
                                     height: 1.45,
                                     color: Brand.inkSecondary)),
                             const SizedBox(height: 14),
+                            if (_ideas.isNotEmpty) _ideasCard(),
                             for (final r in rows) _question(r),
                           ]),
                     ),
@@ -100,6 +108,112 @@ class _OwnerInsightsScreenState extends State<OwnerInsightsScreen> {
                 ],
               ),
             ),
+    );
+  }
+
+  /// Build next: the ideas ranked by owners' votes, who voted, and the
+  /// ideas owners wrote themselves (migration 106).
+  Widget _ideasCard() {
+    final ideas = List<Map<String, dynamic>>.from(
+        ((_ideas['ideas'] ?? const []) as List)
+            .map((x) => Map<String, dynamic>.from(x as Map)));
+    final own = List<Map<String, dynamic>>.from(
+        ((_ideas['suggestions'] ?? const []) as List)
+            .map((x) => Map<String, dynamic>.from(x as Map)));
+    final voters = (_ideas['voters_total'] as num?)?.toInt() ?? 0;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Brand.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Brand.logoNavy.withValues(alpha: .35)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            const Icon(Icons.lightbulb_outline, color: Brand.logoNavy, size: 20),
+            const SizedBox(width: 8),
+            const Expanded(
+              child: Text('Build next: what owners voted for',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+            ),
+            Text('$voters owner${voters == 1 ? '' : 's'} voted'
+                '${own.isNotEmpty ? ' · ${own.length} own idea${own.length == 1 ? '' : 's'}' : ''}',
+                style: const TextStyle(fontSize: 12, color: Brand.inkMuted)),
+          ]),
+          const SizedBox(height: 4),
+          const Text(
+              'From the Build next tab in the Owner account. Owners pick as '
+              'many as they like, so the shares add up to more than 100%.',
+              style: TextStyle(fontSize: 11.5, color: Brand.inkMuted)),
+          const SizedBox(height: 12),
+          for (final i in ideas)
+            _bar(
+                '${i['title']}${i['active'] == false ? ' (hidden)' : ''}',
+                (i['votes'] as num?)?.toInt() ?? 0,
+                voters),
+          if (_ideasOpen) ...[
+            const Divider(height: 22),
+            const Text('WHO VOTED',
+                style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: .5,
+                    color: Brand.inkSecondary)),
+            const SizedBox(height: 6),
+            for (final i in ideas)
+              if ((i['voters'] as List? ?? const []).isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Text.rich(TextSpan(
+                      style: const TextStyle(fontSize: 12.5, height: 1.4),
+                      children: [
+                        TextSpan(
+                            text: '${i['title']}: ',
+                            style: const TextStyle(fontWeight: FontWeight.w700)),
+                        TextSpan(
+                            text: (i['voters'] as List).join(', '),
+                            style: const TextStyle(color: Brand.inkSecondary)),
+                      ])),
+                ),
+          ],
+          if (voters > 0)
+            TextButton(
+                onPressed: () => setState(() => _ideasOpen = !_ideasOpen),
+                child: Text(_ideasOpen ? 'Hide who voted' : 'Show who voted')),
+          if (own.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            const Text('THEIR OWN IDEAS',
+                style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: .5,
+                    color: Brand.inkSecondary)),
+            const SizedBox(height: 6),
+            for (final o in own)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SelectableText('"${o['text']}"',
+                          style: const TextStyle(fontSize: 13.5, height: 1.45)),
+                      Text(
+                          [
+                            o['venue'] ?? o['email'] ?? 'An owner',
+                            if ((o['city'] ?? '').toString().isNotEmpty) o['city'],
+                            if (DateTime.tryParse('${o['at']}') != null)
+                              DateFormat('d MMM')
+                                  .format(DateTime.parse('${o['at']}').toLocal()),
+                          ].join('  ·  '),
+                          style: const TextStyle(
+                              fontSize: 11.5, color: Brand.inkMuted)),
+                    ]),
+              ),
+          ],
+        ]),
+      ),
     );
   }
 

@@ -2871,9 +2871,9 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
           title: const Text('What owners tell us',
               style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
           subtitle: const Text(
-              'Answers to the quick questions in the Owner account: how '
-              'people find them, what would help, what they would pay for, '
-              'monthly or yearly.',
+              'What owners voted for us to build next, their own ideas, and '
+              'their answers to the quick questions: how people find them, '
+              'what they would pay for, monthly or yearly.',
               style: TextStyle(fontSize: 12.5, color: Brand.inkSecondary)),
           trailing: const Icon(Icons.chevron_right, color: Brand.inkMuted),
           onTap: () => Navigator.of(context).push(MaterialPageRoute(

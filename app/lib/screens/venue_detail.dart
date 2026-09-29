@@ -241,11 +241,11 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
   }
 
   static String _websiteLabel(String? status) => switch (status) {
-        'released' => 'Released',
-        'published_hidden' => 'On nomadwise.io, not released yet',
-        'queued' => 'Queued for the site',
+        'released' => 'Page live, in the sitemap',
+        'published_hidden' => 'Page live, not in the sitemap yet',
+        'queued' => 'Queued for a page',
         'removed' => 'Removed from the site',
-        _ => 'Not on the site',
+        _ => 'No page yet',
       };
 
   /// Build the story card and hand it to the phone's share sheet

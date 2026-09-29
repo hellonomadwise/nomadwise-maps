@@ -1593,67 +1593,13 @@ class _MapScreenState extends State<MapScreen> {
               ),
             ),
           ),
-          // Owners: their space comes first.
-          if (CoinsGate.off)
-            _menuRow(
-              icon: Icons.storefront_outlined,
-              label: 'My Owner account',
-              sub: 'Manage your listing on Nomadwise',
-              accent: true,
-              onTap: () {
-                Navigator.pop(context);
-                launchUrl(Uri.parse('https://nomadmaps.io/owner'),
-                    webOnlyWindowName: '_self');
-              },
-            ),
-          _menuRow(
-            icon: Icons.rate_review_outlined,
-            label: 'Review a space',
-            sub: CoinsGate.t('Earn up to ${AppConfig.coinsNewVenue} coins',
-                'Tell other nomads about a place to work'),
-            accent: !CoinsGate.off,
-            trailing: CoinChip('+${AppConfig.coinsNewVenue}', height: 22),
-            onTap: () {
-              Navigator.pop(context);
-              _openAddVenue();
-            },
-          ),
+          // The team's tools first (Jonathan, 29 Sep 2026): control centre,
+          // analytics, users, review submissions, feedback inbox.
           if (_isAdmin) ...[
             _menuRow(
-              icon: Icons.fact_check_outlined,
-              label: 'Review submissions',
-              trailing: _pendingCount > 0
-                  ? Container(
-                      width: 22,
-                      height: 22,
-                      alignment: Alignment.center,
-                      decoration: const BoxDecoration(
-                          color: Brand.accent, shape: BoxShape.circle),
-                      child: Text('$_pendingCount',
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700)),
-                    )
-                  : null,
-              onTap: () async {
-                Navigator.pop(context);
-                await Navigator.push(context,
-                    MaterialPageRoute(builder: (_) => const AdminScreen()));
-                // Back from reviewing: refresh the badge count.
-                try {
-                  final pending =
-                      await _supabase.pendingSubmissions();
-                  if (mounted) {
-                    setState(() => _pendingCount = pending.length);
-                  }
-                } catch (_) {}
-              },
-            ),
-            _menuRow(
               icon: Icons.language_outlined,
-              label: 'nomadwise.io',
-              sub: 'Inbox, drafts, released pages, sitemap',
+              label: 'Control centre',
+              sub: 'Owners, new spaces, nomadwise.io pages',
               trailing: _websiteInboxCount > 0
                   ? Container(
                       width: 22,
@@ -1693,27 +1639,6 @@ class _MapScreenState extends State<MapScreen> {
               },
             ),
             _menuRow(
-              icon: Icons.inbox_outlined,
-              label: 'Feedback inbox',
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) =>
-                            const FeedbackInboxScreen()));
-              },
-            ),
-            _menuRow(
-              icon: Icons.travel_explore_outlined,
-              label: 'Sweep a city',
-              sub: 'Pre-discover every cafe in a city',
-              onTap: () {
-                Navigator.pop(context);
-                _openCitySweep();
-              },
-            ),
-            _menuRow(
               icon: Icons.group_outlined,
               label: 'Users',
               trailing: Container(
@@ -1737,7 +1662,88 @@ class _MapScreenState extends State<MapScreen> {
                         builder: (_) => const AdminUsersScreen()));
               },
             ),
+            _menuRow(
+              icon: Icons.fact_check_outlined,
+              label: 'Review submissions',
+              trailing: _pendingCount > 0
+                  ? Container(
+                      width: 22,
+                      height: 22,
+                      alignment: Alignment.center,
+                      decoration: const BoxDecoration(
+                          color: Brand.accent, shape: BoxShape.circle),
+                      child: Text('$_pendingCount',
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700)),
+                    )
+                  : null,
+              onTap: () async {
+                Navigator.pop(context);
+                await Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const AdminScreen()));
+                // Back from reviewing: refresh the badge count.
+                try {
+                  final pending =
+                      await _supabase.pendingSubmissions();
+                  if (mounted) {
+                    setState(() => _pendingCount = pending.length);
+                  }
+                } catch (_) {}
+              },
+            ),
+            _menuRow(
+              icon: Icons.inbox_outlined,
+              label: 'Feedback inbox',
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) =>
+                            const FeedbackInboxScreen()));
+              },
+            ),
+            _menuRow(
+              icon: Icons.travel_explore_outlined,
+              label: 'Sweep a city',
+              sub: 'Pre-discover every cafe in a city',
+              onTap: () {
+                Navigator.pop(context);
+                _openCitySweep();
+              },
+            ),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              child: Divider(height: 1, color: Brand.hairline),
+            ),
           ],
+          // Owners: their space comes first.
+          if (CoinsGate.off)
+            _menuRow(
+              icon: Icons.storefront_outlined,
+              label: 'My Owner account',
+              sub: 'Manage your listing on Nomadwise',
+              accent: true,
+              onTap: () {
+                Navigator.pop(context);
+                launchUrl(Uri.parse('https://nomadmaps.io/owner'),
+                    webOnlyWindowName: '_self');
+              },
+            ),
+          _menuRow(
+            icon: Icons.rate_review_outlined,
+            label: 'Review a space',
+            sub: CoinsGate.t('Earn up to ${AppConfig.coinsNewVenue} coins',
+                'Tell other nomads about a place to work'),
+            accent: !CoinsGate.off,
+            trailing: CoinChip('+${AppConfig.coinsNewVenue}', height: 22),
+            onTap: () {
+              Navigator.pop(context);
+              _openAddVenue();
+            },
+          ),
           _menuRow(
             icon: Icons.chat_bubble_outline,
             label: 'Send feedback',
