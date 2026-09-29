@@ -78,6 +78,18 @@ jobs:
             echo "Skipping enrichment — secrets not set yet."
           fi
 
+      # Food out of the default photos: after the refresh above, look
+      # at each venue's Google photos not judged yet and mark the food
+      # and drink close-ups, which the app then leaves out. Free (it
+      # reads the plain links the refresh made); same model as above.
+      - name: Food photos
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          python3 scripts/photo_suggest.py --food
+      
       # Reports go to this run's log (readable on GitHub under
       # Actions -> Nightly data enrichment).
       - name: Show reports
