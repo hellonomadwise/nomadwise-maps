@@ -70,7 +70,7 @@ class NomadwiseMapsApp extends StatelessWidget {
     } else if (_has('claim') || _path.startsWith('/claim')) {
       home = ClaimScreen(seed: _param('claim'), from: _param('from'));
     } else if (_has('owner') || _path.startsWith('/owner')) {
-      home = const OwnerScreen();
+      home = OwnerScreen(previewKey: _param('preview'));
     } else {
       home = const MapScreen();
     }

@@ -961,3 +961,15 @@ drawn, not loaded, to keep Google calls off every redraw. Description
 headings travel as "## " lines (copied from the page that way, turned
 back into headings by the push); migration 97 re-copies the owned
 pages' text so the headings come through.
+
+## 29 Sep 2026: founders can preview any Owner account
+
+To see (and improve) the member area without claiming a space, a
+founder opens any listing's Owner account in preview: control centre,
+Owners tab, "See any Owner account" (search by name), or "Their Owner
+account" on each owner card, or nomadmaps.io/?owner&preview=<slug>.
+A dark bar on top switches what the owner would see: claimed free and
+not checked yet (the blurred account), paid and not checked, Free
+listing, Verified. The editor shows the owner's real draft if there is
+one. Nothing saves: Save draft, Submit, autosave and photos are
+switched off and say so. Migration 98 (admin_owner_view, admins only).

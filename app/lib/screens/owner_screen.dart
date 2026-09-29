@@ -19,7 +19,10 @@ import '../theme.dart';
 /// Membership. Every change is a draft until a founder puts it on the
 /// page. No analytics, no perks: decided with Leonie.
 class OwnerScreen extends StatefulWidget {
-  const OwnerScreen({super.key});
+  /// Founders only: open this listing's Owner account (venue id or
+  /// page slug) in preview, whoever owns it. Nothing is saved.
+  final String? previewKey;
+  const OwnerScreen({super.key, this.previewKey});
 
   @override
   State<OwnerScreen> createState() => _OwnerScreenState();
@@ -36,6 +39,13 @@ class _OwnerScreenState extends State<OwnerScreen> {
   bool _loading = true;
   String? _error;
   List<Map<String, dynamic>> _venues = [];
+
+  // ---- founders' preview (?owner&preview=<slug>) ----
+  bool get _preview => widget.previewKey != null;
+  Map<String, dynamic>? _previewBase; // the listing as it is
+  // What the owner would see: 'waiting_free' / 'waiting_paid' (claimed,
+  // not checked yet: the blurred account), 'free' or 'verified'.
+  String _previewAs = 'free';
   int _current = 0;
   _Tab _tab = _Tab.listing;
 
@@ -147,6 +157,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
   /// Keep the edits as a draft, quietly. Nothing changes on the page;
   /// the editor is not reloaded (that would move the cursor).
   Future<void> _autosave() async {
+    if (_preview) return;
     final v = _venue;
     if (v == null || !_dirty || _saving || _autosaving) return;
     if (!_supabase.signedIn) return;
@@ -179,6 +190,10 @@ class _OwnerScreenState extends State<OwnerScreen> {
 
   /// Save now, then go: for links that leave the page.
   Future<void> _saveThenOpen(String url) async {
+    if (_preview) {
+      setState(() => _savedNote = 'Preview: this would open $url');
+      return;
+    }
     await _autosave();
     await launchUrl(Uri.parse(url), webOnlyWindowName: '_self');
   }
@@ -214,6 +229,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
       if (mounted) setState(() => _loading = false);
       return;
     }
+    if (_preview) return _loadPreview();
     try {
       final rows = await _supabase.ownerVenues();
       final pending = await _supabase.ownerPendingClaims();
@@ -235,6 +251,115 @@ class _OwnerScreenState extends State<OwnerScreen> {
         });
       }
     }
+  }
+
+  Future<void> _loadPreview() async {
+    try {
+      final v = await _supabase.adminOwnerView(widget.previewKey!);
+      if (!mounted) return;
+      if (v == null) {
+        setState(() {
+          _loading = false;
+          _error = 'No listing found for "${widget.previewKey}".';
+        });
+        return;
+      }
+      _previewBase = v;
+      _previewAs = v['listing_tier'] == 'verified' ? 'verified' : 'free';
+      _applyPreview();
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = '$e'.contains('admin only')
+              ? 'Only Nomadwise founders can preview Owner accounts. Sign '
+                  'in with your founder account.'
+              : 'Could not load the preview: $e';
+        });
+      }
+    }
+  }
+
+  /// Lay the preview out as the chosen state.
+  void _applyPreview() {
+    final b = _previewBase;
+    if (b == null) return;
+    final waiting = _previewAs.startsWith('waiting');
+    setState(() {
+      _loading = false;
+      _error = null;
+      _venues = waiting
+          ? []
+          : [
+              {
+                ...b,
+                'listing_tier': _previewAs == 'verified' ? 'verified' : 'free'
+              }
+            ];
+      _pending = waiting
+          ? [
+              {
+                'claim_id': 'preview',
+                'venue_id': b['id'],
+                'name': b['name'],
+                'type': b['type'],
+                'city': b['city'],
+                'neighbourhood': b['neighbourhood'],
+                'plan': _previewAs == 'waiting_paid' ? 'verified' : 'free',
+                'status': _previewAs == 'waiting_paid'
+                    ? 'awaiting_approval'
+                    : 'free_pending',
+                'paid': _previewAs == 'waiting_paid',
+              }
+            ]
+          : [];
+      _current = 0;
+    });
+    if (!waiting) _fillEditor();
+  }
+
+  /// The founders' bar above a preview: which state to look at, and
+  /// the reminder that nothing here is saved.
+  Widget _previewBar() {
+    const states = [
+      ('waiting_free', 'Claimed free, not checked'),
+      ('waiting_paid', 'Paid, not checked'),
+      ('free', 'Free listing'),
+      ('verified', 'Verified'),
+    ];
+    return Container(
+      width: double.infinity,
+      color: Brand.ink,
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+      child: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            const Text('FOUNDER PREVIEW. Nothing here is saved. Show as:',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: .4)),
+            for (final (key, label) in states)
+              ChoiceChip(
+                label: Text(label),
+                selected: _previewAs == key,
+                showCheckmark: false,
+                selectedColor: Brand.red,
+                backgroundColor: Colors.white,
+                labelStyle: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: _previewAs == key ? Colors.white : Brand.ink),
+                onSelected: (_) {
+                  _previewAs = key;
+                  _applyPreview();
+                },
+              ),
+          ]),
+    );
   }
 
   /// A Verified claim still waiting for its payment: ask for it to be
@@ -354,6 +479,11 @@ class _OwnerScreenState extends State<OwnerScreen> {
   Future<void> _save({required bool submit}) async {
     final v = _venue;
     if (v == null) return;
+    if (_preview) {
+      setState(() => _savedNote = 'Preview: nothing is saved. For the '
+          'owner this would ${submit ? 'send the changes to you for review' : 'save a draft'}.');
+      return;
+    }
     final url = _mentionUrl.text.trim();
     if (submit && _verified && _mentionTitle.text.trim().isNotEmpty &&
         url.isNotEmpty && !url.startsWith('http')) {
@@ -387,6 +517,10 @@ class _OwnerScreenState extends State<OwnerScreen> {
   }
 
   Future<void> _addPhotos() async {
+    if (_preview) {
+      setState(() => _savedNote = 'Preview: photos cannot be added here.');
+      return;
+    }
     if (_photos.length >= 5) {
       setState(() => _savedNote = 'Five photos is the limit for a page.');
       return;
@@ -480,6 +614,24 @@ class _OwnerScreenState extends State<OwnerScreen> {
               child: CircularProgressIndicator(color: Brand.red));
         }
         if (!_supabase.signedIn) return _signIn(wide);
+        if (_preview) {
+          if (_previewBase == null) {
+            return Center(
+                child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(_error ?? 'Nothing to preview.',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Brand.inkSecondary)),
+            ));
+          }
+          return Column(children: [
+            _previewBar(),
+            Expanded(
+                child: _venues.isEmpty
+                    ? _pendingView(wide)
+                    : _account(wide)),
+          ]);
+        }
         if (_venues.isEmpty && _pending.isNotEmpty) return _pendingView(wide);
         if (_venues.isEmpty) return _noSpaces(wide);
         return _account(wide);

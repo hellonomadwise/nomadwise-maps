@@ -16,6 +16,7 @@ import '../widgets/ui.dart';
 import 'claim_journeys_screen.dart';
 import 'email_log_screen.dart';
 import 'listing_updates_screen.dart';
+import 'owner_screen.dart';
 import 'venue_detail.dart';
 
 /// Admin-only: the nomadwise.io control centre.
@@ -1138,6 +1139,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
           ..._ownerDrafts.map(_ownerDraftCard),
         ],
       'paid' => [
+          _previewCard(),
           _journeysCard(),
           _emailsCard(),
           if (_held.isNotEmpty) ...[
@@ -2174,6 +2176,10 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                     mode: LaunchMode.externalApplication),
                 icon: const Icon(Icons.open_in_new, size: 15),
                 label: const Text('Open page')),
+          TextButton.icon(
+              onPressed: () => _openOwnerPreview('${v['id']}'),
+              icon: const Icon(Icons.visibility_outlined, size: 16),
+              label: const Text('Their Owner account')),
         ]),
       ]),
     );
@@ -2656,6 +2662,38 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
           },
         ),
       );
+
+  /// Any listing's Owner account, as its owner would see it, in a
+  /// preview that saves nothing: to judge and improve the member area.
+  void _openOwnerPreview(String key) => Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => OwnerScreen(previewKey: key)));
+
+  Widget _previewCard() => Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        decoration: BoxDecoration(
+          color: Brand.surface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Brand.border),
+        ),
+        child: ListTile(
+          leading: const Icon(Icons.visibility_outlined, color: Brand.accent),
+          title: const Text('See any Owner account',
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+          subtitle: const Text(
+              'Open the member area for any listing, claimed or not, as '
+              'its owner would see it: waiting for the check, free or '
+              'Verified. A preview; nothing is saved.',
+              style: TextStyle(fontSize: 12.5, color: Brand.inkSecondary)),
+          trailing: const Icon(Icons.chevron_right, color: Brand.inkMuted),
+          onTap: _pickOwnerPreview,
+        ),
+      );
+
+  Future<void> _pickOwnerPreview() async {
+    final picked = await showDialog<String>(
+        context: context, builder: (_) => _PreviewPicker(supabase: _supabase));
+    if (picked != null && mounted) _openOwnerPreview(picked);
+  }
 
   /// The way into Claim journeys: every visit to the claim page, step
   /// by step, and where it stopped.
@@ -6384,4 +6422,89 @@ class _NewLocationPageState extends State<_NewLocationPage> {
       ),
     );
   }
+}
+
+
+/// Search any listing by name, for the Owner account preview.
+class _PreviewPicker extends StatefulWidget {
+  final SupabaseService supabase;
+  const _PreviewPicker({required this.supabase});
+  @override
+  State<_PreviewPicker> createState() => _PreviewPickerState();
+}
+
+class _PreviewPickerState extends State<_PreviewPicker> {
+  List<Map<String, dynamic>> _rows = [];
+  Timer? _t;
+  bool _busy = false;
+
+  @override
+  void dispose() {
+    _t?.cancel();
+    super.dispose();
+  }
+
+  void _search(String q) {
+    _t?.cancel();
+    if (q.trim().length < 2) {
+      setState(() => _rows = []);
+      return;
+    }
+    _t = Timer(const Duration(milliseconds: 300), () async {
+      setState(() => _busy = true);
+      final rows = await widget.supabase.claimSearch(q.trim());
+      if (mounted) {
+        setState(() {
+          _rows = rows;
+          _busy = false;
+        });
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+        title: const Text('Whose Owner account?'),
+        content: SizedBox(
+          width: 420,
+          height: 380,
+          child: Column(children: [
+            TextField(
+              autofocus: true,
+              onChanged: _search,
+              decoration: InputDecoration(
+                  prefixIcon: const Icon(Icons.search),
+                  hintText: 'Name of the space',
+                  suffixIcon: _busy
+                      ? const Padding(
+                          padding: EdgeInsets.all(12),
+                          child: SizedBox(
+                              width: 16,
+                              height: 16,
+                              child:
+                                  CircularProgressIndicator(strokeWidth: 2)))
+                      : null),
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: ListView(children: [
+                for (final r in _rows)
+                  ListTile(
+                    dense: true,
+                    title: Text('${r['name'] ?? ''}'),
+                    subtitle: Text([r['neighbourhood'], r['city'], r['country']]
+                        .where((x) => x != null && '$x'.isNotEmpty)
+                        .join(', ')),
+                    onTap: () => Navigator.of(context).pop('${r['id']}'),
+                  ),
+              ]),
+            ),
+          ]),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel')),
+        ],
+      );
 }

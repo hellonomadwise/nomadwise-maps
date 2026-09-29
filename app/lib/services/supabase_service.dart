@@ -130,6 +130,13 @@ class SupabaseService {
         .toList();
   }
 
+  /// Admin only: any listing's Owner account data (same shape as
+  /// ownerVenues), by venue id or page slug, for the preview.
+  Future<Map<String, dynamic>?> adminOwnerView(String key) async {
+    final res = await _db.rpc('admin_owner_view', params: {'p_key': key});
+    return res is Map ? Map<String, dynamic>.from(res) : null;
+  }
+
   /// Claims made with the signed-in email that are not approved yet.
   Future<List<Map<String, dynamic>>> ownerPendingClaims() async {
     try {
