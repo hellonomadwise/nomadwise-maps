@@ -982,3 +982,26 @@ you?" with two cards: "I'm looking for places to work" (this sign-in,
 selected) and "I run a coworking space or cafe" (opens the Business
 sign-in). The coin stats and the 100 coins = 1 EUR box are gone from
 this screen; coins are mentioned once, in the first card.
+
+## 29 Sep 2026: no long dashes in owners' words
+
+Long dashes read as machine-written. When an owner's description or
+Verified message goes on the page, the push turns any long dash (and a
+spaced hyphen) into a comma: "tables—and" becomes "tables, and".
+Hyphens inside words stay. Our own copy follows the same rule.
+
+## 29 Sep 2026: prices in the right currency, and a kinder "sent back" email
+
+Kopi Club (Kandy) submitted a cappuccino price of "2", no currency. The
+Owner account now sets the currency from the space's country (Sri
+Lanka: LKR, Indonesia: IDR, Portugal: EUR; from the Unicode CLDR list),
+shows it beside every price box, and takes the amount only. The page
+gets euro, pound and dollar with the symbol in front ("€3.60") and
+every other currency with its code after ("900 LKR", "40k IDR").
+"Change currency" covers spaces that price in USD. Existing prices keep
+the currency written in them.
+
+Sending changes back always emailed the owner; migration 99 rewords
+it from a rejection to "a small suggestion", with the note and a
+button to the Owner account, and logs a failed send in Emails to
+owners.

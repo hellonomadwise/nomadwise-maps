@@ -2,13 +2,17 @@ import 'dart:async';
 import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show FilteringTextInputFormatter;
 import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../config.dart';
 import '../services/analytics_service.dart';
 import '../services/supabase_service.dart';
 import '../theme.dart';
+import '../widgets/currencies.dart';
+import '../widgets/price.dart';
 
 /// The Owner account at nomadmaps.io/?owner ("Nomadwise for Spaces"
 /// to the owner; never "members area").
@@ -72,6 +76,11 @@ class _OwnerScreenState extends State<OwnerScreen> {
   final _priceWeek = TextEditingController();
   final _priceMonth = TextEditingController();
   final _priceCoffee = TextEditingController();
+  // The prices' currency: the country's own unless the owner changes
+  // it. Owners type the amount only; the page gets "€3.60" or "900 LKR".
+  String _currency = 'EUR';
+  // "Bookmark this page" tip, until the owner says Got it.
+  bool _showTip = false;
   final _website = TextEditingController();
   final _instagram = TextEditingController();
   final _whatsapp = TextEditingController();
@@ -133,6 +142,11 @@ class _OwnerScreenState extends State<OwnerScreen> {
     _auth = _supabase.authChanges.listen((_) => _load());
     _load();
     _prefillEmail();
+    SharedPreferences.getInstance().then((p) {
+      if (mounted) {
+        setState(() => _showTip = !(p.getBool('owner_bookmark_tip') ?? false));
+      }
+    }).catchError((_) {});
     for (final c in [
       _description, _priceDay, _priceWeek, _priceMonth, _priceCoffee,
       _website, _instagram, _whatsapp, _enquiryEmail,
@@ -410,10 +424,17 @@ class _OwnerScreenState extends State<OwnerScreen> {
         xs.map(s).firstWhere((t) => t.trim().isNotEmpty, orElse: () => '');
     _description.text = firstText(
         [d['description'], oc['description'], v['page_description']]);
-    _priceDay.text = s(prices['day']);
-    _priceWeek.text = s(prices['week']);
-    _priceMonth.text = s(prices['month']);
-    _priceCoffee.text = s(prices['coffee']);
+    final stored = [prices['day'], prices['week'], prices['month'], prices['coffee']]
+        .map(s)
+        .toList();
+    _currency = stored.map(Price.codeIn).firstWhere((c) => c != null,
+            orElse: () => null) ??
+        Price.forCountry('${v['country'] ?? ''}') ??
+        'EUR';
+    _priceDay.text = Price.amountOf(stored[0]);
+    _priceWeek.text = Price.amountOf(stored[1]);
+    _priceMonth.text = Price.amountOf(stored[2]);
+    _priceCoffee.text = Price.amountOf(stored[3]);
     _website.text = s(d['website'] ?? v['website']);
     _instagram.text = s(d['instagram'] ?? v['instagram']);
     _whatsapp.text = s(d['whatsapp'] ?? oc['whatsapp']);
@@ -447,10 +468,10 @@ class _OwnerScreenState extends State<OwnerScreen> {
   Map<String, dynamic> _collect() => {
         'description': _description.text.trim(),
         'prices': {
-          'day': _priceDay.text.trim(),
-          'week': _priceWeek.text.trim(),
-          'month': _priceMonth.text.trim(),
-          'coffee': _priceCoffee.text.trim(),
+          'day': Price.format(_priceDay.text, _currency),
+          'week': Price.format(_priceWeek.text, _currency),
+          'month': Price.format(_priceMonth.text, _currency),
+          'coffee': Price.format(_priceCoffee.text, _currency),
         },
         'hours': {
           for (final day in _days)
@@ -1081,6 +1102,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
     final body = Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (_showTip && !_isPreview) _bookmarkTip(),
           if (_tab == _Tab.listing || (_tab == _Tab.message && _verified))
             _actionBar(wide),
           _statusBanner(),
@@ -1207,7 +1229,9 @@ class _OwnerScreenState extends State<OwnerScreen> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14),
               child: Text(
-                  'Signed in as\n${_supabase.userEmail ?? ''}',
+                  'Signed in as\n${_supabase.userEmail ?? ''}\n\n'
+                  'You stay signed in on this device. Bookmark '
+                  'nomadmaps.io/owner to come straight back.',
                   style: const TextStyle(
                       fontSize: 11.5, color: Brand.inkMuted, height: 1.4)),
             ),
@@ -1262,6 +1286,35 @@ class _OwnerScreenState extends State<OwnerScreen> {
       ]),
     );
   }
+
+  /// Once, after signing in: signing in is not needed every time.
+  Widget _bookmarkTip() => Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+        decoration: BoxDecoration(
+          color: Brand.successTint,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(children: [
+          const Icon(Icons.bookmark_add_outlined, color: Brand.success),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Text(
+                'You stay signed in on this device, so next time there is no '
+                'link to wait for. Bookmark this page (nomadmaps.io/owner), or '
+                'on a phone add it to your home screen, to come straight back.',
+                style: TextStyle(fontSize: 13, height: 1.45)),
+          ),
+          TextButton(
+              onPressed: () {
+                setState(() => _showTip = false);
+                SharedPreferences.getInstance()
+                    .then((p) => p.setBool('owner_bookmark_tip', true))
+                    .catchError((_) => false);
+              },
+              child: const Text('Got it')),
+        ]),
+      );
 
   /// Save draft and Submit for review, at the top where they are easy
   /// to find, with what has happened to the edits so far.
@@ -1326,6 +1379,79 @@ class _OwnerScreenState extends State<OwnerScreen> {
       border: const OutlineInputBorder(),
       isDense: true);
 
+  /// One price box: the amount only, with the currency shown beside it.
+  Widget _priceField(TextEditingController c, String label) => SizedBox(
+        width: 200,
+        child: TextField(
+          controller: c,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'[0-9.,kK ]')),
+          ],
+          decoration: _dec(label, hint: 'Amount').copyWith(
+              prefixText: Price.prefixFor(_currency),
+              suffixText: Price.suffixFor(_currency)),
+        ),
+      );
+
+  Future<void> _pickCurrency() async {
+    final codes = currencyNames.keys.toList()..sort();
+    final picked = await showDialog<String>(
+      context: context,
+      builder: (ctx) {
+        var q = '';
+        return StatefulBuilder(
+          builder: (ctx, set) {
+            final rows = codes
+                .where((c) =>
+                    q.isEmpty ||
+                    c.toLowerCase().contains(q) ||
+                    Price.name(c).toLowerCase().contains(q))
+                .toList();
+            return AlertDialog(
+              title: const Text('Currency for your prices'),
+              content: SizedBox(
+                width: 380,
+                height: 420,
+                child: Column(children: [
+                  TextField(
+                    autofocus: true,
+                    decoration: const InputDecoration(
+                        prefixIcon: Icon(Icons.search),
+                        hintText: 'Search, e.g. rupee or LKR'),
+                    onChanged: (v) => set(() => q = v.trim().toLowerCase()),
+                  ),
+                  const SizedBox(height: 8),
+                  Expanded(
+                    child: ListView(children: [
+                      for (final c in rows)
+                        ListTile(
+                          dense: true,
+                          title: Text(Price.name(c)),
+                          trailing: Text(c,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w700)),
+                          selected: c == _currency,
+                          onTap: () => Navigator.of(ctx).pop(c),
+                        ),
+                    ]),
+                  ),
+                ]),
+              ),
+            );
+          },
+        );
+      },
+    );
+    if (picked != null && mounted) {
+      setState(() {
+        _currency = picked;
+        _dirty = true;
+        _editSeq++;
+      });
+    }
+  }
+
   Widget _listingTab(bool wide) {
     final editor = _panel(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -1355,30 +1481,23 @@ class _OwnerScreenState extends State<OwnerScreen> {
         const SizedBox(height: 14),
         Text(_venue?['type'] == 'cafe' ? 'Prices' : 'Passes and prices',
             style: const TextStyle(fontWeight: FontWeight.w700)),
-        const SizedBox(height: 10),
+        const SizedBox(height: 4),
+        Wrap(crossAxisAlignment: WrapCrossAlignment.center, children: [
+          Text('Prices in ${_currency} (${Price.name(_currency)}).',
+              style: const TextStyle(color: Brand.inkMuted, fontSize: 12)),
+          TextButton(
+              onPressed: _pickCurrency,
+              child: const Text('Change currency',
+                  style: TextStyle(fontSize: 12))),
+        ]),
+        const SizedBox(height: 6),
         Wrap(spacing: 10, runSpacing: 10, children: [
           if (_venue?['type'] != 'cafe') ...[
-            SizedBox(
-                width: 200,
-                child: TextField(
-                    controller: _priceDay,
-                    decoration: _dec('Day pass', hint: 'e.g. 15 EUR'))),
-            SizedBox(
-                width: 200,
-                child: TextField(
-                    controller: _priceWeek,
-                    decoration: _dec('Week pass', hint: 'e.g. 60 EUR'))),
-            SizedBox(
-                width: 200,
-                child: TextField(
-                    controller: _priceMonth,
-                    decoration: _dec('Month pass', hint: 'e.g. 180 EUR'))),
+            _priceField(_priceDay, 'Day pass'),
+            _priceField(_priceWeek, 'Week pass'),
+            _priceField(_priceMonth, 'Month pass'),
           ],
-          SizedBox(
-              width: 200,
-              child: TextField(
-                  controller: _priceCoffee,
-                  decoration: _dec('Cappuccino', hint: 'e.g. 3.50 EUR'))),
+          _priceField(_priceCoffee, 'Cappuccino'),
         ]),
         const SizedBox(height: 18),
         const Text('Opening hours',
@@ -1561,10 +1680,14 @@ class _OwnerScreenState extends State<OwnerScreen> {
         ? _photos
         : List<String>.from((v['google_photos'] ?? const []) as List);
     final prices = [
-      if (_priceDay.text.trim().isNotEmpty) ('Day pass', _priceDay.text),
-      if (_priceWeek.text.trim().isNotEmpty) ('Week pass', _priceWeek.text),
-      if (_priceMonth.text.trim().isNotEmpty) ('Month pass', _priceMonth.text),
-      if (_priceCoffee.text.trim().isNotEmpty) ('Cappuccino', _priceCoffee.text),
+      if (_priceDay.text.trim().isNotEmpty)
+        ('Day pass', Price.format(_priceDay.text, _currency)),
+      if (_priceWeek.text.trim().isNotEmpty)
+        ('Week pass', Price.format(_priceWeek.text, _currency)),
+      if (_priceMonth.text.trim().isNotEmpty)
+        ('Month pass', Price.format(_priceMonth.text, _currency)),
+      if (_priceCoffee.text.trim().isNotEmpty)
+        ('Cappuccino', Price.format(_priceCoffee.text, _currency)),
     ];
     final isCafe = v['type'] == 'cafe';
 
