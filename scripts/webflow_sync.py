@@ -761,6 +761,41 @@ def region_rows(regions, country_by_id):
     return out
 
 
+def short_name(name, area=None, region=None):
+    """The space's name without its place on the end, for titles that
+    already say where it is: "Westerwelle Startup Haus Arusha" in
+    Arusha reads "Westerwelle Startup Haus in Arusha", not "... Arusha
+    in Arusha". Only a trailing place is dropped, and never the whole
+    name."""
+    n = (name or '').strip()
+    for place in (area, region):
+        p = (place or '').strip()
+        if not p:
+            continue
+        m = re.match(r'^(.*?)[\s,\-–(]+' + re.escape(p) + r'\)?\s*$', n, re.I)
+        if m and len(m.group(1).strip()) >= 3:
+            return m.group(1).strip()
+    return n
+
+
+def _names_place(name, place):
+    return bool(place) and re.search(r'\b' + re.escape(place) + r'\b',
+                                     name or '', re.I) is not None
+
+
+def h1_label(name, area, region):
+    """"<name> in <area> - <region>" (or "<name> in <region>"), without
+    saying a place twice when the name already carries it."""
+    n = short_name(name, area, region)
+    if area:
+        if _names_place(n, area):
+            return n if _names_place(n, region) else f"{n} - {region}"
+        return f"{n} in {area} - {region}"
+    if _names_place(n, region):
+        return n
+    return f"{n} in {region}"
+
+
 def build_fields(v, region, loc, country, slug_, embed_key):
     """Every Webflow field a new listing gets from what the app knows."""
     rf, lf, cf = region['fieldData'], (loc['fieldData'] if loc else {}), \
@@ -803,11 +838,10 @@ def build_fields(v, region, loc, country, slug_, embed_key):
         'office-chairs': word(v.get('office_chairs'), 'Office Chairs'),
         '24hr-member-access': word(v.get('access_24h'), '24 Hour Access'),
         'membership-plans-available': 'Pass Required' if is_cow else 'No',
-        'h1-label': (f"{v['name']} in {lf.get('name-label')} - "
-                     f"{rf.get('name-label')}" if loc
-                     else f"{v['name']} in {rf.get('name-label')}"),
-        'title-tag': f"{v['name']}: {kind} with WiFi in "
-                     f"{rf.get('name-label')}",
+        'h1-label': h1_label(v['name'], lf.get('name-label') if loc else None,
+                             rf.get('name-label')),
+        'title-tag': f"{short_name(v['name'], lf.get('name-label') if loc else None, rf.get('name-label'))}"
+                     f": {kind} with WiFi in {rf.get('name-label')}",
         'meta-description': DESCRIPTION + v['name'],
         'back-button-url': ('https://www.nomadwise.io/region/'
                             f"{rf.get('slug')}"),

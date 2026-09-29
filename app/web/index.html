@@ -25,6 +25,15 @@
   <title>Nomadwise Maps</title>
   <link rel="manifest" href="manifest.json">
 
+  <!-- Open the connections the app needs straight away, while the page
+       is still arriving (the app engine, maps, fonts, the database). -->
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://maps.googleapis.com">
+  <link rel="preconnect" href="https://maps.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://xclqfbuwrijpwtgbvrim.supabase.co" crossorigin>
+  <link rel="preload" href="main.dart.js" as="script">
+
   <!-- Google Maps JS — __GOOGLE_MAPS_WEB_KEY__ is replaced by CI -->
   <script src="https://maps.googleapis.com/maps/api/js?key=__GOOGLE_MAPS_WEB_KEY__&loading=async"></script>
   <script>
@@ -64,6 +73,16 @@
     }
     #splash img { width:96px; height:96px; border-radius:22.3%; }
     #splash .t { font-weight:900; font-size:22px; letter-spacing:-0.5px; }
+    /* A moving bar and a line of text, so a slow first load reads as
+       "loading", never as broken (Leonie, S3-1). */
+    #splash .bar { width:160px; height:4px; border-radius:4px;
+      background:rgba(255,255,255,.28); overflow:hidden; }
+    #splash .bar i { display:block; width:40%; height:100%; border-radius:4px;
+      background:#fff; animation:slide 1.1s ease-in-out infinite; }
+    @keyframes slide { 0% { transform:translateX(-100%); }
+      100% { transform:translateX(260%); } }
+    #splash .m { font-size:13.5px; opacity:.9; min-height:18px;
+      transition:opacity .3s; }
   </style>
   <script>
     // Some browsers report broken language settings, which crashes the
@@ -123,7 +142,17 @@
   <div id="splash">
     <img src="icons/Icon-192.png" alt="">
     <div class="t">nomadwise maps</div>
+    <div class="bar"><i></i></div>
+    <div class="m" id="splash-msg">Loading places to work…</div>
   </div>
+  <script>
+    // If the first visit takes a while (a slow connection downloads the
+    // app once, then it is kept), say so rather than look stuck.
+    setTimeout(function () {
+      var m = document.getElementById('splash-msg');
+      if (m) m.textContent = 'Almost there. The first visit takes a little longer…';
+    }, 6000);
+  </script>
   <script src="flutter_bootstrap.js" async></script>
   <script>
     window.addEventListener('flutter-first-frame', function () {

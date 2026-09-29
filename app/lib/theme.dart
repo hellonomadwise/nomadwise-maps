@@ -63,6 +63,12 @@ class Brand {
         color: Color(0x38142032), blurRadius: 14, offset: Offset(0, 4)),
   ];
 
+  // The two blues of the Nomadwise logo (the waves under the palm),
+  // for owner-facing touches that should not read as "success" green.
+  static const logoTeal = Color(0xFF5AD2D8);
+  static const logoNavy = Color(0xFF004854);
+  static const logoTealTint = Color(0xFFE8F8F9);
+
   // ---- legacy aliases (older code) ----
   static const red = accent;
   static const charcoal = ink;
@@ -210,5 +216,35 @@ ThemeData nomadwiseTheme() {
           RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       behavior: SnackBarBehavior.floating,
     ),
+  );
+}
+
+
+/// Buttons as nomadwise.io draws them: nearly square corners (4 px)
+/// and Roboto semi-bold text, for the owner-facing screens (claim and
+/// Owner account) that sit next to the website (Leonie, S3-13/14).
+ThemeData siteButtons(ThemeData t) {
+  final shape =
+      RoundedRectangleBorder(borderRadius: BorderRadius.circular(4));
+  const text = TextStyle(
+      fontFamily: 'Roboto',
+      fontWeight: FontWeight.w600,
+      fontSize: 15,
+      letterSpacing: 0.1);
+  ButtonStyle over(ButtonStyle? base) =>
+      (base ?? const ButtonStyle()).copyWith(
+        shape: WidgetStatePropertyAll(shape),
+        textStyle: const WidgetStatePropertyAll(text),
+      );
+  return t.copyWith(
+    filledButtonTheme:
+        FilledButtonThemeData(style: over(t.filledButtonTheme.style)),
+    elevatedButtonTheme:
+        ElevatedButtonThemeData(style: over(t.elevatedButtonTheme.style)),
+    outlinedButtonTheme:
+        OutlinedButtonThemeData(style: over(t.outlinedButtonTheme.style)),
+    textButtonTheme: TextButtonThemeData(
+        style: (t.textButtonTheme.style ?? const ButtonStyle()).copyWith(
+            shape: WidgetStatePropertyAll(shape))),
   );
 }

@@ -1105,3 +1105,49 @@ empty). Kopi Club fixed by hand the same day. On the page, the
 cappuccino price is best shown in the top row beside WiFi speed and
 rating (Designer: copy the WiFi item, bind it to Cappuccino Price,
 show it only when set).
+
+## 29 Sep 2026: page titles never repeat the place
+
+New pages no longer say the place twice when the space's name already
+ends with it: "Westerwelle Startup Haus Arusha" in Arusha gets the
+heading "Westerwelle Startup Haus in Arusha" and the title "Westerwelle
+Startup Haus: Coworking Space with WiFi in Arusha". Only a trailing
+place is dropped (with any comma, dash or brackets before it), never
+the whole name; a name with the place elsewhere ("Arusha Coworking
+Hub") keeps its name and drops the "in Arusha". The page name itself
+(and its address) stays the business's full name. Westerwelle fixed
+by hand the same day.
+
+## 29 Sep 2026: Leonie's Stage 3 review of the Owner account
+
+- S3-1 slow first load: the start screen now has a moving bar and
+  "Loading places to work…", then "Almost there. The first visit takes
+  a little longer…" after 6 seconds; the browser opens its connections
+  (app engine, maps, fonts, database) while the page arrives. The app
+  itself is downloaded once and then kept by the browser.
+- S3-2/3 "We email you at": a founder's preview showed the founder's
+  address; it now shows the owner's (migration 105). Real owners
+  always saw their own.
+- S3-5 description: no more "##". An opening text box, then sections
+  the owner adds, each with a heading box and a text box. Stored the
+  same way as before, so the page and the sync are unchanged.
+- S3-6 currency: a dropdown you can type into, the space's own
+  currency first, one for every price.
+- S3-7 numbers: owners type either way; leaving the box tidies it to
+  one format (1,000 and 3.60; "1.000" means a thousand, "3,6" means
+  3.60, "40k" stays).
+- S3-8 hours: picked, never typed: Not set, Open (from and to, every
+  half hour), Closed or Open 24 hours per day, and "Use Monday's hours
+  for every day". Split hours already on a page are kept as they are.
+- S3-9 Instagram: the handle only, with the @ shown in the box; links
+  and "@" are accepted and tidied.
+- S3-10 WhatsApp: optional, with the country code picker; "leave empty
+  if you do not use WhatsApp" (Jonathan: no general phone field, as the
+  page has only a WhatsApp button and Webflow's field limit is full).
+- S3-12 the message card uses the logo's blues (#E8F8F9, #004854)
+  instead of green, in the app and in the site snippet (footer code to
+  update in Webflow).
+- S3-13/14 buttons on the claim page and in the Owner account: 4 px
+  corners and Roboto semi-bold, as on nomadwise.io.
+- S3-15 "Change membership" button, an email to hello@nomadwise.io
+  with the space's name, so we can help and ask why.

@@ -490,8 +490,12 @@ class _ClaimScreenState extends State<ClaimScreen> {
 
   // ----------------------------------------------------------------- build
 
+  // Buttons drawn the way nomadwise.io draws them (S3-13/14).
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      Theme(data: siteButtons(Theme.of(context)), child: _page(context));
+
+  Widget _page(BuildContext context) {
     return Scaffold(
       backgroundColor: Brand.bg,
       appBar: AppBar(

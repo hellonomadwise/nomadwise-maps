@@ -12,7 +12,9 @@ import '../services/analytics_service.dart';
 import '../services/supabase_service.dart';
 import '../theme.dart';
 import '../widgets/currencies.dart';
+import '../widgets/dial_codes.dart';
 import '../widgets/owner_question_card.dart';
+import '../widgets/phone_field.dart';
 import '../widgets/price.dart';
 
 /// The Owner account at nomadmaps.io/?owner ("Nomadwise for Spaces"
@@ -84,7 +86,13 @@ class _OwnerScreenState extends State<OwnerScreen> {
   bool _showTip = false;
   final _website = TextEditingController();
   final _instagram = TextEditingController();
-  final _whatsapp = TextEditingController();
+  final _whatsapp = TextEditingController(); // the number, no country code
+  // The WhatsApp number's country (ISO code), picked from the list.
+  final _waCountry = ValueNotifier<String?>(null);
+  // The description as sections: the opening text, then any number of
+  // headed sections. Stored as one text with "## " heading lines, which
+  // the page turns into headings; owners never see the ## (S3-5).
+  final List<(TextEditingController, TextEditingController)> _sections = [];
   final _enquiryEmail = TextEditingController();
   final _hours = {for (final d in _days) d: TextEditingController()};
   final _facts = <String, bool?>{};
@@ -161,6 +169,11 @@ class _OwnerScreenState extends State<OwnerScreen> {
         if (mounted) setState(() {}); // live preview
       });
     }
+    _waCountry.addListener(() {
+      _editSeq++;
+      _lastEdit = DateTime.now();
+      if (mounted) setState(() => _dirty = true);
+    });
     _autoTimer = Timer.periodic(const Duration(seconds: 3), (_) {
       if (_dirty &&
           DateTime.now().difference(_lastEdit) > const Duration(seconds: 2)) {
@@ -218,6 +231,10 @@ class _OwnerScreenState extends State<OwnerScreen> {
     _auth?.cancel();
     _poll?.cancel();
     _autoTimer?.cancel();
+    for (final (h, b) in _sections) {
+      h.dispose();
+      b.dispose();
+    }
     super.dispose();
   }
 
@@ -325,6 +342,8 @@ class _OwnerScreenState extends State<OwnerScreen> {
                     ? 'awaiting_approval'
                     : 'free_pending',
                 'paid': _previewAs == 'waiting_paid',
+                // The address the owner claimed with (not the founder's).
+                'owner_email': b['listing_owner_email'] ?? b['claim_email'],
               }
             ]
           : [];
@@ -437,8 +456,11 @@ class _OwnerScreenState extends State<OwnerScreen> {
     _priceMonth.text = Price.amountOf(stored[2]);
     _priceCoffee.text = Price.amountOf(stored[3]);
     _website.text = s(d['website'] ?? v['website']);
-    _instagram.text = s(d['instagram'] ?? v['instagram']);
-    _whatsapp.text = s(d['whatsapp'] ?? oc['whatsapp']);
+    _instagram.text = _igHandle(s(d['instagram'] ?? v['instagram'])) ?? '';
+    final (waIso, waNumber) = _splitPhone(
+        s(d['whatsapp'] ?? oc['whatsapp']), '${v['country'] ?? ''}');
+    _waCountry.value = waIso;
+    _whatsapp.text = waNumber;
     _enquiryEmail.text = s(d['enquiry_email'] ?? v['listing_enquiry_email']);
     final hours = Map<String, dynamic>.from(
         (d['hours'] ?? v['opening_hours'] ?? {}) as Map);
@@ -462,6 +484,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
     _mentionBody.text = s(m['body']);
     _mentionCta.text = s(m['cta']);
     _mentionUrl.text = s(m['url']);
+    _loadSections();
     _dirty = false;
     if (mounted) setState(() {});
   }
@@ -469,10 +492,10 @@ class _OwnerScreenState extends State<OwnerScreen> {
   Map<String, dynamic> _collect() => {
         'description': _description.text.trim(),
         'prices': {
-          'day': Price.format(_priceDay.text, _currency),
-          'week': Price.format(_priceWeek.text, _currency),
-          'month': Price.format(_priceMonth.text, _currency),
-          'coffee': Price.format(_priceCoffee.text, _currency),
+          'day': Price.format(Price.cleanAmount(_priceDay.text), _currency),
+          'week': Price.format(Price.cleanAmount(_priceWeek.text), _currency),
+          'month': Price.format(Price.cleanAmount(_priceMonth.text), _currency),
+          'coffee': Price.format(Price.cleanAmount(_priceCoffee.text), _currency),
         },
         'hours': {
           for (final day in _days)
@@ -484,8 +507,12 @@ class _OwnerScreenState extends State<OwnerScreen> {
             if (e.value != null) e.key: e.value
         },
         'website': _website.text.trim(),
-        'instagram': _instagram.text.trim(),
-        'whatsapp': _whatsapp.text.trim(),
+        'instagram': (_igHandle(_instagram.text) ?? '').isEmpty
+            ? ''
+            : '@${_igHandle(_instagram.text)}',
+        'whatsapp': _whatsapp.text.trim().isEmpty
+            ? ''
+            : PhoneField.compose(_waCountry.value, _whatsapp.text),
         'enquiry_email': _enquiryEmail.text.trim(),
         'photos': _photos,
         if (_verified)
@@ -498,12 +525,146 @@ class _OwnerScreenState extends State<OwnerScreen> {
           },
       };
 
+  /// An Instagram handle without the @, from "@kelp.cowork",
+  /// "kelp.cowork" or a profile link; '' when empty, null when it
+  /// cannot be a handle.
+  static String? _igHandle(String raw) {
+    var h = raw.trim();
+    if (h.isEmpty) return '';
+    final link = RegExp(r'instagram\.com/([^/?#\s]+)', caseSensitive: false)
+        .firstMatch(h);
+    if (link != null) h = link.group(1)!;
+    h = h.replaceFirst(RegExp(r'^@+'), '').trim();
+    if (h.isEmpty) return '';
+    return RegExp(r'^[A-Za-z0-9._]{1,30}$').hasMatch(h) ? h : null;
+  }
+
+  /// "+94 70 646 8666" or a wa.me link into its country (ISO) and the
+  /// number without the code; the space's country when no code is given.
+  static (String?, String) _splitPhone(String raw, String country) {
+    final home = PhoneField.isoFor(country);
+    var t = raw.trim();
+    final link = RegExp(r'wa\.me/\+?(\d+)').firstMatch(t);
+    if (link != null) t = '+${link.group(1)}';
+    if (t.isEmpty) return (home, '');
+    final digits = t.replaceAll(RegExp(r'\D'), '');
+    if (t.startsWith('+') || t.startsWith('00')) {
+      final d = t.startsWith('00') ? digits.substring(2) : digits;
+      // Longest dial code that matches; the space's own country wins a tie
+      // (+1 is shared by the US and Canada, say).
+      String? best;
+      var bestLen = 0;
+      for (final (_, iso, code) in dialCodes) {
+        final c = '$code';
+        if (d.startsWith(c) &&
+            (c.length > bestLen || (c.length == bestLen && iso == home))) {
+          best = iso;
+          bestLen = c.length;
+        }
+      }
+      if (best != null) return (best, d.substring(bestLen));
+    }
+    return (home, digits);
+  }
+
+  // ---- description sections ----
+  (TextEditingController, TextEditingController) _newSection(
+      String heading, String body) {
+    final h = TextEditingController(text: heading);
+    final b = TextEditingController(text: body);
+    h.addListener(_sectionsChanged);
+    b.addListener(_sectionsChanged);
+    return (h, b);
+  }
+
+  /// Split the description into the opening text and headed sections.
+  void _loadSections() {
+    // The old boxes may still be on screen until the next frame, so
+    // their controllers are let go only after it.
+    final old = List.of(_sections);
+    _sections.clear();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      for (final (h, b) in old) {
+        h.dispose();
+        b.dispose();
+      }
+    });
+    String? heading;
+    final body = <String>[];
+    final parts = <(String, String)>[];
+    void flush() {
+      parts.add((heading ?? '', body.join('\n').trim()));
+      body.clear();
+    }
+
+    for (final line in _description.text.replaceAll('\r', '').split('\n')) {
+      final m = RegExp(r'^\s*#{1,6}\s+(.*)$').firstMatch(line);
+      if (m != null) {
+        flush();
+        heading = m.group(1)!.trim();
+      } else {
+        body.add(line);
+      }
+    }
+    flush();
+    // The first part is always the opening text (no heading).
+    for (final (h, b) in parts) {
+      if (_sections.isNotEmpty && h.isEmpty && b.isEmpty) continue;
+      _sections.add(_newSection(h, b));
+    }
+  }
+
+  /// Put the sections back together as the one description text.
+  void _sectionsChanged() {
+    final out = <String>[];
+    for (var i = 0; i < _sections.length; i++) {
+      final (h, b) = _sections[i];
+      final head = h.text.replaceAll('\n', ' ').replaceFirst(RegExp(r'^#+\s*'), '').trim();
+      final text = b.text.trim();
+      if (i == 0) {
+        if (text.isNotEmpty) out.add(text);
+        continue;
+      }
+      if (head.isEmpty && text.isEmpty) continue;
+      out.add([if (head.isNotEmpty) '## $head', if (text.isNotEmpty) text]
+          .join('\n'));
+    }
+    final joined = out.join('\n\n');
+    if (joined != _description.text) _description.text = joined;
+  }
+
+  void _addSection() {
+    setState(() => _sections.add(_newSection('', '')));
+  }
+
+  void _removeSection(int i) {
+    final (h, b) = _sections.removeAt(i);
+    _sectionsChanged();
+    setState(() {});
+    // After this frame, when the boxes are gone from the screen.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      h.dispose();
+      b.dispose();
+    });
+  }
+
   Future<void> _save({required bool submit}) async {
     final v = _venue;
     if (v == null) return;
     if (_isPreview) {
       setState(() => _savedNote = 'Preview: nothing is saved. For the '
           'owner this would ${submit ? 'send the changes to you for review' : 'save a draft'}.');
+      return;
+    }
+    if (submit && _igHandle(_instagram.text) == null) {
+      setState(() => _savedNote = 'That Instagram handle does not look '
+          'right: letters, numbers, dots and underscores only, like '
+          '@yourspace.');
+      return;
+    }
+    if (submit && _description.text.length > 3000) {
+      setState(() => _savedNote = 'The description is a little long: '
+          '3,000 characters at most.');
       return;
     }
     final url = _mentionUrl.text.trim();
@@ -594,8 +755,12 @@ class _OwnerScreenState extends State<OwnerScreen> {
 
   // ------------------------------------------------------------------ build
 
+  // Buttons drawn the way nomadwise.io draws them (S3-13/14).
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      Theme(data: siteButtons(Theme.of(context)), child: _page(context));
+
+  Widget _page(BuildContext context) {
     return Scaffold(
       backgroundColor: Brand.bg,
       appBar: AppBar(
@@ -879,7 +1044,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
                         'owner or someone on the team) before handing the '
                         'page over, usually with one quick message to the '
                         "business's own Instagram, WhatsApp or email. We email "
-                        'you at ${_supabase.userEmail ?? 'this address'} as '
+                        'you at ${(c['owner_email'] ?? '').toString().contains('@') ? c['owner_email'] : (_supabase.userEmail ?? 'this address')} as '
                         'soon as that is done, and everything below opens.',
                 style: const TextStyle(
                     fontSize: 14, height: 1.55, color: Brand.inkSecondary)),
@@ -1392,7 +1557,17 @@ class _OwnerScreenState extends State<OwnerScreen> {
   /// One price box: the amount only, with the currency shown beside it.
   Widget _priceField(TextEditingController c, String label) => SizedBox(
         width: 200,
-        child: TextField(
+        // One way of writing numbers: "1.000" and "1,000" both become
+        // 1,000, and "3,60" becomes 3.60, when the owner leaves the box
+        // (S3-7).
+        child: Focus(
+          onFocusChange: (on) {
+            if (!on) {
+              final clean = Price.cleanAmount(c.text);
+              if (clean != c.text) c.text = clean;
+            }
+          },
+          child: TextField(
           controller: c,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           inputFormatters: [
@@ -1401,64 +1576,232 @@ class _OwnerScreenState extends State<OwnerScreen> {
           decoration: _dec(label, hint: 'Amount').copyWith(
               prefixText: Price.prefixFor(_currency),
               suffixText: Price.suffixFor(_currency)),
+          ),
         ),
       );
 
-  Future<void> _pickCurrency() async {
+  /// One currency for every price, as a dropdown you can type into
+  /// ("rupee", "LKR"), the space's own currency first (S3-6).
+  Widget _currencyPicker() {
+    final home = Price.forCountry('${_venue?['country'] ?? ''}');
     final codes = currencyNames.keys.toList()..sort();
-    final picked = await showDialog<String>(
-      context: context,
-      builder: (ctx) {
-        var q = '';
-        return StatefulBuilder(
-          builder: (ctx, set) {
-            final rows = codes
-                .where((c) =>
-                    q.isEmpty ||
-                    c.toLowerCase().contains(q) ||
-                    Price.name(c).toLowerCase().contains(q))
-                .toList();
-            return AlertDialog(
-              title: const Text('Currency for your prices'),
-              content: SizedBox(
-                width: 380,
-                height: 420,
-                child: Column(children: [
-                  TextField(
-                    autofocus: true,
-                    decoration: const InputDecoration(
-                        prefixIcon: Icon(Icons.search),
-                        hintText: 'Search, e.g. rupee or LKR'),
-                    onChanged: (v) => set(() => q = v.trim().toLowerCase()),
-                  ),
-                  const SizedBox(height: 8),
-                  Expanded(
-                    child: ListView(children: [
-                      for (final c in rows)
-                        ListTile(
-                          dense: true,
-                          title: Text(Price.name(c)),
-                          trailing: Text(c,
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.w700)),
-                          selected: c == _currency,
-                          onTap: () => Navigator.of(ctx).pop(c),
-                        ),
-                    ]),
-                  ),
-                ]),
-              ),
-            );
-          },
-        );
+    if (home != null && codes.remove(home)) codes.insert(0, home);
+    if (!codes.contains(_currency)) codes.insert(0, _currency);
+    return DropdownMenu<String>(
+      key: ValueKey('cur-${_venue?['id']}-$_currency'),
+      initialSelection: _currency,
+      width: 320,
+      label: const Text('Currency'),
+      enableFilter: true,
+      requestFocusOnTap: true,
+      menuHeight: 320,
+      leadingIcon: const Icon(Icons.payments_outlined, size: 18),
+      dropdownMenuEntries: [
+        for (final c in codes)
+          DropdownMenuEntry(value: c, label: '$c  ·  ${Price.name(c)}'),
+      ],
+      onSelected: (c) {
+        if (c == null || c == _currency) return;
+        setState(() {
+          _currency = c;
+          _dirty = true;
+          _editSeq++;
+          _lastEdit = DateTime.now();
+        });
       },
     );
-    if (picked != null && mounted) {
-      setState(() {
-        _currency = picked;
-        _dirty = true;
-        _editSeq++;
-      });
+  }
+
+  /// The description as an opening paragraph plus headed sections the
+  /// owner adds, instead of typing "##" (S3-5).
+  Widget _descriptionEditor() {
+    final name = '${_venue?['name'] ?? 'your space'}';
+    final total = _description.text.length;
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      const Text('About your space',
+          style: TextStyle(fontWeight: FontWeight.w700)),
+      const SizedBox(height: 4),
+      const Text(
+          'What makes it special: the workspace, the atmosphere, the people. '
+          'Plain words work best. Add sections with their own heading if it '
+          'helps.',
+          style: TextStyle(color: Brand.inkMuted, fontSize: 12, height: 1.4)),
+      const SizedBox(height: 10),
+      for (var i = 0; i < _sections.length; i++)
+        Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: i == 0 ? EdgeInsets.zero : const EdgeInsets.all(12),
+          decoration: i == 0
+              ? null
+              : BoxDecoration(
+                  color: Brand.bg,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Brand.border)),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            if (i > 0) ...[
+              Row(children: [
+                Expanded(
+                  child: TextField(
+                    controller: _sections[i].$1,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w700, fontSize: 15),
+                    decoration: _dec('Section heading',
+                        hint: i == 1
+                            ? 'e.g. Working at $name'
+                            : 'e.g. Food and drinks'),
+                  ),
+                ),
+                IconButton(
+                    tooltip: 'Remove this section',
+                    onPressed: () => _removeSection(i),
+                    icon: const Icon(Icons.delete_outline,
+                        color: Brand.inkMuted)),
+              ]),
+              const SizedBox(height: 8),
+            ],
+            TextField(
+              controller: _sections[i].$2,
+              minLines: i == 0 ? 4 : 3,
+              maxLines: 12,
+              decoration: _dec(i == 0 ? 'Opening text' : 'Text for this section',
+                  hint: i == 0
+                      ? 'A few lines on what it is like to work here.'
+                      : null),
+            ),
+          ]),
+        ),
+      Row(children: [
+        OutlinedButton.icon(
+            onPressed: _addSection,
+            icon: const Icon(Icons.add, size: 18),
+            label: const Text('Add a section with a heading')),
+        const Spacer(),
+        Text('$total / 3,000',
+            style: TextStyle(
+                fontSize: 12,
+                color: total > 3000 ? Brand.red : Brand.inkMuted)),
+      ]),
+    ]);
+  }
+
+  // ---- opening hours: picked, never typed (S3-8) ----
+  static final List<String> _times = [
+    for (var m = 0; m < 24 * 60; m += 30) _clock(m),
+  ];
+
+  static String _clock(int minutes) {
+    final h24 = (minutes ~/ 60) % 24;
+    final m = minutes % 60;
+    final h = h24 % 12 == 0 ? 12 : h24 % 12;
+    return '$h:${m.toString().padLeft(2, '0')} ${h24 < 12 ? 'AM' : 'PM'}';
+  }
+
+  static final _range = RegExp(
+      r'^\s*(\d{1,2}):(\d{2})\s*([AaPp][Mm])\s*[-–]\s*(\d{1,2}):(\d{2})\s*([AaPp][Mm])\s*$');
+
+  static String _tidy(String h, String m, String ap) =>
+      '${int.parse(h)}:$m ${ap.toUpperCase()}';
+
+  /// What a day's stored text means: 'unset', 'closed', '24h', 'open'
+  /// (with from and to), or 'custom' (split hours and the like, kept
+  /// exactly as written).
+  (String, String, String) _dayState(String text) {
+    final t = text.trim();
+    if (t.isEmpty) return ('unset', '', '');
+    if (t.toLowerCase() == 'closed') return ('closed', '', '');
+    if (t.toLowerCase().contains('24 hours')) return ('24h', '', '');
+    final m = _range.firstMatch(t);
+    if (m != null) {
+      return (
+        'open',
+        _tidy(m.group(1)!, m.group(2)!, m.group(3)!),
+        _tidy(m.group(4)!, m.group(5)!, m.group(6)!)
+      );
+    }
+    return ('custom', t, '');
+  }
+
+  Widget _timeBox(String value, ValueChanged<String> onPick) {
+    final options = [..._times];
+    if (!options.contains(value)) options.insert(0, value);
+    return DropdownButton<String>(
+      value: value,
+      isDense: true,
+      underline: const SizedBox.shrink(),
+      menuMaxHeight: 320,
+      items: [
+        for (final t in options)
+          DropdownMenuItem(
+              value: t, child: Text(t, style: const TextStyle(fontSize: 14))),
+      ],
+      onChanged: (t) {
+        if (t != null) onPick(t);
+      },
+    );
+  }
+
+  Widget _dayHours(String day) {
+    final c = _hours[day]!;
+    final (state, from, to) = _dayState(c.text);
+    Widget box(Widget child) => Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: Brand.surface,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Brand.border),
+          ),
+          child: child,
+        );
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Wrap(
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 10,
+          runSpacing: 6,
+          children: [
+            SizedBox(
+                width: 96,
+                child: Text(_dayNames[day]!,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w600, fontSize: 14))),
+            box(DropdownButton<String>(
+              value: state,
+              isDense: true,
+              underline: const SizedBox.shrink(),
+              items: [
+                const DropdownMenuItem(value: 'unset', child: Text('Not set')),
+                const DropdownMenuItem(value: 'open', child: Text('Open')),
+                const DropdownMenuItem(value: 'closed', child: Text('Closed')),
+                const DropdownMenuItem(
+                    value: '24h', child: Text('Open 24 hours')),
+                if (state == 'custom')
+                  DropdownMenuItem(
+                      value: 'custom',
+                      child: Text(from, overflow: TextOverflow.ellipsis)),
+              ],
+              onChanged: (v) {
+                c.text = switch (v) {
+                  'open' => '9:00 AM - 6:00 PM',
+                  'closed' => 'Closed',
+                  '24h' => 'Open 24 hours',
+                  'custom' => c.text,
+                  _ => '',
+                };
+              },
+            )),
+            if (state == 'open') ...[
+              box(_timeBox(from, (t) => c.text = '$t - $to')),
+              const Text('to', style: TextStyle(color: Brand.inkSecondary)),
+              box(_timeBox(to, (t) => c.text = '$from - $t')),
+            ],
+          ]),
+    );
+  }
+
+  void _copyMondayHours() {
+    final mon = _hours['mon']!.text;
+    for (final d in _days) {
+      if (d != 'mon') _hours[d]!.text = mon;
     }
   }
 
@@ -1475,32 +1818,18 @@ class _OwnerScreenState extends State<OwnerScreen> {
             style: TextStyle(
                 color: Brand.inkSecondary, fontSize: 12.5, height: 1.45)),
         const SizedBox(height: 18),
-        TextField(
-            controller: _description,
-            minLines: 4,
-            maxLines: 10,
-            maxLength: 3000,
-            decoration: _dec('What makes your space special?',
-                    hint: 'The workspace, the atmosphere, the people. Plain '
-                        'words work best.')
-                .copyWith(
-                    helperText: 'A line starting with ## is a section '
-                        'heading on your page, like "## Working at '
-                        '${_venue?['name'] ?? 'your space'}".',
-                    helperMaxLines: 2)),
+        _descriptionEditor(),
         const SizedBox(height: 14),
         Text(_venue?['type'] == 'cafe' ? 'Prices' : 'Passes and prices',
             style: const TextStyle(fontWeight: FontWeight.w700)),
         const SizedBox(height: 4),
-        Wrap(crossAxisAlignment: WrapCrossAlignment.center, children: [
-          Text('Prices in ${_currency} (${Price.name(_currency)}).',
-              style: const TextStyle(color: Brand.inkMuted, fontSize: 12)),
-          TextButton(
-              onPressed: _pickCurrency,
-              child: const Text('Change currency',
-                  style: TextStyle(fontSize: 12))),
-        ]),
-        const SizedBox(height: 6),
+        const Text(
+            'Type the amount only, like 3.60 or 1,500. The currency below '
+            'applies to every price.',
+            style: TextStyle(color: Brand.inkMuted, fontSize: 12)),
+        const SizedBox(height: 10),
+        _currencyPicker(),
+        const SizedBox(height: 12),
         Wrap(spacing: 10, runSpacing: 10, children: [
           if (_venue?['type'] != 'cafe') ...[
             _priceField(_priceDay, 'Day pass'),
@@ -1513,18 +1842,18 @@ class _OwnerScreenState extends State<OwnerScreen> {
         const Text('Opening hours',
             style: TextStyle(fontWeight: FontWeight.w700)),
         const SizedBox(height: 4),
-        const Text('Write times like 8:00 AM - 6:00 PM, or Closed. Leave a '
-            'day blank to keep what Google shows.',
+        const Text('Pick the times for each day. "Not set" keeps what '
+            'Google shows.',
             style: TextStyle(color: Brand.inkMuted, fontSize: 12)),
         const SizedBox(height: 10),
-        Wrap(spacing: 10, runSpacing: 10, children: [
-          for (final day in _days)
-            SizedBox(
-                width: 200,
-                child: TextField(
-                    controller: _hours[day],
-                    decoration: _dec(_dayNames[day]!))),
-        ]),
+        for (final day in _days) _dayHours(day),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+              onPressed: _copyMondayHours,
+              icon: const Icon(Icons.copy_all_outlined, size: 16),
+              label: const Text('Use Monday\'s hours for every day')),
+        ),
         const SizedBox(height: 18),
         const Text('Work-friendly facts',
             style: TextStyle(fontWeight: FontWeight.w700)),
@@ -1602,13 +1931,22 @@ class _OwnerScreenState extends State<OwnerScreen> {
               width: 260,
               child: TextField(
                   controller: _instagram,
-                  decoration: _dec('Instagram', hint: '@yourspace'))),
+                  decoration: _dec('Instagram handle', hint: 'yourspace')
+                      .copyWith(
+                          prefixText: '@',
+                          helperText: 'Just the handle, like @kelp.cowork',
+                          errorText: _igHandle(_instagram.text) == null
+                              ? 'Letters, numbers, dots and underscores only'
+                              : null))),
           SizedBox(
-              width: 260,
-              child: TextField(
-                  controller: _whatsapp,
-                  decoration: _dec('WhatsApp number',
-                      hint: '+351 900 000 000'))),
+              width: 420,
+              child: PhoneField(
+                  number: _whatsapp,
+                  country: _waCountry,
+                  label: 'WhatsApp (optional)',
+                  helper: 'Leave empty if you do not use WhatsApp. Visitors '
+                      'can still find your phone number through the Google '
+                      'Maps button on your page.')),
           if (_verified)
             SizedBox(
                 width: 260,
@@ -2105,7 +2443,8 @@ class _OwnerScreenState extends State<OwnerScreen> {
   Widget _mentionCard() => Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-            color: Brand.successTint,
+            color: Brand.logoTealTint,
+            border: Border.all(color: Brand.logoTeal.withValues(alpha: .5)),
             borderRadius: BorderRadius.circular(12)),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text('FROM ${(_venue?['name'] ?? '').toString().toUpperCase()}',
@@ -2113,7 +2452,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
                   fontSize: 10.5,
                   letterSpacing: 1,
                   fontWeight: FontWeight.w800,
-                  color: Brand.success)),
+                  color: Brand.logoNavy)),
           const SizedBox(height: 4),
           Text(_mentionKind,
               style: const TextStyle(fontSize: 11.5, color: Brand.inkSecondary)),
@@ -2130,8 +2469,8 @@ class _OwnerScreenState extends State<OwnerScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
             decoration: BoxDecoration(
-                color: const Color(0xFF1F6B41),
-                borderRadius: BorderRadius.circular(9)),
+                color: Brand.logoNavy,
+                borderRadius: BorderRadius.circular(4)),
             child: Text(
                 _mentionCta.text.trim().isEmpty
                     ? 'Find out more'
@@ -2272,13 +2611,13 @@ class _OwnerScreenState extends State<OwnerScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: Brand.successTint,
+                  color: Brand.logoTealTint,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Text(
                     'Write a headline and your message replaces the advert '
                     'below.',
-                    style: TextStyle(fontSize: 12.5, color: Brand.success)),
+                    style: TextStyle(fontSize: 12.5, color: Brand.logoNavy)),
               ),
             ),
           _sidebar(),
@@ -2334,12 +2673,22 @@ class _OwnerScreenState extends State<OwnerScreen> {
           const SizedBox(height: 14),
           const Text(
               'Cancel any time; the listing stays and goes back to the free '
-              'plan at the end of the paid year. Your card and receipts are '
-              'managed by Stripe.',
+              'plan at the end of the paid year. To change or cancel, email '
+              'us with the button below and we sort it out for you.',
               style: TextStyle(
                   fontSize: 13, height: 1.5, color: Brand.inkSecondary)),
           const SizedBox(height: 12),
           Wrap(spacing: 8, runSpacing: 8, children: [
+            // Changes and cancellations come to us by email: owners rarely
+            // keep the Stripe receipt, and it lets us ask why (S3-15).
+            FilledButton.icon(
+                onPressed: () => launchUrl(Uri.parse(
+                    'mailto:hello@nomadwise.io?subject='
+                    '${Uri.encodeComponent('Change my membership: ${v['name'] ?? ''}')}'
+                    '&body=${Uri.encodeComponent('Hi Nomadwise team,\n\nI would like to change my Verified membership for ${v['name'] ?? 'my space'}:\n\n')}')),
+                style: FilledButton.styleFrom(backgroundColor: Brand.ink),
+                icon: const Icon(Icons.mail_outline, size: 18),
+                label: const Text('Change membership')),
             if (AppConfig.stripePortalLink.isNotEmpty)
               OutlinedButton.icon(
                   onPressed: () => launchUrl(
@@ -2347,11 +2696,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
                       mode: LaunchMode.externalApplication),
                   icon: const Icon(Icons.credit_card, size: 18),
                   label: const Text('Manage billing'))
-            else
-              const Text(
-                  'To change your card or cancel renewal, use the link in '
-                  'your Stripe receipt, or email hello@nomadwise.io.',
-                  style: TextStyle(fontSize: 13, color: Brand.inkSecondary)),
+
           ]),
         ] else ...[
           const Text(

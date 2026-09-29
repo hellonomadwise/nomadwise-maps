@@ -98,12 +98,12 @@ document.addEventListener('DOMContentLoaded', function () {
   var name = (document.querySelector('h1') || {}).textContent || 'this space';
   var url = /^https?:\/\//.test(m.url || '') ? m.url : '';
   slot.innerHTML =
-    '<div style="background:#E4F2EA;border-radius:14px;padding:18px 20px;">' +
-    '<div style="font-size:11px;letter-spacing:.08em;font-weight:700;color:#1F6B41;text-transform:uppercase;">From ' + esc(name) + '</div>' +
+    '<div style="background:#E8F8F9;border:1px solid #ADE9EC;border-radius:14px;padding:18px 20px;">' +
+    '<div style="font-size:11px;letter-spacing:.08em;font-weight:700;color:#004854;text-transform:uppercase;">From ' + esc(name) + '</div>' +
     '<div style="font-size:12px;color:#5C6773;margin-top:6px;">' + esc(m.kind || 'Event') + '</div>' +
     '<div style="font-size:19px;font-weight:800;margin-top:4px;color:#142032;">' + esc(m.title) + '</div>' +
     (m.body ? '<div style="font-size:14px;line-height:1.5;margin-top:6px;color:#142032;">' + esc(m.body) + '</div>' : '') +
-    (url ? '<a href="' + esc(url) + '" rel="nofollow noopener" target="_blank" style="display:inline-block;margin-top:12px;background:#1F6B41;color:#fff;font-weight:700;padding:10px 16px;border-radius:9px;text-decoration:none;">' + esc(m.cta || 'Find out more') + '</a>' : '') +
+    (url ? '<a href="' + esc(url) + '" rel="nofollow noopener" target="_blank" style="display:inline-block;margin-top:12px;background:#004854;color:#fff;font-weight:700;padding:10px 16px;border-radius:4px;text-decoration:none;">' + esc(m.cta || 'Find out more') + '</a>' : '') +
     '</div>';
 });
 </script>
