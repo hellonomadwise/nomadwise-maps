@@ -973,3 +973,12 @@ not checked yet (the blurred account), paid and not checked, Free
 listing, Verified. The editor shows the owner's real draft if there is
 one. Nothing saves: Save draft, Submit, autosave and photos are
 switched off and say so. Migration 98 (admin_owner_view, admins only).
+
+## 29 Sep 2026: one sign-in door, two kinds of people
+
+The nomads' sign-in led with "Review spaces. Earn coins." and the
+coins-to-euros box. It now reads "Sign in to Nomadwise, which one are
+you?" with two cards: "I'm looking for places to work" (this sign-in,
+selected) and "I run a coworking space or cafe" (opens the Business
+sign-in). The coin stats and the 100 coins = 1 EUR box are gone from
+this screen; coins are mentioned once, in the first card.

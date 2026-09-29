@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../config.dart';
 import '../services/supabase_service.dart';
 import '../theme.dart';
 import 'owner_screen.dart';
@@ -100,16 +99,54 @@ class _AuthScreenState extends State<AuthScreen> {
     }
   }
 
-  Widget _authStat(String num, String label) => Expanded(
-        child: Column(children: [
-          Text(num,
-              style: const TextStyle(
-                  fontSize: 17, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 2),
-          Text(label,
-              style: const TextStyle(
-                  fontSize: 11, color: Brand.inkMuted)),
-        ]),
+  /// One of the two "which one are you?" cards.
+  Widget _choice({
+    required IconData icon,
+    required String title,
+    required String text,
+    required bool selected,
+    VoidCallback? onTap,
+  }) =>
+      Material(
+        color: selected ? Brand.accentTint : Brand.surface,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: onTap,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                  color: selected ? Brand.red : Brand.border,
+                  width: selected ? 1.5 : 1),
+            ),
+            child: Row(children: [
+              Icon(icon,
+                  size: 24, color: selected ? Brand.red : Brand.inkSecondary),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title,
+                          style: const TextStyle(
+                              fontSize: 15, fontWeight: FontWeight.w700)),
+                      const SizedBox(height: 2),
+                      Text(text,
+                          style: const TextStyle(
+                              fontSize: 12.5,
+                              height: 1.4,
+                              color: Brand.inkSecondary)),
+                    ]),
+              ),
+              const SizedBox(width: 8),
+              Icon(selected ? Icons.check_circle : Icons.chevron_right,
+                  color: selected ? Brand.red : Brand.inkMuted),
+            ]),
+          ),
+        ),
       );
 
   @override
@@ -123,79 +160,37 @@ class _AuthScreenState extends State<AuthScreen> {
             constraints: const BoxConstraints(maxWidth: 420),
             child:
                 Column(mainAxisSize: MainAxisSize.min, children: [
-              Image.asset('assets/brand/app_icon.png', height: 76),
+              Image.asset('assets/brand/app_icon.png', height: 64),
               const SizedBox(height: 14),
-              const Text('Review spaces. Earn coins.',
+              const Text('Sign in to Nomadwise',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                      fontSize: 19, fontWeight: FontWeight.w700)),
-              const SizedBox(height: 12),
-
-              // Why bother: what you earn, up front.
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 13),
-                decoration: BoxDecoration(
-                  color: Brand.surface,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Brand.border),
-                  boxShadow: Brand.shadowResting,
-                ),
-                child: Row(children: [
-                  _authStat('+${AppConfig.coinsNewVenue}',
-                      'per review'),
-                  Container(
-                      width: 1, height: 30, color: Brand.hairline),
-                  _authStat('+${AppConfig.coinsWifiTest}',
-                      'per wifi test'),
-                ]),
+                      fontSize: 21, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 6),
+              const Text('Which one are you?',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      fontSize: 14, color: Brand.inkSecondary)),
+              const SizedBox(height: 16),
+              // Two kinds of people sign in here: nomads looking for a
+              // place to work (this screen) and the people who run the
+              // places (their own Business sign-in).
+              _choice(
+                icon: Icons.travel_explore,
+                title: 'I\'m looking for places to work',
+                text: 'Find coworking spaces and cafes with good wifi, and '
+                    'earn coins for reviewing the places you try.',
+                selected: true,
               ),
               const SizedBox(height: 10),
-
-              // And the point of it all: coins become real money.
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(
-                  color: Brand.goldTint,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Column(children: [
-                  Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const CoinDot(size: 18),
-                        const SizedBox(width: 6),
-                        Text('${AppConfig.coinsPerEuro} coins',
-                            style: const TextStyle(
-                                fontSize: 14.5,
-                                fontWeight: FontWeight.w700)),
-                        const SizedBox(width: 10),
-                        const Icon(Icons.arrow_forward,
-                            size: 16, color: Brand.goldLink),
-                        const SizedBox(width: 10),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 3),
-                          decoration: BoxDecoration(
-                              color: Brand.success,
-                              borderRadius:
-                                  BorderRadius.circular(9)),
-                          child: const Text('€1',
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w800)),
-                        ),
-                      ]),
-                  const SizedBox(height: 6),
-                  Text(
-                      'Convert to euros any time. Cash out from '
-                      '€${AppConfig.minCashOutEuro}.',
-                      style: const TextStyle(
-                          fontSize: 12, color: Brand.goldTextDark)),
-                ]),
+              _choice(
+                icon: Icons.storefront_outlined,
+                title: 'I run a coworking space or cafe',
+                text: 'Manage your listing on Nomadwise: photos, prices, '
+                    'hours and details.',
+                selected: false,
+                onTap: () => Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(builder: (_) => const OwnerScreen())),
               ),
               const SizedBox(height: 24),
 
@@ -275,17 +270,6 @@ class _AuthScreenState extends State<AuthScreen> {
                   child: Text(_signUp
                       ? 'Already have an account? Sign in'
                       : 'New here? Create an account')),
-              // Owners have their own door, with their own words: this
-              // screen is the nomads' one (reviews and coins).
-              const SizedBox(height: 18),
-              const Divider(color: Brand.hairline),
-              const SizedBox(height: 6),
-              TextButton.icon(
-                  onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const OwnerScreen())),
-                  icon: const Icon(Icons.storefront_outlined, size: 18),
-                  label: const Text(
-                      'Run a coworking space or cafe? Business sign-in')),
               // Apple sign-in button will live here (post Apple Developer
               // enrolment). Keep structure ready:
               // SignInWithAppleButton(...)

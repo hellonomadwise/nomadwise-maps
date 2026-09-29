@@ -60,8 +60,7 @@ begin
                   'review_note', d.review_note, 'updated_at', d.updated_at)
                   from public.owner_drafts d
                  where d.venue_id = v.id
-                 order by d.updated_at desc limit 1)
-    
+                 order by d.updated_at desc limit 1))
     into out
     from public.venues v
    where v.id::text = p_key or v.webflow_slug = p_key
