@@ -12,6 +12,7 @@ import '../models/venue.dart';
 import '../services/places_service.dart';
 import '../services/supabase_service.dart';
 import '../theme.dart';
+import '../widgets/resubmit_changes.dart';
 import '../widgets/ui.dart';
 import 'claim_journeys_screen.dart';
 import 'email_log_screen.dart';
@@ -1437,6 +1438,10 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     final draft = Map<String, dynamic>.from(d['draft'] as Map? ?? {});
     final oc = Map<String, dynamic>.from(v['owner_content'] as Map? ?? {});
     final verified = v['listing_tier'] == 'verified';
+    // Submitted again after we sent it back: show what changed since.
+    final sentBack = d['sent_back'] is Map
+        ? Map<String, dynamic>.from(d['sent_back'] as Map)
+        : null;
     String s(dynamic x) => (x ?? '').toString().trim();
     final rows = <(String, String, String)>[]; // label, before, after
     void row(String label, dynamic before, dynamic after) {
@@ -1540,6 +1545,21 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
             '  ·  submitted ${_ago(d['submitted_at'])}',
             style: const TextStyle(fontSize: 12, color: Brand.inkSecondary)),
         const SizedBox(height: 10),
+        if (sentBack != null) ...[
+          ResubmitChanges(sentBack: sentBack, current: draft),
+          Theme(
+            data: Theme.of(context)
+                .copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              childrenPadding: const EdgeInsets.only(bottom: 4),
+              expandedCrossAxisAlignment: CrossAxisAlignment.start,
+              title: const Text('Everything compared with the page today',
+                  style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: Brand.inkSecondary)),
+              children: [
         if (rows.isEmpty && photos.isEmpty)
           const Text('Nothing differs from the page. Put it on or send it back.',
               style: TextStyle(fontSize: 12.5, color: Brand.inkSecondary)),
@@ -1586,6 +1606,58 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
               ),
           ]),
           const SizedBox(height: 8),
+        ],
+              ],
+            ),
+          ),
+        ] else ...[
+        if (rows.isEmpty && photos.isEmpty)
+          const Text('Nothing differs from the page. Put it on or send it back.',
+              style: TextStyle(fontSize: 12.5, color: Brand.inkSecondary)),
+        for (final (label, before, after) in rows)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(label,
+                  style: const TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w800,
+                      color: Brand.inkSecondary)),
+              if (before.isNotEmpty)
+                Text(before,
+                    style: const TextStyle(
+                        fontSize: 12.5,
+                        color: Brand.inkMuted,
+                        decoration: TextDecoration.lineThrough)),
+              Text(after.isEmpty ? '(cleared)' : after,
+                  style: const TextStyle(fontSize: 13, height: 1.4)),
+            ]),
+          ),
+        if (photos.isNotEmpty) ...[
+          Text(
+              'Photos (${photos.length})'
+              '${oldPhotos.isNotEmpty ? ', replacing ${oldPhotos.length} on file' : ''}',
+              style: const TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w800,
+                  color: Brand.inkSecondary)),
+          const SizedBox(height: 6),
+          Wrap(spacing: 6, runSpacing: 6, children: [
+            for (final p in photos)
+              InkWell(
+                onTap: () => launchUrl(Uri.parse(p),
+                    mode: LaunchMode.externalApplication),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.network(p,
+                      width: 96, height: 72, fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                          width: 96, height: 72, color: Brand.field)),
+                ),
+              ),
+          ]),
+          const SizedBox(height: 8),
+        ],
         ],
         const SizedBox(height: 4),
         Wrap(spacing: 8, runSpacing: 8, children: [

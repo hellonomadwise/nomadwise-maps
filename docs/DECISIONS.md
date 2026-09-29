@@ -1034,3 +1034,15 @@ works" (two of its three pages are about coins), the Leaderboard and
 left off the public leaderboard and out of the Customers view in
 Analytics. No Cafe / Coworking / Coliving subgroups: the wording
 follows the space's own type, and coliving will come as a space type.
+
+## 29 Sep 2026: checking a resubmission in seconds
+
+When an owner submits again after we sent their changes back, the
+Owner changes card opens with "Submitted again after your note": the
+note we sent, then only what they changed since, with the description
+marked word by word (green is new, red was taken out) and every other
+field as before → after. If they changed nothing, it says so. The
+full comparison with the live page is still there, folded under
+"Everything compared with the page today". It reads the sent-back
+draft itself, which is never edited afterwards, so it also works for
+notes sent before today (Kopi Club).
