@@ -1046,3 +1046,13 @@ full comparison with the live page is still there, folded under
 "Everything compared with the page today". It reads the sent-back
 draft itself, which is never edited afterwards, so it also works for
 notes sent before today (Kopi Club).
+
+## 29 Sep 2026: WhatsApp from the control centre
+
+Owner cards (Owners tab) and Owner changes cards now have green
+WhatsApp buttons: "WhatsApp <first name>" for the person who claimed
+the space (the phone from their claim form) and, when it is a
+different number, "WhatsApp the space" for the number on their page.
+Each opens a chat with a short hello already typed. A number typed
+without its country code gets the space's country code. No button
+shows when there is no number.

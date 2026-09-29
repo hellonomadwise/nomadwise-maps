@@ -12,6 +12,7 @@ import '../models/venue.dart';
 import '../services/places_service.dart';
 import '../services/supabase_service.dart';
 import '../theme.dart';
+import '../widgets/phone_field.dart';
 import '../widgets/resubmit_changes.dart';
 import '../widgets/ui.dart';
 import 'claim_journeys_screen.dart';
@@ -123,6 +124,9 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   /// When each space's current owner was approved (latest claim), so
   /// the Owners tab lists the newest first.
   Map<String, DateTime?> _ownerSince = {};
+  // Who claimed each space and their phone (venue id -> name, phone),
+  // for the WhatsApp buttons on owner cards.
+  Map<String, (String, String)> _ownerContact = {};
 
   /// Newest first: by approval of the owner's claim, else the date paid,
   /// else when the space was added.
@@ -222,6 +226,21 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
           for (final r in results[19].reversed)
             '${r['venue_id']}': DateTime.tryParse('${r['approved_at']}'),
         };
+        // Newest claim with a phone wins; an approved one over any other.
+        final contact = <String, (String, String)>{};
+        void note(Map r) {
+          final phone = (r['owner_phone'] ?? '').toString().trim();
+          if (r['venue_id'] == null || phone.isEmpty) return;
+          contact['${r['venue_id']}'] =
+              ((r['owner_name'] ?? '').toString().trim(), phone);
+        }
+        for (final r in (results[16] as List).reversed) {
+          if (r['status'] != 'rejected' && r['status'] != 'abandoned') note(r);
+        }
+        for (final r in results[19].reversed) {
+          note(r);
+        }
+        _ownerContact = contact;
         _error = null;
       });
     } catch (e) {
@@ -1669,6 +1688,13 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
           TextButton(
               onPressed: () => _declineOwnerDraft(d),
               child: const Text('Send back')),
+          ..._whatsappButtons(
+              venueId: '${d['venue_id']}',
+              space: '${v['name'] ?? 'your space'}',
+              country: v['country']?.toString(),
+              pagePhone: s(draft['whatsapp']).isNotEmpty
+                  ? s(draft['whatsapp'])
+                  : s(oc['whatsapp'])),
           TextButton.icon(
               onPressed: () => _openTrail('${d['venue_id']}',
                   '${(d['venue'] as Map?)?['name'] ?? 'this space'}'),
@@ -2290,6 +2316,11 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                     mode: LaunchMode.externalApplication),
                 icon: const Icon(Icons.open_in_new, size: 15),
                 label: const Text('Open page')),
+          ..._whatsappButtons(
+              venueId: '${v['id']}',
+              space: '${v['name'] ?? 'your space'}',
+              country: _countryOf(v) ?? v['country']?.toString(),
+              pagePhone: (v['owner_whatsapp'] ?? '').toString()),
           TextButton.icon(
               onPressed: () => _openOwnerPreview('${v['id']}'),
               icon: const Icon(Icons.visibility_outlined, size: 16),
@@ -2657,6 +2688,66 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
 
   static String _withScheme(String u) =>
       u.startsWith('http') ? u : 'https://$u';
+
+  /// A number WhatsApp can open (digits with the country code), or
+  /// null. Numbers typed without a country code get the space's one.
+  static String? _waNumber(String? raw, String? country) {
+    final t = (raw ?? '').trim();
+    if (t.isEmpty) return null;
+    final link = RegExp(r'wa\.me/\+?(\d+)').firstMatch(t);
+    if (link != null) return link.group(1);
+    final digits = t.replaceAll(RegExp(r'\D'), '');
+    if (digits.length < 6) return null;
+    if (t.startsWith('+')) return digits;
+    if (digits.startsWith('00')) return digits.substring(2);
+    final iso = PhoneField.isoFor(country);
+    final code = PhoneField.dialFor(iso);
+    if (code == null) return digits;
+    if (digits.startsWith('$code') && !digits.startsWith('0') &&
+        digits.length >= 10) {
+      return digits; // already has the country code, just no "+"
+    }
+    return PhoneField.compose(iso, digits).replaceAll(RegExp(r'\D'), '');
+  }
+
+  /// WhatsApp buttons for a space: the person who claimed it (their
+  /// phone from the claim form) and, when it is a different number,
+  /// the WhatsApp on the page. Each opens a chat with a short hello
+  /// already typed, to edit or send.
+  List<Widget> _whatsappButtons({
+    required String venueId,
+    required String space,
+    String? country,
+    String? pagePhone,
+  }) {
+    final (name, phone) = _ownerContact[venueId] ?? ('', '');
+    final person = _waNumber(phone, country);
+    final page = _waNumber(pagePhone, country);
+    final first = name.split(RegExp(r'\s+')).first;
+    Widget button(String label, String number, String hello) =>
+        OutlinedButton.icon(
+          onPressed: () => launchUrl(
+              Uri.parse('https://wa.me/$number?text='
+                  '${Uri.encodeQueryComponent(hello)}'),
+              mode: LaunchMode.platformDefault,
+              webOnlyWindowName: '_blank'),
+          style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xFF128C7E),
+              side: const BorderSide(color: Color(0xFF25D366))),
+          icon: const Icon(Icons.chat_outlined, size: 17),
+          label: Text(label),
+        );
+    return [
+      if (person != null)
+        button(first.isEmpty ? 'WhatsApp the owner' : 'WhatsApp $first',
+            person,
+            "Hi${first.isEmpty ? '' : ' $first'}, it's Jonathan from "
+                'Nomadwise, about the $space page. '),
+      if (page != null && page != person)
+        button('WhatsApp the space', page,
+            "Hi, it's Jonathan from Nomadwise, about the $space page. "),
+    ];
+  }
 
   /// "@kopi_club" or a full link, either way a link.
   static String _instagramUrl(String raw) {

@@ -1170,6 +1170,9 @@ class SupabaseService {
       'listing_owner_email, listing_enquiry_email, listing_notes, '
       'listing_sync_requested_at, listing_synced_at, listing_sync_error, '
       'webflow_verified, '
+      // The WhatsApp number the owner put on their page, for the
+      // control centre's WhatsApp button.
+      'owner_whatsapp:owner_content->>whatsapp, '
       // Just the address parts of the cached Google details, so the
       // inbox can show the country without loading the whole record.
       'address_components:g_details->addressComponents, '
@@ -1245,13 +1248,13 @@ class SupabaseService {
     }
   }
 
-  /// Approved claims (venue and when), newest first, for ordering the
-  /// Owners tab.
+  /// Approved claims (venue, when, and who with their phone), newest
+  /// first, for ordering the Owners tab and its WhatsApp buttons.
   Future<List<Map<String, dynamic>>> approvedClaimDates() async {
     try {
       final rows = await _db
           .from('listing_claims')
-          .select('venue_id, approved_at')
+          .select('venue_id, approved_at, owner_name, owner_phone')
           .not('approved_at', 'is', null)
           .not('venue_id', 'is', null)
           .order('approved_at', ascending: false)
