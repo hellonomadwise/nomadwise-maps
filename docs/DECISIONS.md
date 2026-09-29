@@ -1016,3 +1016,21 @@ updates and every email, each opening to its full text. Emails keep
 their text from migration 101 on. Owners' replies arrive in the
 hello@nomadwise.io inbox, not here. The space page's photos also get
 left and right arrows on a computer, where a mouse cannot swipe.
+
+## 29 Sep 2026: Owners, a user group of their own
+
+Users -> Group now has Owner beside Customer, Friend and Team. It is
+set by hand like the others, and automatically (migration 102) when an
+email submits a claim, free or paid, or is the listed owner of a
+space, including an owner who first signs in later. Automatic marking
+only fills an empty group: it never changes Team or Friend, and moving
+someone back to Customer by hand sticks unless they claim another
+space.
+
+Coins are for remote workers only. Signed in as an Owner, the app
+hides the wallet, coin chips, coin wording, "How coins work", "How it
+works" (two of its three pages are about coins), the Leaderboard and
+"Own a space?", and the menu leads with "My Owner account". Owners are
+left off the public leaderboard and out of the Customers view in
+Analytics. No Cafe / Coworking / Coliving subgroups: the wording
+follows the space's own type, and coliving will come as a space type.

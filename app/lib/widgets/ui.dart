@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../services/coins_gate.dart';
 import '../theme.dart';
 
 /// Shared components from the "Nomad Maps Polish" handoff.
@@ -20,6 +21,7 @@ class CoinChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (CoinsGate.off) return const SizedBox.shrink();
     final bg = solid
         ? Brand.gold
         : onRed
@@ -54,7 +56,9 @@ class CoinDot extends StatelessWidget {
   final double size;
   const CoinDot({super.key, this.size = 12});
   @override
-  Widget build(BuildContext context) => Container(
+  Widget build(BuildContext context) => CoinsGate.off
+      ? const SizedBox.shrink()
+      : Container(
         width: size,
         height: size,
         alignment: Alignment.center,

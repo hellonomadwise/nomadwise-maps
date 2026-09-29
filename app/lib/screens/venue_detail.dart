@@ -15,6 +15,7 @@ import '../services/places_service.dart';
 import '../services/speed_test_service.dart';
 import '../services/story_card.dart';
 import '../services/supabase_service.dart';
+import '../services/coins_gate.dart';
 import '../theme.dart';
 import '../widgets/ui.dart';
 import '../widgets/google_photo.dart';
@@ -613,14 +614,17 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
                           color: Brand.amber.withValues(alpha: .15),
                           borderRadius: BorderRadius.circular(12)),
                       child: Row(children: [
-                        const Icon(Icons.monetization_on,
-                            color: Brand.amber, size: 20),
+                        Icon(
+                            CoinsGate.off
+                                ? Icons.info_outline
+                                : Icons.monetization_on,
+                            color: Brand.amber,
+                            size: 20),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             '${venue.unansweredCount} detail${venue.unansweredCount == 1 ? '' : 's'} '
-                            'missing '
-                            '. Help other nomads and earn coins',
+                            'missing. Help other nomads${CoinsGate.t(' and earn coins', '')}',
                             style: const TextStyle(
                                 fontWeight: FontWeight.w500,
                                 fontSize: 13),
@@ -636,7 +640,7 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
                   },
                   icon: const Icon(Icons.verified_outlined),
                   label: Text(
-                      'Confirm this info is still correct  ·  earn ${AppConfig.coinsConfirmVenue} coins'),
+                      'Confirm this info is still correct${CoinsGate.t('  ·  earn ${AppConfig.coinsConfirmVenue} coins', '')}'),
                 ),
                 if (_creditsLine() != null) ...[
                   const SizedBox(height: 18),
@@ -690,8 +694,9 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
               const Icon(Icons.add_a_photo_outlined,
                   size: 34, color: Brand.goldLink),
               const SizedBox(height: 8),
-              const Text('No photos yet. Tap to add one & earn coins',
-                  style: TextStyle(
+              Text(CoinsGate.t('No photos yet. Tap to add one & earn coins',
+                      'No photos yet. Tap to add one'),
+                  style: const TextStyle(
                       color: Brand.goldTextDark,
                       fontSize: 13,
                       fontWeight: FontWeight.w600)),
@@ -916,7 +921,7 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
           TextButton(
               onPressed: _shareWifiLogin,
               child:
-                  Text('Share it · +${AppConfig.coinsWifiLogin}')),
+                  Text(CoinsGate.t('Share it · +${AppConfig.coinsWifiLogin}', 'Share it'))),
         ]),
       );
     }
@@ -959,7 +964,7 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
           const Spacer(),
           InkWell(
             onTap: _shareWifiLogin,
-            child: Text('Wrong? Update it · +${AppConfig.coinsWifiLogin}',
+            child: Text(CoinsGate.t('Wrong? Update it · +${AppConfig.coinsWifiLogin}', 'Wrong? Update it'),
                 style: const TextStyle(
                     fontSize: 11,
                     color: Brand.red,
@@ -1013,7 +1018,7 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
                 ElevatedButton(
                     onPressed: () => Navigator.pop(ctx, true),
                     child: Text(
-                        'Share · +${AppConfig.coinsWifiLogin} coins')),
+                        CoinsGate.t('Share · +${AppConfig.coinsWifiLogin} coins', 'Share'))),
               ],
             ));
     if (ok != true || ssid.text.trim().isEmpty || !mounted) return;
@@ -1046,8 +1051,10 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(
-            'Thanks! +${AppConfig.coinsWifiLogin} coins after verification. '
-            '(Once per space per month.)')));
+            CoinsGate.t(
+                'Thanks! +${AppConfig.coinsWifiLogin} coins after verification. '
+                    '(Once per space per month.)',
+                'Thanks! It appears once it is verified.'))));
     // If GPS verified it instantly, the login appears right away.
     await Future.delayed(const Duration(seconds: 2));
     _loadWifiLogin();
@@ -1192,7 +1199,7 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
                 ElevatedButton(
                     onPressed: () => Navigator.pop(ctx, true),
                     child: Text(
-                        'Submit  ·  +${AppConfig.coinsWifiTest} coins')),
+                        CoinsGate.t('Submit  ·  +${AppConfig.coinsWifiTest} coins', 'Submit'))),
               ],
             ));
     if (submit != true || !mounted) return;
@@ -1233,14 +1240,20 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20)),
               title: Row(children: [
-                const Icon(Icons.monetization_on, color: Brand.amber),
+                Icon(
+                    CoinsGate.off
+                        ? Icons.check_circle_outline
+                        : Icons.monetization_on,
+                    color: CoinsGate.off ? Brand.success : Brand.amber),
                 const SizedBox(width: 8),
-                Text('+${AppConfig.coinsWifiTest} coins'),
+                Text(CoinsGate.t('+${AppConfig.coinsWifiTest} coins', 'Thank you')),
               ]),
-              content: const Text(
+              content: Text(CoinsGate.t(
                   'Thanks! Coins are credited after verification, '
                   'usually within a few days. (WiFi tests pay once '
-                  'per space per month.)'),
+                  'per space per month.)',
+                  'Thanks! Your WiFi test helps remote workers know '
+                  'what to expect.')),
               actions: [
                 TextButton(
                     onPressed: () => Navigator.pop(ctx),

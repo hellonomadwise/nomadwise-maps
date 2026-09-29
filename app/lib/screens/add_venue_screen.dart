@@ -9,6 +9,7 @@ import '../config.dart';
 import '../models/discovered_place.dart';
 import '../models/venue.dart';
 import '../services/analytics_service.dart';
+import '../services/coins_gate.dart';
 import '../services/location_service.dart';
 import '../services/places_service.dart';
 import '../services/speed_test_service.dart';
@@ -231,7 +232,7 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
   int? _coinBalance; // shown in the header
 
   Future<void> _loadBalance() async {
-    if (!_supabase.signedIn) return;
+    if (!_supabase.signedIn || CoinsGate.off) return;
     final w = await _supabase.wallet();
     if (mounted) setState(() => _coinBalance = w.total);
   }
@@ -373,8 +374,8 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
                 title: const Text('Already on the map!'),
                 content: Text(
                     '${existing.name} is already listed, so you\'re now '
-                    'confirming it instead, still worth '
-                    '${AppConfig.coinsConfirmVenue} coins.'),
+                    'confirming it instead'
+                    '${CoinsGate.t(', still worth ${AppConfig.coinsConfirmVenue} coins', '')}.'),
                 actions: [
                   TextButton(
                       onPressed: () => Navigator.pop(ctx),
@@ -630,11 +631,21 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20)),
                 title: Row(children: [
-                  const Icon(Icons.monetization_on, color: Brand.amber),
+                  Icon(
+                      CoinsGate.off
+                          ? Icons.check_circle_outline
+                          : Icons.monetization_on,
+                      color: CoinsGate.off ? Brand.success : Brand.amber),
                   const SizedBox(width: 8),
-                  Text('+$coins coins'),
+                  Text(CoinsGate.t('+$coins coins', 'Thank you')),
                 ]),
-                content: Text(isConfirm
+                content: Text(CoinsGate.off
+                    ? (isConfirm
+                        ? 'Thanks! Your confirmation helps remote workers '
+                            'know what to expect.'
+                        : 'Thanks! New spaces get a quick once-over by the '
+                            'Nomadwise team before they show on the map.')
+                    : isConfirm
                     ? 'Thanks! Your coins will be credited after '
                         'verification, usually within a few days.'
                     : 'Thanks! New spaces get a quick once-over by the '
@@ -689,8 +700,10 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
       body: Form(
         key: _formKey,
         child: ListView(padding: const EdgeInsets.all(16), children: [
-          _rewardCard(),
-          const SizedBox(height: 14),
+          if (!CoinsGate.off) ...[
+            _rewardCard(),
+            const SizedBox(height: 14),
+          ],
           if (!_spacePicked) ...[
             const FieldLabel('Space'),
             TextFormField(
@@ -837,8 +850,10 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
             decoration: InputDecoration(
                 hintText: 'Type it if you know it',
                 helperText: _measuredMbps != null
-                    ? 'Measured just now, the +${AppConfig.coinsWifiTest} '
-                        'coin bonus is locked in.'
+                    ? CoinsGate.t(
+                        'Measured just now, the +${AppConfig.coinsWifiTest} '
+                            'coin bonus is locked in.',
+                        'Measured just now.')
                     : null),
           ),
           const SizedBox(height: 14),
@@ -1154,7 +1169,9 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
         const SizedBox(height: 7),
         Text(
           isConfirm
-              ? 'Coins are credited after verification, usually within a few days.'
+              ? CoinsGate.t(
+                  'Coins are credited after verification, usually within a few days.',
+                  'Checked by the Nomadwise team before it shows.')
               : 'Reviewed by another nomad before it goes live',
           textAlign: TextAlign.center,
           style: const TextStyle(color: Brand.inkMuted, fontSize: 12),

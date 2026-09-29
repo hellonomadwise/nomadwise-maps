@@ -481,7 +481,7 @@ class SupabaseService {
     try {
       final row = await _db
           .from('profiles')
-          .select('display_name, avatar_url')
+          .select('display_name, avatar_url, cohort')
           .eq('id', uid)
           .single();
       return Map<String, dynamic>.from(row);
@@ -610,7 +610,7 @@ class SupabaseService {
   }
 
   /// Admin only: which accounts belong to which group
-  /// ('team' | 'friend'; absent = genuine customer).
+  /// ('team' | 'friend' | 'owner'; absent = genuine customer).
   /// Devices (anonymous ids) that have ever signed into a team
   /// account, excluded from analytics even when browsing signed out.
   /// Every claim-page event of the last [days] days, oldest first, for

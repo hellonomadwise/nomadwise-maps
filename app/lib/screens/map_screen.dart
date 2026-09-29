@@ -18,6 +18,7 @@ import '../services/location_service.dart';
 import '../services/google_meter.dart';
 import '../services/places_service.dart';
 import '../services/supabase_service.dart';
+import '../services/coins_gate.dart';
 import '../theme.dart';
 import '../widgets/ui.dart';
 import '../widgets/google_photo.dart';
@@ -104,11 +105,17 @@ class _MapScreenState extends State<MapScreen> {
 
   Future<void> _loadProfileBits() async {
     final p = await _supabase.myProfile();
+    // Owners (they run a space) never see coins; Customers do.
+    CoinsGate.off = p?['cohort'] == 'owner';
     if (mounted && p != null) {
       setState(() {
         _displayName ??= p['display_name'];
         _avatarUrl = p['avatar_url'];
       });
+    }
+    if (CoinsGate.off) {
+      if (mounted) setState(() => _walletTotal = null);
+      return;
     }
     // Only signed-in nomads have a wallet; an anonymous visitor must
     // not see an unexplained coin chip (it reads like a cost).
@@ -439,12 +446,12 @@ class _MapScreenState extends State<MapScreen> {
                       fontWeight: FontWeight.w800,
                       height: 1.2)),
               const SizedBox(height: 10),
-              const Text(
+              Text(
                 'A map of cafes and coworking spaces that are good to '
                 'work from: tested WiFi speeds, plug sockets and quiet '
                 'corners, built by nomads for nomads.\n\n'
-                'It is free and improving every week. Review a space '
-                'you visit and you earn coins for helping.',
+                'It is free and improving every week.'
+                '${CoinsGate.t(' Review a space you visit and you earn coins for helping.', '')}',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                     fontSize: 13.5, height: 1.5, color: Brand.inkSecondary),
@@ -649,8 +656,10 @@ class _MapScreenState extends State<MapScreen> {
               duration: const Duration(seconds: 2),
               content: Text(n == 0
                   ? 'No unscreened cafes found here yet.'
-                  : '$n unscreened cafes here. Screen one & earn '
-                      '${AppConfig.coinsNewVenue} coins!')));
+                  : CoinsGate.t(
+                      '$n unscreened cafes here. Screen one & earn '
+                          '${AppConfig.coinsNewVenue} coins!',
+                      '$n unscreened cafes here.'))));
         }
       }
     } finally {
@@ -738,6 +747,7 @@ class _MapScreenState extends State<MapScreen> {
                               fontSize: 18,
                               fontWeight: FontWeight.w700)),
                       const SizedBox(height: 6),
+                      if (!CoinsGate.off)
                       Text(
                           signedIn
                               ? '+${AppConfig.coinsDiscovery} coins for '
@@ -835,7 +845,8 @@ class _MapScreenState extends State<MapScreen> {
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 3),
         content: Text(_showUnscreened
-            ? 'Unscreened spaces shown. Review one to earn coins'
+            ? CoinsGate.t('Unscreened spaces shown. Review one to earn coins',
+                'Unscreened spaces shown')
             : 'Unscreened spaces hidden. Showing screened & promising'),
       ));
   }
@@ -1484,7 +1495,8 @@ class _MapScreenState extends State<MapScreen> {
                           color: Brand.inkMuted, fontSize: 13),
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 14),
+                    if (!CoinsGate.off) const SizedBox(height: 14),
+                    if (!CoinsGate.off)
                     Material(
                       color: Brand.goldTint,
                       borderRadius: BorderRadius.circular(14),
@@ -1552,23 +1564,27 @@ class _MapScreenState extends State<MapScreen> {
                 color: Brand.goldTint,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Column(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('BETA · WORK IN PROGRESS',
+                  const Text('BETA · WORK IN PROGRESS',
                       style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w800,
                           letterSpacing: .8,
                           color: Brand.goldTextDark)),
-                  SizedBox(height: 4),
+                  const SizedBox(height: 4),
                   Text(
-                    'Nomad Maps is young and improving every week, so '
-                    'the occasional rough edge is part of the deal. If '
-                    'something looks off, send us feedback, or fix it '
-                    'on the map and earn coins. That is exactly the '
-                    'help we are hoping for.',
-                    style: TextStyle(
+                    CoinsGate.t(
+                        'Nomad Maps is young and improving every week, so '
+                            'the occasional rough edge is part of the deal. If '
+                            'something looks off, send us feedback, or fix it '
+                            'on the map and earn coins. That is exactly the '
+                            'help we are hoping for.',
+                        'Nomad Maps is young and improving every week. If '
+                            'something looks off, send us feedback; we read '
+                            'every message.'),
+                    style: const TextStyle(
                         fontSize: 12,
                         height: 1.45,
                         color: Brand.goldTextDark),
@@ -1577,11 +1593,25 @@ class _MapScreenState extends State<MapScreen> {
               ),
             ),
           ),
+          // Owners: their space comes first.
+          if (CoinsGate.off)
+            _menuRow(
+              icon: Icons.storefront_outlined,
+              label: 'My Owner account',
+              sub: 'Manage your listing on Nomadwise',
+              accent: true,
+              onTap: () {
+                Navigator.pop(context);
+                launchUrl(Uri.parse('https://nomadmaps.io/owner'),
+                    webOnlyWindowName: '_self');
+              },
+            ),
           _menuRow(
             icon: Icons.rate_review_outlined,
             label: 'Review a space',
-            sub: 'Earn up to ${AppConfig.coinsNewVenue} coins',
-            accent: true,
+            sub: CoinsGate.t('Earn up to ${AppConfig.coinsNewVenue} coins',
+                'Tell other nomads about a place to work'),
+            accent: !CoinsGate.off,
             trailing: CoinChip('+${AppConfig.coinsNewVenue}', height: 22),
             onTap: () {
               Navigator.pop(context);
@@ -1717,6 +1747,7 @@ class _MapScreenState extends State<MapScreen> {
               _openFeedback();
             },
           ),
+          if (!CoinsGate.off)
           _menuRow(
             icon: Icons.emoji_events_outlined,
             label: 'Leaderboard',
@@ -1729,6 +1760,7 @@ class _MapScreenState extends State<MapScreen> {
                       builder: (_) => const LeaderboardScreen()));
             },
           ),
+          if (!CoinsGate.off)
           _menuRow(
             icon: Icons.help_outline,
             label: 'How it works',
@@ -1737,6 +1769,7 @@ class _MapScreenState extends State<MapScreen> {
               showIntro(context);
             },
           ),
+          if (!CoinsGate.off)
           _menuRow(
             icon: Icons.monetization_on_outlined,
             label: 'How coins work',
@@ -1746,6 +1779,7 @@ class _MapScreenState extends State<MapScreen> {
               _showCoinTable();
             },
           ),
+          if (!CoinsGate.off)
           _menuRow(
             icon: Icons.storefront_outlined,
             label: 'Own a space?',
@@ -1759,7 +1793,7 @@ class _MapScreenState extends State<MapScreen> {
           _menuRow(
             icon: Icons.description_outlined,
             label: 'Terms of service',
-            sub: 'Coins, fair play, your data',
+            sub: CoinsGate.t('Coins, fair play, your data', 'Fair play, your data'),
             onTap: () {
               Navigator.pop(context);
               Navigator.push(
@@ -1779,6 +1813,7 @@ class _MapScreenState extends State<MapScreen> {
                       fontWeight: FontWeight.w600)),
               onTap: () async {
                 await _supabase.signOut();
+                CoinsGate.off = false;
                 if (mounted) {
                   Navigator.pop(context);
                   setState(() => _isAdmin = false);
@@ -3302,11 +3337,16 @@ class _VenueListCard extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(top: 8),
                 child: Row(children: [
-                  const Icon(Icons.monetization_on,
-                      color: Brand.amber, size: 16),
+                  Icon(
+                      CoinsGate.off
+                          ? Icons.info_outline
+                          : Icons.monetization_on,
+                      color: Brand.amber,
+                      size: 16),
                   const SizedBox(width: 5),
                   Text(
-                    '${venue.unansweredCount} details missing · earn ${AppConfig.coinsConfirmVenue} coins',
+                    '${venue.unansweredCount} details missing'
+                    '${CoinsGate.t(' · earn ${AppConfig.coinsConfirmVenue} coins', '')}',
                     style: const TextStyle(
                         fontSize: 12,
                         color: Brand.charcoal,
@@ -3326,7 +3366,7 @@ class _VenueListCard extends StatelessWidget {
                 child: ElevatedButton(
                     onPressed: onConfirm,
                     child: Text(
-                        'Confirm · +${AppConfig.coinsConfirmVenue}')),
+                        CoinsGate.t('Confirm · +${AppConfig.coinsConfirmVenue}', 'Confirm'))),
               ),
             ]),
           ],
@@ -3593,7 +3633,7 @@ class _DiscoveredListCardState extends State<_DiscoveredListCard> {
                   child: ElevatedButton(
                       onPressed: widget.onScreen,
                       child: Text(
-                          'Screen it · +${AppConfig.coinsNewVenue}',
+                          CoinsGate.t('Screen it · +${AppConfig.coinsNewVenue}', 'Screen it'),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis)),
                 ),
@@ -3994,9 +4034,12 @@ class _DiscoveredCardState extends State<_DiscoveredCard> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                        'You just surfaced a promising spot! Screen '
-                        'it now and earn '
-                        '${AppConfig.coinsNewVenue} coins.',
+                        CoinsGate.t(
+                            'You just surfaced a promising spot! Screen '
+                                'it now and earn '
+                                '${AppConfig.coinsNewVenue} coins.',
+                            'You just surfaced a promising spot! Screen '
+                                'it now to help other remote workers.'),
                         style: const TextStyle(
                             fontSize: 12.5,
                             height: 1.35,

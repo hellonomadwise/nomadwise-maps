@@ -131,6 +131,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     final (label, bg, fg) = switch (cohort) {
       'team' => ('Team', Brand.ink, Colors.white),
       'friend' => ('Friend', Brand.goldTint, Brand.goldTextDark),
+      'owner' => ('Owner', Brand.accentTint, Brand.accent),
       _ => ('Customer', Brand.field, Brand.inkSecondary),
     };
     return Container(
@@ -241,7 +242,7 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
   final _supabase = SupabaseService();
   List<Map<String, dynamic>>? _activity;
   List<Map<String, dynamic>>? _appEvents;
-  String? _cohort; // 'team' | 'friend' | null = customer
+  String? _cohort; // 'team' | 'friend' | 'owner' | null = customer
 
   static const _eventNames = {
     'app_opened': 'Opened the app',
@@ -387,6 +388,7 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
           Wrap(spacing: 6, children: [
             for (final (label, value) in [
               ('Customer', null),
+              ('Owner', 'owner'),
               ('Friend', 'friend'),
               ('Team', 'team'),
             ])

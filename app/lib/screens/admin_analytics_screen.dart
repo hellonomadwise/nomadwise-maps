@@ -24,6 +24,8 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
   List<Map<String, dynamic>> _activity = [];
   Set<String> _internalUserIds = {};
   Set<String> _friendUserIds = {};
+  // People who run a space: kept out of the Customers view.
+  Set<String> _ownerUserIds = {};
   Set<String> _teamDevices = {};
   Set<String> _friendAnonView = {};
   int _excludedVisitors = 0;
@@ -140,6 +142,10 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
         .where((e) => e.value == 'friend')
         .map((e) => e.key)
         .toSet();
+    final owners = cohorts.entries
+        .where((e) => e.value == 'owner')
+        .map((e) => e.key)
+        .toSet();
     if (mounted) {
       setState(() {
         _events = events;
@@ -148,6 +154,7 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
         _activity = activity;
         _internalUserIds = internal;
         _friendUserIds = friends;
+        _ownerUserIds = owners;
         _teamDevices = teamDevices;
       });
     }
@@ -232,11 +239,18 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
         .toSet()
       ..removeAll(internalAnon);
     _friendAnonView = friendAnon;
+    final ownerAnon = allEvents
+        .where((e) => _ownerUserIds.contains(e['user_id']))
+        .map((e) => e['anon_id'] as String)
+        .toSet()
+      ..removeAll(internalAnon);
     final events = allEvents.where((e) {
       final anon = e['anon_id'] as String;
       if (internalAnon.contains(anon)) return false;
       if (_segment == 1) return friendAnon.contains(anon);
-      if (_segment == 2) return !friendAnon.contains(anon);
+      if (_segment == 2) {
+        return !friendAnon.contains(anon) && !ownerAnon.contains(anon);
+      }
       return true;
     }).toList();
 
@@ -330,7 +344,7 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
       if (_internalUserIds.contains(uid)) continue;
       final isFriend = _friendUserIds.contains(uid);
       if (_segment == 1 && !isFriend) continue;
-      if (_segment == 2 && isFriend) continue;
+      if (_segment == 2 && (isFriend || _ownerUserIds.contains(uid))) continue;
       final city = a['city'] as String?;
       if (city != null) {
         cityCounts[city] = (cityCounts[city] ?? 0) + 1;
@@ -561,8 +575,8 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
                     'Showing friends only. Mark accounts as '
                         'friends in Users.',
                   if (_segment == 2)
-                    'Showing customers only (friend devices '
-                        'hidden).',
+                    'Showing customers only (friend and owner '
+                        'devices hidden).',
                 ].join(' '),
                 style: const TextStyle(
                     fontSize: 11.5, color: Brand.inkFaint)),
