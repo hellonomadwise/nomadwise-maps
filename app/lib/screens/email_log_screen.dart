@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../services/supabase_service.dart';
 import '../theme.dart';
+import 'space_trail_screen.dart';
 
 /// Admin only: every email the system sent (or tried to send) an
 /// owner, newest first, with what Postmark answered. A test button
@@ -154,10 +155,72 @@ class _EmailLogScreenState extends State<EmailLogScreen> {
     );
   }
 
+  /// The whole email, as the owner got it (text kept from migration 101).
+  void _openEmail(Map<String, dynamic> r) {
+    final body = (r['body'] ?? '').toString();
+    final venueId = (r['venue_id'] ?? '').toString();
+    final venue = (r['venue_name'] ?? '').toString();
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+        title: Text('${r['subject'] ?? ''}'),
+        content: SizedBox(
+          width: 640,
+          child: SingleChildScrollView(
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('To ${r['to_email']}',
+                      style: const TextStyle(
+                          fontSize: 13, color: Brand.inkSecondary)),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                        color: Brand.bg,
+                        borderRadius: BorderRadius.circular(10)),
+                    child: SelectableText(
+                        body.isEmpty
+                            ? 'The full text is kept for emails sent from 29 '
+                                'September 2026 onwards; this one shows its '
+                                'subject only.'
+                            : body,
+                        style: TextStyle(
+                            fontSize: 13.5,
+                            height: 1.55,
+                            color: body.isEmpty ? Brand.inkMuted : Brand.ink)),
+                  ),
+                ]),
+          ),
+        ),
+        actions: [
+          if (venueId.isNotEmpty)
+            TextButton.icon(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => SpaceTrailScreen(
+                          venueId: venueId,
+                          name: venue.isEmpty ? 'this space' : venue)));
+                },
+                icon: const Icon(Icons.history, size: 18),
+                label: Text(venue.isEmpty ? 'History' : 'History of $venue')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
+        ],
+      ),
+    );
+  }
+
   Widget _card(Map<String, dynamic> r) {
     final (line, color) = _verdict(r);
     final when = DateTime.tryParse('${r['created_at']}')?.toLocal();
-    return Container(
+    return InkWell(
+      onTap: () => _openEmail(r),
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       decoration: BoxDecoration(
@@ -183,7 +246,14 @@ class _EmailLogScreenState extends State<EmailLogScreen> {
         Text(line,
             style: TextStyle(
                 fontSize: 12.5, fontWeight: FontWeight.w600, color: color)),
+        if ((r['venue_name'] ?? '').toString().isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text('${r['venue_name']}  ·  tap to read the email',
+                style: const TextStyle(fontSize: 12, color: Brand.inkMuted)),
+          ),
       ]),
+    ),
     );
   }
 }

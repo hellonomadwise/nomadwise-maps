@@ -59,6 +59,7 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
   @override
   void dispose() {
     _testTicker?.cancel();
+    _photoCtl.dispose();
     super.dispose();
   }
   String _wifiConnType = 'unknown';
@@ -81,6 +82,9 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
     }
   }
   int _photoIndex = 0;
+  // Drives the photo carousel from the arrow buttons (a mouse cannot
+  // swipe it on a computer).
+  final _photoCtl = PageController();
 
   Venue get venue => widget.venue;
 
@@ -700,6 +704,7 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
       height: height,
       child: Stack(children: [
         PageView.builder(
+          controller: _photoCtl,
           itemCount: _photos.length,
           onPageChanged: (i) => setState(() => _photoIndex = i),
           itemBuilder: (_, i) {
@@ -772,6 +777,30 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
               ),
             ),
           ),
+        // Arrows, just inside the middle of each side: see-through but
+        // clear, only where there is a photo to move to.
+        if (_photos.length > 1 && _photoIndex > 0)
+          Positioned(
+            left: 12,
+            top: 0,
+            bottom: 0,
+            child: Center(
+                child: _photoArrow(Icons.chevron_left, 'Previous photo',
+                    () => _photoCtl.previousPage(
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeOutCubic))),
+          ),
+        if (_photos.length > 1 && _photoIndex < _photos.length - 1)
+          Positioned(
+            right: 12,
+            top: 0,
+            bottom: 0,
+            child: Center(
+                child: _photoArrow(Icons.chevron_right, 'Next photo',
+                    () => _photoCtl.nextPage(
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeOutCubic))),
+          ),
         // dots
         Positioned(
           bottom: 10,
@@ -797,6 +826,26 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
       ]),
     );
   }
+
+  Widget _photoArrow(IconData icon, String label, VoidCallback onTap) =>
+      Material(
+        color: Colors.black.withValues(alpha: .38),
+        shape: CircleBorder(
+            side: BorderSide(color: Colors.white.withValues(alpha: .55))),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onTap,
+          child: Tooltip(
+            message: label,
+            child: SizedBox(
+              width: 40,
+              height: 40,
+              child: Icon(icon, color: Colors.white, size: 26,
+                  semanticLabel: label),
+            ),
+          ),
+        ),
+      );
 
   Widget _wifiHero() {
     final speed = venue.wifiTested ? venue.wifiSpeedMbps : null;

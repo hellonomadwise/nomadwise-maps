@@ -1288,6 +1288,14 @@ class SupabaseService {
     return (rows as List).cast<Map<String, dynamic>>();
   }
 
+  /// Admin only: everything for one space, newest first (migration 101).
+  Future<List<Map<String, dynamic>>> adminSpaceTrail(String venueId) async {
+    final res = await _db.rpc('admin_space_trail', params: {'p_venue': venueId});
+    return (res as List? ?? const [])
+        .map((r) => Map<String, dynamic>.from(r as Map))
+        .toList();
+  }
+
   Future<void> adminSendTestEmail(String to) =>
       _db.rpc('admin_send_test_email', params: {'p_to': to});
 

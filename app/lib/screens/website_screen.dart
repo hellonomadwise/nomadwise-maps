@@ -17,6 +17,7 @@ import 'claim_journeys_screen.dart';
 import 'email_log_screen.dart';
 import 'listing_updates_screen.dart';
 import 'owner_screen.dart';
+import 'space_trail_screen.dart';
 import 'venue_detail.dart';
 
 /// Admin-only: the nomadwise.io control centre.
@@ -984,6 +985,34 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     final g = _groups();
     final groups = <({String key, String label, int count, Color color,
         String hint, String empty})>[
+      // Owners first: the people waiting on us (Jonathan, 29 Sep).
+      (
+        key: 'paid',
+        label: 'Owners',
+        count: _held.length + _paid.length + _orders.length + _started.length,
+        color: Brand.success,
+        hint: 'Everyone who has claimed a page, free or Verified. Claims '
+            'waiting for a decision first, then payments needing a match, '
+            'then forms started but not finished (last 30 days), then the '
+            'Verified listings (paid, or made Verified by us) and the free '
+            'pages with an owner on record.',
+        empty: 'No claims or owners yet. Open a released page and tap '
+            'Listing plan to mark the first one Verified.'
+      ),
+      (
+        key: 'owner',
+        label: 'Owner changes',
+        count: _ownerDrafts.length + _updates.length,
+        color: Brand.goldTextDark,
+        hint: 'Suggested updates from anyone (the "Something need '
+            'updating?" link on each page), then changes owners submitted '
+            'from their Owner account: '
+            'description, prices, hours, facts, photos, contact, and on '
+            'Verified pages the message for the advert slot. Nothing is on '
+            'the page until you put it there. Send back anything that '
+            'oversells; the note reaches the owner.',
+        empty: 'No owner changes waiting.'
+      ),
       (
         key: 'fresh',
         label: 'New spaces',
@@ -1051,33 +1080,6 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         empty: 'Sitemap is up to date.'
       ),
       (
-        key: 'paid',
-        label: 'Owners',
-        count: _held.length + _paid.length + _orders.length + _started.length,
-        color: Brand.success,
-        hint: 'Everyone who has claimed a page, free or Verified. Claims '
-            'waiting for a decision first, then payments needing a match, '
-            'then forms started but not finished (last 30 days), then the '
-            'Verified listings (paid, or made Verified by us) and the free '
-            'pages with an owner on record.',
-        empty: 'No claims or owners yet. Open a released page and tap '
-            'Listing plan to mark the first one Verified.'
-      ),
-      (
-        key: 'owner',
-        label: 'Owner changes',
-        count: _ownerDrafts.length + _updates.length,
-        color: Brand.goldTextDark,
-        hint: 'Suggested updates from anyone (the "Something need '
-            'updating?" link on each page), then changes owners submitted '
-            'from their Owner account: '
-            'description, prices, hours, facts, photos, contact, and on '
-            'Verified pages the message for the advert slot. Nothing is on '
-            'the page until you put it there. Send back anything that '
-            'oversells; the note reaches the owner.',
-        empty: 'No owner changes waiting.'
-      ),
-      (
         key: 'closed',
         label: 'Closed',
         count: _closed.length,
@@ -1116,7 +1118,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       const steps = ['fresh', 'preparing', 'region', 'ready'];
       key = groups
           .firstWhere((x) => steps.contains(x.key) && x.count > 0,
-              orElse: () => groups[0])
+              orElse: () => groups.firstWhere((x) => x.key == 'fresh'))
           .key;
     }
     final current = groups.firstWhere((x) => x.key == key);
@@ -1595,6 +1597,12 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
           TextButton(
               onPressed: () => _declineOwnerDraft(d),
               child: const Text('Send back')),
+          TextButton.icon(
+              onPressed: () => _openTrail('${d['venue_id']}',
+                  '${(d['venue'] as Map?)?['name'] ?? 'this space'}'),
+              style: TextButton.styleFrom(foregroundColor: Brand.inkSecondary),
+              icon: const Icon(Icons.history, size: 16),
+              label: const Text('History')),
         ]),
       ]),
     );
@@ -1623,24 +1631,58 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        // A readable width on a computer, the full width on a phone,
+        // and a note box tall enough to read back what you wrote.
+        insetPadding:
+            const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
         title: Text('Send the changes back to $name?'),
-        content: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Text(
-              'The page stays as it is. The owner sees your note in their '
-              'Owner account and can edit and submit again.',
-              style: TextStyle(fontSize: 13.5, height: 1.4)),
-          const SizedBox(height: 14),
-          TextField(
-              controller: ctl,
-              autofocus: true,
-              minLines: 2,
-              maxLines: 4,
-              decoration: const InputDecoration(
-                  labelText: 'Note to the owner',
-                  hintText: 'e.g. "best coffee in town" is not something we '
-                      'can print; say what makes it good instead.',
-                  border: OutlineInputBorder())),
-        ]),
+        content: SizedBox(
+          width: 640,
+          child: SingleChildScrollView(
+            child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text(
+                      'The page stays as it is. The owner is emailed your note '
+                      'with a link to their Owner account, where they can '
+                      'edit and submit again.',
+                      style: TextStyle(fontSize: 13.5, height: 1.45)),
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                        color: Brand.bg,
+                        borderRadius: BorderRadius.circular(10)),
+                    child: const Text(
+                        'The email already opens with "Thank you for updating '
+                        '... Before we put your changes on the page, we have a '
+                        'small suggestion." and ends with how to sign in, so '
+                        'the note only needs the suggestion itself.',
+                        style: TextStyle(
+                            fontSize: 12.5,
+                            height: 1.45,
+                            color: Brand.inkSecondary)),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                      controller: ctl,
+                      autofocus: true,
+                      minLines: 8,
+                      maxLines: 16,
+                      maxLength: 1000,
+                      textCapitalization: TextCapitalization.sentences,
+                      style: const TextStyle(fontSize: 14.5, height: 1.5),
+                      decoration: const InputDecoration(
+                          labelText: 'Note to the owner',
+                          alignLabelWithHint: true,
+                          hintText: 'e.g. Could you add the currency to the '
+                              'cappuccino price? Everything else looks great.',
+                          border: OutlineInputBorder())),
+                ]),
+          ),
+        ),
+        actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
@@ -2180,6 +2222,10 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
               onPressed: () => _openOwnerPreview('${v['id']}'),
               icon: const Icon(Icons.visibility_outlined, size: 16),
               label: const Text('Their Owner account')),
+          TextButton.icon(
+              onPressed: () => _openTrail('${v['id']}', '${v['name'] ?? 'this space'}'),
+              icon: const Icon(Icons.history, size: 16),
+              label: const Text('History')),
         ]),
       ]),
     );
@@ -2270,10 +2316,22 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                 (c['venues'] is Map ? c['venues']['name'] : null) ??
                 'your space')
             .toString();
-        final ask = 'Hi, this is Jonathan from nomadwise.io. Someone called '
-            '${c['owner_name']} has just claimed the $space page on our '
-            'directory. Is that you, or someone from your team? A quick '
-            'yes is all we need before we hand over the page. Thanks!';
+        // Warm and clear: who we are, who claimed, one easy question.
+        // The role reads "(Manager)" etc.; "Other staff" adds nothing.
+        var role = (c['owner_role'] ?? '').toString().trim();
+        if (role.startsWith('Other: ')) role = role.substring(7);
+        if (role == 'Other staff') role = '';
+        final who = role.isEmpty
+            ? '${c['owner_name']}'
+            : '${c['owner_name']} (${role.toLowerCase()})';
+        final ask = "Hi, I hope you're well! I'm Jonathan, co-founder of "
+            'Nomadwise (nomadwise.io), where remote workers find great '
+            'places to work.\n\n'
+            '$who has just claimed the $space page on Nomadwise, so they '
+            'can keep it up to date. To keep your page safe, we always '
+            "check with the space first: could you confirm they're part "
+            'of your team? A quick yes is all we need.\n\n'
+            'Thank you, and have a lovely day!';
         return Padding(
           padding: const EdgeInsets.only(top: 6),
           child: Column(
@@ -2665,6 +2723,11 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
 
   /// Any listing's Owner account, as its owner would see it, in a
   /// preview that saves nothing: to judge and improve the member area.
+  /// Everything between us and this space's owner, newest first.
+  void _openTrail(String venueId, String name) => Navigator.of(context).push(
+      MaterialPageRoute(
+          builder: (_) => SpaceTrailScreen(venueId: venueId, name: name)));
+
   void _openOwnerPreview(String key) => Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => OwnerScreen(previewKey: key)));
 
@@ -3345,10 +3408,23 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     final names = (p['google_names'] as List?)?.cast<String>() ?? const [];
     final error = p['error'];
     final awaiting = _awaiting(v);
+    // Is the space's country on the site at all? A Region sits inside a
+    // Country, so when both are missing the Country comes first; say so
+    // rather than only "no Region".
+    final country = (v['country'] ?? '').toString().trim();
+    final countryMissing = country.isNotEmpty &&
+        _countries.isNotEmpty &&
+        !_countries.any((c) =>
+            '${c['name']}'.trim().toLowerCase() == country.toLowerCase());
+    final place = (v['city'] ?? v['neighbourhood'] ?? 'this city').toString();
     final why = awaiting != null
         ? 'Waiting for $awaiting to be created in Webflow. Once it exists '
             'with that exact name, the space is linked to it automatically '
             'and moves on. Or pick an existing one instead.'
+        : countryMissing
+        ? 'Neither $country nor a Region for "$place" is on nomadwise.io '
+            'yet. Create the Country first, then the $place Region inside '
+            'it; the space moves on once it has both.'
         : p['why'] ??
             'No Region on nomadwise.io matches "${v['city'] ?? v['neighbourhood'] ?? 'this city'}". '
                 'A page needs a Country and a Region, and the slug is built '
@@ -3357,7 +3433,11 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     return _card(
       tint: Brand.goldTint,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        _title(v, badge: 'REGION', badgeColor: Brand.goldTextDark),
+        _title(v,
+            badge: countryMissing && awaiting == null
+                ? 'COUNTRY + REGION'
+                : 'REGION',
+            badgeColor: Brand.goldTextDark),
         _ownerNote(v),
         const SizedBox(height: 8),
         Text(why, style: const TextStyle(fontSize: 13, height: 1.4)),
@@ -3386,6 +3466,16 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                 onPressed: () => _editVenue(v),
                 icon: const Icon(Icons.place_outlined, size: 18),
                 label: const Text('Change place'))
+          else if (countryMissing) ...[
+            OutlinedButton.icon(
+                onPressed: _newRegion,
+                icon: const Icon(Icons.map_outlined, size: 18),
+                label: Text('2. New Region: $place')),
+            ElevatedButton.icon(
+                onPressed: _newCountry,
+                icon: const Icon(Icons.public, size: 18),
+                label: Text('1. Create $country')),
+          ]
           else if (error == 'no_place_id')
             const Text('Add a Google match in the space first',
                 style: TextStyle(fontSize: 12, color: Brand.inkMuted))

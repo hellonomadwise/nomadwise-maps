@@ -1005,3 +1005,14 @@ Sending changes back always emailed the owner; migration 99 rewords
 it from a rejection to "a small suggestion", with the note and a
 button to the Owner account, and logs a failed send in Emails to
 owners.
+
+## 29 Sep 2026: the back and forth with each owner, in one place
+
+Each space now has a History (control centre: "History" on an owner
+change card or an owner card, or from any email in Emails to owners):
+claims, approval, every submission of changes (with what was
+submitted), notes sent back, changes put on, visitors' suggested
+updates and every email, each opening to its full text. Emails keep
+their text from migration 101 on. Owners' replies arrive in the
+hello@nomadwise.io inbox, not here. The space page's photos also get
+left and right arrows on a computer, where a mouse cannot swipe.
