@@ -1089,3 +1089,19 @@ Free first on a phone. The ordering benefit now says it plainly:
 Verified spaces are always shown above free ones in their city and
 area, "which counts for more as more spaces join", since a first space
 in a new area (Westerwelle, Arusha) has nobody to be above yet.
+
+## 29 Sep 2026: the description goes into More Info, the cappuccino into its own field
+
+Jonathan's correction: More Info is the description visitors see on a
+listing; Best Text is used for something else on the site. The owner's
+description now goes into both. The cappuccino price goes only into
+its own field (Cappuccino Price, already filled on about 410 pages),
+never as a line in More Info; day, week and month passes follow the
+description in More Info, one line each. When the description is
+unchanged, More Info keeps the page's own text (older pages keep notes
+there) minus any price lines written before. The Owner account's
+description box now starts from More Info (Best Text if More Info is
+empty). Kopi Club fixed by hand the same day. On the page, the
+cappuccino price is best shown in the top row beside WiFi speed and
+rating (Designer: copy the WiFi item, bind it to Cappuccino Price,
+show it only when set).

@@ -1447,7 +1447,15 @@ DEFAULT_ENQUIRY_EMAIL = 'hello@nomadwise.io'
 ENQUIRIES_LIVE = True   # the form shipped with migration 66
 
 
-def owner_fields(v):
+# Price lines the sync writes into More Info. Anything else in More
+# Info (older pages carry notes there, "Can get busy on weekends")
+# is left as it is.
+PRICE_LINE = re.compile(
+    r'<p>\s*<strong>\s*(?:Day pass|Week pass|Month pass|Cappuccino)\s*:?\s*</strong>.*?</p>',
+    re.I | re.S)
+
+
+def owner_fields(v, item=None):
     """What an owner wrote in their Owner account, once a founder put
     it on the page (venues.owner_content), as Webflow fields:
     description into Best Text, prices into More Info, the facts and
@@ -1458,22 +1466,38 @@ def owner_fields(v):
     if not oc and not v.get('owner_content_at'):
         return {}
     out = {}
-    desc = (oc.get('description') or '').strip()
+    desc = no_dashes((oc.get('description') or '').strip())
     # Unchanged from the page's own text (the box starts filled with
     # it): leave the page's formatting alone.
     if desc and desc == (v.get('page_description') or '').strip():
         desc = ''
+    # More Info is the description visitors see on the page; Best Text
+    # is used elsewhere on the site. The owner's description goes into
+    # both (Jonathan, 29 Sep 2026).
     if desc:
         out['best-text'] = rich(html_escape(desc))
     prices = oc.get('prices') or {}
+    # Day, week and month passes follow the description in More Info,
+    # one line each. The cappuccino goes only into its own field
+    # (Cappuccino Price), never as a line in More Info.
     lines = []
     for key, label in (('day', 'Day pass'), ('week', 'Week pass'),
-                       ('month', 'Month pass'), ('coffee', 'Cappuccino')):
+                       ('month', 'Month pass')):
         val = (prices.get(key) or '').strip()
         if val:
             lines.append(f'<p><strong>{label}:</strong> {html_escape(val)}</p>')
-    if lines:
-        out['more-info-rich-text'] = ''.join(lines)
+    existing = ((item or {}).get('fieldData') or {}).get('more-info-rich-text') or ''
+    if desc:
+        kept = rich(html_escape(desc))
+    else:
+        # Description unchanged: keep the page's own text as it is,
+        # without any price lines written before.
+        kept = PRICE_LINE.sub('', str(existing)).strip()
+        if re.sub(r'<[^>]+>|\s|&nbsp;', '', kept) == '':
+            kept = ''
+    more = kept + ''.join(lines)
+    if more != str(existing):
+        out['more-info-rich-text'] = more
     coffee = (prices.get('coffee') or '').strip()
     if coffee:
         out['price-of-coffee'] = coffee
@@ -1504,8 +1528,8 @@ def owner_fields(v):
     if v.get('listing_tier') == 'verified' and (m.get('title') or '').strip():
         out['discount-available-2'] = json.dumps({
             'kind': (m.get('kind') or 'Event')[:20],
-            'title': (m.get('title') or '')[:90],
-            'body': (m.get('body') or '')[:300],
+            'title': no_dashes(m.get('title') or '')[:90],
+            'body': no_dashes(m.get('body') or '')[:300],
             'cta': (m.get('cta') or 'Find out more')[:40],
             'url': (m.get('url') or '')[:300],
         }, ensure_ascii=False)
@@ -1530,6 +1554,16 @@ def plain_text(html):
     t = _html.unescape(t).replace('\u00a0', ' ')
     lines = [ln.strip() for ln in t.split('\n')]
     return '\n\n'.join(ln for ln in lines if ln).strip()
+
+
+def no_dashes(t):
+    """Owners' words go on the page without long dashes (they read as
+    machine-written): "tables—and" and "tables - and" become
+    "tables, and". Hyphens inside words (high-speed) stay."""
+    t = re.sub(r'\s*[\u2014\u2013]\s*', ', ', str(t or ''))
+    t = re.sub(r'\s+-\s+', ', ', t)
+    t = re.sub(r',\s*,', ',', t)
+    return re.sub(r'[ \t]{2,}', ' ', t)
 
 
 def html_escape(t):
@@ -1604,7 +1638,7 @@ def sync_listing(v):
         'booking-model': '1' if verified else '0',
         'coworking-space-email-3': email if verified else DEFAULT_ENQUIRY_EMAIL,
     }
-    fields.update(owner_fields(v))
+    fields.update(owner_fields(v, item))
     fields = shape_fields(fields)
     wf_write(f'/v2/collections/{COLLECTION_ID}/items/{cms}', 'PATCH',
              {'fieldData': fields})
@@ -1660,7 +1694,11 @@ def snapshot_page_text():
         try:
             item = by_id.get(v['webflow_cms_id']) or \
                 wf(f"/v2/collections/{COLLECTION_ID}/items/{v['webflow_cms_id']}") or {}
-            text = plain_text((item.get('fieldData') or {}).get('best-text'))
+            fd = item.get('fieldData') or {}
+            # The description visitors see is More Info (without the
+            # price lines the sync adds); Best Text when More Info is empty.
+            more = PRICE_LINE.sub('', str(fd.get('more-info-rich-text') or ''))
+            text = plain_text(more) or plain_text(fd.get('best-text'))
             sb(f"venues?id=eq.{v['id']}", method='PATCH',
                body={'page_description': text or None, 'page_text_at': now},
                prefer='return=minimal')

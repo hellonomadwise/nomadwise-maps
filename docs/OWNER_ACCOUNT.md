@@ -54,8 +54,8 @@ minutes of approval:
 
 | Owner field | Webflow field |
 |---|---|
-| Description | `best-text` (Best Text, rich text) |
-| Prices | `more-info-rich-text` (More Info), one line per price; cappuccino also in `price-of-coffee` |
+| Description | `more-info-rich-text` (More Info, the description visitors see) and `best-text` (Best Text, used elsewhere on the site) |
+| Prices | cappuccino only in `price-of-coffee` (Cappuccino Price); day, week and month passes as lines after the description in More Info |
 | Hours | the seven day fields |
 | Facts | the eleven fact fields, same words as before |
 | Website, Instagram | `website-url`, `instagram` |
@@ -112,10 +112,12 @@ document.addEventListener('DOMContentLoaded', function () {
 The snippet only ever replaces the one element with that ID, so no
 other advert on the site is touched.
 
-## Emails still to come (Resend)
+## Emails (Postmark, migration 81)
 
-"Your changes are on the page", "We sent your changes back", and the
-sign-in link through Resend instead of Supabase's built-in sender,
-which is rate limited to a handful an hour. Until then the sign-in
-link still arrives, just from Supabase, and the owner learns a
-decision by looking in their account.
+"Your changes are on the page", "We sent your changes back", the
+approval and page-live emails, and the sign-in link all go through
+Postmark once its server token is in the Vault
+(docs/POSTMARK_SETUP.md). Until then each is logged as skipped in
+`owner_emails`, the sign-in link still arrives from Supabase's
+built-in sender (a handful an hour), and the owner learns a decision
+by looking in their account.
