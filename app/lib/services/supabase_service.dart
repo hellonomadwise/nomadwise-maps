@@ -1299,6 +1299,44 @@ class SupabaseService {
         .toList();
   }
 
+  /// Owner account: the next quick question for this owner and space,
+  /// or null when there is none right now (see migration 104).
+  Future<Map<String, dynamic>?> ownerNextQuestion(String venueId,
+      {bool more = false}) async {
+    try {
+      final res = await _db.rpc('owner_next_question',
+          params: {'p_venue': venueId, 'p_more': more});
+      return res is Map ? Map<String, dynamic>.from(res) : null;
+    } catch (_) {
+      return null; // not installed yet, or signed out: just no question
+    }
+  }
+
+  Future<void> ownerAnswerQuestion({
+    required String venueId,
+    required String key,
+    List<String> choices = const [],
+    String? other,
+    bool skip = false,
+    Map<String, dynamic>? shown,
+  }) =>
+      _db.rpc('owner_answer_question', params: {
+        'p_venue': venueId,
+        'p_key': key,
+        'p_choices': choices,
+        'p_other': other,
+        'p_skip': skip,
+        'p_shown': shown,
+      });
+
+  /// Control centre: what owners told us, question by question.
+  Future<List<Map<String, dynamic>>> adminOwnerInsights() async {
+    final res = await _db.rpc('admin_owner_insights');
+    return (res as List? ?? const [])
+        .map((r) => Map<String, dynamic>.from(r as Map))
+        .toList();
+  }
+
   Future<void> adminSendTestEmail(String to) =>
       _db.rpc('admin_send_test_email', params: {'p_to': to});
 

@@ -12,6 +12,7 @@ import '../services/analytics_service.dart';
 import '../services/supabase_service.dart';
 import '../theme.dart';
 import '../widgets/currencies.dart';
+import '../widgets/owner_question_card.dart';
 import '../widgets/price.dart';
 
 /// The Owner account at nomadmaps.io/?owner ("Nomadwise for Spaces"
@@ -1096,9 +1097,18 @@ class _OwnerScreenState extends State<OwnerScreen> {
       _Tab.message => _messageTab(wide),
       _Tab.membership => _membershipTab(wide),
     };
-    final side = _tab == _Tab.message && _verified
+    final preview = _tab == _Tab.message && _verified
         ? _messagePreview()
         : _preview();
+    // One quick question now and then, above the page preview (not in
+    // a founder's preview: those answers would be ours).
+    final side = _isPreview
+        ? preview
+        : Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            OwnerQuestionCard(
+                key: ValueKey('q-${v['id']}'), venueId: '${v['id']}'),
+            preview,
+          ]);
     final body = Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

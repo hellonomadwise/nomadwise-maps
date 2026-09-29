@@ -575,24 +575,6 @@ class _ClaimScreenState extends State<ClaimScreen> {
         ],
       );
 
-  /// Two columns above the breakpoint, stacked below, with the side
-  /// column dropping underneath the main one on a phone.
-  Widget _split(bool wide,
-      {required Widget main, required Widget side, int mainFlex = 3}) {
-    if (!wide) {
-      return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        main,
-        const SizedBox(height: 28),
-        side,
-      ]);
-    }
-    return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Expanded(flex: mainFlex, child: main),
-      const SizedBox(width: 44),
-      Expanded(flex: 2, child: side),
-    ]);
-  }
-
   InputDecoration _field(String label,
           {String? hint, String? helper, Widget? prefix, Widget? suffix}) =>
       InputDecoration(
@@ -617,9 +599,9 @@ class _ClaimScreenState extends State<ClaimScreen> {
 
   // ------------------------------------------------------------ step one
 
-  Widget _findStep(bool wide) => _split(
+  Widget _findStep(bool wide) => _withPlans(
         wide,
-        main: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           _heading(wide, 1, 'Find your space',
               'Nomadwise lists thousands of coworking spaces and '
                   'laptop-friendly cafes. Search for yours below, and if it is '
@@ -666,7 +648,6 @@ class _ClaimScreenState extends State<ClaimScreen> {
             ),
           ),
         ]),
-        side: _valueBlock(wide, compact: true),
       );
 
   Widget _hitTile(Map<String, dynamic> h, bool wide) {
@@ -739,9 +720,9 @@ class _ClaimScreenState extends State<ClaimScreen> {
 
   // ----------------------------------------------------- step one (add it)
 
-  Widget _addStep(bool wide) => _split(
+  Widget _addStep(bool wide) => _withPlans(
         wide,
-        main: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           _heading(wide, 1, 'Add your space',
               'Search for your business as it appears on Google Maps. That '
                   'gives us the right address, opening hours and photos from '
@@ -788,7 +769,6 @@ class _ClaimScreenState extends State<ClaimScreen> {
               style:
                   TextStyle(color: Brand.inkMuted, fontSize: 12.5, height: 1.5)),
         ]),
-        side: _valueBlock(wide, compact: true),
       );
 
   // ------------------------------------------------------------ step two
@@ -1078,7 +1058,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
     ('Correct the facts: hours, prices, wifi, contact', true),
     ('Your own photos and description', true),
     ('The Verified badge on your page and in every list', false),
-    ('Listed above the free spaces in your city and area', false),
+    ('Always shown above free spaces in your city and area', false),
     ('A "Send an enquiry" button that emails you directly', false),
     ('Your event or offer in the advert slot on your page', false),
   ];
@@ -1189,120 +1169,187 @@ class _ClaimScreenState extends State<ClaimScreen> {
 
   // ------------------------------------------------------- what you get
 
-  Widget _valueBlock(bool wide, {bool compact = false}) {
-    // The badge is green wherever it appears, so its own line is drawn
-    // green here too; the rest carry the house red.
-    const rows = [
-      (Icons.verified, Brand.success, 'The Verified badge',
-          'A green badge on your page and in every list you appear in.'),
-      (Icons.arrow_upward, Brand.red, 'Above every free listing',
-          'Verified spaces are listed ahead of every unpaid space on their '
-              'city and area pages.'),
-      (Icons.mark_email_read_outlined, Brand.red,
-          'Enquiries to your inbox',
-          'A "Send an enquiry" button on your page that emails you directly. '
-              'No commission, no middleman.'),
-      (Icons.photo_library_outlined, Brand.red, 'Your own photos and words',
-          'Your description, your prices, your pictures, instead of '
-              'whatever Google shows.'),
-      (Icons.travel_explore, Brand.red, 'Found by Google and AI',
-          'Your page is built so search engines and AI assistants can '
-              'find it and quote it when someone asks where to work.'),
-      (Icons.campaign_outlined, Brand.red, 'Your event or offer on your page',
-          'The advert slot on your page carries your message instead of '
-              'ours.'),
-    ];
-    final show = compact ? rows.take(3).toList() : rows;
-    return Container(
-      padding: EdgeInsets.all(wide ? 24 : 18),
-      decoration: BoxDecoration(
-        color: Brand.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Brand.border),
-      ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        if (compact) ...[
-          const Text('Claiming your page is free',
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
-          const SizedBox(height: 6),
-          Text(
-              'Correct the facts and add your own photos and description '
-              'from your Owner account.',
-              style: TextStyle(
-                  fontSize: wide ? 13.5 : 12.5,
-                  height: 1.5,
-                  color: Brand.inkSecondary)),
-          SizedBox(height: wide ? 18 : 14),
-          const Divider(height: 1, color: Brand.border),
-          SizedBox(height: wide ? 18 : 14),
-          const Text('Verified, when you want more',
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
-          const SizedBox(height: 16),
-        ],
-        ...show.map((r) => Padding(
-              padding: EdgeInsets.only(bottom: wide ? 18 : 14),
-              child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: r.$2 == Brand.success
-                            ? Brand.successTint
-                            : Brand.accentTint,
-                        borderRadius: BorderRadius.circular(9),
-                      ),
-                      child: Icon(r.$1, size: 17, color: r.$2),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(r.$3,
-                                style: TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: wide ? 15 : 13.5)),
-                            const SizedBox(height: 3),
-                            Text(r.$4,
-                                style: TextStyle(
-                                    fontSize: wide ? 13.5 : 12.5,
-                                    height: 1.5,
-                                    color: Brand.inkSecondary)),
-                          ]),
-                    ),
-                  ]),
-            )),
-        if (compact) ...[
-          const Divider(height: 1, color: Brand.border),
-          SizedBox(height: wide ? 18 : 14),
-          Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-            Text('€99',
-                style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: wide ? 34 : 28,
-                    height: 1,
-                    letterSpacing: -1)),
-            const SizedBox(width: 8),
+  /// A step's own content, then both ways to be on Nomadwise below it,
+  /// full width, so it is clear from the first screen that claiming is
+  /// free and Verified is an optional extra.
+  Widget _withPlans(bool wide, Widget main) =>
+      Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Align(
+          alignment: Alignment.centerLeft,
+          child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 660),
+              child: SizedBox(width: double.infinity, child: main)),
+        ),
+        SizedBox(height: wide ? 48 : 32),
+        _plansOverview(wide),
+      ]);
+
+  static const _freeGets = [
+    'Your page on Nomadwise, built to be found by Google and AI assistants',
+    'Correct the facts: hours, prices, WiFi and contact',
+    'Your own photos and description',
+    'Your Owner account, to keep it all up to date',
+  ];
+  static const _verifiedAdds = [
+    'The green Verified badge on your page and in every list',
+    'Always shown above free spaces in your city and area, which counts '
+        'for more as more spaces join',
+    'A "Send an enquiry" button that emails you directly, no commission',
+    'Your event or offer in the advert slot on your page',
+  ];
+
+  /// Free and Verified side by side (stacked on a phone), Free first.
+  Widget _plansOverview(bool wide) {
+    Widget line(String text, {bool plus = false}) => Padding(
+          padding: const EdgeInsets.only(bottom: 11),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Padding(
-              padding: const EdgeInsets.only(bottom: 3),
-              child: Text('a year',
-                  style: TextStyle(
-                      color: Brand.inkSecondary,
-                      fontSize: wide ? 15 : 14,
-                      fontWeight: FontWeight.w600)),
+              padding: const EdgeInsets.only(top: 1),
+              child: Icon(plus ? Icons.add_circle : Icons.check_circle,
+                  size: 18, color: plus ? Brand.red : Brand.success),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(text,
+                  style: TextStyle(fontSize: wide ? 14 : 13.5, height: 1.45)),
             ),
           ]),
-          const SizedBox(height: 6),
-          Text('Billed once a year. Cancel any time.',
+        );
+    Widget pill(String text, {bool on = false}) => Container(
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+          decoration: BoxDecoration(
+            color: on ? Brand.red : Brand.field,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Text(text,
               style: TextStyle(
-                  fontSize: wide ? 13.5 : 12.5,
-                  height: 1.45,
-                  color: Brand.inkSecondary)),
-        ],
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: .5,
+                  color: on ? Colors.white : Brand.inkSecondary)),
+        );
+    Widget price(String big, String small) => Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(big,
+                  style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: wide ? 36 : 30,
+                      height: 1,
+                      letterSpacing: -1)),
+              const SizedBox(width: 8),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text(small,
+                    style: TextStyle(
+                        color: Brand.inkSecondary,
+                        fontSize: wide ? 15 : 14,
+                        fontWeight: FontWeight.w600)),
+              ),
+            ]);
+    Widget card({
+      required bool main,
+      required Widget top,
+      required List<Widget> body,
+      required String foot,
+    }) =>
+        Container(
+          padding: EdgeInsets.all(wide ? 26 : 20),
+          decoration: BoxDecoration(
+            color: Brand.surface,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+                color: main ? Brand.red : Brand.border, width: main ? 2 : 1),
+            boxShadow: main ? Brand.shadowFloating : Brand.shadowResting,
+          ),
+          child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                top,
+                const SizedBox(height: 18),
+                const Divider(height: 1, color: Brand.hairline),
+                const SizedBox(height: 18),
+                ...body,
+                if (wide) const Spacer(),
+                const SizedBox(height: 6),
+                Text(foot,
+                    style: const TextStyle(
+                        fontSize: 12.5, height: 1.5, color: Brand.inkMuted)),
+              ]),
+        );
+
+    final free = card(
+      main: true,
+      top: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Text('Free',
+              style: TextStyle(
+                  fontWeight: FontWeight.w800, fontSize: wide ? 22 : 20)),
+          const SizedBox(width: 10),
+          pill('WHERE EVERY SPACE STARTS', on: true),
+        ]),
+        const SizedBox(height: 14),
+        price('€0', 'always'),
+        const SizedBox(height: 6),
+        const Text('Claim your page and make it yours.',
+            style: TextStyle(fontSize: 13.5, color: Brand.inkSecondary)),
       ]),
+      body: [for (final t in _freeGets) line(t)],
+      foot: 'No card needed. We check you are with the team, then the page '
+          'is yours to manage.',
     );
+    final verified = card(
+      main: false,
+      top: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Text('Verified',
+              style: TextStyle(
+                  fontWeight: FontWeight.w800, fontSize: wide ? 22 : 20)),
+          const SizedBox(width: 6),
+          const Icon(Icons.verified, color: Brand.success, size: 20),
+          const SizedBox(width: 10),
+          pill('OPTIONAL'),
+        ]),
+        const SizedBox(height: 14),
+        price('€99', 'a year'),
+        const SizedBox(height: 6),
+        const Text('Everything in Free, plus:',
+            style: TextStyle(fontSize: 13.5, color: Brand.inkSecondary)),
+      ]),
+      body: [for (final t in _verifiedAdds) line(t, plus: true)],
+      foot: 'Add it when you claim, or any time later from your Owner '
+          'account. Billed once a year, cancel any time.',
+    );
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Text('Two ways to be on Nomadwise',
+          style: TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: wide ? 22 : 19,
+              letterSpacing: -0.3)),
+      const SizedBox(height: 6),
+      Text(
+          'Claiming your page is free. Verified is an optional extra for '
+          'spaces that want more, now or later.',
+          style: TextStyle(
+              fontSize: wide ? 14.5 : 13.5,
+              height: 1.5,
+              color: Brand.inkSecondary)),
+      SizedBox(height: wide ? 20 : 16),
+      if (wide)
+        IntrinsicHeight(
+          child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Expanded(child: free),
+            const SizedBox(width: 20),
+            Expanded(child: verified),
+          ]),
+        )
+      else ...[
+        free,
+        const SizedBox(height: 16),
+        verified,
+      ],
+    ]);
   }
 }
 

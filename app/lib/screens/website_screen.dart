@@ -18,6 +18,7 @@ import '../widgets/ui.dart';
 import 'claim_journeys_screen.dart';
 import 'email_log_screen.dart';
 import 'listing_updates_screen.dart';
+import 'owner_insights_screen.dart';
 import 'owner_screen.dart';
 import 'space_trail_screen.dart';
 import 'venue_detail.dart';
@@ -1163,6 +1164,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       'paid' => [
           _previewCard(),
           _journeysCard(),
+          _insightsCard(),
           _emailsCard(),
           if (_held.isNotEmpty) ...[
             _ownersSection('Waiting for your decision', _held.length),
@@ -2852,6 +2854,30 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
           trailing: const Icon(Icons.chevron_right, color: Brand.inkMuted),
           onTap: () => Navigator.of(context).push(MaterialPageRoute(
               builder: (_) => const EmailLogScreen())),
+        ),
+      );
+
+  /// The way into What owners tell us: answers to the quick questions
+  /// in the Owner account.
+  Widget _insightsCard() => Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        decoration: BoxDecoration(
+          color: Brand.surface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Brand.border),
+        ),
+        child: ListTile(
+          leading: const Icon(Icons.insights_outlined, color: Brand.accent),
+          title: const Text('What owners tell us',
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+          subtitle: const Text(
+              'Answers to the quick questions in the Owner account: how '
+              'people find them, what would help, what they would pay for, '
+              'monthly or yearly.',
+              style: TextStyle(fontSize: 12.5, color: Brand.inkSecondary)),
+          trailing: const Icon(Icons.chevron_right, color: Brand.inkMuted),
+          onTap: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => const OwnerInsightsScreen())),
         ),
       );
 

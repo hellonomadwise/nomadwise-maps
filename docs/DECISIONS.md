@@ -1056,3 +1056,36 @@ different number, "WhatsApp the space" for the number on their page.
 Each opens a chat with a short hello already typed. A number typed
 without its country code gets the space's country code. No button
 shows when there is no number.
+
+## 29 Sep 2026: quick questions in the Owner account
+
+To learn what owners value and would pay for, without calls: the
+Owner account shows one small card, "Help shape your Owner account",
+with one question answered by tapping (or "Something else" in their
+own words). At most one new question every 3 days unless the owner
+asks for another; "Not now" puts a question away for 30 days. Answers
+show in the control centre under Owners, "What owners tell us",
+counted per answer with every own-words answer and who said what.
+
+The first nine questions (migration 104, editable in the
+owner_questions table): how people find them, what would help most,
+which extras are useful, monthly or yearly, a monthly and yearly
+price side by side (9 a month or 90 a year, the same money, to test
+the format and not the amount), a featured spot at a randomly picked
+monthly price per space (5, 9, 15, 25 or 39, the same for that space
+every time) to see how the answer moves with price, marketing spend,
+what a member spends with them, and who decides. Prices show in euro
+for euro countries, pounds in the UK, dollars elsewhere.
+
+## 29 Sep 2026: Free first on the claim page
+
+Owners arrive from "List for free" on nomadwise.io, and the claim page
+opened with a €99 box beside the search, which read like a bait and
+switch. Steps 1 (find or add your space) now show "Two ways to be on
+Nomadwise" below the search: Free first (red border, "Where every
+space starts", €0 always, what it gives) and Verified beside it
+("Optional", €99 a year, everything in Free plus its extras), stacked
+Free first on a phone. The ordering benefit now says it plainly:
+Verified spaces are always shown above free ones in their city and
+area, "which counts for more as more spaces join", since a first space
+in a new area (Westerwelle, Arusha) has nobody to be above yet.
