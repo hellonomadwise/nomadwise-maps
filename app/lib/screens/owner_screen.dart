@@ -41,7 +41,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
   List<Map<String, dynamic>> _venues = [];
 
   // ---- founders' preview (?owner&preview=<slug>) ----
-  bool get _preview => widget.previewKey != null;
+  bool get _isPreview => widget.previewKey != null;
   Map<String, dynamic>? _previewBase; // the listing as it is
   // What the owner would see: 'waiting_free' / 'waiting_paid' (claimed,
   // not checked yet: the blurred account), 'free' or 'verified'.
@@ -157,7 +157,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
   /// Keep the edits as a draft, quietly. Nothing changes on the page;
   /// the editor is not reloaded (that would move the cursor).
   Future<void> _autosave() async {
-    if (_preview) return;
+    if (_isPreview) return;
     final v = _venue;
     if (v == null || !_dirty || _saving || _autosaving) return;
     if (!_supabase.signedIn) return;
@@ -190,7 +190,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
 
   /// Save now, then go: for links that leave the page.
   Future<void> _saveThenOpen(String url) async {
-    if (_preview) {
+    if (_isPreview) {
       setState(() => _savedNote = 'Preview: this would open $url');
       return;
     }
@@ -229,7 +229,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
       if (mounted) setState(() => _loading = false);
       return;
     }
-    if (_preview) return _loadPreview();
+    if (_isPreview) return _loadPreview();
     try {
       final rows = await _supabase.ownerVenues();
       final pending = await _supabase.ownerPendingClaims();
@@ -479,7 +479,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
   Future<void> _save({required bool submit}) async {
     final v = _venue;
     if (v == null) return;
-    if (_preview) {
+    if (_isPreview) {
       setState(() => _savedNote = 'Preview: nothing is saved. For the '
           'owner this would ${submit ? 'send the changes to you for review' : 'save a draft'}.');
       return;
@@ -517,7 +517,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
   }
 
   Future<void> _addPhotos() async {
-    if (_preview) {
+    if (_isPreview) {
       setState(() => _savedNote = 'Preview: photos cannot be added here.');
       return;
     }
@@ -614,7 +614,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
               child: CircularProgressIndicator(color: Brand.red));
         }
         if (!_supabase.signedIn) return _signIn(wide);
-        if (_preview) {
+        if (_isPreview) {
           if (_previewBase == null) {
             return Center(
                 child: Padding(
