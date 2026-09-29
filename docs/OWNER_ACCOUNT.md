@@ -73,8 +73,9 @@ the message rides in the unused "Nomadwise Offers" text field.
    "Prices" section) and each is set to hide when the field is empty
    (Conditional visibility: field is set). Pages without owner text
    then look exactly as today.
-2. **The advert slot.** Give the sidebar advert element the ID
-   `advert-slot`. Add a hidden Text Block anywhere on the template,
+2. **The advert slot.** Give each sidebar advert wrapper (the two
+   "Collection List Wrapper 18", desktop and phone) the custom
+   attribute `data-advert-slot` = `yes`. Add a hidden Text Block anywhere on the template,
    bind it to "Nomadwise Offers", set its ID to `owner-message` and
    `display: none`. The site-wide footer snippet (below) reads it and
    draws the owner's card in place of the advert when the field has a
@@ -87,8 +88,8 @@ Add this to the site-wide footer code, after the claim-link snippet:
 <script>
 document.addEventListener('DOMContentLoaded', function () {
   var src = document.getElementById('owner-message');
-  var slot = document.getElementById('advert-slot');
-  if (!src || !slot) return;
+  var slots = document.querySelectorAll('[data-advert-slot], #advert-slot');
+  if (!src || !slots.length) return;
   var raw = (src.textContent || '').trim();
   if (!raw || raw.charAt(0) !== '{') return;
   var m; try { m = JSON.parse(raw); } catch (e) { return; }
@@ -97,7 +98,7 @@ document.addEventListener('DOMContentLoaded', function () {
     return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
   var name = (document.querySelector('h1') || {}).textContent || 'this space';
   var url = /^https?:\/\//.test(m.url || '') ? m.url : '';
-  slot.innerHTML =
+  var card =
     '<div style="background:#E8F8F9;border:1px solid #ADE9EC;border-radius:14px;padding:18px 20px;">' +
     '<div style="font-size:11px;letter-spacing:.08em;font-weight:700;color:#004854;text-transform:uppercase;">From ' + esc(name) + '</div>' +
     '<div style="font-size:12px;color:#5C6773;margin-top:6px;">' + esc(m.kind || 'Event') + '</div>' +
@@ -105,6 +106,12 @@ document.addEventListener('DOMContentLoaded', function () {
     (m.body ? '<div style="font-size:14px;line-height:1.5;margin-top:6px;color:#142032;">' + esc(m.body) + '</div>' : '') +
     (url ? '<a href="' + esc(url) + '" rel="nofollow noopener" target="_blank" style="display:inline-block;margin-top:12px;background:#004854;color:#fff;font-weight:700;padding:10px 16px;border-radius:4px;text-decoration:none;">' + esc(m.cta || 'Find out more') + '</a>' : '') +
     '</div>';
+  // Also where no advert runs for that place: a list switched off by
+  // Webflow's conditional visibility is shown again, holding the card.
+  slots.forEach(function (s) {
+    s.classList.remove('w-condition-invisible');
+    s.innerHTML = card;
+  });
 });
 </script>
 ```

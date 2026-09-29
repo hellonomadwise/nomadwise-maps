@@ -164,6 +164,9 @@ ThemeData nomadwiseTheme() {
       foregroundColor: Brand.accent,
     ),
     inputDecorationTheme: InputDecorationTheme(
+      // In boxes taller than one line, the label sits at the top left,
+      // where the text starts, instead of floating in the middle.
+      alignLabelWithHint: true,
       filled: true,
       fillColor: Brand.surface,
       hintStyle: const TextStyle(color: Brand.inkMuted, fontSize: 14),
