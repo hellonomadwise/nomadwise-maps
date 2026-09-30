@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -483,8 +484,12 @@ class _MapScreenState extends State<MapScreen> {
     // ignore it (timeout), it may return next visit; any tap ends it.
     // Never for the founders (they live in the admin screens and
     // the nudge would keep popping over them), and only while the
-    // map itself is on screen.
+    // map itself is on screen. Phones and tablets only: on a computer
+    // there is no home screen to add it to (Leonie, 30 Sep 2026).
+    final onPhone = defaultTargetPlatform == TargetPlatform.iOS ||
+        defaultTargetPlatform == TargetPlatform.android;
     if (kIsWeb &&
+        onPhone &&
         visits >= 2 &&
         !(prefs.getBool('install_prompt_done') ?? false) &&
         mounted &&
