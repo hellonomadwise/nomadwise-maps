@@ -26,7 +26,7 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
   String? _error;
   bool _loading = false;
   int _days = 7;
-  int _segment = 0; // 0 everyone · 1 friends · 2 customers
+  int _segment = 0; // 0 everyone · 1 friends · 2 customers · 3 owners
 
   // Active cities and the coin economy come from their own sources.
   Map<String, dynamic>? _economy;
@@ -81,6 +81,7 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
   String get _segKey => switch (_segment) {
         1 => 'friends',
         2 => 'customers',
+        3 => 'owners',
         _ => 'all',
       };
 
@@ -251,6 +252,7 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
       final isFriend = _friendUserIds.contains(uid);
       if (_segment == 1 && !isFriend) continue;
       if (_segment == 2 && (isFriend || _ownerUserIds.contains(uid))) continue;
+      if (_segment == 3 && !_ownerUserIds.contains(uid)) continue;
       final city = a['city'] as String?;
       if (city != null) cityCounts[city] = (cityCounts[city] ?? 0) + 1;
     }
@@ -264,7 +266,8 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
         : _segment == 2
             ? 'customer'
             : 'all';
-    final eco = ecoRaw == null
+    // Owners earn no coins, so the coin economy has no Owners view.
+    final eco = ecoRaw == null || _segment == 3
         ? null
         : ecoRaw.containsKey('all')
             ? (ecoRaw[segEco] is Map
@@ -568,6 +571,9 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
                   if (_segment == 2)
                     'Showing customers only (friend and owner devices '
                         'hidden).',
+                  if (_segment == 3)
+                    'Showing owners only: devices used by accounts that run '
+                        'a space.',
                 ].join(' '),
                 style: const TextStyle(fontSize: 11.5, color: Brand.inkFaint)),
           ],
@@ -709,6 +715,7 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
         seg(0, 'Everyone'),
         seg(1, 'Friends'),
         seg(2, 'Customers'),
+        seg(3, 'Owners'),
       ]),
     );
   }

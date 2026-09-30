@@ -1293,3 +1293,12 @@ Everything from the admin wish list, built together:
   limit.
 - The title bar just says "Control centre"; the To do line replaced the
   "N to do" badge so the buttons fit on a phone.
+
+## 30 Sep 2026: Owners on the Analytics page
+
+The audience switch on Analytics is now Everyone, Friends, Customers and
+Owners (Jonathan). Owners shows only the devices used by owner accounts
+(people who run a space), so we can see how owners use the app and
+their Owner account; Customers still leaves them out. Migration 110
+adds p_segment 'owners' to admin_analytics; the coin economy has no
+Owners view, as owners earn no coins.
