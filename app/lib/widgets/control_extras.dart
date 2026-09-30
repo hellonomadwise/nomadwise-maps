@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../screens/google_usage_screen.dart';
 import '../services/supabase_service.dart';
 import '../theme.dart';
 
@@ -23,8 +24,10 @@ class _Job {
 
 const _jobs = [
   _Job('Nightly jobs', 'enrich.yml', Duration(hours: 27)),
-  _Job('Website push', 'webflow_push.yml', Duration(hours: 1)),
-  _Job('Stripe plans', 'stripe_sync.yml', Duration(hours: 3)),
+  // GitHub runs scheduled jobs on a best-effort basis and often starts
+  // the frequent ones late, so these only turn amber after a real gap.
+  _Job('Website push', 'webflow_push.yml', Duration(hours: 3)),
+  _Job('Stripe plans', 'stripe_sync.yml', Duration(hours: 8)),
   _Job('App build', 'build.yml', Duration(days: 3650)),
 ];
 
@@ -170,6 +173,18 @@ class _HealthButtonState extends State<HealthButton> {
                 for (final j in _jobs) _jobRow(j),
                 const Divider(height: 22, color: Brand.hairline),
                 _googleRow(),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        Navigator.of(context).push(MaterialPageRoute(
+                            builder: (_) => const GoogleUsageScreen()));
+                      },
+                      icon: const Icon(Icons.receipt_long_outlined, size: 16),
+                      label: const Text(
+                          'What it was spent on, and pause or limit it')),
+                ),
                 const SizedBox(height: 8),
                 Align(
                   alignment: Alignment.centerRight,
@@ -198,7 +213,9 @@ class _HealthButtonState extends State<HealthButton> {
                     'Failed ${_when(r.at)}')
                 : r.isLate
                     ? (Icons.schedule, Brand.goldTextDark,
-                        'Last ran ${_when(r.at)}, later than expected')
+                        'Last ran ${_when(r.at)}. GitHub sometimes starts '
+                            'scheduled jobs late; worth a look if it stays '
+                            'like this')
                     : (Icons.check_circle, Brand.success,
                         'Ran fine ${_when(r.at)}');
     return Padding(

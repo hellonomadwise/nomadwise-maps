@@ -42,9 +42,14 @@ class GoogleMeter extends http.BaseClient {
   static double _mine = 0; // this visitor since the last check
   static DateTime? _checkedAt;
   static bool _checking = false;
+  // Visitors' lookups paused by a founder (Google calls page,
+  // migration 111): the app then shows the saved details instead.
+  static bool _appPaused = false;
 
-  /// True once today's Google lookups have used the daily limit.
+  /// True once today's Google lookups have used the daily limit, or
+  /// while visitors' lookups are paused.
   static bool get paused {
+    if (_appPaused) return true;
     final lim = _limit;
     return lim != null && _spent + _mine >= lim;
   }
@@ -60,6 +65,7 @@ class GoogleMeter extends http.BaseClient {
         _spent = (b['spent_gbp'] as num?)?.toDouble() ?? 0;
         _limit = (b['limit_gbp'] as num).toDouble();
         _fx = (b['fx'] as num?)?.toDouble() ?? 0.75;
+        _appPaused = (b['paused'] is List) && (b['paused'] as List).contains('app');
         _mine = 0;
       }
       _checkedAt = DateTime.now();

@@ -1302,3 +1302,23 @@ Owners (Jonathan). Owners shows only the devices used by owner accounts
 their Owner account; Customers still leaves them out. Migration 110
 adds p_segment 'owners' to admin_analytics; the coin economy has no
 Owners view, as owners earn no coins.
+
+## 30 Sep 2026: Google costs explained, with a limit and pauses
+
+"What caused £1.26 today?" (Jonathan). The Google calls page now
+explains each day job by job: what the job costs, its share, the calls
+behind it in plain words ("99 × name, type, open or closed, photo list",
+Place Details Pro) with each line's price, and what the job is for.
+Earlier days open the same explanation with a tap; the month shows the
+cost per job. From the same page (migration 111):
+- the daily limit can be changed (£1 to £500; was a database edit);
+- any job can be paused (nightly refresh, website sync, website push,
+  photo suggestions, photo check, visitors in the app). A paused job
+  asks Google nothing and the others carry on; the jobs read the pauses
+  from google_budget() before every call (scripts/google_meter.py), the
+  app likewise (GoogleMeter), where the map still works and saved
+  details show instead.
+The health check links to it ("What it was spent on, and pause or limit
+it"). Its amber warnings for the website push and Stripe jobs now wait
+3 and 8 hours: GitHub starts frequent scheduled jobs late as a matter of
+course, which is not a fault.

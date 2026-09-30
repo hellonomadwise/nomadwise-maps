@@ -67,7 +67,7 @@ PRICE_USD = {
     'Nearby Search Enterprise + Atmosphere': 40,
     'Autocomplete Requests': 2.83,
 }
-_budget = {'spent': 0.0, 'limit': None, 'fx': 0.75}
+_budget = {'spent': 0.0, 'limit': None, 'fx': 0.75, 'paused': []}
 _run_gbp = 0.0
 _unsaved = 0
 _blocked = 0
@@ -134,6 +134,12 @@ def _metered(req, *a, **kw):
         _blocked += 1
         raise DailyLimitReached(
             f'daily Google limit of £{lim} reached; not calling Google')
+    # A founder can pause one job from the Google calls page (migration
+    # 111): it then asks Google nothing, the other jobs carry on.
+    if _source in (_budget.get('paused') or []):
+        _blocked += 1
+        raise DailyLimitReached(
+            f'"{_source}" is paused in the app (Google calls); not calling Google')
     row = _counts.setdefault(line, [0, 0])
     try:
         resp = _real_urlopen(req, *a, **kw)
@@ -198,6 +204,7 @@ def _refresh_budget():
         _budget['spent'] = float(b.get('spent_gbp') or 0)
         _budget['limit'] = float(b['limit_gbp'])
         _budget['fx'] = float(b.get('fx') or 0.75)
+        _budget['paused'] = [str(x) for x in (b.get('paused') or [])]
 
 
 def _flush():
@@ -206,7 +213,8 @@ def _flush():
         print('Google calls this run (' + _source + '):',
               json.dumps(summary, indent=2))
     if _blocked:
-        print(f'Daily Google limit reached: {_blocked} calls not made.')
+        print(f'Daily Google limit reached or job paused: {_blocked} calls '
+              'not made.')
     _save()
 
 

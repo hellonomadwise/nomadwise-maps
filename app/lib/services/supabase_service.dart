@@ -746,6 +746,15 @@ class SupabaseService {
     }
   }
 
+  /// Admin: change the daily Google limit ('places_gbp_per_day', in £)
+  /// or pause a job ('pause:<job>', 1 = paused, 0 = running).
+  /// Returns the budget as it now stands (migration 111).
+  Future<Map<String, dynamic>?> setGoogleControl(String key, num value) async {
+    final r = await _db.rpc('admin_set_google_control',
+        params: {'p_key': key, 'p_value': value});
+    return r is Map ? Map<String, dynamic>.from(r) : null;
+  }
+
   /// Admin: Google calls per day, job and bill line, newest first.
   Future<List<Map<String, dynamic>>> apiUsage({int days = 35}) async {
     final since = DateTime.now()
