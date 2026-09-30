@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../services/supabase_service.dart';
 import '../theme.dart';
+import 'ui.dart';
 
 /// Owner account, "Plan & billing": the owner runs their own plan.
 /// Their plan and its status, the next payment, the card on file, every
@@ -646,17 +647,7 @@ class _BillingPanelState extends State<BillingPanel> {
                   style: TextStyle(fontSize: 12.5, color: Brand.inkSecondary)),
             ),
           for (final l in lines)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Icon(plus ? Icons.add_circle : Icons.check_circle,
-                    size: 16, color: plus ? Brand.red : Brand.success),
-                const SizedBox(width: 8),
-                Expanded(
-                    child: Text(l,
-                        style: const TextStyle(fontSize: 13, height: 1.4))),
-              ]),
-            ),
+            PlanFeatureRow(l, extra: plus, fontSize: 13.5),
           if (action != null) ...[const SizedBox(height: 8), action],
         ]),
       );

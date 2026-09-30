@@ -12,6 +12,7 @@ import '../services/ua_stub.dart' if (dart.library.html) '../services/ua_web.dar
     as ua;
 import '../theme.dart';
 import '../widgets/phone_field.dart';
+import '../widgets/ui.dart' show PlanFeatureRow;
 
 /// Claim your space: the owner's way in.
 ///
@@ -1204,21 +1205,8 @@ class _ClaimScreenState extends State<ClaimScreen> {
 
   /// Free and Verified side by side (stacked on a phone), Free first.
   Widget _plansOverview(bool wide) {
-    Widget line(String text, {bool plus = false}) => Padding(
-          padding: const EdgeInsets.only(bottom: 11),
-          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Padding(
-              padding: const EdgeInsets.only(top: 1),
-              child: Icon(plus ? Icons.add_circle : Icons.check_circle,
-                  size: 18, color: plus ? Brand.red : Brand.success),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(text,
-                  style: TextStyle(fontSize: wide ? 14 : 13.5, height: 1.45)),
-            ),
-          ]),
-        );
+    Widget line(String text, {bool plus = false}) =>
+        PlanFeatureRow(text, extra: plus, fontSize: wide ? 14 : 13.5);
     Widget pill(String text, {bool on = false}) => Container(
           padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
           decoration: BoxDecoration(

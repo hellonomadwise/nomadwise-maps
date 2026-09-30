@@ -379,3 +379,58 @@ class PrimaryCta extends StatelessWidget {
     );
   }
 }
+
+/// One line of what a plan includes (claim page and Plan & billing).
+/// Free lines get a plain green tick. Verified extras each get their
+/// own small icon in a soft green circle, the colour of the Verified
+/// badge: it reads as "what you gain", where red plus signs read as a
+/// warning (Jonathan, 30 Sep 2026).
+class PlanFeatureRow extends StatelessWidget {
+  final String text;
+  final bool extra;
+  final double fontSize;
+  const PlanFeatureRow(this.text,
+      {super.key, this.extra = false, this.fontSize = 13.5});
+
+  static IconData iconFor(String text) {
+    final t = text.toLowerCase();
+    if (t.contains('badge')) return Icons.verified_outlined;
+    if (t.contains('above')) return Icons.trending_up_rounded;
+    if (t.contains('enquir')) return Icons.mail_outline_rounded;
+    if (t.contains('advert') || t.contains('offer') || t.contains('event')) {
+      return Icons.campaign_outlined;
+    }
+    return Icons.auto_awesome_outlined;
+  }
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          if (extra)
+            Container(
+              width: 24,
+              height: 24,
+              alignment: Alignment.center,
+              decoration: const BoxDecoration(
+                  color: Brand.successTint, shape: BoxShape.circle),
+              child: Icon(iconFor(text), size: 14, color: Brand.success),
+            )
+          else
+            const SizedBox(
+              width: 24,
+              height: 22,
+              child: Icon(Icons.check_rounded, size: 19, color: Brand.success),
+            ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(top: extra ? 2 : 1),
+              child: Text(text,
+                  style: TextStyle(
+                      fontSize: fontSize, height: 1.45, color: Brand.ink)),
+            ),
+          ),
+        ]),
+      );
+}
