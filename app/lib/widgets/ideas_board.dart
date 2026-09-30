@@ -126,10 +126,11 @@ class _IdeasBoardState extends State<IdeasBoard> {
   Widget build(BuildContext context) {
     final ideas = _ideas;
     return Container(
-      padding: const EdgeInsets.all(22),
+      padding:
+          EdgeInsets.all(MediaQuery.sizeOf(context).width < 600 ? 16 : 22),
       decoration: BoxDecoration(
         color: Brand.surface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Brand.border),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -145,7 +146,7 @@ class _IdeasBoardState extends State<IdeasBoard> {
           const SizedBox(width: 12),
           const Expanded(
             child: Text('Help us decide what we build next',
-                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 17)),
           ),
         ]),
         const SizedBox(height: 10),
@@ -250,14 +251,14 @@ class _IdeasBoardState extends State<IdeasBoard> {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(8),
         onTap: () => _toggle(i),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             color: on ? Brand.logoTealTint : Brand.surface,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(8),
             border: Border.all(
                 color: on ? Brand.logoNavy : Brand.border, width: on ? 1.6 : 1),
           ),

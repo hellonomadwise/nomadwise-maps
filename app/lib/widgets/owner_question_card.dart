@@ -160,7 +160,7 @@ class _OwnerQuestionCardState extends State<OwnerQuestionCard> {
         padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
         decoration: BoxDecoration(
           color: Brand.surface,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(8),
           border: Border.all(color: Brand.border),
           boxShadow: Brand.shadowResting,
         ),
@@ -236,7 +236,7 @@ class _OwnerQuestionCardState extends State<OwnerQuestionCard> {
               filled: true,
               fillColor: Brand.field,
               border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide.none),
             ),
           ),

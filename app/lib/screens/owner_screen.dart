@@ -2,7 +2,8 @@ import 'dart:async';
 import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show FilteringTextInputFormatter;
+import 'package:flutter/services.dart'
+    show FilteringTextInputFormatter, TextInputFormatter;
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -366,28 +367,34 @@ class _OwnerScreenState extends State<OwnerScreen> {
       ('free', 'Free listing'),
       ('verified', 'Verified'),
     ];
+    // One slim line: the reminder, then the states to look at, which
+    // swipe sideways on a phone instead of taking two rows.
     return Container(
       width: double.infinity,
       color: Brand.ink,
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-      child: Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            const Text('FOUNDER PREVIEW. Nothing here is saved. Show as:',
-                style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: .4)),
-            for (final (key, label) in states)
-              ChoiceChip(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(children: [
+          const Text('PREVIEW, NOTHING IS SAVED',
+              style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: .5)),
+          const SizedBox(width: 12),
+          for (final (key, label) in states)
+            Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: ChoiceChip(
                 label: Text(label),
                 selected: _previewAs == key,
                 showCheckmark: false,
+                visualDensity: VisualDensity.compact,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 selectedColor: Brand.red,
                 backgroundColor: Colors.white,
+                side: BorderSide.none,
                 labelStyle: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -397,7 +404,9 @@ class _OwnerScreenState extends State<OwnerScreen> {
                   _applyPreview();
                 },
               ),
-          ]),
+            ),
+        ]),
+      ),
     );
   }
 
@@ -842,12 +851,15 @@ class _OwnerScreenState extends State<OwnerScreen> {
         ),
       );
 
-  Widget _panel({required Widget child, Color? tint, double pad = 22}) =>
+  /// A white card. On a phone the padding is 16 so the boxes inside
+  /// keep their width; corners are small and crisp everywhere.
+  Widget _panel({required Widget child, Color? tint, double? pad}) =>
       Container(
-        padding: EdgeInsets.all(pad),
+        padding: EdgeInsets.all(pad ??
+            (MediaQuery.sizeOf(context).width < _wideAt ? 16 : 22)),
         decoration: BoxDecoration(
           color: tint ?? Brand.surface,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(8),
           border: Border.all(color: Brand.border),
         ),
         child: child,
@@ -888,7 +900,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
                         const SizedBox(height: 10),
                         const Text('Check your inbox',
                             style: TextStyle(
-                                fontWeight: FontWeight.w800, fontSize: 17)),
+                                fontWeight: FontWeight.w700, fontSize: 16)),
                         const SizedBox(height: 6),
                         Text(
                             'We sent a sign-in link to ${_email.text.trim()}. '
@@ -1012,7 +1024,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
           Flexible(
             child: Text(name,
                 style:
-                    const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+                    const TextStyle(fontWeight: FontWeight.w700, fontSize: 17)),
           ),
           if (where.isNotEmpty) ...[
             const SizedBox(width: 10),
@@ -1032,7 +1044,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
                     ? "You've started claiming your $kind"
                     : "You've claimed your $kind, you're almost there",
                 style:
-                    const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+                    const TextStyle(fontWeight: FontWeight.w700, fontSize: 17)),
             const SizedBox(height: 16),
             _stepsRow(steps, wide),
             const SizedBox(height: 16),
@@ -1150,7 +1162,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
           alignment: Alignment.centerLeft,
           decoration: BoxDecoration(
             color: Brand.surface,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(8),
             border: Border.all(color: Brand.border),
           ),
           child: Text(label,
@@ -1175,7 +1187,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
       section('Your message', ['An event or offer for your page']),
     ]);
     return ClipRRect(
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(8),
       child: Stack(children: [
         Container(
           padding: const EdgeInsets.all(22),
@@ -1195,7 +1207,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
               constraints: const BoxConstraints(maxWidth: 420),
               decoration: BoxDecoration(
                 color: Brand.surface,
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: Brand.border),
                 boxShadow: const [
                   BoxShadow(color: Color(0x14000000), blurRadius: 16)
@@ -1229,7 +1241,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
         _panel(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             const Text('No space on this account yet',
-                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
             const SizedBox(height: 8),
             Text(
                 'You are signed in as ${_supabase.userEmail ?? ''}. A space '
@@ -1316,45 +1328,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
       wide,
       maxWidth: 1180,
       Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Row(children: [
-          const Icon(Icons.storefront_outlined,
-              size: 18, color: Brand.inkSecondary),
-          const SizedBox(width: 8),
-          if (_venues.length > 1)
-            DropdownButton<int>(
-              value: _current,
-              underline: const SizedBox.shrink(),
-              items: [
-                for (var i = 0; i < _venues.length; i++)
-                  DropdownMenuItem(
-                      value: i,
-                      child: Text('${_venues[i]['name']}',
-                          style: const TextStyle(
-                              fontWeight: FontWeight.w700, fontSize: 15)))
-              ],
-              onChanged: (i) {
-                if (i == null) return;
-                setState(() => _current = i);
-                _fillEditor();
-              },
-            )
-          else
-            Text('${v['name']}',
-                style: const TextStyle(
-                    fontWeight: FontWeight.w700, fontSize: 15)),
-          const SizedBox(width: 8),
-          _chip(_verified ? 'Verified' : 'Free listing',
-              _verified ? Brand.success : Brand.inkSecondary),
-          const Spacer(),
-          if (v['webflow_slug'] != null)
-            TextButton.icon(
-                onPressed: () => launchUrl(
-                    Uri.parse(
-                        'https://www.nomadwise.io/coworking/${v['webflow_slug']}'),
-                    mode: LaunchMode.externalApplication),
-                icon: const Icon(Icons.open_in_new, size: 15),
-                label: const Text('See my page')),
-        ]),
+        _spaceHeader(v, wide),
         const SizedBox(height: 14),
         if (wide)
           Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -1369,6 +1343,68 @@ class _OwnerScreenState extends State<OwnerScreen> {
         ],
       ]),
     );
+  }
+
+  /// The space's name, its plan and "See my page". On a phone the link
+  /// goes on its own line under the name, so nothing is cut off; long
+  /// names wrap. The link shows only when the page is live, like the
+  /// emails (a saved page address alone may be a page in the making).
+  Widget _spaceHeader(Map<String, dynamic> v, bool wide) {
+    final pageLive = (v['webflow_slug'] ?? '').toString().isNotEmpty &&
+        v['website_status'] == 'released';
+    const nameStyle = TextStyle(fontWeight: FontWeight.w700, fontSize: 15);
+    final Widget name = _venues.length > 1
+        ? DropdownButton<int>(
+            value: _current,
+            isExpanded: true,
+            underline: const SizedBox.shrink(),
+            items: [
+              for (var i = 0; i < _venues.length; i++)
+                DropdownMenuItem(
+                    value: i,
+                    child: Text('${_venues[i]['name']}',
+                        overflow: TextOverflow.ellipsis, style: nameStyle))
+            ],
+            onChanged: (i) {
+              if (i == null) return;
+              setState(() => _current = i);
+              _fillEditor();
+            },
+          )
+        : Text('${v['name']}', style: nameStyle);
+    final title = Row(children: [
+      const Icon(Icons.storefront_outlined,
+          size: 18, color: Brand.inkSecondary),
+      const SizedBox(width: 8),
+      Flexible(child: name),
+      const SizedBox(width: 8),
+      _chip(_verified ? 'Verified' : 'Free listing',
+          _verified ? Brand.success : Brand.inkSecondary),
+    ]);
+    final Widget? seePage = pageLive
+        ? TextButton.icon(
+            onPressed: () => launchUrl(
+                Uri.parse(
+                    'https://www.nomadwise.io/coworking/${v['webflow_slug']}'),
+                mode: LaunchMode.externalApplication),
+            style: wide
+                ? null
+                : TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 0),
+                    minimumSize: const Size(0, 36)),
+            icon: const Icon(Icons.open_in_new, size: 15),
+            label: const Text('See my page'))
+        : null;
+    if (wide) {
+      return Row(children: [
+        Expanded(child: title),
+        if (seePage != null) ...[const SizedBox(width: 12), seePage],
+      ]);
+    }
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      title,
+      if (seePage != null) ...[const SizedBox(height: 4), seePage],
+    ]);
   }
 
   Widget _chip(String text, Color color) => Container(
@@ -1391,13 +1427,13 @@ class _OwnerScreenState extends State<OwnerScreen> {
     Widget tile((_Tab, IconData, String) it) {
       final on = _tab == it.$1;
       return InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(8),
         onTap: () => setState(() => _tab = it.$1),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
               color: on ? Brand.accentTint : Colors.transparent,
-              borderRadius: BorderRadius.circular(12)),
+              borderRadius: BorderRadius.circular(8)),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
             Icon(it.$2, size: 19, color: on ? Brand.red : Brand.inkSecondary),
             const SizedBox(width: 10),
@@ -1412,7 +1448,45 @@ class _OwnerScreenState extends State<OwnerScreen> {
     }
 
     if (!wide) {
-      return Wrap(spacing: 6, children: items.map(tile).toList());
+      // On a phone: one row of tabs with a line under the chosen one,
+      // like the apps people use every day, instead of big pills
+      // over two rows. Swipes sideways if the screen is narrow.
+      return Container(
+        decoration: const BoxDecoration(
+            border: Border(bottom: BorderSide(color: Brand.hairline))),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(children: [
+            for (final it in items)
+              InkWell(
+                onTap: () => setState(() => _tab = it.$1),
+                child: Container(
+                  padding: const EdgeInsets.fromLTRB(4, 10, 4, 9),
+                  margin: const EdgeInsets.only(right: 18),
+                  decoration: BoxDecoration(
+                      border: Border(
+                          bottom: BorderSide(
+                              color: _tab == it.$1
+                                  ? Brand.red
+                                  : Colors.transparent,
+                              width: 2))),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(it.$2,
+                        size: 17,
+                        color:
+                            _tab == it.$1 ? Brand.red : Brand.inkSecondary),
+                    const SizedBox(width: 6),
+                    Text(it.$3,
+                        style: TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w600,
+                            color: _tab == it.$1 ? Brand.ink : Brand.inkSecondary)),
+                  ]),
+                ),
+              ),
+          ]),
+        ),
+      );
     }
     return _panel(
       pad: 10,
@@ -1471,7 +1545,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
           color: color.withValues(alpha: .08),
-          borderRadius: BorderRadius.circular(12)),
+          borderRadius: BorderRadius.circular(8)),
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Icon(icon, size: 18, color: color),
         const SizedBox(width: 10),
@@ -1488,7 +1562,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
         padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
         decoration: BoxDecoration(
           color: Brand.successTint,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(8),
         ),
         child: Row(children: [
           const Icon(Icons.bookmark_add_outlined, color: Brand.success),
@@ -1553,7 +1627,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
       padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
       decoration: BoxDecoration(
         color: Brand.surface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Brand.border),
       ),
       child: wide
@@ -1575,8 +1649,10 @@ class _OwnerScreenState extends State<OwnerScreen> {
       isDense: true);
 
   /// One price box: the amount only, with the currency shown beside it.
-  Widget _priceField(TextEditingController c, String label) => SizedBox(
-        width: 200,
+  Widget _priceField(TextEditingController c, String label,
+          {double width = 200}) =>
+      SizedBox(
+        width: width,
         // One way of writing numbers: "1.000" and "1,000" both become
         // 1,000, and "3,60" becomes 3.60, when the owner leaves the box
         // (S3-7).
@@ -1592,6 +1668,10 @@ class _OwnerScreenState extends State<OwnerScreen> {
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           inputFormatters: [
             FilteringTextInputFormatter.allow(RegExp(r'[0-9.,kK ]')),
+            // No "1,,2" or "33....3": a second dot or comma in a row is
+            // simply not typed.
+            TextInputFormatter.withFunction((old, now) =>
+                RegExp(r'[.,]\s*[.,]').hasMatch(now.text) ? old : now),
           ],
           decoration: _dec(label, hint: 'Amount').copyWith(
               prefixText: Price.prefixFor(_currency),
@@ -1655,7 +1735,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
               ? null
               : BoxDecoration(
                   color: Brand.bg,
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: Brand.border)),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             if (i > 0) ...[
@@ -1690,17 +1770,23 @@ class _OwnerScreenState extends State<OwnerScreen> {
             ),
           ]),
         ),
-      Row(children: [
-        OutlinedButton.icon(
-            onPressed: _addSection,
-            icon: const Icon(Icons.add, size: 18),
-            label: const Text('Add a section with a heading')),
-        const Spacer(),
-        Text('$total / 3,000',
+      // The count sits under the text, on its own line, so the button
+      // keeps the full width on a phone.
+      Align(
+        alignment: Alignment.centerRight,
+        child: Text('$total of 3,000 characters',
             style: TextStyle(
                 fontSize: 12,
                 color: total > 3000 ? Brand.red : Brand.inkMuted)),
-      ]),
+      ),
+      const SizedBox(height: 10),
+      Align(
+        alignment: Alignment.centerLeft,
+        child: OutlinedButton.icon(
+            onPressed: _addSection,
+            icon: const Icon(Icons.add, size: 18),
+            label: const Text('Add a section with a heading')),
+      ),
     ]);
   }
 
@@ -1829,7 +1915,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
     final editor = _panel(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         const Text('Your listing details',
-            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
+            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
         const SizedBox(height: 4),
         const Text(
             'What nomads read before they choose you. We read every change '
@@ -1850,14 +1936,19 @@ class _OwnerScreenState extends State<OwnerScreen> {
         const SizedBox(height: 10),
         _currencyPicker(),
         const SizedBox(height: 12),
-        Wrap(spacing: 10, runSpacing: 10, children: [
-          if (_venue?['type'] != 'cafe') ...[
-            _priceField(_priceDay, 'Day pass'),
-            _priceField(_priceWeek, 'Week pass'),
-            _priceField(_priceMonth, 'Month pass'),
-          ],
-          _priceField(_priceCoffee, 'Cappuccino'),
-        ]),
+        // Two boxes side by side on a phone, so the prices take half
+        // the scrolling.
+        LayoutBuilder(builder: (context, box) {
+          final w = box.maxWidth < 440 ? (box.maxWidth - 10) / 2 : 200.0;
+          return Wrap(spacing: 10, runSpacing: 10, children: [
+            if (_venue?['type'] != 'cafe') ...[
+              _priceField(_priceDay, 'Day pass', width: w),
+              _priceField(_priceWeek, 'Week pass', width: w),
+              _priceField(_priceMonth, 'Month pass', width: w),
+            ],
+            _priceField(_priceCoffee, 'Cappuccino', width: w),
+          ]);
+        }),
         const SizedBox(height: 18),
         const Text('Opening hours',
             style: TextStyle(fontWeight: FontWeight.w700)),
@@ -1906,7 +1997,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
           for (final p in _photos)
             Stack(children: [
               ClipRRect(
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(8),
                 child: Image.network(p,
                     width: 110, height: 82, fit: BoxFit.cover,
                     errorBuilder: (_, __, ___) => Container(
@@ -2510,7 +2601,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
       return _panel(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           const Text('Your message, in place of an advert',
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
           const SizedBox(height: 8),
           const Text(
               'Verified pages carry the space\'s own event, offer or '
@@ -2533,7 +2624,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
     final editor = _panel(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         const Text('Your message, in place of an advert',
-            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
+            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
         const SizedBox(height: 4),
         const Text(
             'An event, an offer or an announcement. It replaces the advert '

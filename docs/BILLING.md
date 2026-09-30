@@ -24,8 +24,10 @@ says billing tools are being switched on; nothing breaks.
 
 1. **Stripe customer portal.** Stripe: Settings, Billing, Customer
    portal. Turn on: Invoice history; Payment methods (update);
-   Customer information (name, billing address, tax ID); Cancel
-   subscriptions, "At the end of the billing period". Under Business
+   Customer information (name, billing address, tax ID). Leave
+   "Cancel subscriptions" off: owners switch to Free in the Plan &
+   billing tab instead, which keeps them Verified to the end of the
+   paid year, asks for a reason and tells us. Under Business
    information add the Nomadwise logo and colours (#FF444F). Set the
    default redirect link to https://nomadmaps.io/?owner&billing.
    Save.

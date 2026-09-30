@@ -254,10 +254,11 @@ class _BillingPanelState extends State<BillingPanel> {
   Widget _card({required Widget child, Color? border}) => Container(
         width: double.infinity,
         margin: const EdgeInsets.only(bottom: 14),
-        padding: const EdgeInsets.all(20),
+        padding: EdgeInsets.all(
+            MediaQuery.sizeOf(context).width < 600 ? 16 : 20),
         decoration: BoxDecoration(
           color: Brand.surface,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(8),
           border: Border.all(color: border ?? Brand.border),
         ),
         child: child,
@@ -616,7 +617,7 @@ class _BillingPanelState extends State<BillingPanel> {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: current ? Brand.bg : Brand.surface,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(8),
           border: Border.all(
               color: current ? Brand.ink : Brand.border, width: current ? 1.6 : 1),
         ),

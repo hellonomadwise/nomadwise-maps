@@ -239,15 +239,52 @@ ThemeData siteButtons(ThemeData t) {
         shape: WidgetStatePropertyAll(shape),
         textStyle: const WidgetStatePropertyAll(text),
       );
+  // Tighter and sharper, like the apps owners use every day (Jonathan,
+  // 29 Sep 2026: "a bit big, doesn't look sharp"): 42 px buttons,
+  // 15 px text in the boxes, and the same small corners on boxes as on
+  // buttons, instead of 14 px corners next to 4 px ones.
+  ButtonStyle tight(ButtonStyle? base) => over(base).copyWith(
+        padding: const WidgetStatePropertyAll(
+            EdgeInsets.symmetric(horizontal: 16, vertical: 10)),
+        minimumSize: const WidgetStatePropertyAll(Size(0, 42)),
+        textStyle: const WidgetStatePropertyAll(
+            TextStyle(fontFamily: 'Roboto', fontWeight: FontWeight.w600,
+                fontSize: 14.5, letterSpacing: 0.1)),
+      );
+  final box = OutlineInputBorder(
+    borderRadius: BorderRadius.circular(6),
+    borderSide: const BorderSide(color: Brand.border),
+  );
   return t.copyWith(
     filledButtonTheme:
-        FilledButtonThemeData(style: over(t.filledButtonTheme.style)),
+        FilledButtonThemeData(style: tight(t.filledButtonTheme.style)),
     elevatedButtonTheme:
-        ElevatedButtonThemeData(style: over(t.elevatedButtonTheme.style)),
+        ElevatedButtonThemeData(style: tight(t.elevatedButtonTheme.style)),
     outlinedButtonTheme:
-        OutlinedButtonThemeData(style: over(t.outlinedButtonTheme.style)),
+        OutlinedButtonThemeData(style: tight(t.outlinedButtonTheme.style)),
     textButtonTheme: TextButtonThemeData(
         style: (t.textButtonTheme.style ?? const ButtonStyle()).copyWith(
             shape: WidgetStatePropertyAll(shape))),
+    textTheme: t.textTheme.copyWith(
+      bodyLarge: t.textTheme.bodyLarge?.copyWith(fontSize: 15, height: 1.4),
+      titleMedium: t.textTheme.titleMedium?.copyWith(fontSize: 15),
+    ),
+    inputDecorationTheme: t.inputDecorationTheme.copyWith(
+      isDense: true,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
+      labelStyle: const TextStyle(
+          color: Brand.inkSecondary, fontSize: 13, fontWeight: FontWeight.w500),
+      floatingLabelStyle: const TextStyle(
+          color: Brand.inkSecondary, fontSize: 13, fontWeight: FontWeight.w600),
+      border: box,
+      enabledBorder: box,
+      focusedBorder: box.copyWith(
+          borderSide: const BorderSide(color: Brand.ink, width: 1.4)),
+    ),
+    chipTheme: t.chipTheme.copyWith(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+    ),
+    visualDensity: VisualDensity.compact,
   );
 }

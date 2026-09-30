@@ -1197,3 +1197,44 @@ page they now also replace the page's photos (the Images entry had
 not been updated before), with the switch to match. The nightly
 opening-hours fill now covers every page we know, not only those the
 control centre created (Jiboia's hours were empty).
+
+## 29 Sep 2026: emails only link to a live page
+
+The "quick note about your changes" email linked to "Your page as it
+is today" even when the space had no live page yet (seen in Leonie's
+test with Coastal Cowork Collective Ericeira), so the link opened
+nothing. A page address can be saved before the page is live, so the
+owner emails now link to a page only when it is live (the same test as
+the "is live on Nomadwise" email, migration 108). Emails that had a
+link line now leave it out, or say the link follows once it is live.
+The "your changes are on the page" email says, for a space with no
+live page yet, that the changes are approved and will be on the page
+when it goes live.
+Parked (Jonathan, "leave it for now"): an AI-suggested, kind note
+written from what the owner entered when changes are sent back,
+because a note like "these changes aren't good" is not how we want to
+talk to a space. Needs a choice of AI service and a key in the Vault.
+
+## 29 Sep 2026: Owner account on a phone
+
+At the top of the Owner account the "See my page" link was cut off to
+the right of the Verified label on a phone; it now sits on its own line
+under the space's name there, and long names wrap. It also shows only
+when the page is live, like the emails. Under the description, the
+character count ("36 / 3,000") squeezed the "Add a section with a
+heading" button; the count now sits on its own line under the text
+("36 of 3,000 characters") with the button below. Price boxes no
+longer take two dots or commas in a row ("1,,2", "33....3").
+
+## 29 Sep 2026: a tighter, sharper Owner account
+
+Jonathan found the Owner account "a bit big" and not as sharp as
+Slack, Uber or Tripadvisor. The owner screens (Owner account and the
+claim page) now use: 42 px buttons with 14.5 px text; boxes with
+15 px text, tighter padding and 6 px corners (they had 14 px corners
+next to 4 px buttons); cards with 8 px corners and 16 px padding on a
+phone; headings a step lighter. On a phone the four sections are one
+row of tabs with a line under the chosen one (was two rows of big
+pills), prices sit two boxes to a row, and the founders' preview bar is
+one slim line that swipes sideways. The page preview keeps the
+website's own look.
