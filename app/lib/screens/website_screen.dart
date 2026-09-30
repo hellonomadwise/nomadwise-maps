@@ -1628,8 +1628,8 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         count: _closed.length,
         color: Brand.red,
         hint: 'Google reports these places as no longer operating. '
-            'Temporary closures are often worth waiting out; closed for '
-            'good usually means retire. Retire the page (it comes off the '
+            'Temporary closures are often worth waiting out; permanently '
+            'closed usually means retire. Retire the page (it comes off the '
             'site, the address redirects to the city page) or say it is '
             'still open. Checked about monthly.',
         empty: 'No closures waiting. Every page is checked against Google '
@@ -2405,7 +2405,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   // ------------------------------------------------------------ closed
 
   static String _statusWords(String? bs) => switch (bs) {
-        'CLOSED_PERMANENTLY' => 'closed for good',
+        'CLOSED_PERMANENTLY' => 'permanently closed',
         'CLOSED_TEMPORARILY' => 'temporarily closed',
         _ => 'not operating',
       };
@@ -2429,7 +2429,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     final choices = [
       ('all', 'All', _closed.length, Brand.inkSecondary),
       ('temp', 'Temporarily closed', temp.length, Brand.goldTextDark),
-      ('gone', 'Closed for good', gone.length, Brand.red),
+      ('gone', 'Permanently closed', gone.length, Brand.red),
     ];
     return [
       Padding(
@@ -2461,7 +2461,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       if (shown.isEmpty)
         _groupEmpty(_closedFilter == 'temp'
             ? 'Nothing is temporarily closed.'
-            : 'Nothing is closed for good.')
+            : 'Nothing is permanently closed.')
       else
         ...shown.map(_closedCard),
     ];
@@ -2474,7 +2474,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       decoration: BoxDecoration(
           color: temp ? Brand.goldTint : Brand.accentTint,
           borderRadius: BorderRadius.circular(8)),
-      child: Text(temp ? 'TEMPORARY' : 'FOR GOOD',
+      child: Text(temp ? 'TEMPORARY' : 'PERMANENT',
           style: TextStyle(
               fontSize: 10.5,
               fontWeight: FontWeight.w800,
