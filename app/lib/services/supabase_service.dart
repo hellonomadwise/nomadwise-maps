@@ -588,6 +588,32 @@ class SupabaseService {
     }
   }
 
+  /// Admin only: the Analytics page, counted in the database over
+  /// every recorded action (migration 109). [segment]: 'all',
+  /// 'friends' or 'customers'. Days are cut at the viewer's midnight.
+  Future<Map<String, dynamic>?> adminAnalytics(
+      {int days = 14, String segment = 'all'}) async {
+    final res = await _db.rpc('admin_analytics', params: {
+      'p_days': days,
+      'p_segment': segment,
+      'p_tz_min': DateTime.now().timeZoneOffset.inMinutes,
+    });
+    return res is Map ? Map<String, dynamic>.from(res) : null;
+  }
+
+  /// Admin only: one visitor's latest actions, newest first.
+  Future<List<Map<String, dynamic>>> adminVisitorTrail(String anon) async {
+    try {
+      final res =
+          await _db.rpc('admin_visitor_trail', params: {'p_anon': anon});
+      return (res as List? ?? const [])
+          .map((r) => Map<String, dynamic>.from(r as Map))
+          .toList();
+    } catch (_) {
+      return const [];
+    }
+  }
+
   /// Admin only: recent app activity for the analytics screen.
   Future<List<Map<String, dynamic>>> adminEvents({int days = 7}) async {
     try {
@@ -1246,6 +1272,63 @@ class SupabaseService {
     } catch (_) {
       return [];
     }
+  }
+
+  /// Admin: owners who switched their Verified renewal off (or back
+  /// on) in the last [days] days, newest first, with the space's name.
+  Future<List<Map<String, dynamic>>> billingSwitches({int days = 90}) async {
+    try {
+      final since = DateTime.now()
+          .toUtc()
+          .subtract(Duration(days: days))
+          .toIso8601String();
+      final rows = await _db
+          .from('owner_billing_events')
+          .select('action, reason, created_at, venue_id, venue:venues(name, city)')
+          .inFilter('action', ['cancel', 'resume'])
+          .gte('created_at', since)
+          .order('created_at', ascending: false)
+          .limit(50);
+      return (rows as List)
+          .map((r) => Map<String, dynamic>.from(r))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Admin: the control centre's search. Spaces by name, page address
+  /// or owner email, and claims by space, owner name or email.
+  Future<({List<Map<String, dynamic>> spaces, List<Map<String, dynamic>> claims})>
+      controlSearch(String query) async {
+    // Characters that would break the filter syntax are dropped.
+    final q = query.replaceAll(RegExp(r'[,()%*"\\]'), ' ').trim();
+    if (q.length < 2) return (spaces: <Map<String, dynamic>>[], claims: <Map<String, dynamic>>[]);
+    final like = '%$q%';
+    List<Map<String, dynamic>> spaces = [];
+    List<Map<String, dynamic>> claims = [];
+    try {
+      final rows = await _db
+          .from('venues')
+          .select(_websiteCols)
+          .or('name.ilike.$like,webflow_slug.ilike.$like,'
+              'listing_owner_email.ilike.$like,city.ilike.$like')
+          .order('name')
+          .limit(25);
+      spaces = (rows as List).map((r) => Map<String, dynamic>.from(r)).toList();
+    } catch (_) {}
+    try {
+      final rows = await _db
+          .from('listing_claims')
+          .select('id, venue_id, space_name, space_city, owner_name, '
+              'owner_email, plan, status, created_at')
+          .or('space_name.ilike.$like,owner_name.ilike.$like,'
+              'owner_email.ilike.$like')
+          .order('created_at', ascending: false)
+          .limit(15);
+      claims = (rows as List).map((r) => Map<String, dynamic>.from(r)).toList();
+    } catch (_) {}
+    return (spaces: spaces, claims: claims);
   }
 
   /// Approved claims (venue, when, and who with their phone), newest

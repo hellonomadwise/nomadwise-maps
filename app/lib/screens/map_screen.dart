@@ -1213,6 +1213,21 @@ class _MapScreenState extends State<MapScreen> {
       // A new place from Google: fly there, ready to screen.
       final live = await _places.details(result.placeId);
       if (live?.lat == null || !mounted) return;
+      // How many of our spaces are near what they searched for: places
+      // searched with few or none show where to sweep next (Analytics).
+      final sLat = live!.lat!;
+      final sLng = live.lng!;
+      final near = _venues
+          .where((v) =>
+              v.lat != null &&
+              v.lng != null &&
+              Venue.haversineM(sLat, sLng, v.lat!, v.lng!) <= 5000)
+          .length;
+      Analytics.capture('place_searched', {
+        'query': result.main,
+        if (result.secondary.isNotEmpty) 'where': result.secondary,
+        'spaces_near': near,
+      });
       final d = DiscoveredPlace(
         placeId: result.placeId,
         name: live?.displayName ?? result.main,

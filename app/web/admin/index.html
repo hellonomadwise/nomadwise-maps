@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Control centre · Nomadwise Maps</title>
+<meta name="robots" content="noindex">
+<!-- nomadmaps.io/admin is the team's own link; the app itself reads the
+     ?admin door. This page only forwards, keeping any extra parameters
+     (?section, and the sign-in tokens that arrive in the hash). -->
+<script>
+  var q = location.search ? location.search.replace(/^\?/, '&') : '';
+  location.replace('/?admin' + q + location.hash);
+</script>
+<meta http-equiv="refresh" content="0; url=/?admin">
+</head>
+<body>Opening the control centre…</body>
+</html>

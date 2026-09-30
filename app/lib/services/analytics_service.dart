@@ -74,6 +74,17 @@ class Analytics {
     }
   }
 
+  static String _referrerHost() {
+    try {
+      final host = Uri.tryParse(ua.referrer())?.host ?? '';
+      // Moving around inside the app is not a source.
+      if (host.isEmpty || host == Uri.base.host) return '';
+      return host;
+    } catch (_) {
+      return '';
+    }
+  }
+
   static final _botPattern = RegExp(
       r'bot|crawl|spider|slurp|headless|lighthouse|phantom|selenium|'
       r'puppeteer|playwright|bingpreview|facebookexternalhit|'
@@ -152,6 +163,10 @@ class Analytics {
             : ua.userAgent(),
       if (event == 'app_opened' && await _isDatacenter()) 'dc': true,
       if (event == 'app_opened') ..._sourceParams(),
+      // The site that linked here (host only), for "where visitors
+      // come from"; empty for typed links and many apps.
+      if (event == 'app_opened' && _referrerHost().isNotEmpty)
+        'referrer': _referrerHost(),
       ...?props,
     };
     _mirror(event, id, merged); // in-app admin analytics, best effort

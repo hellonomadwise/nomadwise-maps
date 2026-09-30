@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'config.dart';
+import 'screens/admin_gate.dart';
 import 'screens/claim_screen.dart';
 import 'screens/owner_screen.dart';
 import 'screens/enquiry_screen.dart';
@@ -58,6 +59,8 @@ class NomadwiseMapsApp extends StatelessWidget {
     //   ?owner           the Owner account (manage my listing)
     //   ?update=<slug>   Something need updating? (anyone; owners are
     //                    pointed to claiming)
+    //   ?admin[=analytics|users]  the team's control centre (also
+    //                    nomadmaps.io/admin); team accounts only
     // Anything else is the map.
     final enquire = _param('enquire');
     final Widget home;
@@ -69,6 +72,8 @@ class NomadwiseMapsApp extends StatelessWidget {
       home = const ClaimedScreen();
     } else if (_has('claim') || _path.startsWith('/claim')) {
       home = ClaimScreen(seed: _param('claim'), from: _param('from'));
+    } else if (_has('admin') || _path.startsWith('/admin')) {
+      home = AdminGate(section: _param('admin'));
     } else if (_has('owner') || _path.startsWith('/owner')) {
       home = OwnerScreen(previewKey: _param('preview'));
     } else {

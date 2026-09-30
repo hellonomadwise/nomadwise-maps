@@ -1238,3 +1238,58 @@ row of tabs with a line under the chosen one (was two rows of big
 pills), prices sit two boxes to a row, and the founders' preview bar is
 one slim line that swipes sideways. The page preview keeps the
 website's own look.
+
+## 30 Sep 2026: the team's own link
+
+nomadmaps.io/admin opens the control centre straight away, without
+the map and its menu (Jonathan). Signed out, it shows one "Continue
+with Google" button that comes back to the same place; a non-team
+account gets a polite note and the way to the map (the database still
+checks every call, the link grants nothing). nomadmaps.io/?admin=analytics
+and ?admin=users open those screens directly. Opened this way, the
+control centre's title bar has a tools menu (Analytics, Users, Review
+submissions, Feedback inbox, Open the map). The control centre's title
+now reads "Control centre" (was "nomadwise.io"), like the menu.
+
+## 30 Sep 2026: control centre and analytics upgrade
+
+Everything from the admin wish list, built together:
+
+- Analytics counts in the database (migration 109, admin_analytics):
+  the page used to download at most 2,000 recorded actions and count
+  them on the phone, which quietly undercounted once traffic grew. Same
+  rules for who counts (team devices, bots and data-centre visitors that
+  never act like a person are left out; Friends and Customers views).
+- A 7, 30 or 90 day choice, each headline number with its change on the
+  period before (green up, red down, "new").
+- Where visitors come from: utm_source or ref on the link, else the site
+  that sent them (recorded from today as 'referrer' on app_opened),
+  grouped into Google, Instagram, nomadwise.io, WhatsApp and so on.
+- The owners' funnel: claim page opened, form started, claimed free,
+  went to payment, paid for Verified, with the period before.
+- Searched for, little found: every Google place search now records how
+  many of our spaces are within 5 km ('place_searched'); places searched
+  with two or fewer show where to sweep next.
+- The visitor list shows the latest 100 and loads a visitor's actions
+  when opened (admin_visitor_trail).
+- Control centre: a To do line on top (claims to decide, payments to
+  match, owner changes, pages to approve, blocked, new spaces, pages in
+  Webflow, sitemap entries, closed places), each item a tap to go there.
+- Three sections, Owners, Pages and Clean-up, each with its waiting
+  count, instead of eleven tabs in one row; a chosen tab now stays chosen
+  when it empties, with its empty note.
+- Search across everything (magnifier in the title bar): spaces by name,
+  city, page address or owner email, and claims by space, owner name or
+  email, each with Show in list, Open the space, Open page, Their Owner
+  account, Listing plan and History.
+- Send back has ready-made friendly notes to tap in and adjust (about the
+  space, prices, photos, too salesy, hours, contact details, English).
+- A Money card at the top of Owners: Verified, paying through Stripe,
+  renewals in the next 30 days, and who switched to Free in the last 90
+  days with their reason.
+- A health check (heart in the title bar, green, amber or red dot): the
+  last run of the nightly jobs, the website push, Stripe plans and the
+  app build, read from GitHub, and today's Google spend against the
+  limit.
+- The title bar just says "Control centre"; the To do line replaced the
+  "N to do" badge so the buttons fit on a phone.
