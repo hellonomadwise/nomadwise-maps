@@ -1390,3 +1390,25 @@ Migration 113. The control centre shows when the pop-up was last read
 and any problem, such as the Webflow token missing the "Forms: read"
 permission. Since the import routes Verified pages directly, Verified
 pages could use the same pop-up instead of the nomadmaps.io form.
+
+## 1 Oct 2026: Suggested replies for Send back
+
+Send back (owner changes) now suggests replies worked out from what the
+owner entered (Jonathan: "give options when we select send back, click,
+it fills a draft reply, we check the words, then send"). The checks
+(widgets/reply_suggestions.dart) look for: no or a very short
+description (under 25 words) or a very long one (over 350); salesy
+wording ("the best", "number one", capitals, exclamation marks); a phone
+number, email or link inside the description; a description not in
+English; prices typed with symbols or text instead of plain numbers, and
+a shorter pass costing more than a longer one; fewer than three photos;
+a WhatsApp number without a country code; an Instagram entry that is not
+a handle; a website box with no address or a social link; an enquiry
+email that is not an email; and on Verified pages, a long or salesy
+message headline. Each suggestion is a friendly, specific note; tapping
+it adds it to the reply box, "Use all" puts them together, and the
+general replies remain below for anything the checks cannot see. Rules,
+not an AI model: free, instant, and the same words every time. Nothing
+is sent until the founder presses Send back. Migration 114 lifts the
+note limit from 1,000 to 2,500 characters (longer notes used to be cut
+off without a word).

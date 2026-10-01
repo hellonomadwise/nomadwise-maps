@@ -14,6 +14,7 @@ import '../services/supabase_service.dart';
 import '../theme.dart';
 import '../widgets/control_extras.dart';
 import '../widgets/pass_on.dart';
+import '../widgets/reply_suggestions.dart';
 import '../widgets/phone_field.dart';
 import '../widgets/resubmit_changes.dart';
 import '../widgets/ui.dart';
@@ -2345,54 +2346,22 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     }
   }
 
-  /// Ready-made notes for Send back: friendly and specific, so an owner
-  /// never gets a bare "these changes aren't good" (Jonathan, 29 Sep).
-  static const _noteTemplates = [
-    (
-      'About the space',
-      'Could you add a few sentences about the space itself: the desks, the '
-          'WiFi and what a working day there is like? That is what remote '
-          'workers look for first.'
-    ),
-    (
-      'Prices',
-      'Could you add your prices as plain numbers, for example a day pass and '
-          'a month pass? The currency is set once, just above the prices.'
-    ),
-    (
-      'Photos',
-      'Could you add a few photos of the workspace itself, ideally in '
-          'daylight: the desks, the seating and the coffee? Photos of the '
-          'space do more than logos or menus.'
-    ),
-    (
-      'Too salesy',
-      'We keep every page factual, so could you describe the space in plain '
-          'words, without "the best" or "number one"? Nomads trust pages that '
-          'read like a friend\'s tip.'
-    ),
-    (
-      'Opening hours',
-      'Could you check your opening hours? One of the days looks different '
-          'from what we expected, and we want nomads to arrive when you are '
-          'open.'
-    ),
-    (
-      'Contact details',
-      'Could you check your WhatsApp number and Instagram name? One of them '
-          'did not look quite right.'
-    ),
-    (
-      'In English',
-      'Could you write the description in English? Most nomads read the '
-          'page in English, and you are welcome to add a line in your own '
-          'language at the end.'
-    ),
-  ];
+  // Ready-made notes for Send back live in widgets/reply_suggestions.dart:
+  // replies worked out from what the owner entered, then general ones,
+  // so an owner never gets a bare "these changes aren't good"
+  // (Jonathan, 29 Sep and 1 Oct).
 
   Future<void> _declineOwnerDraft(Map<String, dynamic> d) async {
     final name = '${(d['venue'] as Map?)?['name'] ?? 'the space'}';
     final ctl = TextEditingController();
+    final suggested = suggestReplies(
+        Map<String, dynamic>.from(d['draft'] as Map? ?? {}),
+        verified: (d['venue'] as Map?)?['listing_tier'] == 'verified');
+    void fill(String text) {
+      final now = ctl.text.trim();
+      ctl.text = now.isEmpty ? text : '$now\n\n$text';
+      ctl.selection = TextSelection.collapsed(offset: ctl.text.length);
+    }
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -2429,23 +2398,84 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                             height: 1.45,
                             color: Brand.inkSecondary)),
                   ),
-                  const SizedBox(height: 12),
-                  const Text('Tap to add a ready-made note, then adjust it:',
+                  const SizedBox(height: 14),
+                  // Replies worked out from what they entered.
+                  Row(children: [
+                    const Icon(Icons.auto_awesome_outlined,
+                        size: 16, color: Brand.goldTextDark),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                          suggested.isEmpty
+                              ? 'Nothing obvious to fix in what they entered. '
+                                  'Pick a reply below or write your own.'
+                              : 'Suggested from what they entered. Tap one to '
+                                  'put it in the reply, then check the words:',
+                          style: const TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w600,
+                              color: Brand.ink)),
+                    ),
+                  ]),
+                  if (suggested.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    for (final r in suggested)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                              alignment: Alignment.centerLeft,
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 10),
+                              side: const BorderSide(color: Brand.border),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8))),
+                          onPressed: () => fill(r.text),
+                          child: Row(children: [
+                            const Icon(Icons.add_comment_outlined,
+                                size: 16, color: Brand.inkSecondary),
+                            const SizedBox(width: 8),
+                            Text(r.label,
+                                style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: Brand.ink)),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(r.why,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                      fontSize: 12, color: Brand.inkMuted)),
+                            ),
+                          ]),
+                        ),
+                      ),
+                    if (suggested.length > 1)
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton.icon(
+                            onPressed: () {
+                              ctl.text = combineReplies(suggested);
+                              ctl.selection = TextSelection.collapsed(
+                                  offset: ctl.text.length);
+                            },
+                            icon: const Icon(Icons.playlist_add, size: 18),
+                            label: Text(
+                                'Use all ${suggested.length} as one reply')),
+                      ),
+                  ],
+                  const SizedBox(height: 10),
+                  const Text('Other replies:',
                       style: TextStyle(
                           fontSize: 12.5, color: Brand.inkSecondary)),
                   const SizedBox(height: 6),
                   Wrap(spacing: 6, runSpacing: 6, children: [
-                    for (final (label, text) in _noteTemplates)
+                    for (final (label, text) in generalReplies)
                       ActionChip(
                         visualDensity: VisualDensity.compact,
                         label: Text(label,
                             style: const TextStyle(fontSize: 12.5)),
-                        onPressed: () {
-                          final now = ctl.text.trim();
-                          ctl.text = now.isEmpty ? text : '$now\n\n$text';
-                          ctl.selection = TextSelection.collapsed(
-                              offset: ctl.text.length);
-                        },
+                        onPressed: () => fill(text),
                       ),
                   ]),
                   const SizedBox(height: 14),
@@ -2454,7 +2484,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                       autofocus: true,
                       minLines: 8,
                       maxLines: 16,
-                      maxLength: 1000,
+                      maxLength: 2500,
                       textCapitalization: TextCapitalization.sentences,
                       style: const TextStyle(fontSize: 14.5, height: 1.5),
                       decoration: const InputDecoration(
