@@ -36,7 +36,19 @@ jobs:
           GOOGLE_PLACES_KEY: ${{ secrets.GOOGLE_PLACES_SERVER_KEY || secrets.GOOGLE_PLACES_KEY }}
         run: |
           python3 scripts/webflow_sync.py --push-only
-
+      # Enquiries from the Send an enquiry pop-up on nomadwise.io:
+      # filed in Nomad Maps (straight to a Verified space, or into
+      # Enquiries to pass on with a phone ping), and the space's own
+      # email looked up on its website for the Pass on box.
+      - name: Pop-up enquiries
+        if: always()
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          WEBFLOW_API_TOKEN: ${{ secrets.WEBFLOW_API_TOKEN }}
+        run: |
+          python3 scripts/webflow_enquiries.py
       # Photo suggestions for newly queued spaces (exits in a second
       # when there is nothing to score). The model and its weights are
       # cached between runs.
