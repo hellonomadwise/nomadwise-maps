@@ -1322,3 +1322,18 @@ The health check links to it ("What it was spent on, and pause or limit
 it"). Its amber warnings for the website push and Stripe jobs now wait
 3 and 8 hours: GitHub starts frequent scheduled jobs late as a matter of
 course, which is not a fault.
+
+## 1 Oct 2026: Google's free calls on the Google calls page
+
+The Google calls page now takes Google's free monthly calls into account
+(Jonathan: "where will it result in an actual £0 cost"). A card shows,
+for each line of the bill, how much of this month's free allowance is
+used (10,000 for Essentials lines and map loads, 5,000 for Pro, 1,000
+for Enterprise and photos) and anything billed beyond it. Every day,
+job and line shows its list price next to its real cost, with the free
+calls used up in date order within the month, the way Google applies
+them; "Free" in green where it costs nothing. The daily limit still
+counts at list price, as a safety net. The allowance belongs to the
+whole Google billing account (shared with anything else on it), and
+Google's own billing page has the final word; we cannot read the
+account itself from here.

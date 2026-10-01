@@ -261,9 +261,9 @@ class _HealthButtonState extends State<HealthButton> {
         child: Text(
             spent == null
                 ? 'Not available'
-                : 'About £${spent.toStringAsFixed(2)}'
-                    '${limit == null ? '' : ' of the £${limit.toStringAsFixed(0)} daily limit'}'
-                    '${over ? ': limit reached' : ''}',
+                : 'About £${spent.toStringAsFixed(2)} at list price'
+                    '${limit == null ? '' : ' (limit £${limit.toStringAsFixed(0)} a day)'}'
+                    '${over ? ': limit reached' : '. Google\'s free calls for the month may cover it: tap below'}',
             style: TextStyle(
                 fontSize: 13,
                 color: over ? Brand.accent : Brand.inkSecondary)),

@@ -74,6 +74,28 @@ const _priceUsd = <String, double>{
   'Autocomplete Requests': 2.83,
 };
 
+/// Google's free calls each month, per bill line, for every billing
+/// account (Google Maps Platform pricing, March 2025 onwards: 10,000
+/// for Essentials lines, 5,000 for Pro, 1,000 for Enterprise and
+/// photos; IDs-only calls are always free). Calls within these cost
+/// nothing; only calls beyond them are billed. The allowance resets on
+/// the 1st of each month.
+const _freePerMonth = <String, int>{
+  'Place Details Essentials': 10000,
+  'Place Details Pro': 5000,
+  'Place Details Enterprise': 1000,
+  'Place Details Enterprise + Atmosphere': 1000,
+  'Place Details Photos': 1000,
+  'Text Search Pro': 5000,
+  'Text Search Enterprise': 1000,
+  'Text Search Enterprise + Atmosphere': 1000,
+  'Nearby Search Pro': 5000,
+  'Nearby Search Enterprise': 1000,
+  'Nearby Search Enterprise + Atmosphere': 1000,
+  'Autocomplete Requests': 10000,
+  'Dynamic Maps': 10000,
+};
+
 /// What each bill line means, in plain words.
 const _lineWords = <String, String>{
   'Place Details Essentials': 'address and location',
@@ -111,6 +133,7 @@ class _GoogleUsageScreenState extends State<GoogleUsageScreen> {
     });
     try {
       final rows = await _supabase.apiUsage(days: 35);
+      _computePaid(rows);
       if (mounted) {
         setState(() {
           _rows = rows;
@@ -128,6 +151,55 @@ class _GoogleUsageScreenState extends State<GoogleUsageScreen> {
   }
 
   int _n(dynamic v) => (v as num?)?.toInt() ?? 0;
+
+  /// For each day and bill line, the share of that day's calls that
+  /// fall beyond the month's free allowance (0 = all free, 1 = all
+  /// billed). The allowance is used up in date order within each
+  /// calendar month, the way Google applies it.
+  Map<String, Map<String, double>> _paid = {};
+
+  void _computePaid(List<Map<String, dynamic>> rows) {
+    // month -> line -> day -> calls
+    final m = <String, Map<String, Map<String, int>>>{};
+    for (final r in rows) {
+      final day = '${r['day']}';
+      if (day.length < 7) continue;
+      final mon = day.substring(0, 7);
+      final sku = '${r['sku']}';
+      final d = ((m[mon] ??= {})[sku] ??= {});
+      d[day] = (d[day] ?? 0) + _n(r['calls']);
+    }
+    final out = <String, Map<String, double>>{};
+    m.forEach((mon, lines) {
+      lines.forEach((sku, days) {
+        final free = _freePerMonth[sku] ?? 0;
+        var used = 0;
+        for (final day in days.keys.toList()..sort()) {
+          final c = days[day]!;
+          final before = used;
+          used += c;
+          final billed = (used - free).clamp(0, used) -
+              (before - free).clamp(0, before);
+          (out[day] ??= {})[sku] = c == 0 ? 0.0 : billed / c;
+        }
+      });
+    });
+    _paid = out;
+  }
+
+  /// What a day's calls on one line really cost after the allowance.
+  double _real(String day, String sku, int calls) =>
+      _gbp(sku, calls) * (_paid[day]?[sku] ?? 1);
+
+  /// This month's calls per line, for the allowance card.
+  Map<String, int> _monthUsed(List<Map<String, dynamic>> rows) {
+    final mon = DateFormat('yyyy-MM').format(DateTime.now().toUtc());
+    final out = <String, int>{};
+    for (final r in rows.where((r) => '${r['day']}'.startsWith(mon))) {
+      out['${r['sku']}'] = (out['${r['sku']}'] ?? 0) + _n(r['calls']);
+    }
+    return out;
+  }
 
   double _gbp(String sku, int calls) =>
       calls * (_priceUsd[sku] ?? 0) / 1000 * _fx;
@@ -158,10 +230,10 @@ class _GoogleUsageScreenState extends State<GoogleUsageScreen> {
                       const Text(
                           'What Google costs and exactly why: every call, by '
                           'the job that made it and the line it appears under '
-                          'on the Google bill. Estimated at list prices, before '
-                          'Google\'s free monthly allowance, so the real bill '
-                          'is lower. Days are UTC. Counting started 28 '
-                          'September 2026.',
+                          'on the Google bill. Each line shows its list price '
+                          'and what it really costs once Google\'s free calls '
+                          'for the month are taken off. Days are UTC. '
+                          'Counting started 28 September 2026.',
                           style: TextStyle(
                               fontSize: 12.5, color: Brand.inkSecondary)),
                       const SizedBox(height: 12),
@@ -174,6 +246,8 @@ class _GoogleUsageScreenState extends State<GoogleUsageScreen> {
                         _limitCard(_budget!),
                         const SizedBox(height: 14),
                       ],
+                      _allowanceCard(rows),
+                      const SizedBox(height: 14),
                       _dayExplained(rows, _todayUtc, today: true),
                       const SizedBox(height: 14),
                       if (rows.isNotEmpty) ...[
@@ -332,6 +406,10 @@ class _GoogleUsageScreenState extends State<GoogleUsageScreen> {
     final jobs = calls.keys.toList()
       ..sort((a, b) => jobGbp(b).compareTo(jobGbp(a)));
     final total = jobs.fold(0.0, (a, j) => a + jobGbp(j));
+    double jobReal(String job) => calls[job]!
+        .entries
+        .fold(0.0, (a, e) => a + _real(day, e.key, e.value));
+    final real = jobs.fold(0.0, (a, j) => a + jobReal(j));
     final when = DateTime.tryParse(day);
     final paused = _paused;
     // Jobs with nothing today still get their switch, so a pause can be
@@ -350,15 +428,38 @@ class _GoogleUsageScreenState extends State<GoogleUsageScreen> {
               : (when == null ? day : DateFormat('EEEE d MMMM').format(when)),
           style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
       const SizedBox(height: 2),
-      Text(
-          jobs.isEmpty
-              ? 'No Google calls yet${today ? ' today' : ''}.'
-              : 'About ${_money(total)} in all. Biggest first.',
-          style: const TextStyle(fontSize: 12.5, color: Brand.inkSecondary)),
+      if (jobs.isEmpty)
+        Text('No Google calls yet${today ? ' today' : ''}.',
+            style: const TextStyle(fontSize: 12.5, color: Brand.inkSecondary))
+      else ...[
+        const SizedBox(height: 4),
+        Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+          Text(real < 0.005 ? '£0' : _money(real),
+              style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  color: real < 0.005 ? Brand.success : Brand.ink)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+                real < 0.005
+                    ? 'real cost: all within Google\'s free calls this month '
+                        '(${_money(total)} at list price)'
+                    : 'real cost after Google\'s free calls '
+                        '(${_money(total)} at list price)',
+                style: const TextStyle(
+                    fontSize: 12.5, color: Brand.inkSecondary)),
+          ),
+        ]),
+        const SizedBox(height: 2),
+        const Text('Biggest first.',
+            style: TextStyle(fontSize: 12, color: Brand.inkMuted)),
+      ],
       for (final job in jobs) ...[
         const Divider(height: 22, color: Brand.hairline),
         _jobBlock(job, calls[job]!, refused[job] ?? 0, jobGbp(job), total,
-            today: today, isPaused: paused.contains(job)),
+            today: today, isPaused: paused.contains(job),
+            day: day, real: jobReal(job)),
       ],
       if (quiet.isNotEmpty) ...[
         const Divider(height: 22, color: Brand.hairline),
@@ -384,7 +485,10 @@ class _GoogleUsageScreenState extends State<GoogleUsageScreen> {
 
   Widget _jobBlock(String job, Map<String, int> lines, int refused,
       double gbp, double total,
-      {required bool today, required bool isPaused}) {
+      {required bool today,
+      required bool isPaused,
+      required String day,
+      required double real}) {
     final info = _jobs[job];
     final share = total <= 0 ? 0 : (gbp / total * 100).round();
     final sorted = lines.entries.toList()
@@ -396,8 +500,15 @@ class _GoogleUsageScreenState extends State<GoogleUsageScreen> {
               style:
                   const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
         ),
-        Text(_money(gbp),
-            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+        Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+          Text(real < 0.005 ? 'Free' : _money(real),
+              style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 14,
+                  color: real < 0.005 ? Brand.success : Brand.ink)),
+          Text('${_money(gbp)} list',
+              style: const TextStyle(fontSize: 11.5, color: Brand.inkMuted)),
+        ]),
         if (total > 0) ...[
           const SizedBox(width: 6),
           SizedBox(
@@ -433,11 +544,28 @@ class _GoogleUsageScreenState extends State<GoogleUsageScreen> {
                 style: const TextStyle(fontSize: 12.5),
               ),
             ),
-            Text(
-                (_priceUsd[e.key] ?? 0) == 0
-                    ? 'free'
-                    : _money(_gbp(e.key, e.value)),
-                style: const TextStyle(fontSize: 12.5)),
+            Builder(builder: (_) {
+              final list = _gbp(e.key, e.value);
+              final realLine = _real(day, e.key, e.value);
+              if (list == 0) {
+                return const Text('free',
+                    style: TextStyle(fontSize: 12.5, color: Brand.success));
+              }
+              return Text.rich(
+                  TextSpan(children: [
+                    TextSpan(
+                        text: '${_money(list)} list  ',
+                        style: const TextStyle(color: Brand.inkMuted)),
+                    TextSpan(
+                        text: realLine < 0.005 ? 'free' : _money(realLine),
+                        style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: realLine < 0.005
+                                ? Brand.success
+                                : Brand.ink)),
+                  ]),
+                  style: const TextStyle(fontSize: 12.5));
+            }),
           ]),
         ),
       if (refused > 0)
@@ -504,25 +632,131 @@ class _GoogleUsageScreenState extends State<GoogleUsageScreen> {
     ]);
   }
 
+  /// Google's free calls this month, line by line: how much of each
+  /// allowance is used, and what is billed beyond it.
+  Widget _allowanceCard(List<Map<String, dynamic>> rows) {
+    final used = _monthUsed(rows);
+    final now = DateTime.now().toUtc();
+    final next = DateTime.utc(now.year, now.month + 1, 1);
+    final lines = used.entries
+        .where((e) => (_priceUsd[e.key] ?? (e.key == 'Dynamic Maps' ? 7 : 0)) > 0)
+        .toList()
+      ..sort((a, b) {
+        double pct(MapEntry<String, int> e) =>
+            e.value / (_freePerMonth[e.key] ?? 1);
+        return pct(b).compareTo(pct(a));
+      });
+    return _box([
+      Text(
+          'Google\'s free calls in ${DateFormat('MMMM').format(now)}',
+          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+      const SizedBox(height: 2),
+      Text(
+          'Every month Google gives a set number of free calls on each line '
+          'of the bill. Up to that number a call costs nothing; only calls '
+          'beyond it are charged. Resets on ${DateFormat('d MMMM').format(next)}.',
+          style: const TextStyle(
+              fontSize: 12.5, height: 1.45, color: Brand.inkSecondary)),
+      const SizedBox(height: 10),
+      if (lines.isEmpty)
+        const Text('No charged lines used yet this month.',
+            style: TextStyle(fontSize: 13, color: Brand.inkMuted)),
+      for (final e in lines) ...[
+        Builder(builder: (_) {
+          final free = _freePerMonth[e.key] ?? 0;
+          final over = e.value - free;
+          final pct =
+              free == 0 ? 1.0 : (e.value / free).clamp(0.0, 1.0).toDouble();
+          final usd = _priceUsd[e.key] ?? (e.key == 'Dynamic Maps' ? 7 : 0);
+          final overGbp = over > 0 ? over * usd / 1000 * _fx : 0.0;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(children: [
+                    Expanded(
+                      child: Text(e.key,
+                          style: const TextStyle(
+                              fontSize: 13, fontWeight: FontWeight.w600)),
+                    ),
+                    Text(
+                        over > 0
+                            ? '${_money(overGbp)} beyond the free calls'
+                            : 'free so far',
+                        style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w700,
+                            color: over > 0 ? Brand.accent : Brand.success)),
+                  ]),
+                  const SizedBox(height: 4),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: pct,
+                      minHeight: 6,
+                      backgroundColor: Brand.field,
+                      color: pct >= 1
+                          ? Brand.accent
+                          : pct >= .8
+                              ? Brand.gold
+                              : Brand.success,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                      '${NumberFormat.decimalPattern().format(e.value)} of '
+                      '${NumberFormat.decimalPattern().format(free)} free calls '
+                      'used (${_lineWords[e.key] ?? e.key})',
+                      style: const TextStyle(
+                          fontSize: 11.5, color: Brand.inkMuted)),
+                ]),
+          );
+        }),
+      ],
+      const Text(
+          'The free calls belong to the whole Google billing account, so '
+          'anything else on the same account (for example a map on another '
+          'website) uses them too, and calls before 28 September 2026 were '
+          'not counted here. Google\'s own billing page has the final word.',
+          style: TextStyle(fontSize: 11.5, height: 1.4, color: Brand.inkFaint)),
+    ]);
+  }
+
   /// This month so far, per job, in money.
   Widget _monthCard(List<Map<String, dynamic>> rows) {
     final month = DateFormat('yyyy-MM').format(DateTime.now().toUtc());
     final byJob = <String, double>{};
     var maps = 0;
+    var real = 0.0;
     for (final r in rows.where((r) => '${r['day']}'.startsWith(month))) {
       final sku = '${r['sku']}';
       if (sku == 'Dynamic Maps') maps += _n(r['calls']);
       byJob['${r['source']}'] =
           (byJob['${r['source']}'] ?? 0) + _gbp(sku, _n(r['calls']));
+      real += _real('${r['day']}', sku, _n(r['calls']));
     }
     final jobs = byJob.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
     final total = jobs.fold(0.0, (a, e) => a + e.value);
     return _box([
       Text(
-          'This month so far (${DateFormat('MMMM').format(DateTime.now())}): '
-          'about ${_money(total)}',
+          'This month so far (${DateFormat('MMMM').format(DateTime.now())})',
           style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+      const SizedBox(height: 4),
+      Text(
+          real < 0.005
+              ? 'Real cost £0: everything is within Google\'s free calls. '
+                  'At list price it would be ${_money(total)}.'
+              : 'Real cost about ${_money(real)} after Google\'s free calls '
+                  '(${_money(total)} at list price).',
+          style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: real < 0.005 ? Brand.success : Brand.ink)),
+      const SizedBox(height: 6),
+      const Text('At list price, by job:',
+          style: TextStyle(fontSize: 12, color: Brand.inkMuted)),
       const SizedBox(height: 8),
       for (final e in jobs)
         Padding(
@@ -537,7 +771,7 @@ class _GoogleUsageScreenState extends State<GoogleUsageScreen> {
           ]),
         ),
       if (maps > 0)
-        Text('Plus $maps map loads, which have their own free allowance.',
+        Text('Plus $maps map loads, within their own 10,000 free a month.',
             style: const TextStyle(fontSize: 12, color: Brand.inkMuted)),
     ]);
   }
@@ -545,10 +779,12 @@ class _GoogleUsageScreenState extends State<GoogleUsageScreen> {
   /// One line per day with its cost; tap for the full explanation.
   List<Widget> _days(List<Map<String, dynamic>> rows) {
     final byDay = <String, double>{};
+    final realDay = <String, double>{};
     final callsDay = <String, int>{};
     for (final r in rows) {
       final d = '${r['day']}';
       byDay[d] = (byDay[d] ?? 0) + _gbp('${r['sku']}', _n(r['calls']));
+      realDay[d] = (realDay[d] ?? 0) + _real(d, '${r['sku']}', _n(r['calls']));
       callsDay[d] = (callsDay[d] ?? 0) + _n(r['calls']);
     }
     final days = byDay.keys.where((d) => d != _todayUtc).toList()
@@ -582,12 +818,19 @@ class _GoogleUsageScreenState extends State<GoogleUsageScreen> {
                         style: const TextStyle(
                             fontWeight: FontWeight.w600, fontSize: 13)),
                   ),
-                  Text('${callsDay[d]} calls · ',
+                  Text('${callsDay[d]} calls · ${_money(byDay[d]!)} list · ',
                       style: const TextStyle(
                           fontSize: 12.5, color: Brand.inkSecondary)),
-                  Text(_money(byDay[d]!),
-                      style: const TextStyle(
-                          fontWeight: FontWeight.w700, fontSize: 13)),
+                  Text(
+                      (realDay[d] ?? 0) < 0.005
+                          ? 'free'
+                          : _money(realDay[d]!),
+                      style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                          color: (realDay[d] ?? 0) < 0.005
+                              ? Brand.success
+                              : Brand.ink)),
                   const Icon(Icons.chevron_right,
                       size: 18, color: Brand.inkFaint),
                 ]),
