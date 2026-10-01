@@ -7,18 +7,19 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../config.dart';
 import '../models/venue.dart';
 import '../services/places_service.dart';
 import '../services/supabase_service.dart';
 import '../theme.dart';
 import '../widgets/control_extras.dart';
 import '../widgets/pass_on.dart';
+import '../widgets/pricing_picker.dart';
 import '../widgets/reply_suggestions.dart';
 import '../widgets/phone_field.dart';
 import '../widgets/resubmit_changes.dart';
 import '../widgets/ui.dart';
 import 'admin_analytics_screen.dart';
+import 'admin_pricing_screen.dart';
 import 'admin_screen.dart';
 import 'admin_users_screen.dart';
 import 'claim_journeys_screen.dart';
@@ -957,6 +958,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
               itemBuilder: (_) => const [
                 PopupMenuItem(value: 'analytics', child: Text('Analytics')),
                 PopupMenuItem(value: 'users', child: Text('Users')),
+                PopupMenuItem(value: 'pricing', child: Text('Pricing')),
                 PopupMenuItem(
                     value: 'review', child: Text('Review submissions')),
                 PopupMenuItem(
@@ -1282,6 +1284,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     final Widget screen = switch (k) {
       'analytics' => const AdminAnalyticsScreen(),
       'users' => const AdminUsersScreen(),
+      'pricing' => const AdminPricingScreen(),
       'review' => const AdminScreen(),
       _ => const FeedbackInboxScreen(),
     };
@@ -5873,15 +5876,36 @@ class _ListingPlanPageState extends State<_ListingPlanPage> {
   late DateTime? _renews = _parse(widget.venue['listing_renews_at']);
   bool _busy = false;
 
-  static const stripeLink = AppConfig.stripeVerifiedLink;
+  // What Verified costs for this space's country (migration 115).
+  PricingChoice? _pricing;
 
-  /// The Verified payment link for this space: the space's id rides
-  /// along as Stripe's client reference, and the owner's email is
-  /// pre-filled when known, so the payment lands on this listing.
+  @override
+  void initState() {
+    super.initState();
+    widget.supabase.pricingFor('${widget.venue['country'] ?? ''}').then((p) {
+      if (mounted && p != null) setState(() => _pricing = PricingChoice(p));
+    });
+  }
+
+  /// The claim page for this space: it shows the price for its country,
+  /// monthly or yearly, and takes the owner to Stripe. The owner's
+  /// email is pre-filled when known.
   String get _payLink {
+    final v = widget.venue;
     final email = _ownerEmail.text.trim();
-    return '$stripeLink?client_reference_id=${widget.venue['id']}'
-        '${email.contains('@') ? '&prefilled_email=${Uri.encodeQueryComponent(email)}' : ''}';
+    return 'https://nomadmaps.io/?claim='
+        '${Uri.encodeQueryComponent('${v['webflow_slug'] ?? v['name'] ?? ''}')}'
+        '${email.contains('@') ? '&email=${Uri.encodeQueryComponent(email)}' : ''}';
+  }
+
+  /// "10 EUR a month or 99 EUR a year", for the offer email.
+  String get _priceWords {
+    final p = _pricing;
+    if (p == null || p.monthly == null || p.yearly == null) {
+      return '99 EUR a year';
+    }
+    return '${formatMoney(p.monthly!, p.currency)} a month or '
+        '${formatMoney(p.yearly!, p.currency)} a year';
   }
 
   String get _offerEmail {
@@ -5907,8 +5931,8 @@ class _ListingPlanPageState extends State<_ListingPlanPage> {
           '"unclaimed": nomads can find you, but they cannot contact you '
           'from the page, and we cannot promise when we get to updates.',
       '',
-      'If you would like the page to work for you, Verified is 99 EUR a '
-          'year: a Verified badge, your own description, photos and hours, '
+      'If you would like the page to work for you, Verified is $_priceWords: '
+          'a Verified badge, your own description, photos and hours, '
           'a place above every free listing in ${city.isEmpty ? 'your city' : city}, '
           'structured data and a link to your site (the signals Google and '
           'the AI assistants use to recommend places), a Send an enquiry '
@@ -6191,9 +6215,11 @@ class _ListingPlanPageState extends State<_ListingPlanPage> {
               const SizedBox(height: 28),
               const SectionLabel('Sell Verified'),
               const SizedBox(height: 6),
-              const Text(
-                  'The payment link below carries this space\'s id, so a '
-                  'payment through it attaches to this listing on its own. '
+              Text(
+                  'The claim link opens this space\'s claim page, which shows '
+                  'the price for its country'
+                  '${_pricing != null ? ' (group ${_pricing!.pricing['group']}, $_priceWords)' : ''}'
+                  ', monthly or yearly, and takes the owner to payment. '
                   'The offer email has the name, city and link filled in; '
                   'paste it into Gmail and send.',
                   style: TextStyle(
@@ -6201,9 +6227,9 @@ class _ListingPlanPageState extends State<_ListingPlanPage> {
               const SizedBox(height: 10),
               Wrap(spacing: 8, runSpacing: 8, children: [
                 OutlinedButton.icon(
-                    onPressed: () => _copy(_payLink, 'Payment link copied'),
+                    onPressed: () => _copy(_payLink, 'Claim link copied'),
                     icon: const Icon(Icons.link, size: 16),
-                    label: const Text('Copy payment link')),
+                    label: const Text('Copy claim link')),
                 OutlinedButton.icon(
                     onPressed: () => _copy(_offerEmail, 'Offer email copied'),
                     icon: const Icon(Icons.mail_outline, size: 16),

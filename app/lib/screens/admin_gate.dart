@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../services/supabase_service.dart';
 import '../theme.dart';
 import 'admin_analytics_screen.dart';
+import 'admin_pricing_screen.dart';
 import 'admin_users_screen.dart';
 import 'website_screen.dart';
 
@@ -88,14 +89,17 @@ class _AdminGateState extends State<AdminGate> {
       // ?admin=analytics or ?admin=users: that screen opens on top of
       // the control centre, so its back arrow leads there.
       final s = widget.section;
-      if (!_openedSection && (s == 'analytics' || s == 'users')) {
+      if (!_openedSection &&
+          (s == 'analytics' || s == 'users' || s == 'pricing')) {
         _openedSection = true;
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
           Navigator.of(context).push(MaterialPageRoute(
               builder: (_) => s == 'analytics'
                   ? const AdminAnalyticsScreen()
-                  : const AdminUsersScreen()));
+                  : s == 'pricing'
+                      ? const AdminPricingScreen()
+                      : const AdminUsersScreen()));
         });
       }
       return const WebsiteScreen(standalone: true);

@@ -12,6 +12,7 @@ import '../services/ua_stub.dart' if (dart.library.html) '../services/ua_web.dar
     as ua;
 import '../theme.dart';
 import '../widgets/phone_field.dart';
+import '../widgets/pricing_picker.dart';
 import '../widgets/ui.dart' show PlanFeatureRow;
 
 /// Claim your space: the owner's way in.
@@ -38,7 +39,10 @@ class ClaimScreen extends StatefulWidget {
   /// The nomadwise.io page the link was on, from &from=/coworking/<slug>,
   /// so the phone ping can say where the visitor came from.
   final String? from;
-  const ClaimScreen({super.key, this.seed, this.from});
+
+  /// The owner's email, when a founder sent the link (&email=).
+  final String? email;
+  const ClaimScreen({super.key, this.seed, this.from, this.email});
   @override
   State<ClaimScreen> createState() => _ClaimScreenState();
 }
@@ -95,6 +99,32 @@ class _ClaimScreenState extends State<ClaimScreen> {
   final _website = TextEditingController();
 
   bool _sending = false;
+
+  // What Verified costs here (migration 115): loaded for the space's
+  // country, with the monthly/yearly and currency choices on it.
+  PricingChoice? _pricing;
+  String _pricingCountry = '\u0000';
+
+  String get _country => _picked != null
+      ? '${_picked!['country'] ?? ''}'
+      : (_newCountry ?? '');
+
+  /// Loads the prices for the current country once, and again when it
+  /// changes (picking another space, or a new address).
+  void _ensurePricing() {
+    final c = _country;
+    if (c == _pricingCountry) return;
+    _pricingCountry = c;
+    _supabase.pricingFor(c).then((p) {
+      if (!mounted || p == null || _pricingCountry != c) return;
+      setState(() => _pricing = PricingChoice(p));
+    });
+  }
+
+  /// "from €10 a month" when the prices are known, else today's price.
+  String get _fromWords => _pricing?.fromWords.isNotEmpty == true
+      ? _pricing!.fromWords
+      : 'from 99 EUR a year';
   String? _error;
 
   // ---- the journey, for the admin's Claim journeys view ----
@@ -240,6 +270,9 @@ class _ClaimScreenState extends State<ClaimScreen> {
     if (seed.isNotEmpty) {
       _search.text = seed;
       _runSearch(seed);
+    }
+    if ((widget.email ?? '').contains('@')) {
+      _ownerEmail.text = widget.email!.trim();
     }
     _track('claim_opened', {
       'seed': seed,
@@ -423,9 +456,24 @@ class _ClaimScreenState extends State<ClaimScreen> {
         'space': _spaceName,
         'new_space': _picked == null,
       });
-      final url = Uri.parse('${AppConfig.stripeVerifiedLink}'
-          '?client_reference_id=$claimId'
-          '&prefilled_email=${Uri.encodeQueryComponent(email)}');
+      // The chosen period and currency through Stripe Checkout; the
+      // yearly payment link in euros until the prices are in Stripe.
+      final p = _pricing;
+      String? checkout;
+      if (p != null && p.ready) {
+        final r = await _supabase.startCheckout(claimId, p.period, p.currency);
+        checkout = r['url'] is String ? r['url'] as String : null;
+        if (checkout == null && r['error'] != 'not_ready') {
+          // A real failure (Stripe refused, or timed out): say so rather
+          // than quietly charging a different plan.
+          throw Exception(
+              'Payment could not be started. Please try again in a moment.');
+        }
+      }
+      final url = Uri.parse(checkout ??
+          '${AppConfig.stripeVerifiedLink}'
+              '?client_reference_id=$claimId'
+              '&prefilled_email=${Uri.encodeQueryComponent(email)}');
       await launchUrl(url,
           mode: LaunchMode.platformDefault, webOnlyWindowName: '_self');
     } catch (e) {
@@ -497,6 +545,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
       Theme(data: siteButtons(Theme.of(context)), child: _page(context));
 
   Widget _page(BuildContext context) {
+    _ensurePricing();
     return Scaffold(
       backgroundColor: Brand.bg,
       appBar: AppBar(
@@ -1009,8 +1058,8 @@ class _ClaimScreenState extends State<ClaimScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _heading(wide, 3, 'Choose your plan',
-              'Claiming $_spaceName is free. Verified adds more, for 99 EUR '
-                  'a year. You can go Verified later from your Owner account.'),
+              'Claiming $_spaceName is free. Verified adds more, $_fromWords. '
+                  'You can go Verified later from your Owner account.'),
           SizedBox(height: wide ? 26 : 18),
           ConstrainedBox(
             constraints: BoxConstraints(maxWidth: wide ? 860 : double.infinity),
@@ -1018,6 +1067,28 @@ class _ClaimScreenState extends State<ClaimScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   _planTable(wide),
+                  if (_pricing != null) ...[
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: EdgeInsets.all(wide ? 18 : 14),
+                      decoration: BoxDecoration(
+                          color: Brand.surface,
+                          border: Border.all(color: Brand.border),
+                          borderRadius: BorderRadius.circular(12)),
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Verified for $_spaceName',
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 15)),
+                            const SizedBox(height: 10),
+                            PricingPicker(
+                                choice: _pricing!,
+                                onChanged: (c) => setState(() => _pricing = c)),
+                          ]),
+                    ),
+                  ],
                   if (_error != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 14),
@@ -1103,7 +1174,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
         child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           const Expanded(child: SizedBox()),
           head('Free', 'claim for free'),
-          head('Verified', '99 EUR a year', paid: true),
+          head('Verified', _pricing?.words.isNotEmpty == true ? _pricing!.words : '99 EUR a year', paid: true),
         ]),
       ),
       for (final (label, free) in _planRows)
@@ -1164,11 +1235,14 @@ class _ClaimScreenState extends State<ClaimScreen> {
                       fontSize: 15, fontWeight: FontWeight.w700)),
             ),
             const SizedBox(height: 8),
-            const Text(
-                'Secure payment with Stripe. Renews yearly; cancel any time '
-                'and it runs to the end of the 12 months.',
+            Text(
+                _pricing?.period == 'monthly'
+                    ? 'Secure payment with Stripe. Renews monthly; cancel any '
+                        'time and it runs to the end of the month.'
+                    : 'Secure payment with Stripe. Renews yearly; cancel any time '
+                        'and it runs to the end of the 12 months.',
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: const TextStyle(
                     color: Brand.inkMuted, fontSize: 11.5, height: 1.4)),
           ]);
 
@@ -1303,14 +1377,17 @@ class _ClaimScreenState extends State<ClaimScreen> {
           pill('OPTIONAL'),
         ]),
         const SizedBox(height: 14),
-        price('€99', 'a year'),
+        _pricing?.monthly != null
+            ? price(formatMoney(_pricing!.monthly!, _pricing!.currency),
+                'a month, or ${_pricing!.yearly == null ? '' : formatMoney(_pricing!.yearly!, _pricing!.currency)} a year')
+            : price('€99', 'a year'),
         const SizedBox(height: 6),
         const Text('Everything in Free, plus:',
             style: TextStyle(fontSize: 13.5, color: Brand.inkSecondary)),
       ]),
       body: [for (final t in _verifiedAdds) line(t, plus: true)],
       foot: 'Add it when you claim, or any time later from your Owner '
-          'account. Billed once a year, cancel any time.',
+          'account. Monthly or yearly, cancel any time.',
     );
 
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [

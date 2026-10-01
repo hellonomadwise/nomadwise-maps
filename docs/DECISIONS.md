@@ -1412,3 +1412,37 @@ not an AI model: free, instant, and the same words every time. Nothing
 is sent until the founder presses Send back. Migration 114 lifts the
 note limit from 1,000 to 2,500 characters (longer notes used to be cut
 off without a word).
+
+## 1 Oct 2026: Verified priced by region, monthly or yearly, in four currencies
+
+Leonie's green light on the pricing framework (Notion, "Owner features
+and pricing ideas"), with one change: Indonesia sits in C (Middle),
+not D. Four country groups, monthly or yearly (yearly is ten months
+minus one, so it ends in a 9): A 15/149, B 10/99 (the anchor, today's
+price), C 6/59, D 4/39 EUR, with clean native amounts in GBP, USD and
+AUD rather than a live exchange rate (see docs/BILLING.md for the
+table). Currency: the UK pays in pounds only; Europe defaults to
+euros, Australia to Australian dollars, everywhere else to US dollars,
+each with a toggle to the others (Jonathan). One price for all space
+types; monthly in every group; the price follows the space's address.
+No founding-price offer: normal prices first, see how sales go
+(Jonathan). The "2 months free" badge on yearly and, once a space's
+day pass is known, "less than one day pass a month" are the two
+persuasion lines on the page.
+
+Built (migration 115): pricing_groups, 243 countries with their group
+and default currency (editable on the new Pricing page in the control
+centre, with unknown country names listed to map), pricing_for() for
+the claim form and Owner account, and start_checkout(): one Stripe
+Checkout session per claim in the chosen period and currency, through
+the database's Stripe key, so no backend was needed. The claim form
+gets a monthly/yearly switch and a currency toggle; the plan table,
+the Owner account's billing tab, the control centre's offer email and
+the two owner emails that quoted "99 EUR a year" now say the price for
+the space's country. The hourly Stripe sync caches every price's
+amounts so the page shows exactly what Stripe charges. Until the
+Stripe price ids are entered, every path behaves exactly as before
+(99 EUR a year through the payment link). Anon statements get 15 s
+(Supabase's 3 s default would cut a slow Stripe round trip short).
+The control centre's "Copy payment link" became "Copy claim link":
+the claim page shows the right price and carries the owner's email.

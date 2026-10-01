@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../services/supabase_service.dart';
 import '../theme.dart';
+import 'pricing_picker.dart';
 import 'ui.dart';
 
 /// Owner account, "Plan & billing": the owner runs their own plan.
@@ -20,6 +21,9 @@ class BillingPanel extends StatefulWidget {
   // In a founder's preview: the plan being previewed, not the real one.
   final String? tierOverride;
   final VoidCallback onGoVerified;
+
+  /// The space's country, for what Verified would cost (migration 115).
+  final String? country;
   const BillingPanel({
     super.key,
     required this.venueId,
@@ -27,6 +31,7 @@ class BillingPanel extends StatefulWidget {
     required this.onGoVerified,
     this.preview = false,
     this.tierOverride,
+    this.country,
   });
   @override
   State<BillingPanel> createState() => _BillingPanelState();
@@ -34,6 +39,7 @@ class BillingPanel extends StatefulWidget {
 
 class _BillingPanelState extends State<BillingPanel> {
   final _supabase = SupabaseService();
+  PricingChoice? _pricing;
   Map<String, dynamic>? _b;
   String? _error;
   String? _busy; // which action is running
@@ -54,6 +60,9 @@ class _BillingPanelState extends State<BillingPanel> {
   void initState() {
     super.initState();
     _load();
+    _supabase.pricingFor(widget.country).then((p) {
+      if (mounted && p != null) setState(() => _pricing = PricingChoice(p));
+    });
   }
 
   Future<void> _load() async {
@@ -321,7 +330,9 @@ class _BillingPanelState extends State<BillingPanel> {
     final trouble = status == 'past_due' || status == 'unpaid';
     final periodEnd = _day(sub?['current_period_end'] ?? b['renews_at']);
     final price = sub == null
-        ? '€99 a year'
+        ? (_pricing?.fromWords.isNotEmpty == true
+            ? _pricing!.fromWords
+            : '€99 a year')
         : '${_money(sub['amount'] as num?, '${sub['currency']}')} a '
             '${sub['interval'] ?? 'year'}';
 
@@ -423,7 +434,7 @@ class _BillingPanelState extends State<BillingPanel> {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           _title('Plans',
               sub: 'Move between them whenever you like. Going down to free '
-                  'keeps Verified until the end of the year you paid for.'),
+                  'keeps Verified until the end of the period you paid for.'),
           LayoutBuilder(builder: (context, box) {
             final two = box.maxWidth >= 560;
             final free = _planBox(
@@ -451,9 +462,15 @@ class _BillingPanelState extends State<BillingPanel> {
             final paid = _planBox(
               name: 'Verified',
               price: sub == null
-                  ? '€99'
+                  ? (_pricing?.monthly != null
+                      ? formatMoney(_pricing!.monthly!, _pricing!.currency)
+                      : '€99')
                   : _money(sub['amount'] as num?, '${sub['currency']}'),
-              per: 'a ${sub?['interval'] ?? 'year'}',
+              per: sub == null
+                  ? (_pricing?.yearly != null
+                      ? 'a month, or ${formatMoney(_pricing!.yearly!, _pricing!.currency)} a year'
+                      : 'a year')
+                  : 'a ${sub['interval'] ?? 'year'}',
               lines: _benefits,
               plus: true,
               current: verified,

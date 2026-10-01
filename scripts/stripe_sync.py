@@ -369,4 +369,54 @@ for v, why in ended:
         report['warnings'].append(f"plan_ended {v['name']}: {e}")
         notify('Verified listing lapsed', f"{v['name']}: subscription {why}")
 
+# ------------------------------------------------- prices by region
+# The amounts Stripe holds for each group's monthly and yearly price,
+# in every currency set on it (migration 115), cached on the group so
+# the claim form shows exactly what Stripe will charge. Groups with no
+# price id yet are skipped; a price Stripe cannot find is reported.
+try:
+    groups = sb('pricing_groups?select=code,stripe_price_monthly,stripe_price_yearly') or []
+except Exception as e:  # noqa: BLE001
+    groups = []
+    report['warnings'].append(f'pricing groups: {e}')
+report['prices_cached'] = 0
+for g in groups:
+    amounts = {}
+    for period, pid in (('monthly', g.get('stripe_price_monthly')),
+                        ('yearly', g.get('stripe_price_yearly'))):
+        if not pid:
+            continue
+        try:
+            price = stripe(f'/prices/{pid}', {'expand[]': 'currency_options'})
+        except Exception as e:  # noqa: BLE001
+            # A warning, not a failure: the key may lack "Prices: read".
+            report['warnings'].append(
+                f"price {pid} (group {g['code']} {period}): {e}. The restricted "
+                "key needs Prices: read for the claim form to show the amounts.")
+            continue
+        per = {}
+        base = (price.get('currency') or '').upper()
+        if base and price.get('unit_amount') is not None:
+            per[base] = int(price['unit_amount'])
+        for cur, opt in (price.get('currency_options') or {}).items():
+            if isinstance(opt, dict) and opt.get('unit_amount') is not None:
+                per[cur.upper()] = int(opt['unit_amount'])
+        interval = ((price.get('recurring') or {}).get('interval') or '')
+        want = 'month' if period == 'monthly' else 'year'
+        if interval and interval != want:
+            report['errors'].append(
+                f"price {pid} is billed per {interval}, but it is set as the "
+                f"{period} price of group {g['code']}")
+            continue
+        amounts[period] = per
+    if not amounts:
+        continue
+    try:
+        sb('rpc/set_pricing_amounts', method='POST',
+           body={'p_code': g['code'], 'p_amounts': amounts})
+        report['prices_cached'] += 1
+    except Exception as e:  # noqa: BLE001
+        report['errors'].append(f"cache prices {g['code']}: {e}")
+    time.sleep(0.2)
+
 finish(1 if report['errors'] else 0)

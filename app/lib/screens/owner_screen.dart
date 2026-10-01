@@ -1283,6 +1283,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
           venueName: '${v['name'] ?? ''}',
           preview: _isPreview,
           tierOverride: _isPreview ? (_verified ? 'verified' : 'free') : null,
+          country: '${v['country'] ?? ''}',
           onGoVerified: () => _saveThenOpen(
               'https://nomadmaps.io/?claim=${Uri.encodeComponent('${v['webflow_slug'] ?? v['name']}')}')),
       _Tab.ideas => IdeasBoard(

@@ -1109,6 +1109,74 @@ class SupabaseService {
 
   /// Records a claim before the owner goes to Stripe and returns
   /// {claim_id, venue_id}. The claim id rides along in the payment link.
+  /// What Verified costs for a space in this country (migration 115):
+  /// group, currencies, monthly and yearly amounts in minor units. Null
+  /// until Stripe has the prices (ready) or when the database is older,
+  /// so every caller keeps showing today's price until then.
+  Future<Map<String, dynamic>?> pricingFor(String? country) async {
+    try {
+      final r = await _db.rpc('pricing_for', params: {'p_country': country ?? ''});
+      if (r is Map && r['ready'] == true) return Map<String, dynamic>.from(r);
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// A Stripe Checkout page for a claim in the chosen period and
+  /// currency: {'url': ...}; {'error': 'not_ready'} when the prices are
+  /// not in Stripe yet (the caller then uses the payment link); any
+  /// other {'error': ...} is a real failure to show.
+  Future<Map<String, dynamic>> startCheckout(
+      String claimId, String period, String currency) async {
+    try {
+      final r = await _db.rpc('start_checkout', params: {
+        'p_claim': claimId,
+        'p_period': period,
+        'p_currency': currency,
+      });
+      if (r is Map) return Map<String, dynamic>.from(r);
+      return {'error': 'no_response'};
+    } catch (e) {
+      return {'error': '$e'};
+    }
+  }
+
+  /// Admin: the pricing groups, every country, and what is unmapped.
+  Future<Map<String, dynamic>> adminPricing() async {
+    final r = await _db.rpc('admin_pricing');
+    return r is Map ? Map<String, dynamic>.from(r) : {};
+  }
+
+  Future<Map<String, dynamic>> setPricingGroup(String code, num monthlyEur,
+      num yearlyEur, String? priceMonthly, String? priceYearly) async {
+    final r = await _db.rpc('admin_set_pricing_group', params: {
+      'p_code': code,
+      'p_monthly_eur': monthlyEur,
+      'p_yearly_eur': yearlyEur,
+      'p_price_monthly': priceMonthly,
+      'p_price_yearly': priceYearly,
+    });
+    return r is Map ? Map<String, dynamic>.from(r) : {};
+  }
+
+  Future<Map<String, dynamic>> setPricingCountry(String iso,
+      {String? group, String? currency, bool? locked}) async {
+    final r = await _db.rpc('admin_set_country', params: {
+      'p_iso': iso,
+      'p_group': group,
+      'p_currency': currency,
+      'p_locked': locked,
+    });
+    return r is Map ? Map<String, dynamic>.from(r) : {};
+  }
+
+  Future<Map<String, dynamic>> addPricingAlias(String alias, String iso) async {
+    final r = await _db.rpc('admin_add_alias',
+        params: {'p_alias': alias, 'p_iso': iso});
+    return r is Map ? Map<String, dynamic>.from(r) : {};
+  }
+
   Future<Map<String, dynamic>?> startClaim(Map<String, dynamic> p) async {
     final res = await _db.rpc('start_claim', params: {'p': p});
     return res == null ? null : Map<String, dynamic>.from(res as Map);
