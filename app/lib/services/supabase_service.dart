@@ -755,6 +755,45 @@ class SupabaseService {
     return r is Map ? Map<String, dynamic>.from(r) : null;
   }
 
+  /// Admin: enquiries waiting to be passed on to a space, with the
+  /// space's details and suggested addresses (migration 113). Empty
+  /// before the migration exists.
+  Future<Map<String, dynamic>> enquiriesToPassOn() async {
+    try {
+      final r = await _db.rpc('admin_enquiries_to_pass_on');
+      return r is Map ? Map<String, dynamic>.from(r) : {};
+    } catch (_) {
+      return {};
+    }
+  }
+
+  /// Admin: sends a waiting enquiry to the space (reply-to the nomad)
+  /// and, when asked, tells the nomad it went.
+  Future<void> passOnEnquiry(String id, String to, {bool tellNomad = true}) =>
+      _db.rpc('admin_enquiry_pass_on',
+          params: {'p_id': id, 'p_to': to, 'p_tell_nomad': tellNomad});
+
+  /// Admin: closes a waiting enquiry: 'handled', 'unreachable' (the
+  /// nomad can be sent the space's website) or 'spam'.
+  Future<void> closeEnquiry(String id, String reason,
+          {bool tellNomad = false}) =>
+      _db.rpc('admin_enquiry_close',
+          params: {'p_id': id, 'p_reason': reason, 'p_tell_nomad': tellNomad});
+
+  /// Admin: a pop-up enquiry whose listing was not recognised: the space.
+  Future<void> attachEnquiry(String id, String venueId) => _db.rpc(
+      'admin_enquiry_attach',
+      params: {'p_id': id, 'p_venue': venueId});
+
+  /// Admin: takes the owner off a space (migration 112). The page
+  /// stays; the plan goes back to Free and their claim is closed.
+  Future<Map<String, dynamic>?> removeOwner(String venueId,
+      {String? note}) async {
+    final r = await _db.rpc('admin_remove_owner',
+        params: {'p_venue': venueId, 'p_note': note});
+    return r is Map ? Map<String, dynamic>.from(r) : null;
+  }
+
   /// Admin: Google calls per day, job and bill line, newest first.
   Future<List<Map<String, dynamic>>> apiUsage({int days = 35}) async {
     final since = DateTime.now()
@@ -1204,6 +1243,7 @@ class SupabaseService {
       'listing_tier, listing_paid_at, listing_renews_at, listing_owner_name, '
       'listing_owner_email, listing_enquiry_email, listing_notes, '
       'listing_sync_requested_at, listing_synced_at, listing_sync_error, '
+      'stripe_subscription_id, '
       'webflow_verified, '
       // The WhatsApp number the owner put on their page, for the
       // control centre's WhatsApp button.

@@ -1337,3 +1337,56 @@ counts at list price, as a safety net. The allowance belongs to the
 whole Google billing account (shared with anything else on it), and
 Google's own billing page has the final word; we cannot read the
 account itself from here.
+
+## 1 Oct 2026: Remove an owner; the Coastal test owner removed
+
+Leonie tested the owner journey on Coastal with a throwaway account,
+and the page went through to Webflow as a draft. Jonathan wants the
+draft kept (the real owner may claim it later) but not the test owner.
+Migration 112 adds remove_owner(): the plan goes back to Free with no
+owner, enquiry address, dates or Stripe link; the sync writes the Free
+fields to the Webflow item (a draft stays a draft, nothing is
+published); the owner's claims for the space are closed as abandoned
+(no email); their waiting changes are dropped; the space's Stripe
+orders are marked ignored so the hourly Stripe check never re-attaches
+them; their account leaves the Owners group if they run no other space;
+and a dated line goes into the notes. Stripe itself is not touched: a
+live subscription is cancelled in Stripe by hand. The migration runs it
+once for the Coastal test account and clears that account's answers,
+idea votes, suggestions and billing events, so the Owners figures show
+real owners only. The Listing plan page gains a "Remove owner" button
+(founders only) for the next time: a test, a space that changed hands,
+or a claim by the wrong person.
+
+## 1 Oct 2026: Every enquiry reaches the space (Enquiries to pass on)
+
+A nomad (Jan, 30 Sep) used Send an enquiry on Madeira Friends Hub, a
+page we listed without the space knowing. The pop-up on free pages is a
+Webflow form ("Research Form") that only emailed hello@nomadwise.io, so
+the space never heard about it. Decided with Jonathan:
+
+- The pop-up stays exactly as it is, so nomads never leave nomadwise.io
+  (Jonathan's worry about continuity). The ten-minute website push now
+  reads its submissions over the Webflow API (scripts/
+  webflow_enquiries.py) and files them in the enquiries table next to
+  the Verified form's requests. Webflow still emails hello@ as before,
+  as a backup. Submissions from before this went live are kept as
+  history (they count towards a space's enquiries) with nothing to do.
+- Verified with an enquiry address: sent straight to the space, as
+  before.
+- Not claimed, or claimed on Free: the enquiry waits under Owners >
+  Enquiries in the control centre, first in the To do strip, and the
+  phone is pinged. The job looks for an email on the space's own
+  website and suggests it. Pass on emails the space (reply-to the
+  nomad, copy to hello@) with a free claim link, or for a Free owner a
+  line about Verified; optionally tells the nomad it went. Already
+  handled, Can't reach (optionally sends the nomad the space's website
+  and Google Maps link) and Spam close it. A submission whose listing
+  name is not recognised gets "Choose the space".
+- Free stays "enquiries come to us first and we pass them on";
+  Verified keeps "straight to your inbox".
+
+Migration 113. The control centre shows when the pop-up was last read
+and any problem, such as the Webflow token missing the "Forms: read"
+permission. Since the import routes Verified pages directly, Verified
+pages could use the same pop-up instead of the nomadmaps.io form.

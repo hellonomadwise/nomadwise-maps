@@ -13,6 +13,7 @@ import '../services/places_service.dart';
 import '../services/supabase_service.dart';
 import '../theme.dart';
 import '../widgets/control_extras.dart';
+import '../widgets/pass_on.dart';
 import '../widgets/phone_field.dart';
 import '../widgets/resubmit_changes.dart';
 import '../widgets/ui.dart';
@@ -150,6 +151,11 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   }
   List<Map<String, dynamic>> _enquiries = [];
   List<Map<String, dynamic>> _orders = [];
+  // Enquiries waiting to be passed on to a space (migration 113).
+  List<Map<String, dynamic>> _passOn = [];
+  int _passed30 = 0;
+  int _direct30 = 0;
+  Map<String, dynamic>? _importNote;
   List<Map<String, dynamic>> _held = [];
   List<Map<String, dynamic>> _started = [];
   List<Map<String, dynamic>> _freeOwned = [];
@@ -178,6 +184,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
 
   Future<void> _load() async {
     try {
+      final passOnF = _supabase.enquiriesToPassOn();
       final results = await Future.wait([
         _supabase.websiteInbox(),
         _supabase.websiteDrafts(),
@@ -201,8 +208,18 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         _supabase.approvedClaimDates(),
         _supabase.listingUpdates(),
       ]);
+      final passOn = await passOnF;
       if (!mounted) return;
       setState(() {
+        _passOn = [
+          for (final r in (passOn['waiting'] as List? ?? const []))
+            if (r is Map) Map<String, dynamic>.from(r),
+        ];
+        _passed30 = (passOn['passed_30d'] as num?)?.toInt() ?? 0;
+        _direct30 = (passOn['direct_30d'] as num?)?.toInt() ?? 0;
+        _importNote = passOn['import'] is Map
+            ? Map<String, dynamic>.from(passOn['import'])
+            : null;
         _inbox = results[0];
         _drafts = results[1];
         _released = results[2];
@@ -1005,6 +1022,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
 
   static const _groupNames = {
     'paid': 'Owners',
+    'enquiries': 'Enquiries',
     'owner': 'Owner changes',
     'fresh': 'New spaces',
     'preparing': 'Queued',
@@ -1307,7 +1325,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   // Three sections instead of eleven tabs in a row (30 Sep 2026):
   // the people, the pages, and the tidying up.
   static const _sections = [
-    ('owners', 'Owners', ['paid', 'owner']),
+    ('owners', 'Owners', ['paid', 'enquiries', 'owner']),
     ('pages', 'Pages',
         ['fresh', 'preparing', 'region', 'ready', 'drafts', 'sitemap', 'released']),
     ('cleanup', 'Clean-up', ['closed', 'hidden']),
@@ -1333,7 +1351,8 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         List<Map<String, dynamic>> fresh
       }) g) =>
       switch (section) {
-        'owners' => _held.length +
+        'owners' => _passOn.length +
+            _held.length +
             _orders.length +
             _ownerDrafts.length +
             _updates.length,
@@ -1362,6 +1381,9 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       }) g) {
     String n(int x, String one, String many) => '$x ${x == 1 ? one : many}';
     final items = <(String, String, Color)>[
+      if (_passOn.isNotEmpty)
+        (n(_passOn.length, 'enquiry to pass on', 'enquiries to pass on'),
+            'enquiries', Brand.red),
       if (_held.isNotEmpty)
         (n(_held.length, 'claim to decide', 'claims to decide'), 'paid',
             Brand.success),
@@ -1543,6 +1565,19 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
             'Listing plan to mark the first one Verified.'
       ),
       (
+        key: 'enquiries',
+        label: 'Enquiries',
+        count: _passOn.length,
+        color: Brand.red,
+        hint: 'Nomads who used Send an enquiry on a page with no owner yet, '
+            'or with a Free owner. Pass each one on to the space: their reply '
+            'goes straight to the nomad, and the email invites them to claim '
+            'their page (or, on Free, mentions Verified). Verified spaces get '
+            'theirs directly and never show here.',
+        empty: 'No enquiries waiting. Enquiries for pages without an owner, '
+            'or with a Free owner, land here to pass on.'
+      ),
+      (
         key: 'owner',
         label: 'Owner changes',
         count: _ownerDrafts.length + _updates.length,
@@ -1660,7 +1695,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     // A group stays chosen when it empties (its empty note shows); the
     // Today strip and the three sections take you to the next work.
     if (key == null || !groups.any((x) => x.key == key)) {
-      const steps = ['fresh', 'preparing', 'region', 'ready'];
+      const steps = ['enquiries', 'fresh', 'preparing', 'region', 'ready'];
       key = groups
           .firstWhere((x) => steps.contains(x.key) && x.count > 0,
               orElse: () => groups.firstWhere((x) => x.key == 'fresh'))
@@ -1669,6 +1704,35 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     final current = groups.firstWhere((x) => x.key == key);
 
     final cards = switch (key) {
+      'enquiries' => [
+          _importLine(),
+          if (_passed30 + _direct30 > 0)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
+              child: Text(
+                  'Last 30 days: $_passed30 passed on, $_direct30 sent '
+                  'straight to Verified spaces.',
+                  style: const TextStyle(
+                      fontSize: 12.5, color: Brand.inkSecondary)),
+            ),
+          if (_passOn.isEmpty) _groupEmpty(current.empty),
+          for (final e in _passOn)
+            PassOnCard(
+              key: ValueKey('passon-${e['id']}'),
+              e: e,
+              supabase: _supabase,
+              onDone: _load,
+              chooseSpace: (initial) =>
+                  showModalBottomSheet<Map<String, dynamic>>(
+                      context: context,
+                      isScrollControlled: true,
+                      shape: const RoundedRectangleBorder(
+                          borderRadius:
+                              BorderRadius.vertical(top: Radius.circular(18))),
+                      builder: (_) => _VenueSearchSheet(
+                          supabase: _supabase, initial: initial)),
+            ),
+        ],
       'ready' => g.ready.map(_readyCard).toList(),
       'region' => g.needsRegion.map(_needsRegionCard).toList(),
       'fresh' => g.fresh.map(_freshCard).toList(),
@@ -1860,6 +1924,31 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                 ]),
       ),
     ]);
+  }
+
+  /// When the nomadwise.io pop-up was last read, or what went wrong.
+  Widget _importLine() {
+    final n = _importNote;
+    final errors = (n?['errors'] as List?) ?? const [];
+    final at = DateTime.tryParse('${n?['at']}')?.toLocal();
+    String text;
+    Color color = Brand.inkMuted;
+    if (n == null || at == null) {
+      text = 'The nomadwise.io pop-up has not been read yet. It is checked '
+          'with the website push, every ten minutes or so.';
+    } else if (errors.isNotEmpty) {
+      text = 'Last check of the pop-up had a problem: ${errors.first}';
+      color = Brand.red;
+    } else {
+      final m = DateTime.now().difference(at).inMinutes;
+      text = 'nomadwise.io pop-up last checked '
+          '${m < 1 ? 'just now' : m < 60 ? '$m min ago' : m < 1440 ? '${m ~/ 60} h ago' : DateFormat('d MMM, HH:mm').format(at)}.';
+    }
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+      child: Text(text,
+          style: TextStyle(fontSize: 12, height: 1.4, color: color)),
+    );
   }
 
   Widget _inboxZero() => Column(children: [
@@ -5879,10 +5968,91 @@ class _ListingPlanPageState extends State<_ListingPlanPage> {
     }
   }
 
+  /// Takes the owner off this space: Free plan, no owner, claim closed,
+  /// waiting changes dropped. The page itself is left as it is.
+  Future<void> _removeOwner() async {
+    final v = widget.venue;
+    final who = (v['listing_owner_email'] ?? '').toString().trim();
+    final hasSub = (v['stripe_subscription_id'] ?? '').toString().isNotEmpty;
+    final note = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Remove the owner?'),
+        content: SingleChildScrollView(
+          child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                    '${who.isEmpty ? 'The owner' : who} will no longer run '
+                    '${v['name'] ?? 'this space'}. The plan goes back to '
+                    'Free, their claim is closed and any changes waiting '
+                    'for review are dropped. No email is sent.',
+                    style: const TextStyle(fontSize: 13.5, height: 1.45)),
+                const SizedBox(height: 8),
+                const Text(
+                    'The page stays as it is: a live page stays live, a '
+                    'draft stays a draft.',
+                    style: TextStyle(
+                        fontSize: 13, height: 1.45, color: Brand.inkSecondary)),
+                if (hasSub) ...[
+                  const SizedBox(height: 8),
+                  const Text(
+                      'They have a Stripe subscription. It keeps running '
+                      'until you cancel it in Stripe.',
+                      style: TextStyle(
+                          fontSize: 13,
+                          height: 1.45,
+                          fontWeight: FontWeight.w600,
+                          color: Brand.goldTextDark)),
+                ],
+                const SizedBox(height: 12),
+                TextField(
+                    controller: note,
+                    decoration: const InputDecoration(
+                        labelText: 'Why (optional, kept in the notes)')),
+              ]),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: Brand.red),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Remove owner')),
+        ],
+      ),
+    );
+    final why = note.text.trim();
+    if (ok != true || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      await widget.supabase.removeOwner(widget.venue['id'],
+          note: why.isEmpty ? null : why);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Owner removed. The page is now a free listing.')));
+      Navigator.pop(context, true);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('That did not work: $e'),
+            backgroundColor: Brand.red));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final v = widget.venue;
     final onSite = v['webflow_cms_id'] != null;
+    final hasOwner =
+        (v['listing_owner_email'] ?? '').toString().trim().isNotEmpty ||
+            v['listing_tier'] == 'verified';
     return Scaffold(
       appBar: AppBar(title: Text(v['name'] ?? 'Listing plan')),
       body: Center(
@@ -6009,6 +6179,28 @@ class _ListingPlanPageState extends State<_ListingPlanPage> {
                     icon: const Icon(Icons.mail_outline, size: 16),
                     label: const Text('Copy offer email')),
               ]),
+            ],
+            if (hasOwner) ...[
+              const SizedBox(height: 28),
+              const SectionLabel('Remove owner'),
+              const SizedBox(height: 6),
+              const Text(
+                  'For a test account, a space that changed hands, or a '
+                  'claim by the wrong person. The page stays; the owner, '
+                  'their claim and their waiting changes go.',
+                  style: TextStyle(
+                      fontSize: 12.5, height: 1.45, color: Brand.inkSecondary)),
+              const SizedBox(height: 10),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                        foregroundColor: Brand.red,
+                        side: BorderSide(color: Brand.red.withValues(alpha: .5))),
+                    onPressed: _busy ? null : _removeOwner,
+                    icon: const Icon(Icons.person_remove_outlined, size: 16),
+                    label: const Text('Remove owner')),
+              ),
             ],
             const SizedBox(height: 40),
           ]),
