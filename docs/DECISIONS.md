@@ -1446,3 +1446,19 @@ Stripe price ids are entered, every path behaves exactly as before
 (Supabase's 3 s default would cut a slow Stripe round trip short).
 The control centre's "Copy payment link" became "Copy claim link":
 the claim page shows the right price and carries the owner's email.
+
+## 2 Oct 2026: Claim form, step 2 and 3 polish
+
+- "Where should enquiries go? (optional)" became a ticked box, "Send
+  enquiries from nomads to <their email>", with the field appearing
+  only when unticked (Jonathan's idea: the normal case needs no
+  typing, and "optional" never had to be worked out). Unticked and
+  empty is refused with a plain message.
+- The Verified column of the plan table was tinted red, which reads as
+  a warning; it is now the brand teal tint with the green Verified
+  icon beside the name. Column sub-labels say "€0" and the chosen (or
+  "from") price. The small print under the buttons is one sentence
+  each: "No card needed. Nothing to pay, ever." and "Paid monthly /
+  once a year through Stripe. Cancel any time."
+- Prices are written with their symbol everywhere (€10, £9, A$25),
+  never "10 EUR" (migration 116 for the email words).

@@ -45,7 +45,7 @@ better spent on owners who already have a page.)
 
 **Line under the buttons.** Add a small line of text if the layout has
 room:
-Listing is free and stays free. Verified is 99 EUR a year, cancel any
+Listing is free and stays free. Verified is from €4 a month, cancel any
 time.
 
 ---
@@ -74,22 +74,23 @@ Button: Claim for free, link `https://nomadmaps.io/?claim`, new tab.
 **Item 2, Verified.** Keep the text from the first document. Add:
 Button: Go Verified, link `https://nomadmaps.io/?claim`, new tab.
 Small line under the button:
-Billed once a year through Stripe. Cancel any time; the listing stays,
+Monthly or yearly through Stripe. Cancel any time; the listing stays,
 back on the free plan.
 
 **Item 3, How it works.** Replace this:
 How it works
 Find your space on the claim form, or add it from Google Maps if it
-is not on our map yet. Tell us who you are and where booking requests
+is not on our map yet. Tell us who you are and where enquiries
 should go. Pay through Stripe. Three steps, no account to create.
-Billed once a year. Cancel any time.
+The price depends on where your space is, and you see it on the claim form. Monthly or yearly, cancel any time.
 With this:
 Simple from the first step
 1. Find your space. Search our map, or add it from Google Maps if it
    is not there yet. No duplicates, no account to create.
-2. Tell us who you are. Your name, your email, where booking requests
+2. Tell us who you are. Your name, your email, where enquiries
    should go. We check the claim before anything changes on the page.
-3. Free, or Verified. Claim for free, or pay 99 EUR through Stripe.
+3. Free, or Verified. Claim for free, or pay through Stripe, monthly
+   or yearly, at the price for your country.
    Then sign in to your Owner account and make the page yours.
 
 If the layout lets you, the Free and Verified items look best as two
@@ -127,7 +128,7 @@ tab, and "Claim your page" a link to https://nomadmaps.io/?claim.)
 I claimed for free. Can I go Verified later?
 Yes. Sign in to your Owner account and press Go Verified, or open the
 claim form again with the same email. Your page and everything you
-added stay as they are; the badge, the booking button and the place
+added stay as they are; the badge, the enquiry button and the place
 above free listings come on once the payment is in.
 
 ---

@@ -90,6 +90,9 @@ class _ClaimScreenState extends State<ClaimScreen> {
   final _ownerEmail = TextEditingController();
   final _ownerPhone = TextEditingController();
   final _enquiryEmail = TextEditingController();
+  // Enquiries go to the owner's own email unless they untick this and
+  // give another address (a shared inbox, reception).
+  bool _sameEnquiryEmail = true;
   final _note = TextEditingController();
   // Two optional links. Public facts we would show anyway, and a small
   // investment that makes finishing more likely.
@@ -124,7 +127,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
   /// "from €10 a month" when the prices are known, else today's price.
   String get _fromWords => _pricing?.fromWords.isNotEmpty == true
       ? _pricing!.fromWords
-      : 'from 99 EUR a year';
+      : 'from €99 a year';
   String? _error;
 
   // ---- the journey, for the admin's Claim journeys view ----
@@ -215,6 +218,11 @@ class _ClaimScreenState extends State<ClaimScreen> {
       return 'That Instagram handle has characters Instagram does not '
           'allow. Letters, numbers, dots and underscores only.';
     }
+    if (!_sameEnquiryEmail &&
+        !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
+            .hasMatch(_enquiryEmail.text.trim())) {
+      return 'Enter the email for enquiries, or tick the box to use your own.';
+    }
     return null;
   }
 
@@ -227,7 +235,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
       'owner_email': _ownerEmail.text.trim().toLowerCase(),
       'owner_role': _roleValue,
       'owner_phone': PhoneField.compose(_phoneCountry.value, _ownerPhone.text),
-      'enquiry_email': _enquiryEmail.text.trim(),
+      'enquiry_email': _sameEnquiryEmail ? '' : _enquiryEmail.text.trim(),
       'note': _note.text.trim(),
       'space_website': _siteUrl.text.trim(),
       'space_instagram': ig.isEmpty ? '' : '@$ig',
@@ -897,11 +905,49 @@ class _ClaimScreenState extends State<ClaimScreen> {
       ),
       _signedInNote(),
       const SizedBox(height: 16),
-      TextField(
-          controller: _enquiryEmail,
-          keyboardType: TextInputType.emailAddress,
-          decoration: _field('Where should enquiries go? (optional)',
-              helper: "Leave blank and we'll send them to the email above.")),
+      // Where enquiries go: the email above, unless they say otherwise.
+      // A ticked box reads as the normal case; unticking reveals the
+      // field, so nobody has to work out what "optional" means.
+      AnimatedBuilder(
+        animation: _ownerEmail,
+        builder: (_, __) {
+          final own = _ownerEmail.text.trim();
+          return Container(
+            decoration: BoxDecoration(
+                border: Border.all(color: Brand.border),
+                borderRadius: BorderRadius.circular(8)),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              CheckboxListTile(
+                value: _sameEnquiryEmail,
+                onChanged: (v) => setState(() => _sameEnquiryEmail = v ?? true),
+                controlAffinity: ListTileControlAffinity.leading,
+                contentPadding: const EdgeInsets.fromLTRB(8, 2, 12, 2),
+                title: Text(
+                    own.contains('@')
+                        ? 'Send enquiries from nomads to $own'
+                        : 'Send enquiries from nomads to the email above',
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                subtitle: const Text(
+                    'When a nomad uses the Send an enquiry button on your '
+                    'page, it goes to this address.',
+                    style: TextStyle(fontSize: 12.5, height: 1.4)),
+              ),
+              if (!_sameEnquiryEmail)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+                  child: TextField(
+                      controller: _enquiryEmail,
+                      autofocus: true,
+                      keyboardType: TextInputType.emailAddress,
+                      decoration: _field('Email for enquiries',
+                          hint: 'hello@yourspace.com',
+                          helper: 'A shared inbox, or whoever answers '
+                              'bookings.')),
+                ),
+            ]),
+          );
+        },
+      ),
       const SizedBox(height: 16),
       _pair(
         wide,
@@ -1058,8 +1104,9 @@ class _ClaimScreenState extends State<ClaimScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _heading(wide, 3, 'Choose your plan',
-              'Claiming $_spaceName is free. Verified adds more, $_fromWords. '
-                  'You can go Verified later from your Owner account.'),
+              'Claiming $_spaceName is free, and stays free. Verified is an '
+                  'optional extra, $_fromWords, which you can add now or '
+                  'later from your Owner account.'),
           SizedBox(height: wide ? 26 : 18),
           ConstrainedBox(
             constraints: BoxConstraints(maxWidth: wide ? 860 : double.infinity),
@@ -1078,7 +1125,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
                       child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Verified for $_spaceName',
+                            Text('Verified for $_spaceName: pick how to pay',
                                 style: const TextStyle(
                                     fontWeight: FontWeight.w800,
                                     fontSize: 15)),
@@ -1145,7 +1192,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
     Widget cell(Widget child, {bool paid = false, bool top = false}) =>
         Container(
           width: colW,
-          color: paid ? Brand.accentTint : null,
+          color: paid ? Brand.logoTealTint : null,
           padding: EdgeInsets.symmetric(vertical: top ? 14 : 11),
           alignment: Alignment.center,
           child: child,
@@ -1155,11 +1202,17 @@ class _ClaimScreenState extends State<ClaimScreen> {
         : const Icon(Icons.remove, color: Brand.inkFaint, size: 18);
     Widget head(String name, String price, {bool paid = false}) => cell(
           Column(children: [
-            Text(name,
-                style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: wide ? 16 : 14,
-                    color: paid ? Brand.red : Brand.ink)),
+            Row(mainAxisSize: MainAxisSize.min, children: [
+              Text(name,
+                  style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: wide ? 16 : 14,
+                      color: Brand.ink)),
+              if (paid) ...[
+                const SizedBox(width: 4),
+                Icon(Icons.verified, color: Brand.success, size: wide ? 18 : 16),
+              ],
+            ]),
             const SizedBox(height: 2),
             Text(price,
                 textAlign: TextAlign.center,
@@ -1173,8 +1226,10 @@ class _ClaimScreenState extends State<ClaimScreen> {
       IntrinsicHeight(
         child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           const Expanded(child: SizedBox()),
-          head('Free', 'claim for free'),
-          head('Verified', _pricing?.words.isNotEmpty == true ? _pricing!.words : '99 EUR a year', paid: true),
+          head('Free', '€0'),
+          head('Verified',
+              _pricing?.words.isNotEmpty == true ? _pricing!.words : _fromWords,
+              paid: true),
         ]),
       ),
       for (final (label, free) in _planRows)
@@ -1213,13 +1268,23 @@ class _ClaimScreenState extends State<ClaimScreen> {
     );
   }
 
-  Widget _freeButton() => OutlinedButton(
-        onPressed: _sending ? null : _claimFree,
-        style: OutlinedButton.styleFrom(
-            minimumSize: const Size.fromHeight(52)),
-        child: Text(_sending ? 'One moment' : 'Claim for free',
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
-      );
+  Widget _freeButton() => Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            OutlinedButton(
+              onPressed: _sending ? null : _claimFree,
+              style: OutlinedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(52)),
+              child: Text(_sending ? 'One moment' : 'Claim for free',
+                  style: const TextStyle(
+                      fontSize: 15, fontWeight: FontWeight.w700)),
+            ),
+            const SizedBox(height: 8),
+            const Text('No card needed. Nothing to pay, ever.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    color: Brand.inkMuted, fontSize: 11.5, height: 1.4)),
+          ]);
 
   Widget _payButton() => Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1237,10 +1302,8 @@ class _ClaimScreenState extends State<ClaimScreen> {
             const SizedBox(height: 8),
             Text(
                 _pricing?.period == 'monthly'
-                    ? 'Secure payment with Stripe. Renews monthly; cancel any '
-                        'time and it runs to the end of the month.'
-                    : 'Secure payment with Stripe. Renews yearly; cancel any time '
-                        'and it runs to the end of the 12 months.',
+                    ? 'Paid monthly through Stripe. Cancel any time.'
+                    : 'Paid once a year through Stripe. Cancel any time.',
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                     color: Brand.inkMuted, fontSize: 11.5, height: 1.4)),

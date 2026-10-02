@@ -5902,7 +5902,7 @@ class _ListingPlanPageState extends State<_ListingPlanPage> {
   String get _priceWords {
     final p = _pricing;
     if (p == null || p.monthly == null || p.yearly == null) {
-      return '99 EUR a year';
+      return '€99 a year';
     }
     return '${formatMoney(p.monthly!, p.currency)} a month or '
         '${formatMoney(p.yearly!, p.currency)} a year';

@@ -91,7 +91,7 @@ The country groups and each country's currency are editable on the
 Pricing page (tap a country). A country name the database does not
 recognise is listed there with a "Map" button; until mapped, its
 spaces are priced as group B. The one-off Webflow copy on the Get
-listed page still says 99 EUR a year and wants updating to "from 4 EUR
+listed page still says 99 EUR a year and wants updating to "from €4
 a month" once this is live.
 
 ## Later: monthly as well as yearly

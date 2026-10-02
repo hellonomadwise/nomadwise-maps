@@ -1,6 +1,10 @@
 # Get listed page: replace this, with this
 
 Page: `/list-my-coworking-space-on-nomadwise` in the Webflow Designer.
+Updated 1 Oct 2026: prices are now per country (from €4 a month,
+monthly or yearly), so the page says "from" and never one figure; the
+button on a page is "Send an enquiry", so "enquiries" not "booking
+requests".
 Work top to bottom. Every text block on the live page today is listed
 below in order, with what to put in its place. "Delete" means remove
 the block. Every button that used to open a form now opens
@@ -22,7 +26,7 @@ List your coworking space or cafe on nomadwise.io | Free and Verified
 With this:
 Get your coworking space or laptop-friendly cafe on nomadwise.io, the
 directory Google and AI assistants use to answer "where can I work
-from?". Free listing, or Verified for 99 EUR a year.
+from?". Free listing, or Verified from €4 a month.
 
 ---
 
@@ -53,7 +57,7 @@ Allow customers to book desks & offices with no friction
 With this:
 Over a thousand places to work from, across [x] countries
 Every page built to be found by search engines and AI assistants
-Listing is free. Verified is 99 EUR a year
+Listing is free. Verified from €4 a month
 
 **Button 1.** Replace this: List for free (opens a form)
 With this: Claim your space, link https://nomadmaps.io/?claim, open in
@@ -111,7 +115,7 @@ You will only pay commission when customers buy your products.
 With this:
 Free to be listed, always
 A free page costs nothing and stays free. Verified adds the badge, the
-placement and the booking button for 99 EUR a year. No commission,
+placement and the enquiry button from €4 a month. No commission,
 ever.
 
 ---
@@ -126,7 +130,7 @@ Activate bookings & start earning.
 With this:
 ALREADY ON NOMADWISE.IO?
 Claim your page and make it Verified.
-Booking requests straight to your inbox, the badge, and a place above
+Enquiries straight to your inbox, the badge, and a place above
 every free listing in your city.
 [Claim your space] link https://nomadmaps.io/?claim, new tab.
 
@@ -154,13 +158,13 @@ at any time.
 
 **Item 2.** Replace this:
 No tech setup required.
-Get booking requests straight into your inbox. No new tools or
+Get enquiries straight into your inbox. No new tools or
 integrations needed.
 With this:
-Verified, 99 EUR a year
+Verified, from €4 a month
 Everything a free page has, plus: the Verified badge on your page and
 in every list you appear in; a place above every free listing in your
-city and area; booking requests sent straight to your inbox, no
+city and area; enquiries sent straight to your inbox, no
 commission, no middleman; your own photos, description and prices
 instead of whatever Google shows; your event or offer in the advert
 slot on your page, instead of ours.
@@ -174,9 +178,9 @@ Easily manage demand and plan ahead with reservations.
 With this:
 How it works
 Find your space on the claim form, or add it from Google Maps if it
-is not on our map yet. Tell us who you are and where booking requests
+is not on our map yet. Tell us who you are and where enquiries
 should go. Pay through Stripe. Three steps, no account to create.
-Billed once a year. Cancel any time.
+The price depends on where your space is, and you see it on the claim form. Monthly or yearly, cancel any time.
 
 Add a [Claim your space] button under this section if the layout has
 a spot for one, link https://nomadmaps.io/?claim, new tab.
@@ -206,7 +210,7 @@ With this:
 How do I get my space on nomadwise.io?
 Open the claim form, find your space, or add it from Google Maps if it
 is not on our map yet. If your page is already on nomadwise.io, we
-check the claim and then the badge, your details and the booking
+check the claim and then the badge, your details and the enquiry
 button go on. If it is not, your listing joins our publishing queue:
 we check every page before it goes live and email you the moment
 yours is. We ask you for your photos, description and prices then, so
@@ -220,8 +224,8 @@ commission)
 With this:
 We are already listed. Why pay?
 Because people are already looking at your page and cannot ask you
-anything from it. Verified adds the button that turns a look into a
-booking request, and the badge and placement above free listings that
+anything from it. Verified adds the button that turns a look into an
+enquiry, and the badge and placement above free listings that
 make it more likely they look at you at all.
 
 **Q3.** Replace this:
@@ -231,9 +235,10 @@ a commission when customers book your space through our platform. If
 Nomadwise doesn't bring you any bookings, you won't pay anything.
 With this:
 What does it cost?
-A listing is free and stays free. Verified is 99 EUR a year, billed
-once a year, and you can cancel at any time from the link in your
-receipt. Your listing stays, back on the free plan. There is no
+A listing is free and stays free. Verified is priced per country so
+it costs about the same as one day pass wherever your space is, from
+4 EUR a month, monthly or yearly. The claim form shows your price.
+Cancel at any time from your Owner account. Your listing stays, back on the free plan. There is no
 commission on anything.
 
 **Q4.** Replace this:
