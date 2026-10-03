@@ -35,6 +35,19 @@ hello@nomadwise.io through Postmark, replies land in the inbox as
 usual, a copy is sent to hello@ so the inbox has it too, and the card
 moves to Contacted.
 
+There are two ways to send from that box:
+
+- **Send from here** goes out at once from hello@nomadwise.io through
+  Postmark. For answering someone who wrote to us.
+- **Open in mail app** opens the same email as a draft in the
+  computer's mail app (Spark), to send by hand from whichever inbox
+  you choose. For invitations to spaces that have not written to us:
+  an ordinary email from our own mailbox, one at a time. The full text
+  is also put on the clipboard in case the draft is cut short. After
+  sending, press "I sent it" so the card moves on (migration 122).
+  Spark must be the default email app on the computer for the draft
+  to open there.
+
 Templates are edited from the page icon at the top. Rules for the
 words: no em dashes, no promised times, prices with their symbol,
 "Owner account" never "members area".

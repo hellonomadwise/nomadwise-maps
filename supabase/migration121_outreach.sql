@@ -41,8 +41,6 @@
 -- belong in it.
 -- ============================================================
 
-create extension if not exists pgcrypto;
-
 -- ------------------------------------------------------------ tables
 create table if not exists public.space_contacts (
   id               uuid primary key default gen_random_uuid(),
@@ -69,7 +67,9 @@ create table if not exists public.space_contacts (
   last_out_at      timestamptz,
   follow_up_on     date,
   notes            text,
-  unsub_token      text not null unique default encode(gen_random_bytes(12), 'hex'),
+  -- gen_random_uuid() is built in; pgcrypto's gen_random_bytes() lives
+  -- in Supabase's "extensions" schema and is not found from here.
+  unsub_token      text not null unique default replace(gen_random_uuid()::text, '-', ''),
   unsubscribed_at  timestamptz,
   created_at       timestamptz not null default now(),
   updated_at       timestamptz not null default now()

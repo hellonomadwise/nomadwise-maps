@@ -1595,10 +1595,32 @@ reply templates filled in per contact, sending through Postmark with
 guard rails (30 days between emails, 40 a day, unsubscribe on every
 one), and Claimed / Verified moving by themselves from the claim form.
 Website form submissions are filed by the sync. The inbox backlog (97
-threads, 79 spaces, read from Gmail on 3 Oct) is imported from a file
+threads, 78 spaces, read from Gmail on 3 Oct) is imported from a file
 through the app, not a migration: the site is built from the
 repository via GitHub Pages, so personal details stay out of it.
 Chosen with Jonathan: inbound backlog first, send from the control
 centre, stages automatic where possible. Next slices: the invitation
 to spaces already listed, and adding prospects from the map.
+
+Jonathan asked to link Outreach to Spark, where the three inboxes
+(hello@, jonathan@, leonie@) are read. Spark is a mail app with no way
+for another program to send through it (its integrations only export
+an email to a task app), so the link is "Open in mail app": the
+filled-in email opens as a draft there, a founder sends it from their
+own inbox, and "I sent it" records it (migration 122). That is also
+the right route for invitations to spaces that never wrote to us,
+which do not belong on Postmark. A fuller link (sending and reading
+through the mailboxes themselves) waits on knowing who hosts them.
+The outreach framework as a whole is a proposal until Leonie has
+chosen between the options put to her; nothing has been sent.
+
+Migration 121 failed on its first run: the unsubscribe token used
+pgcrypto's gen_random_bytes(), which on Supabase lives in the
+"extensions" schema and is not found from public. The runner applies
+each file in one transaction and records it only on success, so
+nothing was half-applied and the same file is retried on the next
+build; it now uses the built-in gen_random_uuid(). The local test
+database had pgcrypto in public, which is why the test passed; the
+test database is now laid out like Supabase (pgcrypto in
+"extensions"). The backlog is 78 contacts, not 79 as first reported.
 

@@ -434,6 +434,10 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
     bool force = false;
     bool loading = true;
     bool started = false;
+    // True once the draft has been opened in the mail app: the dialog
+    // then asks whether it was sent.
+    bool drafted = false;
+    String unsubLink = '';
     String? problem;
     final lastOut = DateTime.tryParse('${c['last_out_at'] ?? ''}');
     final recent = lastOut != null &&
@@ -452,14 +456,92 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
         final p = await _supabase.outreachPreview('${c['id']}', k);
         subject.text = '${p['subject'] ?? ''}';
         body.text = '${p['body'] ?? ''}';
+        unsubLink = '${p['unsubscribe_link'] ?? ''}';
       } catch (e) {
         problem = _plain(e);
       }
       if (open) setD(() => loading = false);
     }
 
+    // The email as it leaves from our own inbox: the same words, with
+    // the unsubscribe line the Postmark route adds by itself.
+    String ownInboxBody() {
+      final b = body.text.trimRight();
+      if (b.contains('?unsubscribe=') || unsubLink.isEmpty) return b;
+      return '$b\n\nIf you would rather not hear from us again: $unsubLink';
+    }
+
+    // Opens the email as a draft in the computer's mail app (Spark),
+    // to be sent from our own mailbox by hand. The full text also goes
+    // on the clipboard, because some mail apps cut a long draft short.
+    Future<void> openDraft(void Function(void Function()) setD) async {
+      setD(() {
+        loading = true;
+        problem = null;
+      });
+      try {
+        // The same checks the other route makes in the database.
+        final leftover = RegExp(r'\{[a-z_]+\}').firstMatch(body.text);
+        final String? stop = subject.text.trim().isEmpty ||
+                body.text.trim().isEmpty
+            ? 'Subject and email are both needed.'
+            : leftover != null
+                ? 'The email still has a placeholder in it: ${leftover.group(0)}'
+                : unsubLink.isEmpty && !body.text.contains('?unsubscribe=')
+                    ? 'Pick the template again: the unsubscribe link did '
+                        'not load.'
+                    : null;
+        if (stop != null) {
+          if (open) {
+            setD(() {
+              loading = false;
+              problem = stop;
+            });
+          }
+          return;
+        }
+        final why = await _supabase.outreachCanSend('${c['id']}', force: force);
+        if (why.isNotEmpty) {
+          if (open) {
+            setD(() {
+              loading = false;
+              problem = why;
+            });
+          }
+          return;
+        }
+        final text = ownInboxBody();
+        // A browser may refuse the clipboard; the draft still opens.
+        try {
+          await Clipboard.setData(ClipboardData(text: text));
+        } catch (_) {}
+        final uri = Uri.parse('mailto:${c['email']}'
+            '?subject=${Uri.encodeComponent(subject.text.trim())}'
+            '&body=${Uri.encodeComponent(text.replaceAll('\r\n', '\n').replaceAll('\n', '\r\n'))}');
+        if (!await launchUrl(uri)) {
+          throw 'The mail app did not open. The text is on your clipboard, '
+              'so you can paste it into a new email by hand.';
+        }
+        if (open) {
+          setD(() {
+            loading = false;
+            drafted = true;
+          });
+        }
+      } catch (e) {
+        if (open) {
+          setD(() {
+            loading = false;
+            problem = _plain(e);
+          });
+        }
+      }
+    }
+
     final sent = await showDialog<bool>(
       context: context,
+      // Closed only by its buttons, so a send in flight is never lost.
+      barrierDismissible: false,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setD) {
           if (!started) {
@@ -491,20 +573,26 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
                         DropdownMenuItem(
                             value: '${t['key']}', child: Text('${t['name']}')),
                     ],
-                    onChanged: (k) {
-                      if (k == null) return;
-                      key = k;
-                      fill(k, setD);
-                    },
+                    // Once the draft is open the words are fixed, so
+                    // what is recorded is what was sent.
+                    onChanged: drafted
+                        ? null
+                        : (k) {
+                            if (k == null) return;
+                            key = k;
+                            fill(k, setD);
+                          },
                   ),
                   const SizedBox(height: 10),
                   TextField(
                       controller: subject,
+                      readOnly: drafted,
                       decoration: const InputDecoration(
                           labelText: 'Subject', border: OutlineInputBorder())),
                   const SizedBox(height: 10),
                   TextField(
                       controller: body,
+                      readOnly: drafted,
                       maxLines: 16,
                       style: const TextStyle(fontSize: 13.5, height: 1.4),
                       decoration: const InputDecoration(
@@ -526,18 +614,73 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
                           style: const TextStyle(color: Brand.red, fontSize: 13)),
                     ),
                   const SizedBox(height: 6),
-                  const Text(
-                      'Sent from hello@nomadwise.io; replies land there. An '
-                      'unsubscribe line is added at the end if the email has '
-                      'none. Read the words once before you press Send.',
-                      style: TextStyle(fontSize: 12, color: Brand.inkMuted)),
+                  if (drafted)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                          color: Brand.goldTint,
+                          borderRadius: BorderRadius.circular(8)),
+                      child: const Text(
+                          'The draft is open in your mail app. Choose the '
+                          'inbox to send from, read it, and send it there. '
+                          'If the draft looks cut short, paste: the full '
+                          'text is on your clipboard. Then come back and '
+                          'press "I sent it" so the card moves on.',
+                          style: TextStyle(
+                              fontSize: 13,
+                              height: 1.4,
+                              color: Brand.goldTextDark)),
+                    )
+                  else
+                    const Text(
+                        'Two ways to send. "Open in mail app" makes a draft '
+                        'in Spark, to send by hand from your own inbox: use '
+                        'it for invitations to spaces that have not written '
+                        'to us. "Send from here" goes out at once from '
+                        'hello@nomadwise.io: use it to answer someone who '
+                        'wrote. Either way an unsubscribe line is added if '
+                        'the email has none.',
+                        style: TextStyle(fontSize: 12, color: Brand.inkMuted)),
                 ]),
               ),
             ),
-            actions: [
+            actions: drafted
+                ? [
+                    TextButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: const Text('Not sent')),
+                    FilledButton(
+                      onPressed: loading
+                          ? null
+                          : () async {
+                              setD(() {
+                                loading = true;
+                                problem = null;
+                              });
+                              try {
+                                await _supabase.outreachLogSent('${c['id']}',
+                                    subject.text, ownInboxBody(),
+                                    templateKey: key, force: force);
+                                if (open && ctx.mounted) Navigator.pop(ctx, true);
+                              } catch (e) {
+                                if (!open) return;
+                                setD(() {
+                                  loading = false;
+                                  problem = _plain(e);
+                                });
+                              }
+                            },
+                      child: Text(loading ? 'One moment' : 'I sent it'),
+                    ),
+                  ]
+                : [
               TextButton(
                   onPressed: () => Navigator.pop(ctx, false),
                   child: const Text('Cancel')),
+              OutlinedButton(
+                  onPressed: loading ? null : () => openDraft(setD),
+                  child: const Text('Open in mail app')),
               FilledButton(
                 onPressed: loading
                     ? null
@@ -550,7 +693,7 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
                           await _supabase.outreachSend(
                               '${c['id']}', subject.text, body.text,
                               templateKey: key, force: force);
-                          if (ctx.mounted) Navigator.pop(ctx, true);
+                          if (open && ctx.mounted) Navigator.pop(ctx, true);
                         } catch (e) {
                           if (!open) return;
                           setD(() {
@@ -559,7 +702,7 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
                           });
                         }
                       },
-                child: Text(loading ? 'One moment' : 'Send'),
+                child: Text(loading ? 'One moment' : 'Send from here'),
               ),
             ],
           );
@@ -568,7 +711,9 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
     );
     open = false;
     if (sent == true) {
-      _snack('Sent to ${c['email']}.');
+      _snack(drafted
+          ? 'Recorded as sent to ${c['email']}.'
+          : 'Sent to ${c['email']}.');
       await _load();
     }
   }

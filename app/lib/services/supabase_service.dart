@@ -1254,6 +1254,25 @@ class SupabaseService {
         'p_force': force,
       });
 
+  /// '' when another email to this contact is allowed now, otherwise
+  /// the reason in words (unsubscribed, written to recently, daily cap).
+  Future<String> outreachCanSend(String id, {bool force = false}) async {
+    final r = await _db.rpc('admin_outreach_can_send',
+        params: {'p_id': id, 'p_force': force});
+    return '${r ?? ''}';
+  }
+
+  /// Records an email the founder sent from their own mail app.
+  Future<void> outreachLogSent(String id, String subject, String body,
+          {String? templateKey, bool force = false}) =>
+      _db.rpc('admin_outreach_log_sent', params: {
+        'p_id': id,
+        'p_subject': subject,
+        'p_body': body,
+        'p_template': templateKey,
+        'p_force': force,
+      });
+
   /// A list of contacts at once (the inbox backlog, a list of
   /// prospects): {filed, skipped, first_problem}.
   Future<Map<String, dynamic>> outreachImport(List<dynamic> contacts) async {
