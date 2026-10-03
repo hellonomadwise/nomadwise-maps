@@ -398,6 +398,7 @@ class _AdminPricingScreenState extends State<AdminPricingScreen> {
             (q.isEmpty || '${c['name']}'.toLowerCase().contains(q)))
         .toList();
     final stripe = d?['stripe_connected'] == true;
+    final noCountry = (d?['no_country'] as num?)?.toInt() ?? 0;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Pricing')),
@@ -457,6 +458,19 @@ class _AdminPricingScreenState extends State<AdminPricingScreen> {
                                     color: Brand.inkMuted)),
                             const SizedBox(height: 8),
                             for (final g in _groups) _groupCard(g),
+                            if (noCountry > 0) ...[
+                              const SizedBox(height: 10),
+                              Text(
+                                  '$noCountry space${noCountry == 1 ? ' has' : 's have'} '
+                                  'no country yet, so Verified is priced as group B '
+                                  'there. The nightly jobs fill these in from the '
+                                  'site\'s places and Google; set one by hand in '
+                                  'the control centre to price a space sooner.',
+                                  style: const TextStyle(
+                                      fontSize: 12.5,
+                                      height: 1.45,
+                                      color: Brand.inkSecondary)),
+                            ],
                             if (unmapped.isNotEmpty) ...[
                               const SizedBox(height: 14),
                               const Text('COUNTRY NAMES NOT RECOGNISED',

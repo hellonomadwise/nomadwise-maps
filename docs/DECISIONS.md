@@ -1506,3 +1506,21 @@ separate "pick how to pay" box are gone. Verified wears a
 Monthly / Yearly segments were uneven (the yearly one had a second
 line), which the switch avoids.
 
+## 3 Oct 2026: a country for every space, from what the site knows
+
+TMO Coffee Bali Kedungu Beach was priced at €10 (group B) on the
+claim form: it had no country, because migration 117 only matched a
+space's city to a Region, and Kedungu is a Location inside the Bali
+Region. "Bali" itself was already an alias for Indonesia; the gap was
+spaces with no country text at all. Migration 119 adds
+venue_country_guess(), which reads the country from the page proposal
+the sync prepared, the Location or Region a founder picked, the city
+or neighbourhood being a Location or Region on the site, Google's
+cached address parts, or the nearest Region within 30 km (the sync's
+own rule; the sync now copies the Regions' coordinates for it). It
+ran once for every space without a country, runs from a trigger when
+a space without one is added or touched, and the sync calls
+fill_venue_countries() after copying the Regions. The Pricing page
+says how many spaces still have none. A country already on a space is
+never changed.
+

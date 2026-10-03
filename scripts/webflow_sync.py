@@ -757,6 +757,11 @@ def region_rows(regions, country_by_id):
                     'name': rf.get('name-label') or rf.get('name') or '',
                     'slug': rf.get('slug'),
                     'country': (c.get('fieldData') or {}).get('name'),
+                    # So the database can price a space by the nearest
+                    # Region when nothing else names its country
+                    # (migration 119).
+                    'lat': rf.get('latitude'),
+                    'lng': rf.get('longitude'),
                     'updated_at': now})
     return out
 
@@ -1181,6 +1186,14 @@ if rows:
         report['regions_copied'] = len(rows)
     except Exception as e:  # noqa: BLE001
         report['errors'].append(f'regions copy: {e}')
+    # Spaces still without a country get one from the site's places or
+    # the nearest Region (migration 119), so Verified is priced right.
+    try:
+        n = sb('rpc/fill_venue_countries', method='POST', body={})
+        if n:
+            report['countries_filled'] = n
+    except Exception as e:  # noqa: BLE001
+        report['errors'].append(f'country fill: {e}')
 
 # Countries for the app's Region creator (66 rows; cheap, every run).
 if countries:

@@ -90,7 +90,10 @@ year through today's payment link, so nothing changes by itself.
 The country groups and each country's currency are editable on the
 Pricing page (tap a country). A country name the database does not
 recognise is listed there with a "Map" button; until mapped, its
-spaces are priced as group B. Before a space is chosen on the claim
+spaces are priced as group B. A space with no country at all gets one
+from the site's own places, Google's address or the nearest Region
+(migration 119, on the way in and nightly); the Pricing page counts
+any still without. Before a space is chosen on the claim
 form (so no country is known yet) the overview says "from €4 a
 month", the cheapest group, rather than group B's price (migration
 118). The Webflow copy on the Get listed page says "from €4 a month"
