@@ -1524,3 +1524,16 @@ fill_venue_countries() after copying the Regions. The Pricing page
 says how many spaces still have none. A country already on a space is
 never changed.
 
+## 3 Oct 2026: no "from €4" anywhere a European owner can see it
+
+"From €4 a month" is the cheapest country's price. An owner in
+Lisbon reads it, then sees €10 on the next screen and feels cheated
+(Jonathan: like a UK Spotify subscriber seeing the Vietnam price). So
+no figure is shown until the country is known. The Get listed page
+says "Verified costs around a day pass a month" (the anchor the
+prices were set by, true everywhere), and the claim form's overview
+card says "Around a day pass a month, priced for your country" until
+a space is picked, when it shows that country's own price. The
+cheapest-price fields from migration 118 stay in the database but
+nothing shows them.
+

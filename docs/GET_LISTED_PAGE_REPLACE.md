@@ -1,8 +1,11 @@
 # Get listed page: replace this, with this
 
 Page: `/list-my-coworking-space-on-nomadwise` in the Webflow Designer.
-Updated 1 Oct 2026: prices are now per country (from €4 a month,
-monthly or yearly), so the page says "from" and never one figure; the
+Updated 3 Oct 2026: prices are per country (monthly or yearly), and
+the page names no figure at all: "from €4" is the cheapest country's
+price and reads as a bait to a European owner (Jonathan), so the
+anchor is "around a day pass a month" and the claim form shows each
+space its own price. The
 button on a page is "Send an enquiry", so "enquiries" not "booking
 requests".
 Work top to bottom. Every text block on the live page today is listed
@@ -26,7 +29,7 @@ List your coworking space or cafe on nomadwise.io | Free and Verified
 With this:
 Get your coworking space or laptop-friendly cafe on nomadwise.io, the
 directory Google and AI assistants use to answer "where can I work
-from?". Free listing, or Verified from €4 a month.
+from?". Free listing, or Verified costs around a day pass a month.
 
 ---
 
@@ -54,10 +57,11 @@ directories they trust, and ours is one of them.
 Grow your revenue with zero upfront cost
 Benefit from direct access to our remote work audience
 Allow customers to book desks & offices with no friction
-With this:
-Over a thousand places to work from, across [x] countries
-Every page built to be found by search engines and AI assistants
-Listing is free. Verified from €4 a month
+With this (short, about their benefit, bold part first, as the old
+ticks were styled):
+**Found by Google and AI assistants** when nomads ask where to work
+**Enquiries straight to your inbox**, no commission
+**Free to list.** Verified costs around a day pass a month
 
 **Button 1.** Replace this: List for free (opens a form)
 With this: Claim your space, link https://nomadmaps.io/?claim, open in
@@ -76,7 +80,10 @@ With this:
 Why be on nomadwise.io?
 
 **The four numbers.** Keep the block only if you can put current
-figures in. Suggested set:
+figures in; otherwise delete the whole row of numbers (the three
+benefits below it stay). The number of countries is on the Pricing
+page in the control centre (count the countries with spaces).
+Suggested set:
 
 Replace this: 10,000+ Unique Visitors in the past 90 days
 With this: [x] Nomads a month looking for a place to work
@@ -115,8 +122,8 @@ You will only pay commission when customers buy your products.
 With this:
 Free to be listed, always
 A free page costs nothing and stays free. Verified adds the badge, the
-placement and the enquiry button from €4 a month. No commission,
-ever.
+placement and the enquiry button for around a day pass a month. No
+commission, ever.
 
 ---
 
@@ -129,10 +136,11 @@ Activate bookings & start earning.
 [Get bookings now]
 With this:
 ALREADY ON NOMADWISE.IO?
-Claim your page and make it Verified.
-Enquiries straight to your inbox, the badge, and a place above
-every free listing in your city.
+Claim your page.
+Verified badge, enquiries in your inbox, top of your city.
 [Claim your space] link https://nomadmaps.io/?claim, new tab.
+(The calendar picture is from the booking days; swap it for a
+screenshot of a Verified page once one is live.)
 
 ---
 
@@ -161,7 +169,7 @@ No tech setup required.
 Get enquiries straight into your inbox. No new tools or
 integrations needed.
 With this:
-Verified, from €4 a month
+Verified, around a day pass a month
 Everything a free page has, plus: the Verified badge on your page and
 in every list you appear in; a place above every free listing in your
 city and area; enquiries sent straight to your inbox, no
@@ -235,9 +243,9 @@ a commission when customers book your space through our platform. If
 Nomadwise doesn't bring you any bookings, you won't pay anything.
 With this:
 What does it cost?
-A listing is free and stays free. Verified is priced per country so
-it costs about the same as one day pass wherever your space is, from
-4 EUR a month, monthly or yearly. The claim form shows your price.
+A listing is free and stays free. Verified is priced for your
+country, so it costs about the same as one day pass wherever your
+space is, monthly or yearly. The claim form shows your price.
 Cancel at any time from your Owner account. Your listing stays, back on the free plan. There is no
 commission on anything.
 

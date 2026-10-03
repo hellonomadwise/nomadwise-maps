@@ -43,7 +43,7 @@ class PricingChoice {
 
   /// The country is known and in a pricing group. When it is not (no
   /// space picked yet, or an address we could not place) the amounts
-  /// are the fallback group's, so headings say "from €4" instead.
+  /// are the fallback group's, so headings name no figure.
   bool get mapped => pricing['mapped'] == true;
 
   /// The cheapest Verified price anywhere, in euro cents (migration 118).
@@ -76,11 +76,10 @@ class PricingChoice {
   }
 
   /// "from €10 a month" for headings before a choice. With no country
-  /// yet, the cheapest price anywhere: "from €4 a month".
+  /// yet there is no figure, since the cheapest country's price reads
+  /// as a bait everywhere else: "around a day pass a month".
   String get fromWords {
-    if (!mapped && fromMonthlyEur != null) {
-      return 'from ${formatMoney(fromMonthlyEur!, 'EUR')} a month';
-    }
+    if (!mapped) return 'around a day pass a month';
     final a = monthly;
     return a == null ? '' : 'from ${formatMoney(a, currency)} a month';
   }

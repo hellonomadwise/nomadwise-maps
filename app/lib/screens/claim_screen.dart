@@ -1354,8 +1354,8 @@ class _ClaimScreenState extends State<ClaimScreen> {
   /// Free and Verified side by side (stacked on a phone), Free first.
   /// With [buttons], each card carries its own button (step three);
   /// without, it is the overview under the search box, where the
-  /// Verified price is "from €4 a month" until a space, and so a
-  /// country, is known.
+  /// Verified price is "around a day pass a month" until a space, and
+  /// so a country, is known.
   Widget _planCards(bool wide, {required bool buttons}) {
     Widget line(String text, {bool plus = false}) =>
         PlanFeatureRow(text, extra: plus, fontSize: wide ? 13.5 : 13);
@@ -1393,8 +1393,8 @@ class _ClaimScreenState extends State<ClaimScreen> {
     );
 
     // The Verified price. On step three it is the chosen period and
-    // currency for this space; before that, "from €4 a month" unless
-    // the country is already known.
+    // currency for this space; before that, "around a day pass a
+    // month" unless the country is already known.
     final p = _pricing;
     final Widget priceLine;
     final String priceSub;
@@ -1427,10 +1427,11 @@ class _ClaimScreenState extends State<ClaimScreen> {
               : 'a month, or ${formatMoney(p.yearly!, p.currency)} a year');
       priceSub = 'Everything in Free, plus:';
     } else {
-      priceLine = _priceLine(
-          wide, 'from ${formatMoney(p?.fromMonthlyEur ?? 400, 'EUR')}',
-          'a month, by country');
-      priceSub = 'Everything in Free, plus:';
+      // No country yet, so no figure: the cheapest country's "from €4"
+      // reads as a bait to an owner in Lisbon who then sees €10. The
+      // anchor the prices were set by says the same thing everywhere.
+      priceLine = _priceLine(wide, 'Around a day pass', 'a month');
+      priceSub = 'Priced for your country. Everything in Free, plus:';
     }
 
     final verified = _planCard(
