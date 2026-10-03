@@ -1560,3 +1560,27 @@ looked like two products. siteButtons() takes a radius now; the claim
 form passes 16 for fields, buttons, result tiles and cards alike, and
 the Owner account keeps its 4 px.
 
+## 3 Oct 2026: back from Stripe lands on step three, not an empty form
+
+Jonathan: "Go Verified" opens Stripe; Back or Cancel returned to an
+empty step one, and step two had forgotten everything. The form now
+saves a draft on this device when step three opens and again on the
+way to Stripe (space, details, plan, period and currency), and on the
+next visit within two hours puts the visitor straight on step three
+with it all in place and a line saying nothing was charged. The
+thank-you page clears the draft, so a finished claim never resumes.
+A link for a different space (?claim=<other>) wins over the draft.
+Step three also shows the space's name large in its own card instead
+of inside a sentence, and the small print under the buttons is a size
+up. The claim emails open "You've claimed your ...", not "Thanks,
+you've claimed ..." (migration 120).
+
+The one incentive to choose Verified now rather than later is
+priority (Jonathan, 3 Oct; a price lock was ruled out because the
+price is not going to change): step three says under the Verified
+price "Verified claims are checked first, so the badge and the
+enquiry button go on sooner", and under Free "A person checks your
+claim in the order claims arrive", so Free still reads as a good
+choice. No time is promised. The control centre's waiting list puts
+paid claims first so the words are true.
+

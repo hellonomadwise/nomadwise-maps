@@ -119,6 +119,117 @@ class _ClaimScreenState extends State<ClaimScreen> {
     _track('claim_plan_pick', {'plan': plan});
   }
 
+  // ---- the draft: back from Stripe with everything still here ----
+
+  /// Period and currency from a restored draft, applied once the
+  /// prices for the space's country have loaded.
+  String? _restorePeriod;
+  String? _restoreCurrency;
+
+  /// True when the visitor came back from Stripe's Cancel button
+  /// (&cancelled=1 on the return link) or the browser's Back, with a
+  /// draft to pick up: a line on step three says nothing was charged.
+  bool _resumed = false;
+
+  Map<String, dynamic> _draft() => {
+        'picked': _picked,
+        'place': _pickedPlace == null
+            ? null
+            : {
+                'id': _pickedPlace!.placeId,
+                'main': _pickedPlace!.main,
+                'secondary': _pickedPlace!.secondary,
+              },
+        'new_type': _newType,
+        'new_address': _newAddress,
+        'new_city': _newCity,
+        'new_country': _newCountry,
+        'new_lat': _newLat,
+        'new_lng': _newLng,
+        'owner_name': _ownerName.text,
+        'role': _role,
+        'owner_role': _ownerRole.text,
+        'phone_country': _phoneCountry.value,
+        'owner_email': _ownerEmail.text,
+        'owner_phone': _ownerPhone.text,
+        'same_enquiry_email': _sameEnquiryEmail,
+        'enquiry_email': _enquiryEmail.text,
+        'note': _note.text,
+        'site_url': _siteUrl.text,
+        'instagram': _instagram.text,
+        'plan': _plan,
+        'period': _pricing?.period,
+        'currency': _pricing?.currency,
+      };
+
+  void _saveDraft() {
+    if (_picked == null && _pickedPlace == null) return;
+    SupabaseService.saveClaimDraft(_draft());
+  }
+
+  /// Puts a saved draft back and opens step three. Returns false when
+  /// the draft has no space in it.
+  bool _applyDraft(Map<String, dynamic> d) {
+    final picked = d['picked'];
+    final place = d['place'];
+    if (picked is Map) {
+      _picked = Map<String, dynamic>.from(picked);
+    } else if (place is Map) {
+      _pickedPlace = PlaceSuggestion(
+          placeId: '${place['id'] ?? ''}',
+          main: '${place['main'] ?? ''}',
+          secondary: '${place['secondary'] ?? ''}');
+    } else {
+      return false;
+    }
+    String str(String k) => '${d[k] ?? ''}';
+    // Restored text is not typing: setting a controller's text notifies
+    // its listener at once, so the claim_typed events are muted first.
+    _filled.addAll(const {
+      'name', 'role', 'email', 'phone', 'enquiry_email', 'website',
+      'instagram', 'note'
+    });
+    _newType = str('new_type').isEmpty ? _newType : str('new_type');
+    _newAddress = d['new_address'] as String?;
+    _newCity = d['new_city'] as String?;
+    _newCountry = d['new_country'] as String?;
+    _newLat = (d['new_lat'] as num?)?.toDouble();
+    _newLng = (d['new_lng'] as num?)?.toDouble();
+    _ownerName.text = str('owner_name');
+    _role = d['role'] as String?;
+    _ownerRole.text = str('owner_role');
+    _phoneCountry.value = d['phone_country'] as String?;
+    _ownerEmail.text = str('owner_email');
+    _ownerPhone.text = str('owner_phone');
+    _sameEnquiryEmail = d['same_enquiry_email'] != false;
+    _enquiryEmail.text = str('enquiry_email');
+    _note.text = str('note');
+    _siteUrl.text = str('site_url');
+    _instagram.text = str('instagram');
+    _plan = str('plan') == 'verified' ? 'verified' : 'free';
+    _restorePeriod = d['period'] as String?;
+    _restoreCurrency = d['currency'] as String?;
+    // The prices are fetched again so the restored period and currency
+    // are applied, even when this country's were already loaded.
+    _pricingCountry = '\u0000';
+    // Fields the draft left empty can still log a claim_typed event when
+    // the visitor fills them now; the restored ones were muted above.
+    _filled.removeWhere((f) => switch (f) {
+          'name' => _ownerName.text.trim().isEmpty,
+          'role' => _ownerRole.text.trim().isEmpty,
+          'email' => _ownerEmail.text.trim().isEmpty,
+          'phone' => _ownerPhone.text.trim().isEmpty,
+          'enquiry_email' => _enquiryEmail.text.trim().isEmpty,
+          'website' => _siteUrl.text.trim().isEmpty,
+          'instagram' => _instagram.text.trim().isEmpty,
+          'note' => _note.text.trim().isEmpty,
+          _ => false,
+        });
+    _step = _Step.pay;
+    _resumed = true;
+    return true;
+  }
+
   String get _country => _picked != null
       ? '${_picked!['country'] ?? ''}'
       : (_newCountry ?? '');
@@ -131,7 +242,18 @@ class _ClaimScreenState extends State<ClaimScreen> {
     _pricingCountry = c;
     _supabase.pricingFor(c).then((p) {
       if (!mounted || p == null || _pricingCountry != c) return;
-      setState(() => _pricing = PricingChoice(p));
+      final choice = PricingChoice(p);
+      // A restored draft keeps the period and currency that were chosen.
+      if (_restorePeriod == 'monthly' || _restorePeriod == 'yearly') {
+        choice.period = _restorePeriod!;
+      }
+      if (_restoreCurrency != null &&
+          choice.currencies.contains(_restoreCurrency)) {
+        choice.currency = _restoreCurrency!;
+      }
+      _restorePeriod = null;
+      _restoreCurrency = null;
+      setState(() => _pricing = choice);
     });
   }
 
@@ -175,6 +297,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
       if (_spaceName.isNotEmpty) 'space': _spaceName,
     });
     _step = next;
+    if (next == _Step.pay) _saveDraft();
     if (next == _Step.about) {
       _phoneCountry.value ??= PhoneField.isoFor(
           _picked != null ? '${_picked!['country'] ?? ''}' : _newCountry);
@@ -289,6 +412,32 @@ class _ClaimScreenState extends State<ClaimScreen> {
     if ((widget.email ?? '').contains('@')) {
       _ownerEmail.text = widget.email!.trim();
     }
+    // Back from Stripe (Cancel there, or the browser's Back button): a
+    // draft saved on the way out puts the visitor on step three with
+    // their details, unless they arrived from a link for a different
+    // space.
+    final cancelled = Uri.base.queryParameters.containsKey('cancelled');
+    SupabaseService.loadClaimDraft().then((d) {
+      if (!mounted || d == null) return;
+      final picked = d['picked'];
+      final place = d['place'];
+      final draftName = picked is Map
+          ? '${picked['name'] ?? ''}'
+          : (place is Map ? '${place['main'] ?? ''}' : '');
+      final draftSlug = picked is Map ? '${picked['webflow_slug'] ?? ''}' : '';
+      final sameSpace = seed.isEmpty ||
+          seed.toLowerCase() == draftName.toLowerCase() ||
+          seed == draftSlug;
+      if (!cancelled && !sameSpace) return;
+      setState(() {
+        if (_applyDraft(d)) {
+          _track('claim_resumed', {
+            'cancelled': cancelled,
+            if (_spaceName.isNotEmpty) 'space': _spaceName,
+          });
+        }
+      });
+    });
     _track('claim_opened', {
       'seed': seed,
       'from': widget.from,
@@ -489,6 +638,10 @@ class _ClaimScreenState extends State<ClaimScreen> {
           '${AppConfig.stripeVerifiedLink}'
               '?client_reference_id=$claimId'
               '&prefilled_email=${Uri.encodeQueryComponent(email)}');
+      // Back or Cancel from Stripe lands on step three with everything
+      // still filled in; a finished payment clears this on the thank-you
+      // page.
+      await SupabaseService.saveClaimDraft(_draft());
       await launchUrl(url,
           mode: LaunchMode.platformDefault, webOnlyWindowName: '_self');
     } catch (e) {
@@ -1079,7 +1232,9 @@ class _ClaimScreenState extends State<ClaimScreen> {
         ])
       : Column(children: [a, const SizedBox(height: 16), b]);
 
-  Widget _pickedCard(bool wide) => Container(
+  /// The chosen space. [big] is step three's version: the name large,
+  /// no Change button (the back arrow does that).
+  Widget _pickedCard(bool wide, {bool big = false}) => Container(
         padding: EdgeInsets.all(wide ? 18 : 14),
         decoration: BoxDecoration(
           color: Brand.surface,
@@ -1087,7 +1242,8 @@ class _ClaimScreenState extends State<ClaimScreen> {
           border: Border.all(color: Brand.border),
         ),
         child: Row(children: [
-          const Icon(Icons.storefront_outlined, color: Brand.inkMuted),
+          Icon(Icons.storefront_outlined,
+              color: Brand.inkMuted, size: big ? 28 : 24),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
@@ -1095,15 +1251,21 @@ class _ClaimScreenState extends State<ClaimScreen> {
                 children: [
                   Text(_spaceName,
                       style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: wide ? 16 : 15)),
-                  if (_where.isNotEmpty)
+                          fontWeight: FontWeight.w800,
+                          fontSize: big ? (wide ? 22 : 19) : (wide ? 16 : 15),
+                          height: 1.2,
+                          letterSpacing: big ? -0.3 : 0)),
+                  if (_where.isNotEmpty) ...[
+                    if (big) const SizedBox(height: 2),
                     Text(_where,
-                        style: const TextStyle(
-                            fontSize: 12.5, color: Brand.inkSecondary)),
+                        style: TextStyle(
+                            fontSize: big ? 14 : 12.5,
+                            color: Brand.inkSecondary)),
+                  ],
                 ]),
           ),
-          TextButton(onPressed: _back, child: const Text('Change')),
+          if (!big)
+            TextButton(onPressed: _back, child: const Text('Change')),
         ]),
       );
 
@@ -1121,10 +1283,29 @@ class _ClaimScreenState extends State<ClaimScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _heading(wide, 3, 'Choose your plan',
-            'Claiming $_spaceName is free, and stays free. Verified is an '
-                'optional extra, which you can add now or later from your '
-                'Owner account.'),
+        _heading(wide, 3, 'Choose your plan', ''),
+        SizedBox(height: wide ? 16 : 12),
+        // The space's name, large: it is the thing the owner cares about,
+        // so it gets its own card rather than a mention in a sentence.
+        ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: wide ? 860 : double.infinity),
+          child: _pickedCard(wide, big: true),
+        ),
+        SizedBox(height: wide ? 14 : 10),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560),
+          child: Text(
+              _resumed
+                  ? 'Nothing was charged. Your details are still here, so '
+                      'pick a plan when you are ready.'
+                  : 'Claiming is free, and stays free. Verified is an '
+                      'optional extra, which you can add now or later from '
+                      'your Owner account.',
+              style: TextStyle(
+                  color: Brand.inkSecondary,
+                  fontSize: wide ? 16 : 14.5,
+                  height: 1.5)),
+        ),
         SizedBox(height: wide ? 18 : 14),
         ConstrainedBox(
           constraints: BoxConstraints(maxWidth: wide ? 860 : double.infinity),
@@ -1163,7 +1344,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
                     child: Text(_error!,
                         style: const TextStyle(color: Brand.red, fontSize: 13)),
                   ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 14),
                 Text(
                     _alreadyPublished
                         ? 'Either way, we first check you are with the team '
@@ -1172,8 +1353,10 @@ class _ClaimScreenState extends State<ClaimScreen> {
                             'and we email you when the page is live. We first '
                             'check you are with the team, then it is yours to '
                             'manage.',
-                    style: const TextStyle(
-                        color: Brand.inkMuted, fontSize: 12.5, height: 1.5)),
+                    style: TextStyle(
+                        color: Brand.inkSecondary,
+                        fontSize: wide ? 14.5 : 13.5,
+                        height: 1.5)),
               ]),
         ),
       ],
@@ -1403,7 +1586,11 @@ class _ClaimScreenState extends State<ClaimScreen> {
         const SizedBox(height: 10),
         if (buttons) ...[
           _priceLine(wide, '€0', 'always'),
-          sub('No card needed. Nothing to pay, ever.'),
+          // The same check for both plans; Verified claims are taken
+          // first (the one incentive to decide now, Jonathan, 3 Oct),
+          // said so that Free still sounds like a good choice.
+          sub('No card needed. Nothing to pay, ever. A person checks your '
+              'claim in the order claims arrive.'),
         ] else ...[
           lead('Free, always'),
           sub('No card, nothing to pay, ever. Claim your page and make it '
@@ -1437,18 +1624,22 @@ class _ClaimScreenState extends State<ClaimScreen> {
           ? null
           : formatMoney(p.yearly! / 12, p.currency);
       final months = p.monthsFree.round();
-      priceSub = yearly
-          ? (perMonth == null
-              ? 'Billed once a year. Cancel any time.'
-              : '$perMonth a month, billed once a year. Cancel any time.')
-          : (p.yearly == null
-              ? 'Billed monthly. Cancel any time.'
-              : 'Billed monthly. Yearly is ${formatMoney(p.yearly!, p.currency)}'
-                  '${months >= 1 ? ', $months month${months == 1 ? '' : 's'} free' : ''}.');
+      const first = ' Verified claims are checked first, so the badge and '
+          'the enquiry button go on sooner.';
+      priceSub = (yearly
+              ? (perMonth == null
+                  ? 'Billed once a year. Cancel any time.'
+                  : '$perMonth a month, billed once a year. Cancel any time.')
+              : (p.yearly == null
+                  ? 'Billed monthly. Cancel any time.'
+                  : 'Billed monthly. Yearly is ${formatMoney(p.yearly!, p.currency)}'
+                      '${months >= 1 ? ', $months month${months == 1 ? '' : 's'} free' : ''}.')) +
+          first;
     } else {
       // Prices not in Stripe yet: the payment link's price.
       priceLine = _priceLine(wide, '€99', 'a year');
-      priceSub = 'Billed once a year. Cancel any time.';
+      priceSub = 'Billed once a year. Cancel any time. Verified claims are '
+          'checked first, so the badge and the enquiry button go on sooner.';
     }
 
     final verified = _planCard(
@@ -1552,6 +1743,8 @@ class _ClaimedScreenState extends State<ClaimedScreen> {
   @override
   void initState() {
     super.initState();
+    // The claim went through, so there is nothing to come back to.
+    SupabaseService.clearClaimDraft();
     SupabaseService.lastClaim().then((c) {
       if (mounted) setState(() => _claim = c);
       // Back from Stripe: have the payment picked up now, not at the

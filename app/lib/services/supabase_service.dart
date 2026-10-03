@@ -86,6 +86,46 @@ class SupabaseService {
     } catch (_) {}
   }
 
+  /// The claim form as far as it got, kept on this device so that
+  /// coming back from Stripe (the browser's Back button, or Cancel on
+  /// the payment page) lands on the plan step with everything still
+  /// filled in, rather than on an empty step one. Cleared when a claim
+  /// goes through; ignored after two hours.
+  static Future<void> saveClaimDraft(Map<String, dynamic> draft) async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      await p.setString(
+          'claim_draft',
+          jsonEncode({
+            ...draft,
+            'saved_at': DateTime.now().toUtc().toIso8601String(),
+          }));
+    } catch (_) {}
+  }
+
+  static Future<Map<String, dynamic>?> loadClaimDraft() async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      final raw = p.getString('claim_draft');
+      if (raw == null) return null;
+      final d = Map<String, dynamic>.from(jsonDecode(raw) as Map);
+      final at = DateTime.tryParse('${d['saved_at'] ?? ''}');
+      if (at == null || DateTime.now().toUtc().difference(at).inHours >= 2) {
+        return null;
+      }
+      return d;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static Future<void> clearClaimDraft() async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      await p.remove('claim_draft');
+    } catch (_) {}
+  }
+
   /// The owner is back from Stripe: note when, so the Owner account
   /// can say "confirming your payment" rather than "not finished".
   static Future<void> markReturnedFromStripe() async {
@@ -1217,6 +1257,9 @@ class SupabaseService {
               'venues(name, city, country, website, instagram, '
               'listing_owner_email, google_place_id)')
           .inFilter('status', ['awaiting_approval', 'free_pending'])
+          // Verified claims first: the claim form says they are checked
+          // first, so the list puts them at the top.
+          .order('paid_at', ascending: false, nullsFirst: false)
           .order('created_at', ascending: false)
           .limit(50);
       return (rows as List).map((r) => Map<String, dynamic>.from(r)).toList();
