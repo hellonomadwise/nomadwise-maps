@@ -260,13 +260,15 @@ Want to maximize your revenue by increasing your customer numbers?
 Simply fill out our sign-up form and get ready for incoming bookings.
 [List for free]
 With this:
-From the founders
-We built nomadwise.io and Nomad Maps because we spent years working
-from cafes and coworking spaces around the world and wanted a list we
-could trust. Verified listings pay for that list to stay accurate. If
-you run a place nomads should know about, we would love to have you.
-Jonathan and Leonie, Nomadwise
+Be the space nomads find
+Claim your page in three steps. Free to list, Verified when you want
+more.
 [Claim your space] link https://nomadmaps.io/?claim, new tab.
+
+(Alternative, a human close: "From the founders" / "We built
+nomadwise.io because we wanted a list of places to work we could
+trust. If you run one, we would love to have you. Jonathan and
+Leonie".)
 
 ---
 

@@ -1537,3 +1537,11 @@ a space is picked, when it shows that country's own price. The
 cheapest-price fields from migration 118 stay in the database but
 nothing shows them.
 
+Same day, the overview cards on step one lost their big price line
+altogether ("Around a day pass" in a 30px numeral looked odd, as
+Jonathan said a funded SaaS would never ship it). Both cards now carry
+one bold sentence where the price was, at the same weight: "Free,
+always" and "About the price of a day pass a month", each with a
+grey line under it, and nothing says "priced for your country". The
+real numbers appear on step three, once the space is known.
+

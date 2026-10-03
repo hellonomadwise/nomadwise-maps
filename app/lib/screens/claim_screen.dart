@@ -1377,16 +1377,30 @@ class _ClaimScreenState extends State<ClaimScreen> {
               style: const TextStyle(fontSize: 13, color: Brand.inkSecondary)),
         );
 
+    // On the overview (no space picked yet) neither card shows a
+    // figure: a sentence in the price slot, the same weight on both
+    // cards, so nothing reads as a bait or a placeholder. Step three
+    // has the real numbers.
+    Widget lead(String text) => Text(text,
+        style: TextStyle(
+            fontSize: wide ? 16 : 15,
+            fontWeight: FontWeight.w700,
+            height: 1.3));
+
     final free = _planCard(
       wide,
       plan: 'free',
       top: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         title('Free', pill: _pill('WHERE EVERY SPACE STARTS')),
         const SizedBox(height: 10),
-        _priceLine(wide, '€0', 'always'),
-        sub(buttons
-            ? 'No card needed. Nothing to pay, ever.'
-            : 'Claim your page and make it yours.'),
+        if (buttons) ...[
+          _priceLine(wide, '€0', 'always'),
+          sub('No card needed. Nothing to pay, ever.'),
+        ] else ...[
+          lead('Free, always'),
+          sub('No card, nothing to pay, ever. Claim your page and make it '
+              'yours.'),
+        ],
       ]),
       body: [for (final t in _freeGets) line(t)],
       button: buttons ? _freeButton() : null,
@@ -1398,7 +1412,16 @@ class _ClaimScreenState extends State<ClaimScreen> {
     final p = _pricing;
     final Widget priceLine;
     final String priceSub;
-    if (buttons && p != null && p.chosen != null) {
+    if (!buttons) {
+      // No figure before a space is picked: the cheapest country's
+      // "from €4" reads as a bait to an owner in Lisbon who then sees
+      // €10, and "priced for your country" invites the same
+      // comparison. The anchor the prices were set by is true
+      // everywhere.
+      priceLine = lead('About the price of a day pass a month');
+      priceSub = 'Monthly or yearly, cancel any time. See your price when '
+          'you pick your space.';
+    } else if (p != null && p.chosen != null) {
       final yearly = p.period == 'yearly';
       priceLine = _priceLine(wide, formatMoney(p.chosen!, p.currency),
           yearly ? 'a year' : 'a month');
@@ -1414,25 +1437,10 @@ class _ClaimScreenState extends State<ClaimScreen> {
               ? 'Billed monthly. Cancel any time.'
               : 'Billed monthly. Yearly is ${formatMoney(p.yearly!, p.currency)}'
                   '${months >= 1 ? ', $months month${months == 1 ? '' : 's'} free' : ''}.');
-    } else if (buttons) {
+    } else {
       // Prices not in Stripe yet: the payment link's price.
       priceLine = _priceLine(wide, '€99', 'a year');
       priceSub = 'Billed once a year. Cancel any time.';
-    } else if (p != null && p.mapped && p.monthly != null) {
-      priceLine = _priceLine(
-          wide,
-          formatMoney(p.monthly!, p.currency),
-          p.yearly == null
-              ? 'a month'
-              : 'a month, or ${formatMoney(p.yearly!, p.currency)} a year');
-      priceSub = 'Everything in Free, plus:';
-    } else {
-      // No country yet, so no figure: the cheapest country's "from €4"
-      // reads as a bait to an owner in Lisbon who then sees €10, and
-      // "priced for your country" invites the same comparison. The
-      // anchor the prices were set by says the same thing everywhere.
-      priceLine = _priceLine(wide, 'Around a day pass', 'a month');
-      priceSub = 'Everything in Free, plus:';
     }
 
     final verified = _planCard(
@@ -1445,8 +1453,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
         sub(priceSub),
       ]),
       body: [
-        if (buttons)
-          const Padding(
+        const Padding(
             padding: EdgeInsets.only(bottom: 8),
             child: Text('Everything in Free, plus:',
                 style: TextStyle(
