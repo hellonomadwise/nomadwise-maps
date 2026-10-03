@@ -1545,3 +1545,18 @@ always" and "About the price of a day pass a month", each with a
 grey line under it, and nothing says "priced for your country". The
 real numbers appear on step three, once the space is known.
 
+The Verified card's pill says "Added value" (Jonathan's wording),
+not "Recommended": a recommendation from the seller is discounted on
+sight (Jonathan). "Gets enquiries" was tried and dropped the same
+hour, since free pages get enquiries too (passed on by us), so the
+Free card now says so and the Verified line says "straight to your
+inbox from the button on your page". "Above free listings" and
+"Shown first in your city" were tried for the pill and set aside. The line under the two cards is a size larger and
+darker, so it reads as part of the page.
+
+One corner radius on the claim form (Jonathan): the plan cards had
+16 px corners next to a 6 px search field and 4 px buttons, which
+looked like two products. siteButtons() takes a radius now; the claim
+form passes 16 for fields, buttons, result tiles and cards alike, and
+the Owner account keeps its 4 px.
+

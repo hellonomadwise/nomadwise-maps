@@ -226,9 +226,14 @@ ThemeData nomadwiseTheme() {
 /// Buttons as nomadwise.io draws them: nearly square corners (4 px)
 /// and Roboto semi-bold text, for the owner-facing screens (claim and
 /// Owner account) that sit next to the website (Leonie, S3-13/14).
-ThemeData siteButtons(ThemeData t) {
+///
+/// [radius] is the corner on buttons and boxes: 4 px by default (the
+/// Owner account), 16 px on the claim form, where the plan cards have
+/// 16 px corners and a 4 px field beside them looked like two
+/// products (Jonathan, 3 Oct 2026).
+ThemeData siteButtons(ThemeData t, {double radius = 4}) {
   final shape =
-      RoundedRectangleBorder(borderRadius: BorderRadius.circular(4));
+      RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius));
   const text = TextStyle(
       fontFamily: 'Roboto',
       fontWeight: FontWeight.w600,
@@ -252,7 +257,7 @@ ThemeData siteButtons(ThemeData t) {
                 fontSize: 14.5, letterSpacing: 0.1)),
       );
   final box = OutlineInputBorder(
-    borderRadius: BorderRadius.circular(6),
+    borderRadius: BorderRadius.circular(radius < 8 ? 6 : radius),
     borderSide: const BorderSide(color: Brand.border),
   );
   return t.copyWith(

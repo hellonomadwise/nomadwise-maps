@@ -554,10 +554,16 @@ class _ClaimScreenState extends State<ClaimScreen> {
 
   // ----------------------------------------------------------------- build
 
+  /// One corner radius for every box on the form: the plan cards, the
+  /// search field, the result tiles, the buttons.
+  static const double _corner = 16;
+
   // Buttons drawn the way nomadwise.io draws them (S3-13/14).
   @override
   Widget build(BuildContext context) =>
-      Theme(data: siteButtons(Theme.of(context)), child: _page(context));
+      Theme(
+          data: siteButtons(Theme.of(context), radius: _corner),
+          child: _page(context));
 
   Widget _page(BuildContext context) {
     _ensurePricing();
@@ -729,7 +735,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
         color: Brand.surface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(_corner),
         border: Border.all(color: Brand.border),
       ),
       child: ListTile(
@@ -812,7 +818,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
                 margin: const EdgeInsets.only(bottom: 8),
                 decoration: BoxDecoration(
                   color: Brand.surface,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(_corner),
                   border: Border.all(color: Brand.border),
                 ),
                 child: ListTile(
@@ -922,7 +928,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
           return Container(
             decoration: BoxDecoration(
                 border: Border.all(color: Brand.border),
-                borderRadius: BorderRadius.circular(8)),
+                borderRadius: BorderRadius.circular(_corner)),
             child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               CheckboxListTile(
                 value: _sameEnquiryEmail,
@@ -1077,7 +1083,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
         padding: EdgeInsets.all(wide ? 18 : 14),
         decoration: BoxDecoration(
           color: Brand.surface,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(_corner),
           border: Border.all(color: Brand.border),
         ),
         child: Row(children: [
@@ -1232,13 +1238,15 @@ class _ClaimScreenState extends State<ClaimScreen> {
     'Your page on Nomadwise, built to be found by Google and AI assistants',
     'Correct the facts: hours, prices, WiFi and contact',
     'Your own photos and description',
+    'Enquiries from nomads, passed on by us',
     'Your Owner account, to keep it all up to date',
   ];
   static const _verifiedAdds = [
     'The green Verified badge on your page and in every list',
     'Always shown above free spaces in your city and area, which counts '
         'for more as more spaces join',
-    'A "Send an enquiry" button that emails you directly, no commission',
+    'Enquiries straight to your inbox from the button on your page, '
+        'no commission',
     'Your event or offer in the advert slot on your page',
   ];
 
@@ -1322,7 +1330,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
             padding: EdgeInsets.all(wide ? 18 : 16),
             decoration: BoxDecoration(
               color: Brand.surface,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(_corner),
               border: Border.all(
                   color: on ? Brand.red : Brand.border, width: on ? 2 : 1),
               boxShadow: on ? Brand.shadowFloating : Brand.shadowResting,
@@ -1447,7 +1455,10 @@ class _ClaimScreenState extends State<ClaimScreen> {
       wide,
       plan: 'verified',
       top: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        title('Verified', verified: true, pill: _pill('RECOMMENDED', on: true)),
+        // A fact, not an opinion: "Recommended" reads as "of course they
+        // would say that" (Jonathan). Free pages get enquiries too (we
+        // pass them on), so the pill names the one exclusive benefit.
+        title('Verified', verified: true, pill: _pill('ADDED VALUE', on: true)),
         const SizedBox(height: 10),
         priceLine,
         sub(priceSub),
@@ -1506,13 +1517,15 @@ class _ClaimScreenState extends State<ClaimScreen> {
         ]),
         SizedBox(height: wide ? 14 : 12),
         _planCards(wide, buttons: false),
-        const SizedBox(height: 10),
-        const Text(
+        const SizedBox(height: 12),
+        Text(
             'Claiming is free and needs no card. Verified can be added when '
             'you claim or any time later from your Owner account, monthly or '
             'yearly, cancel any time.',
             style: TextStyle(
-                fontSize: 12.5, height: 1.5, color: Brand.inkMuted)),
+                fontSize: wide ? 14 : 13.5,
+                height: 1.5,
+                color: Brand.inkSecondary)),
       ]);
 
 }

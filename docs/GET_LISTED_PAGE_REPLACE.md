@@ -158,7 +158,8 @@ eliminates barriers.
 With this:
 Free.
 A page built from public information, with a button that sends nomads
-to your website. Correct the facts any time.
+to your website. We pass on enquiries, and you can correct the facts
+any time.
 
 **Item 2.** Replace this:
 No tech setup required.
