@@ -79,33 +79,31 @@ Why List Your Coworking Space on Nomadwise?
 With this:
 Why be on nomadwise.io?
 
-**The four numbers.** Keep the block only if you can put current
-figures in; otherwise delete the whole row of numbers (the three
-benefits below it stay). The number of countries is on the Pricing
-page in the control centre (count the countries with spaces).
-Suggested set:
+**The three numbers.** (Checked in Search Console on 3 Oct 2026:
+about 850,000 impressions and 5,200 clicks in the last 30 days, with
+impressions down by half since mid-September, so the figures below
+are what the current rate supports.)
 
 Replace this: 10,000+ Unique Visitors in the past 90 days
-With this: [x] Nomads a month looking for a place to work
+With this: 15,000+ Visitors in the past 90 days
 
-Replace this: 200,000+ Google Impressions per month
-With this: [x] Times a month our pages appear in Google
+Replace this: 400,000+ Google Impressions per month
+With this: 500,000+ Google impressions per month
 
-Replace this: 95% Traffic Growth per month
-Delete (nobody believes a growth rate that never changes).
-Or with this: 1,000+ Places to work from, every one checked by us
+Replace this: 351+ Locations Worldwide covered on Nomadwise
+With this: 1,000+ Places to work from, cafes, coworking and colivings
 
-Replace this: 238+ Locations Worldwide covered on Nomadwise
-With this: [x] Countries covered
+**Three benefits.** One sentence each; the layout has one line of
+body under each heading.
 
-**Three benefits.** Replace this:
+Replace this:
 Reach your ideal audience
 Connect directly with freelancers, remote professionals and digital
 nomads.
 With this:
 Be the answer
 When a nomad asks Google or an AI assistant where to work in your
-city, the answer comes from pages like yours on nomadwise.io.
+city, your page is what they see.
 
 Replace this:
 Show up when it matters
@@ -113,17 +111,16 @@ Be seen by those searching in real-time for work locations in your
 area.
 With this:
 Show up when it matters
-Nomads look for a desk the day they arrive. Your page is where they
-land, with the facts that make them choose you: WiFi, hours, prices.
+Nomads look for a desk the day they arrive, and land on your page
+with WiFi, hours and prices.
 
 Replace this:
 Zero risk and no upfront cost
 You will only pay commission when customers buy your products.
 With this:
 Free to be listed, always
-A free page costs nothing and stays free. Verified adds the badge, the
-placement and the enquiry button for around a day pass a month. No
-commission, ever.
+A free page stays free. Verified costs around a day pass a month, and
+there is no commission.
 
 ---
 
@@ -146,7 +143,8 @@ screenshot of a Verified page once one is live.)
 
 ## 4. Section "Turn Remote Professionals into Customers"
 
-This becomes the Free or Verified comparison.
+This becomes the Free or Verified explainer: a bold heading and two
+lines of body for each of the three items. The photo stays.
 
 **Heading.** Replace this:
 Turn Remote Professionals into Customers
@@ -158,37 +156,26 @@ Effortless booking for your customers.
 Turn interest into income with a simple booking process that
 eliminates barriers.
 With this:
-Free
-A page built from public information, with a Contact the space button
-that sends nomads to your website or map listing. Free listings are
-added as we get to them, and you can correct the facts on your page
-at any time.
+Free.
+A page built from public information, with a button that sends nomads
+to your website. Correct the facts any time.
 
 **Item 2.** Replace this:
 No tech setup required.
-Get enquiries straight into your inbox. No new tools or
+Get booking requests straight into your inbox. No new tools or
 integrations needed.
 With this:
-Verified, around a day pass a month
-Everything a free page has, plus: the Verified badge on your page and
-in every list you appear in; a place above every free listing in your
-city and area; enquiries sent straight to your inbox, no
-commission, no middleman; your own photos, description and prices
-instead of whatever Google shows; your event or offer in the advert
-slot on your page, instead of ours.
-
-(If the item has room for a bullet list, use one bullet per "plus"
-above, five bullets.)
+Verified, around a day pass a month.
+The badge, a place above every free listing in your city, enquiries
+straight to your inbox, and your own photos and prices.
 
 **Item 3.** Replace this:
 Stay in control of your space's availability.
 Easily manage demand and plan ahead with reservations.
 With this:
-How it works
-Find your space on the claim form, or add it from Google Maps if it
-is not on our map yet. Tell us who you are and where enquiries
-should go. Pay through Stripe. Three steps, no account to create.
-The price depends on where your space is, and you see it on the claim form. Monthly or yearly, cancel any time.
+Three steps.
+Find your space, tell us where enquiries should go, choose Free or
+Verified. Your Owner account follows by email.
 
 Add a [Claim your space] button under this section if the layout has
 a spot for one, link https://nomadmaps.io/?claim, new tab.
@@ -204,96 +191,64 @@ who lands on your page.
 
 ## 6. Frequently Asked Questions
 
-Seven questions today, six after. Edit in place, then delete the last
-one.
+Seven questions today, six after. Edit the first six in place, then
+delete the seventh. Short answers, like the rest of the page.
 
-**Q1.** Replace this:
-How do I add my coworking space to Nomadwise?
-Adding your space to Nomadwise is really easy. Simply fill out this
-form, provide us with the needed information about your workspace and
-we will set it live within the next 24 hours. You can upload up to
-five images and a description. In the process of adding your space,
-you can also opt-in for the booking engine.
-With this:
+**Q1.** Replace "How do I add my coworking space to Nomadwise?" and
+its answer with:
 How do I get my space on nomadwise.io?
-Open the claim form, find your space, or add it from Google Maps if it
-is not on our map yet. If your page is already on nomadwise.io, we
-check the claim and then the badge, your details and the enquiry
-button go on. If it is not, your listing joins our publishing queue:
-we check every page before it goes live and email you the moment
-yours is. We ask you for your photos, description and prices then, so
-nothing holds the page up while you gather them.
+Open the claim form and find your space, or add it from Google Maps
+if it is not on our map yet. If your page already exists, we check
+the claim and the badge, your details and the enquiry button go on.
+If not, it joins our publishing queue and we email you when it is
+live.
 (Make "claim form" a link to https://nomadmaps.io/?claim, new tab.)
 
-**Q2.** Replace this:
-How does our booking system work?
-(the four paragraphs about instant booking, on request, deposits and
-commission)
-With this:
+**Q2.** Replace "How does our booking system work?" and its answer
+with:
 We are already listed. Why pay?
-Because people are already looking at your page and cannot ask you
-anything from it. Verified adds the button that turns a look into an
-enquiry, and the badge and placement above free listings that
-make it more likely they look at you at all.
+People already look at your page but cannot ask you anything from
+it. Verified adds the enquiry button, the badge, and a place above
+every free listing in your city.
 
-**Q3.** Replace this:
-What does it cost to be on Nomadwise?
-Being listed on Nomadwise is completely free. We only start to charge
-a commission when customers book your space through our platform. If
-Nomadwise doesn't bring you any bookings, you won't pay anything.
-With this:
+**Q3.** Replace "What does it cost to be on Nomadwise?" and its
+answer with:
 What does it cost?
-A listing is free and stays free. Verified is priced for your
-country, so it costs about the same as one day pass wherever your
-space is, monthly or yearly. The claim form shows your price.
-Cancel at any time from your Owner account. Your listing stays, back on the free plan. There is no
+A listing is free and stays free. Verified costs around a day pass a
+month, monthly or yearly, and the claim form shows your exact price.
+Cancel any time and your listing stays, back on the free plan. No
 commission on anything.
+(Nothing on the page says "priced for your country": it invites an
+owner to wonder what other countries pay.)
 
-**Q4.** Replace this:
-How can I update the information on my listing?
-To update the information on your listing, simply send an email with
-the new details to hello@nomadwise.io
-With this:
-How can I update the information on my page?
-Email the new details to hello@nomadwise.io and we put them on after a
-quick check. Every change is read by a person before it goes live, on
-every plan, which is what keeps the pages trusted.
+**Q4.** Replace "How can I update the information on my listing?"
+and its answer with:
+How can I update my page?
+From your Owner account: facts, photos, description and prices. A
+person reads every change before it goes live, on every plan, which
+is what keeps the pages trusted.
 
-**Q5.** Replace this:
-How can I promote my coworking space on Nomadwise?
-(paragraph about homepage features, blog posts, featured badge,
-backlinks)
-With this:
+**Q5.** Replace "How can I promote my coworking space on Nomadwise?"
+and its answer with:
 Who writes the description?
-You do, and we read it before it goes live. Facts and photos are
+You do, and we read it before it goes live. The facts and photos are
 yours; we keep the tone honest, so no "best in town". That is what
 makes a nomad trust the page.
 
-**Q6.** Replace this:
-How does the ranking in the search results work?
-(paragraph about Wi-Fi speed and applying for a featured badge that
-ranks you first)
-With this:
+**Q6.** Replace "How does the ranking in the search results work?"
+and its answer with:
 How does the order in the lists work?
 Verified spaces sit above every free listing in their city and area,
-and the order among them changes every day so no Verified space is
-always first. Free listings are ordered by their measured WiFi speed,
-then by Google reviews.
+and the order among them changes daily so none is always first. Free
+listings are ordered by measured WiFi speed, then Google reviews.
 
-**Q7.** Delete this:
-How do discounts and offers on Nomadwise work?
-(paragraph about discount codes and commission)
+**Q7.** Delete "How do discounts and offers on Nomadwise work?" and
+its answer.
 
-Optional extra question, if you want the cafe point on the page:
+Optional extra question, worth adding since most pages are cafes:
 Does it work for cafes?
 Yes. Cafes with good WiFi and a laptop-friendly attitude are exactly
 what nomads search for, and most of our pages are cafes.
-
-Optional extra question, for new places:
-We are new and not on Google Maps yet.
-Set up your free Google Business Profile first; it takes a day or two.
-The claim form finds your space through Google Maps, so once you are
-there, you can be here.
 
 ---
 

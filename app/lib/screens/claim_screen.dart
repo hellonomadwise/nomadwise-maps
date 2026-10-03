@@ -1428,10 +1428,11 @@ class _ClaimScreenState extends State<ClaimScreen> {
       priceSub = 'Everything in Free, plus:';
     } else {
       // No country yet, so no figure: the cheapest country's "from €4"
-      // reads as a bait to an owner in Lisbon who then sees €10. The
+      // reads as a bait to an owner in Lisbon who then sees €10, and
+      // "priced for your country" invites the same comparison. The
       // anchor the prices were set by says the same thing everywhere.
       priceLine = _priceLine(wide, 'Around a day pass', 'a month');
-      priceSub = 'Priced for your country. Everything in Free, plus:';
+      priceSub = 'Everything in Free, plus:';
     }
 
     final verified = _planCard(
