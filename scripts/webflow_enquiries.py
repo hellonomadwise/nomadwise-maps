@@ -53,6 +53,8 @@ def finish(code=0):
                {'key': 'enquiry_import',
                 'value': {'at': datetime.datetime.now(datetime.timezone.utc).isoformat(),
                           'read': report['read'], 'filed': report['filed'],
+                          'outreach': report.get('outreach', {}),
+                          'outreach_other_forms': report.get('outreach_other_forms', {}),
                           'errors': (report['errors'] + report['warnings'])[:3]},
                 'updated_at': datetime.datetime.now(datetime.timezone.utc).isoformat()},
                prefer='resolution=merge-duplicates,return=minimal')
@@ -131,6 +133,7 @@ else:
     except Exception as e:  # noqa: BLE001
         report['errors'].append(f'known read: {str(e)[:200]}')
     offset, invalid = 0, 0
+    popup_ids = set()  # every pop-up submission seen, so Outreach skips them
     while offset < 5000:
         try:
             page = wf(f'/sites/{SITE_ID}/form_submissions',
@@ -147,6 +150,7 @@ else:
         subs = (page or {}).get('formSubmissions') or []
         for s_ in subs:
             report['read'] += 1
+            popup_ids.add(s_.get('id'))
             if s_.get('id') in known:
                 report['filed']['known'] = report['filed'].get('known', 0) + 1
                 continue
@@ -179,6 +183,77 @@ else:
         report['errors'].append(
             f'All {invalid} new pop-up submissions had no usable email; the '
             'form fields may have been renamed in Webflow.')
+
+
+# ------------------------------------------------ business forms -> Outreach
+# The other forms on nomadwise.io (Add Coworking Space, Add Cafe,
+# Recommendations from Users, Contact) are spaces asking to be listed.
+# Each submission becomes a contact in the control centre's Outreach
+# list (migration 121), once; the pop-up enquiry form is handled above.
+if WEBFLOW_TOKEN:
+    known_o = set()
+    try:
+        offset_k = 0
+        while True:
+            rows = sb('outreach_messages?source_ref=like.wf:*'
+                      f'&select=source_ref&order=at&limit=1000&offset={offset_k}') or []
+            known_o.update(r['source_ref'] for r in rows)
+            if len(rows) < 1000:
+                break
+            offset_k += 1000
+    except Exception as e:  # noqa: BLE001
+        report['errors'].append(f'outreach known read: {str(e)[:200]}')
+    offset = 0
+    outreach = {}
+    skipped_forms = {}
+    OUTREACH_FORM_WORDS = ('business', 'cowork', 'cafe', 'coliving', 'space',
+                           'recommend', 'listing', 'list my', 'add my')
+    while offset < 5000:
+        try:
+            page = wf(f'/sites/{SITE_ID}/form_submissions', {'limit': 100, 'offset': offset})
+        except Exception as e:  # noqa: BLE001
+            report['errors'].append(f'all form submissions: {str(e)[:200]}')
+            break
+        subs = (page or {}).get('formSubmissions') or []
+        for s_ in subs:
+            form_name = (s_.get('displayName') or s_.get('formName') or '').strip()
+            low = form_name.lower()
+            # The pop-up is a nomad writing to a space, filed above, and
+            # never a contact here.
+            if (FORM_ELEMENT_ID in (s_.get('elementId'), s_.get('formElementId'))
+                    or s_.get('id') in popup_ids or s_.get('id') in known
+                    or 'research' in low):
+                continue
+            # Only the forms a space fills in (or a nomad recommending
+            # one). Anything else is counted by name so a renamed form
+            # is noticed.
+            if not any(w in low for w in OUTREACH_FORM_WORDS):
+                skipped_forms[form_name or '(no name)'] = \
+                    skipped_forms.get(form_name or '(no name)', 0) + 1
+                continue
+            if 'wf:' + str(s_.get('id')) in known_o:
+                outreach['known'] = outreach.get('known', 0) + 1
+                continue
+            payload = {
+                'id': s_.get('id'),
+                'form_name': form_name,
+                'submitted_at': s_.get('dateSubmitted'),
+                'fields': s_.get('formResponse') or {},
+            }
+            try:
+                res = sb('rpc/import_webflow_outreach', 'POST', {'p': payload})
+            except Exception as e:  # noqa: BLE001
+                report['errors'].append(f"outreach {s_.get('id')}: {str(e)[:200]}")
+                continue
+            res = res if isinstance(res, str) else str(res)
+            outreach[res] = outreach.get(res, 0) + 1
+        total = ((page or {}).get('pagination') or {}).get('total') or 0
+        offset += 100
+        if len(subs) < 100 or offset >= total:
+            break
+    report['outreach'] = outreach
+    if skipped_forms:
+        report['outreach_other_forms'] = skipped_forms
 
 
 # ------------------------------------------------- contact suggestions

@@ -20,6 +20,7 @@ import '../widgets/resubmit_changes.dart';
 import '../widgets/ui.dart';
 import 'admin_analytics_screen.dart';
 import 'admin_pricing_screen.dart';
+import 'admin_outreach_screen.dart';
 import 'admin_screen.dart';
 import 'admin_users_screen.dart';
 import 'claim_journeys_screen.dart';
@@ -959,6 +960,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                 PopupMenuItem(value: 'analytics', child: Text('Analytics')),
                 PopupMenuItem(value: 'users', child: Text('Users')),
                 PopupMenuItem(value: 'pricing', child: Text('Pricing')),
+                PopupMenuItem(value: 'outreach', child: Text('Outreach')),
                 PopupMenuItem(
                     value: 'review', child: Text('Review submissions')),
                 PopupMenuItem(
@@ -1285,6 +1287,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       'analytics' => const AdminAnalyticsScreen(),
       'users' => const AdminUsersScreen(),
       'pricing' => const AdminPricingScreen(),
+      'outreach' => const AdminOutreachScreen(),
       'review' => const AdminScreen(),
       _ => const FeedbackInboxScreen(),
     };
@@ -5902,7 +5905,7 @@ class _ListingPlanPageState extends State<_ListingPlanPage> {
   String get _priceWords {
     final p = _pricing;
     if (p == null || p.monthly == null || p.yearly == null) {
-      return '€99 a year';
+      return '99 EUR a year';
     }
     return '${formatMoney(p.monthly!, p.currency)} a month or '
         '${formatMoney(p.yearly!, p.currency)} a year';

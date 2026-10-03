@@ -8,6 +8,7 @@ import '../services/supabase_service.dart';
 import '../theme.dart';
 import 'admin_analytics_screen.dart';
 import 'admin_pricing_screen.dart';
+import 'admin_outreach_screen.dart';
 import 'admin_users_screen.dart';
 import 'website_screen.dart';
 
@@ -90,7 +91,7 @@ class _AdminGateState extends State<AdminGate> {
       // the control centre, so its back arrow leads there.
       final s = widget.section;
       if (!_openedSection &&
-          (s == 'analytics' || s == 'users' || s == 'pricing')) {
+          (s == 'analytics' || s == 'users' || s == 'pricing' || s == 'outreach')) {
         _openedSection = true;
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
@@ -99,7 +100,9 @@ class _AdminGateState extends State<AdminGate> {
                   ? const AdminAnalyticsScreen()
                   : s == 'pricing'
                       ? const AdminPricingScreen()
-                      : const AdminUsersScreen()));
+                      : s == 'outreach'
+                          ? const AdminOutreachScreen()
+                          : const AdminUsersScreen()));
         });
       }
       return const WebsiteScreen(standalone: true);

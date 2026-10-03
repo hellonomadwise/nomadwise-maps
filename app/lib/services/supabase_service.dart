@@ -1188,6 +1188,92 @@ class SupabaseService {
     return r is Map ? Map<String, dynamic>.from(r) : {};
   }
 
+  // ---- Outreach (migration 121): the spaces we talk to ----
+
+  Future<Map<String, int>> outreachCounts() async {
+    final r = await _db.rpc('admin_outreach_counts');
+    if (r is! Map) return {};
+    return {for (final e in r.entries) '${e.key}': (e.value as num).toInt()};
+  }
+
+  Future<List<Map<String, dynamic>>> outreachList(
+      {String? stage, String? query, int limit = 200}) async {
+    final r = await _db.rpc('admin_outreach_list', params: {
+      'p_stage': stage ?? '',
+      'p_q': query ?? '',
+      'p_limit': limit,
+    });
+    return [
+      for (final x in (r as List? ?? const [])) Map<String, dynamic>.from(x as Map)
+    ];
+  }
+
+  Future<List<Map<String, dynamic>>> outreachMessages(String contactId) async {
+    final r = await _db.rpc('admin_outreach_messages', params: {'p_contact': contactId});
+    return [
+      for (final x in (r as List? ?? const [])) Map<String, dynamic>.from(x as Map)
+    ];
+  }
+
+  Future<List<Map<String, dynamic>>> outreachTemplates() async {
+    final r = await _db.rpc('admin_outreach_templates');
+    return [
+      for (final x in (r as List? ?? const [])) Map<String, dynamic>.from(x as Map)
+    ];
+  }
+
+  Future<void> outreachSaveTemplate(String key, String subject, String body) =>
+      _db.rpc('admin_outreach_save_template',
+          params: {'p_key': key, 'p_subject': subject, 'p_body': body});
+
+  /// Returns the new (or matching) contact's id.
+  Future<String> outreachAdd(Map<String, dynamic> fields) async {
+    final r = await _db.rpc('admin_outreach_add', params: {'p': fields});
+    return '$r';
+  }
+
+  Future<void> outreachUpdate(String id, Map<String, dynamic> fields) =>
+      _db.rpc('admin_outreach_update', params: {'p_id': id, 'p': fields});
+
+  Future<void> outreachLogIn(String id, String text) =>
+      _db.rpc('admin_outreach_log_in', params: {'p_id': id, 'p_text': text});
+
+  Future<Map<String, dynamic>> outreachPreview(String id, String templateKey) async {
+    final r = await _db.rpc('admin_outreach_preview',
+        params: {'p_id': id, 'p_key': templateKey});
+    return r is Map ? Map<String, dynamic>.from(r) : {};
+  }
+
+  Future<void> outreachSend(String id, String subject, String body,
+          {String? templateKey, bool force = false}) =>
+      _db.rpc('admin_outreach_send', params: {
+        'p_id': id,
+        'p_subject': subject,
+        'p_body': body,
+        'p_template': templateKey,
+        'p_force': force,
+      });
+
+  /// A list of contacts at once (the inbox backlog, a list of
+  /// prospects): {filed, skipped, first_problem}.
+  Future<Map<String, dynamic>> outreachImport(List<dynamic> contacts) async {
+    final r = await _db.rpc('admin_outreach_import', params: {'p': contacts});
+    return r is Map ? Map<String, dynamic>.from(r) : {};
+  }
+
+  Future<void> outreachDelete(String id) =>
+      _db.rpc('admin_outreach_delete', params: {'p_id': id});
+
+  /// The unsubscribe link in outreach emails (?unsubscribe=<token>).
+  Future<Map<String, dynamic>> outreachUnsubscribe(String token) async {
+    try {
+      final r = await _db.rpc('outreach_unsubscribe', params: {'p_token': token});
+      return r is Map ? Map<String, dynamic>.from(r) : {'ok': false};
+    } catch (_) {
+      return {'ok': false};
+    }
+  }
+
   Future<Map<String, dynamic>> setPricingGroup(String code, num monthlyEur,
       num yearlyEur, String? priceMonthly, String? priceYearly) async {
     final r = await _db.rpc('admin_set_pricing_group', params: {

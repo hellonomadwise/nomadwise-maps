@@ -1584,3 +1584,21 @@ claim in the order claims arrive", so Free still reads as a good
 choice. No time is promised. The control centre's waiting list puts
 paid claims first so the words are true.
 
+## 3 Oct 2026: Outreach, a list of the spaces we talk to
+
+For a year spaces have written to hello@ asking to be listed or to
+change a page, and were told "when the members area is ready"; many
+form submissions were never answered. Jonathan asked for a CRM inside
+the control centre. First slice (migration 121, docs/OUTREACH.md):
+space_contacts with a stage each, the messages in both directions,
+reply templates filled in per contact, sending through Postmark with
+guard rails (30 days between emails, 40 a day, unsubscribe on every
+one), and Claimed / Verified moving by themselves from the claim form.
+Website form submissions are filed by the sync. The inbox backlog (97
+threads, 79 spaces, read from Gmail on 3 Oct) is imported from a file
+through the app, not a migration: the site is built from the
+repository via GitHub Pages, so personal details stay out of it.
+Chosen with Jonathan: inbound backlog first, send from the control
+centre, stages automatic where possible. Next slices: the invitation
+to spaces already listed, and adding prospects from the map.
+

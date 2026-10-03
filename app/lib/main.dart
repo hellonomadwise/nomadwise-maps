@@ -5,6 +5,7 @@ import 'config.dart';
 import 'screens/admin_gate.dart';
 import 'screens/claim_screen.dart';
 import 'screens/owner_screen.dart';
+import 'screens/admin_outreach_screen.dart' show UnsubscribeScreen;
 import 'screens/enquiry_screen.dart';
 import 'screens/update_screen.dart';
 import 'screens/map_screen.dart';
@@ -75,6 +76,8 @@ class NomadwiseMapsApp extends StatelessWidget {
           seed: _param('claim'), from: _param('from'), email: _param('email'));
     } else if (_has('admin') || _path.startsWith('/admin')) {
       home = AdminGate(section: _param('admin'));
+    } else if (_has('unsubscribe')) {
+      home = UnsubscribeScreen(token: _param('unsubscribe') ?? '');
     } else if (_has('owner') || _path.startsWith('/owner')) {
       home = OwnerScreen(previewKey: _param('preview'));
     } else {
