@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../services/supabase_service.dart';
@@ -26,6 +27,9 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
   Map<String, int> _counts = {};
   List<Map<String, dynamic>> _templates = [];
   String _stage = 'new';
+  // '' all, 'wrote' they wrote to us, 'listed' on the site and
+  // unclaimed, 'prospect' spaces we found.
+  String _group = '';
   String? _error;
   final Set<String> _expanded = {};
 
@@ -39,6 +43,13 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
     ('declined', 'Declined'),
     ('unsubscribed', 'Unsubscribed'),
     ('', 'All'),
+  ];
+
+  static const _groups = <(String, String, String)>[
+    ('', 'Everyone', ''),
+    ('wrote', 'Wrote to us', '_wrote'),
+    ('listed', 'Listed, unclaimed', '_listed'),
+    ('prospect', 'Prospects', '_prospect'),
   ];
 
   static const _kinds = ['coworking', 'cafe', 'coliving', 'hotel', 'restaurant', 'other'];
@@ -58,12 +69,17 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
     super.dispose();
   }
 
+  // Counts the loads, so a slow earlier answer never overwrites the
+  // tab picked after it.
+  int _req = 0;
+
   Future<void> _load() async {
+    final n = ++_req;
     try {
       final rows = await _supabase.outreachList(
-          stage: _stage, query: _search.text.trim());
-      final counts = await _supabase.outreachCounts();
-      if (!mounted) return;
+          stage: _stage, query: _search.text.trim(), group: _group);
+      final counts = await _supabase.outreachCounts(group: _group);
+      if (!mounted || n != _req) return;
       setState(() {
         _rows = rows;
         _counts = counts;
@@ -79,9 +95,12 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
         content: Text(text), backgroundColor: bad ? Brand.red : null));
   }
 
+  /// The database's own words for a refused action, whole (they can
+  /// hold commas and braces, such as a placeholder's name).
   String _plain(Object e) {
+    if (e is PostgrestException) return e.message;
     final s = '$e';
-    final m = RegExp(r'message: ([^,}]+)').firstMatch(s);
+    final m = RegExp(r'message: (.*?), code: ', dotAll: true).firstMatch(s);
     return m?.group(1)?.trim() ?? s;
   }
 
@@ -357,48 +376,263 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
     }
   }
 
-  /// A file of contacts, copied to the clipboard: the inbox backlog, or
-  /// a list of prospects. Read straight from the clipboard, so a long
-  /// file never has to be pasted into a box, and people's details never
-  /// go through the code repository.
+  /// Rows copied from a spreadsheet (or typed as lines) into contacts.
+  /// With a header row the columns are read by name; without one each
+  /// cell is recognised by what it looks like: an address, a link, an
+  /// Instagram handle, and the first plain cell as the space's name.
+  static List<Map<String, dynamic>> _rowsFromText(String raw) {
+    final lines = raw
+        .split(RegExp(r'\r?\n'))
+        .map((l) => l.trimRight())
+        .where((l) => l.trim().isNotEmpty)
+        .toList();
+    if (lines.isEmpty) return [];
+    final sep = lines.any((l) => l.contains('\t'))
+        ? '\t'
+        : lines.where((l) => l.contains(';')).length > lines.length / 2
+            ? ';'
+            : ',';
+    List<String> cells(String l) => l
+        .split(sep)
+        .map((c) => c.trim().replaceAll(RegExp(r'^"|"$'), '').trim())
+        .toList();
+
+    String? field(String header) {
+      final h = header.toLowerCase().trim();
+      if (h.contains('mail')) return 'email';
+      if (h.contains('instagram') || h == 'ig') return 'instagram';
+      if (h.contains('web') || h.contains('url') || h == 'site') return 'website';
+      if (h.contains('phone') || h.contains('whatsapp') || h == 'tel') return 'phone';
+      if (h.contains('country')) return 'country';
+      if (h.contains('city') || h.contains('town') || h.contains('location')) {
+        return 'city';
+      }
+      if (h.contains('note') || h.contains('comment')) return 'notes';
+      if (h == 'type' || h == 'kind') return 'kind';
+      if (h.contains('person') || h.contains('contact') || h.contains('owner') ||
+          h.contains('your name') || h.contains('first name')) {
+        return 'person_name';
+      }
+      if (h.contains('space') || h.contains('business') || h.contains('venue') ||
+          h.contains('listing') || h.contains('cafe') || h.contains('name')) {
+        return 'space_name';
+      }
+      return null;
+    }
+
+    final first = cells(lines.first);
+    final headers = [for (final c in first) field(c)];
+    // A header row is made of column labels, matched whole: "Workspace
+    // Cafe, Mexico City" is a space, not a header, and reading it as one
+    // would drop the first contact and scramble the rest.
+    const labels = {
+      'space', 'space name', 'name', 'business', 'business name', 'venue',
+      'cafe', 'coworking', 'listing', 'email', 'e-mail', 'email address',
+      'mail', 'city', 'town', 'location', 'country', 'website', 'web', 'url',
+      'site', 'instagram', 'ig', 'phone', 'whatsapp', 'tel', 'notes', 'note',
+      'comment', 'comments', 'type', 'kind', 'person', 'contact',
+      'contact name', 'owner', 'your name', 'first name',
+    };
+    final labelled =
+        first.where((c) => labels.contains(c.toLowerCase())).length;
+    final hasHeader = !first.any((c) => c.contains('@')) &&
+        (labelled >= 2 ||
+            (first.length == 1 && labelled == 1 && lines.length > 1));
+
+    final out = <Map<String, dynamic>>[];
+    for (final line in lines.skip(hasHeader ? 1 : 0)) {
+      final cs = cells(line);
+      final row = <String, dynamic>{};
+      if (hasHeader) {
+        for (var i = 0; i < cs.length && i < headers.length; i++) {
+          final f = headers.elementAt(i);
+          final v = cs.elementAt(i);
+          if (f != null && v.isNotEmpty && !row.containsKey(f)) row[f] = v;
+        }
+      } else {
+        final plain = <String>[];
+        for (final v in cs) {
+          if (v.isEmpty) continue;
+          final low = v.toLowerCase();
+          if (v.contains('@') && v.contains('.') && !v.contains(' ') &&
+              !v.startsWith('@')) {
+            row.putIfAbsent('email', () => v);
+          } else if (low.contains('instagram.com') || v.startsWith('@')) {
+            row.putIfAbsent('instagram', () => v);
+          } else if (low.startsWith('http') || low.startsWith('www.')) {
+            row.putIfAbsent('website', () => v);
+          } else {
+            plain.add(v);
+          }
+        }
+        const order = ['space_name', 'city', 'country', 'notes'];
+        for (var i = 0; i < plain.length && i < order.length; i++) {
+          row[order.elementAt(i)] = plain.elementAt(i);
+        }
+      }
+      if ('${row['email'] ?? ''}'.isEmpty && '${row['space_name'] ?? ''}'.isEmpty) {
+        continue;
+      }
+      out.add(row);
+    }
+    return out;
+  }
+
+  /// Contacts from the clipboard: the backlog file (copied whole), or
+  /// rows copied from a spreadsheet. Read straight from the clipboard,
+  /// so a long list never has to be pasted into a box, and people's
+  /// details never go through the code repository.
   Future<void> _importClipboard() async {
-    List<dynamic> list;
+    String text;
     try {
       final data = await Clipboard.getData(Clipboard.kTextPlain);
-      final decoded = jsonDecode((data?.text ?? '').trim());
-      if (decoded is! List || decoded.isEmpty) throw const FormatException();
-      list = decoded;
+      text = (data?.text ?? '').trim();
     } catch (_) {
+      text = '';
+    }
+    List<dynamic> list = [];
+    bool fromSheet = false;
+    if (text.startsWith('[')) {
+      try {
+        final decoded = jsonDecode(text);
+        if (decoded is List) list = decoded;
+      } catch (_) {}
+    }
+    // A file that starts like the backlog but does not read as one (cut
+    // short while copying) is refused, not guessed at as rows.
+    if (list.isEmpty &&
+        text.isNotEmpty &&
+        !text.startsWith('[') &&
+        !text.startsWith('{')) {
+      list = _rowsFromText(text);
+      fromSheet = true;
+    }
+    if (list.isEmpty) {
       _snack(
-          'Nothing to import on the clipboard. Open the contacts file, '
-          'select all, copy, then press Import again.',
+          'Nothing to import on the clipboard. Copy the contacts file, or '
+          'the rows of a spreadsheet (space, email, city), then press '
+          'Import again.',
           bad: true);
       return;
     }
     if (!mounted) return;
+    String source = 'prospect';
+    String line(dynamic r) {
+      final m = r is Map ? r : const {};
+      return [
+        '${m['space_name'] ?? ''}',
+        '${m['email'] ?? ''}',
+        '${m['city'] ?? ''}',
+      ].where((x) => x.isNotEmpty).join(' · ');
+    }
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setD) => AlertDialog(
+          title: Text('Import ${list.length} contacts?'),
+          content: SizedBox(
+            width: 480,
+            child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('The first few, as they were read:',
+                      style: TextStyle(fontSize: 12.5, color: Brand.inkMuted)),
+                  const SizedBox(height: 6),
+                  for (final r in list.take(4))
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 3),
+                      child: Text(line(r),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 13.5)),
+                    ),
+                  if (fromSheet) ...[
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      value: source,
+                      decoration: const InputDecoration(
+                          labelText: 'These are',
+                          border: OutlineInputBorder()),
+                      items: const [
+                        DropdownMenuItem(
+                            value: 'prospect',
+                            child: Text('Prospects: spaces we found')),
+                        DropdownMenuItem(
+                            value: 'email',
+                            child: Text('Spaces that wrote to us')),
+                        DropdownMenuItem(
+                            value: 'listing',
+                            child: Text('Spaces already listed')),
+                      ],
+                      onChanged: (v) => setD(() => source = v ?? source),
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  const Text(
+                      'Anyone already here is left as they are. Nothing is '
+                      'sent.',
+                      style: TextStyle(fontSize: 13)),
+                ]),
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel')),
+            FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Import')),
+          ],
+        ),
+      ),
+    );
+    if (ok != true) return;
+    if (fromSheet) {
+      list = [
+        for (final r in list)
+          {...Map<String, dynamic>.from(r as Map), 'source': source}
+      ];
+    }
+    try {
+      final r = await _supabase.outreachImport(list);
+      final skipped = (r['skipped'] as num?)?.toInt() ?? 0;
+      _snack('Read ${r['filed'] ?? 0} rows'
+          '${skipped > 0 ? ', $skipped could not be filed (${r['first_problem']})' : ''}.');
+      await _load();
+    } catch (e) {
+      _snack(_plain(e), bad: true);
+    }
+  }
+
+  /// Every unclaimed space on nomadwise.io becomes a contact in the
+  /// Listed group. Nothing is sent; addresses we do not have yet are
+  /// looked up from each space's own website over the following hours.
+  Future<void> _addListed() async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('Import ${list.length} contacts?'),
+        title: const Text('Bring in the listed spaces?'),
         content: const Text(
-            'Each one is filed with what they wrote and the stage it is at. '
-            'Anyone already here is left as they are. Nothing is sent.'),
+            'Every space on nomadwise.io that nobody has claimed gets a '
+            'card here, in the Listed group. Nothing is sent. Where we do '
+            'not have an email address yet, the sync reads the space\'s own '
+            'website for one over the next day.'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
               child: const Text('Cancel')),
           FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Import')),
+              child: const Text('Bring them in')),
         ],
       ),
     );
     if (ok != true) return;
     try {
-      final r = await _supabase.outreachImport(list);
-      final skipped = (r['skipped'] as num?)?.toInt() ?? 0;
-      _snack('Read ${r['filed'] ?? 0} rows'
-          '${skipped > 0 ? ', $skipped could not be filed (${r['first_problem']})' : ''}.');
+      final r = await _supabase.outreachAddListed();
+      _snack('Added ${r['added'] ?? 0} listed spaces, '
+          '${r['with_email'] ?? 0} with an email address already.');
       await _load();
     } catch (e) {
       _snack(_plain(e), bad: true);
@@ -718,81 +952,249 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
     }
   }
 
+  /// What a template can have filled in for it, with a word on each.
+  static const _placeholders = <(String, String)>[
+    ('{first_name}', 'their first name, or "there"'),
+    ('{space}', 'the space\'s name'),
+    ('{city}', 'its city'),
+    ('{claim_link}', 'the claim form, opened on their space'),
+    ('{page_link}', 'their page on nomadwise.io'),
+    ('{price_words}', 'the Verified price for their country'),
+    ('{unsubscribe_link}', 'the link that stops our emails'),
+    ('{signoff}', 'Jonathan, Nomadwise'),
+  ];
+
+  /// The templates: every one listed with its subject, each editable,
+  /// and a button for a new one. The list comes back after each save,
+  /// so several can be changed in one go.
   Future<void> _editTemplates() async {
-    try {
-      _templates = await _supabase.outreachTemplates();
-    } catch (e) {
-      _snack(_plain(e), bad: true);
-      return;
-    }
-    if (!mounted) return;
-    final t = await showDialog<Map<String, dynamic>>(
-      context: context,
-      builder: (ctx) => SimpleDialog(
-        title: const Text('Templates'),
-        children: [
-          for (final t in _templates)
-            SimpleDialogOption(
-              onPressed: () => Navigator.pop(ctx, t),
-              child: Text('${t['name']}'),
+    while (mounted) {
+      try {
+        _templates = await _supabase.outreachTemplates();
+      } catch (e) {
+        _snack(_plain(e), bad: true);
+        return;
+      }
+      if (!mounted) return;
+      final picked = await showDialog<Map<String, dynamic>>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Templates'),
+          contentPadding: const EdgeInsets.fromLTRB(8, 12, 8, 0),
+          content: SizedBox(
+            width: 560,
+            child: SingleChildScrollView(
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                for (final t in _templates)
+                  ListTile(
+                    title: Text('${t['name']}',
+                        style: const TextStyle(fontWeight: FontWeight.w600)),
+                    subtitle: Text('${t['subject'] ?? ''}',
+                        maxLines: 1, overflow: TextOverflow.ellipsis),
+                    trailing: const Icon(Icons.edit_outlined, size: 20),
+                    onTap: () => Navigator.pop(ctx, t),
+                  ),
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(16, 8, 16, 8),
+                  child: Text(
+                      'Tap a template to change its name, subject or words. '
+                      'New ones appear in the Reply box straight away.',
+                      style: TextStyle(fontSize: 12.5, color: Brand.inkMuted)),
+                ),
+              ]),
             ),
-          const Padding(
-            padding: EdgeInsets.fromLTRB(24, 8, 24, 4),
-            child: Text(
-                'Placeholders: {first_name} {space} {city} {page_link} '
-                '{claim_link} {price_words} {unsubscribe_link} {signoff}. '
-                'No em dashes, no promised times, prices with their symbol, '
-                '"Owner account" never "members area".',
-                style: TextStyle(fontSize: 12, color: Brand.inkMuted)),
           ),
-        ],
-      ),
-    );
-    if (t == null || !mounted) return;
-    final subject = TextEditingController(text: '${t['subject'] ?? ''}');
-    final body = TextEditingController(text: '${t['body'] ?? ''}');
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('${t['name']}'),
-        content: SizedBox(
-          width: 640,
-          height: 520,
-          child: Column(children: [
-            TextField(
-                controller: subject,
-                decoration: const InputDecoration(
-                    labelText: 'Subject', border: OutlineInputBorder())),
-            const SizedBox(height: 10),
-            Expanded(
-              child: TextField(
-                  controller: body,
-                  maxLines: null,
-                  expands: true,
-                  style: const TextStyle(fontSize: 13.5, height: 1.4),
-                  decoration: const InputDecoration(
-                      labelText: 'Email', border: OutlineInputBorder())),
-            ),
-          ]),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Close')),
+            FilledButton.icon(
+                onPressed: () => Navigator.pop(ctx, <String, dynamic>{}),
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('New template')),
+          ],
         ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
-          FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Save')),
-        ],
+      );
+      if (picked == null || !mounted) return;
+      await _editTemplate(picked.isEmpty ? null : picked);
+    }
+  }
+
+  /// One template in the editor. [t] null means a new one. Saving
+  /// happens inside the box, so a refused save (an unknown placeholder,
+  /// say) keeps what was typed.
+  Future<void> _editTemplate(Map<String, dynamic>? t) async {
+    final name = TextEditingController(text: '${t?['name'] ?? ''}');
+    final subject = TextEditingController(text: '${t?['subject'] ?? ''}');
+    final body = TextEditingController(
+        text: t == null
+            ? 'Hi {first_name},\n\n\n\n{signoff}'
+            : '${t['body'] ?? ''}');
+    bool saving = false;
+    bool open = true;
+    String? problem;
+
+    // Puts a placeholder where the cursor last was in the email.
+    void insert(String token) {
+      final text = body.text;
+      final sel = body.selection;
+      final start = sel.isValid ? sel.start : text.length;
+      final end = sel.isValid ? sel.end : text.length;
+      body.value = TextEditingValue(
+        text: text.replaceRange(start, end, token),
+        selection: TextSelection.collapsed(offset: start + token.length),
+      );
+    }
+
+    final done = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setD) => AlertDialog(
+          title: Text(t == null ? 'New template' : 'Edit template'),
+          content: SizedBox(
+            width: 680,
+            height: 600,
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                      controller: name,
+                      autofocus: t == null,
+                      decoration: const InputDecoration(
+                          labelText: 'Name (only we see this)',
+                          hintText: 'Prospect: first hello',
+                          border: OutlineInputBorder())),
+                  const SizedBox(height: 10),
+                  TextField(
+                      controller: subject,
+                      decoration: const InputDecoration(
+                          labelText: 'Subject',
+                          hintText: 'Listing {space} on Nomadwise',
+                          border: OutlineInputBorder())),
+                  const SizedBox(height: 10),
+                  const Text('Tap to put one in the email, where the cursor is:',
+                      style: TextStyle(fontSize: 12, color: Brand.inkMuted)),
+                  const SizedBox(height: 4),
+                  Wrap(spacing: 6, runSpacing: 4, children: [
+                    for (final ph in _placeholders)
+                      Tooltip(
+                        message: ph.$2,
+                        child: ActionChip(
+                          label: Text(ph.$1,
+                              style: const TextStyle(fontSize: 12)),
+                          visualDensity: VisualDensity.compact,
+                          onPressed: () => insert(ph.$1),
+                        ),
+                      ),
+                  ]),
+                  const SizedBox(height: 10),
+                  Expanded(
+                    child: TextField(
+                        controller: body,
+                        maxLines: null,
+                        expands: true,
+                        textAlignVertical: TextAlignVertical.top,
+                        style: const TextStyle(fontSize: 13.5, height: 1.4),
+                        decoration: const InputDecoration(
+                            labelText: 'Email',
+                            alignLabelWithHint: true,
+                            border: OutlineInputBorder())),
+                  ),
+                  if (problem != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(problem!,
+                          style:
+                              const TextStyle(color: Brand.red, fontSize: 13)),
+                    ),
+                  const SizedBox(height: 6),
+                  const Text(
+                      'House rules: no em dashes, no promised times, prices '
+                      'with their symbol, "Owner account" never "members '
+                      'area". An unsubscribe line is added when an email is '
+                      'sent if the template has none.',
+                      style: TextStyle(fontSize: 12, color: Brand.inkMuted)),
+                ]),
+          ),
+          actions: [
+            if (t != null)
+              TextButton(
+                onPressed: saving
+                    ? null
+                    : () async {
+                        final sure = await showDialog<bool>(
+                          context: ctx,
+                          builder: (c2) => AlertDialog(
+                            title: const Text('Delete this template?'),
+                            content: Text(
+                                '"${t['name']}" goes for good. Emails already '
+                                'sent with it stay in each space\'s history.'),
+                            actions: [
+                              TextButton(
+                                  onPressed: () => Navigator.pop(c2, false),
+                                  child: const Text('Keep')),
+                              FilledButton(
+                                  style: FilledButton.styleFrom(
+                                      backgroundColor: Brand.red),
+                                  onPressed: () => Navigator.pop(c2, true),
+                                  child: const Text('Delete')),
+                            ],
+                          ),
+                        );
+                        if (sure != true || !open) return;
+                        setD(() {
+                          saving = true;
+                          problem = null;
+                        });
+                        try {
+                          await _supabase.outreachDeleteTemplate('${t['key']}');
+                          if (open && ctx.mounted) Navigator.pop(ctx, 'deleted');
+                        } catch (e) {
+                          if (!open || !ctx.mounted) return;
+                          setD(() {
+                            saving = false;
+                            problem = _plain(e);
+                          });
+                        }
+                      },
+                child: const Text('Delete', style: TextStyle(color: Brand.red)),
+              ),
+            TextButton(
+                onPressed: saving ? null : () => Navigator.pop(ctx),
+                child: const Text('Cancel')),
+            FilledButton(
+              onPressed: saving
+                  ? null
+                  : () async {
+                      setD(() {
+                        saving = true;
+                        problem = null;
+                      });
+                      try {
+                        await _supabase.outreachUpsertTemplate(
+                            key: t == null ? null : '${t['key']}',
+                            name: name.text,
+                            subject: subject.text,
+                            body: body.text);
+                        if (open && ctx.mounted) Navigator.pop(ctx, 'saved');
+                      } catch (e) {
+                        if (!open || !ctx.mounted) return;
+                        setD(() {
+                          saving = false;
+                          problem = _plain(e);
+                        });
+                      }
+                    },
+              child: Text(saving ? 'One moment' : 'Save'),
+            ),
+          ],
+        ),
       ),
     );
-    if (ok != true) return;
-    try {
-      await _supabase.outreachSaveTemplate('${t['key']}', subject.text, body.text);
-      _templates = await _supabase.outreachTemplates();
-      _snack('Template saved.');
-    } catch (e) {
-      _snack(_plain(e), bad: true);
-    }
+    open = false;
+    if (done == 'saved') _snack('Template saved.');
+    if (done == 'deleted') _snack('Template deleted.');
   }
 
   // --------------------------------------------------------------- build
@@ -1087,11 +1489,68 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
                           ),
                         ),
                         const SizedBox(height: 10),
+                        // Who: everyone, or one group.
+                        Wrap(spacing: 6, runSpacing: 6, children: [
+                          for (final g in _groups)
+                            ChoiceChip(
+                              label: Text(
+                                  '${g.$2}${g.$3.isEmpty ? '' : ' ${_counts[g.$3] ?? 0}'}'),
+                              showCheckmark: false,
+                              selectedColor: Brand.logoNavy,
+                              labelStyle: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  color: _group == g.$1
+                                      ? Colors.white
+                                      : Brand.ink),
+                              selected: _group == g.$1,
+                              onSelected: (_) {
+                                setState(() {
+                                  _group = g.$1;
+                                  _rows = null;
+                                });
+                                _load();
+                              },
+                            ),
+                        ]),
+                        if (_group == 'listed') ...[
+                          const SizedBox(height: 10),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                                color: Brand.logoTealTint,
+                                borderRadius: BorderRadius.circular(10)),
+                            child: Row(children: [
+                              Expanded(
+                                child: Text(
+                                    'Spaces on nomadwise.io that nobody has '
+                                    'claimed. ${_counts['_no_email'] ?? 0} of '
+                                    'them have no email address yet; the sync '
+                                    'reads each space\'s own website for one.',
+                                    style: const TextStyle(
+                                        fontSize: 12.5, height: 1.4)),
+                              ),
+                              const SizedBox(width: 10),
+                              OutlinedButton(
+                                  onPressed: _addListed,
+                                  child: const Text('Bring in listed spaces')),
+                            ]),
+                          ),
+                        ],
+                        const SizedBox(height: 10),
                         Wrap(spacing: 6, runSpacing: 6, children: [
                           for (final s in _stages)
                             ChoiceChip(
                               label: Text(
                                   '${s.$2}${s.$1.isEmpty ? '' : ' ${_counts[s.$1] ?? 0}'}'),
+                              // The chosen tab: dark with white words (the
+                              // default left dark words on a dark chip).
+                              showCheckmark: false,
+                              selectedColor: Brand.ink,
+                              labelStyle: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  color: _stage == s.$1
+                                      ? Colors.white
+                                      : Brand.ink),
                               selected: _stage == s.$1,
                               onSelected: (_) {
                                 setState(() {
@@ -1116,8 +1575,19 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
                                 textAlign: TextAlign.center,
                                 style: TextStyle(color: Brand.inkMuted)),
                           )
-                        else
+                        else ...[
                           for (final c in rows) _card(c),
+                          if (rows.length >= 200)
+                            const Padding(
+                              padding: EdgeInsets.all(12),
+                              child: Text(
+                                  'Showing the first 200. Search, or pick a '
+                                  'stage, to narrow the list.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                      fontSize: 12.5, color: Brand.inkMuted)),
+                            ),
+                        ],
                       ]),
                 ),
               ),

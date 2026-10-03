@@ -359,6 +359,19 @@ except Exception as e:  # noqa: BLE001
     report['errors'].append(f'waiting read: {str(e)[:200]}')
     venues = []
 
+# Then the listed spaces brought into Outreach that have no address yet
+# (migration 124): the same reading of their own website, a few each
+# run, each space once. An address found reaches its contact through a
+# database trigger.
+if SUPABASE_URL and SERVICE_KEY and len(venues) < 10:
+    try:
+        more = sb('rpc/outreach_venues_to_check', 'POST',
+                  {'p_limit': 10 - len(venues)}) or []
+        seen = {v['id'] for v in venues}
+        venues += [m for m in more if m.get('id') not in seen]
+    except Exception as e:  # noqa: BLE001
+        report['warnings'].append(f'outreach contacts read: {str(e)[:200]}')
+
 for v in venues[:10]:
     report['contacts_checked'] += 1
     root = site_root(v.get('website'))
@@ -371,7 +384,8 @@ for v in venues[:10]:
         for link in contact_links(home, root):
             found += [e for e in emails_in(fetch(link)) if e not in found]
             time.sleep(0.5)
-        if not found:
+        # A site that did not answer is not asked four more times.
+        if not found and home:
             for path in ('/contact', '/contact-us', '/contacto', '/kontakt'):
                 found += [e for e in emails_in(fetch(root + path)) if e not in found]
                 if found:

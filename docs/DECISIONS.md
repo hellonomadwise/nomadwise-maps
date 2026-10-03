@@ -1624,3 +1624,22 @@ database had pgcrypto in public, which is why the test passed; the
 test database is now laid out like Supabase (pgcrypto in
 "extensions"). The backlog is 78 contacts, not 79 as first reported.
 
+## 3 Oct 2026: Outreach templates, listed spaces, spreadsheet rows
+
+Three asks from Jonathan on first opening Outreach.
+Templates can now be made, renamed and deleted as well as reworded
+(migration 123); a placeholder we do not fill in is refused on saving,
+so a typo is caught there and not when an email is about to go.
+The spaces already on nomadwise.io come in with one button
+(migration 124): they were in our database all along, so nothing is
+typed or pasted. Addresses we lack are read from each space's own
+website by the sync. Bringing them in sends nothing; inviting them
+waits on Leonie.
+The clipboard import also takes rows copied from a spreadsheet.
+Reading a pasted picture was asked for and not built: the app has no
+way to read an image by itself, and doing so would mean connecting a
+paid reading service. For now a screenshot is turned into an import
+file in a Claude session.
+Also fixed: the chosen stage chip showed dark words on a dark chip,
+and refusal messages from the database were cut at the first comma.
+

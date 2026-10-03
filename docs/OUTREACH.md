@@ -48,7 +48,10 @@ There are two ways to send from that box:
   Spark must be the default email app on the computer for the draft
   to open there.
 
-Templates are edited from the page icon at the top. Rules for the
+Templates are managed from the page icon at the top: tap one to
+change its name, subject or words, or press New template (migration
+123). Placeholder chips above the email put one in at the cursor, and
+a placeholder we do not fill in is refused when saving, with its name. Rules for the
 words: no em dashes, no promised times, prices with their symbol,
 "Owner account" never "members area".
 
@@ -70,18 +73,35 @@ Guard rails, all enforced in the database:
   icon. The file is not kept in the code repository, because the site
   is built from it and people's names and addresses do not belong
   there. Importing twice does no harm.
+- **Rows from a spreadsheet.** The same upload icon also takes rows
+  copied from a sheet (or typed lines such as "Cafe Central,
+  hello@cafecentral.pt, Lisbon"). With a header row the columns are
+  read by name; without one each cell is recognised by what it looks
+  like. The box shows the first few as read, and asks which group they
+  belong to, before anything is filed.
+- **Listed spaces.** Pick the "Listed, unclaimed" group and press
+  "Bring in listed spaces": every space on nomadwise.io that nobody
+  has claimed gets a card (migration 124). Nothing is sent. Where we
+  have no address, the ten-minute sync reads the space's own website
+  for one, a few spaces each run, each space once, and the card picks
+  it up.
 - **By hand.** The person icon at the top: a space that emailed, or
   one we came across and want to invite.
+
+The chips at the top narrow the list to one group: Wrote to us,
+Listed and unclaimed, or Prospects. Cards with an address come first.
+
+There is no reading of pictures in the app. A screenshot of a list of
+spaces can be turned into an import file in a Claude session and then
+imported with the upload icon.
 
 New emails to hello@ are not read automatically. When one comes in
 from a space, add it by hand or use "Log what they wrote" on its card.
 
 ## Not built yet
 
-- The campaign to spaces already listed ("your page is on
-  nomadwise.io, claim it"), in small daily batches. Postmark does not
-  allow email to people who never asked to hear from us on its normal
-  stream, so this wants a decision on how it is sent before it is
-  built.
+- Sending invitations to the listed spaces as a daily batch. They
+  can be brought in and written to one at a time already; how and
+  whether they are invited at all is Leonie's decision.
 - "Add to outreach" from a space in the control centre or on the map.
 - Reading replies from the inbox by itself.

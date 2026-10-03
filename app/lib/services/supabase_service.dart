@@ -1190,18 +1190,25 @@ class SupabaseService {
 
   // ---- Outreach (migration 121): the spaces we talk to ----
 
-  Future<Map<String, int>> outreachCounts() async {
-    final r = await _db.rpc('admin_outreach_counts');
+  /// Counts per stage for one group ('wrote', 'listed', 'prospect') or
+  /// all (''), plus '_wrote' / '_listed' / '_prospect' (group sizes) and
+  /// '_no_email' (migration 124).
+  Future<Map<String, int>> outreachCounts({String group = ''}) async {
+    final r = await _db.rpc('admin_outreach_counts', params: {'p_group': group});
     if (r is! Map) return {};
-    return {for (final e in r.entries) '${e.key}': (e.value as num).toInt()};
+    return {
+      for (final e in r.entries)
+        if (e.value is num) '${e.key}': (e.value as num).toInt()
+    };
   }
 
   Future<List<Map<String, dynamic>>> outreachList(
-      {String? stage, String? query, int limit = 200}) async {
+      {String? stage, String? query, String group = '', int limit = 200}) async {
     final r = await _db.rpc('admin_outreach_list', params: {
       'p_stage': stage ?? '',
       'p_q': query ?? '',
       'p_limit': limit,
+      'p_group': group,
     });
     return [
       for (final x in (r as List? ?? const [])) Map<String, dynamic>.from(x as Map)
@@ -1222,9 +1229,25 @@ class SupabaseService {
     ];
   }
 
-  Future<void> outreachSaveTemplate(String key, String subject, String body) =>
-      _db.rpc('admin_outreach_save_template',
-          params: {'p_key': key, 'p_subject': subject, 'p_body': body});
+  /// Saves a template, or makes a new one when [key] is null. Returns
+  /// its key. Refused with the reason in words when a placeholder is
+  /// not one we fill in (migration 123).
+  Future<String> outreachUpsertTemplate(
+      {String? key,
+      required String name,
+      required String subject,
+      required String body}) async {
+    final r = await _db.rpc('admin_outreach_upsert_template', params: {
+      'p_key': key,
+      'p_name': name,
+      'p_subject': subject,
+      'p_body': body,
+    });
+    return '$r';
+  }
+
+  Future<void> outreachDeleteTemplate(String key) =>
+      _db.rpc('admin_outreach_delete_template', params: {'p_key': key});
 
   /// Returns the new (or matching) contact's id.
   Future<String> outreachAdd(Map<String, dynamic> fields) async {
@@ -1272,6 +1295,13 @@ class SupabaseService {
         'p_template': templateKey,
         'p_force': force,
       });
+
+  /// Makes a contact for every unclaimed space on nomadwise.io that
+  /// has none: {added, with_email}. Sends nothing.
+  Future<Map<String, dynamic>> outreachAddListed() async {
+    final r = await _db.rpc('admin_outreach_add_listed');
+    return r is Map ? Map<String, dynamic>.from(r) : {};
+  }
 
   /// A list of contacts at once (the inbox backlog, a list of
   /// prospects): {filed, skipped, first_problem}.
