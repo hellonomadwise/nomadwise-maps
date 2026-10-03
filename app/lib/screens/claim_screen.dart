@@ -108,6 +108,17 @@ class _ClaimScreenState extends State<ClaimScreen> {
   PricingChoice? _pricing;
   String _pricingCountry = '\u0000';
 
+  /// The plan picked on the overview cards ('free' or 'verified').
+  /// Free to start with; step three leads with whichever is chosen,
+  /// and both buttons stay there, so the choice is never final.
+  String _plan = 'free';
+
+  void _choosePlan(String plan) {
+    if (plan == _plan) return;
+    setState(() => _plan = plan);
+    _track('claim_plan_pick', {'plan': plan});
+  }
+
   String get _country => _picked != null
       ? '${_picked!['country'] ?? ''}'
       : (_newCountry ?? '');
@@ -124,10 +135,12 @@ class _ClaimScreenState extends State<ClaimScreen> {
     });
   }
 
-  /// "from €10 a month" when the prices are known, else today's price.
+  /// "from €10 a month" for the space's country when known; "from €4 a
+  /// month" (the cheapest group) before a space is picked or while the
+  /// prices are still loading.
   String get _fromWords => _pricing?.fromWords.isNotEmpty == true
       ? _pricing!.fromWords
-      : 'from €99 a year';
+      : 'from €4 a month';
   String? _error;
 
   // ---- the journey, for the admin's Claim journeys view ----
@@ -1154,11 +1167,17 @@ class _ClaimScreenState extends State<ClaimScreen> {
                             ])
                       : Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                              _payButton(),
-                              const SizedBox(height: 12),
-                              _freeButton(),
-                            ]),
+                          children: _plan == 'verified'
+                              ? [
+                                  _payButton(),
+                                  const SizedBox(height: 12),
+                                  _freeButton(),
+                                ]
+                              : [
+                                  _freeButton(),
+                                  const SizedBox(height: 12),
+                                  _payButton(),
+                                ]),
                   const SizedBox(height: 16),
                   Text(
                       _alreadyPublished
@@ -1268,46 +1287,55 @@ class _ClaimScreenState extends State<ClaimScreen> {
     );
   }
 
-  Widget _freeButton() => Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            OutlinedButton(
-              onPressed: _sending ? null : _claimFree,
-              style: OutlinedButton.styleFrom(
-                  minimumSize: const Size.fromHeight(52)),
-              child: Text(_sending ? 'One moment' : 'Claim for free',
-                  style: const TextStyle(
-                      fontSize: 15, fontWeight: FontWeight.w700)),
-            ),
-            const SizedBox(height: 8),
-            const Text('No card needed. Nothing to pay, ever.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                    color: Brand.inkMuted, fontSize: 11.5, height: 1.4)),
-          ]);
+  /// The two buttons on step three. The plan chosen on the overview
+  /// cards gets the filled button; the other stays outlined, so both
+  /// are always one tap away.
+  Widget _planButton({
+    required bool filled,
+    required VoidCallback? onPressed,
+    required String label,
+    required String note,
+  }) {
+    const textStyle = TextStyle(fontSize: 15, fontWeight: FontWeight.w700);
+    final button = filled
+        ? FilledButton(
+            onPressed: onPressed,
+            style: FilledButton.styleFrom(
+                backgroundColor: Brand.red,
+                minimumSize: const Size.fromHeight(52)),
+            child: Text(label, style: textStyle),
+          )
+        : OutlinedButton(
+            onPressed: onPressed,
+            style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(52)),
+            child: Text(label, style: textStyle),
+          );
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      button,
+      const SizedBox(height: 8),
+      Text(note,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+              color: Brand.inkMuted, fontSize: 11.5, height: 1.4)),
+    ]);
+  }
 
-  Widget _payButton() => Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            FilledButton(
-              onPressed: _sending ? null : _startAndPay,
-              style: FilledButton.styleFrom(
-                  backgroundColor: Brand.red,
-                  minimumSize: const Size.fromHeight(52)),
-              child: Text(
-                  _sending ? 'One moment' : 'Go Verified: continue to payment',
-                  style: const TextStyle(
-                      fontSize: 15, fontWeight: FontWeight.w700)),
-            ),
-            const SizedBox(height: 8),
-            Text(
-                _pricing?.period == 'monthly'
-                    ? 'Paid monthly through Stripe. Cancel any time.'
-                    : 'Paid once a year through Stripe. Cancel any time.',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                    color: Brand.inkMuted, fontSize: 11.5, height: 1.4)),
-          ]);
+  Widget _freeButton() => _planButton(
+        filled: _plan == 'free',
+        onPressed: _sending ? null : _claimFree,
+        label: _sending ? 'One moment' : 'Claim for free',
+        note: 'No card needed. Nothing to pay, ever.',
+      );
+
+  Widget _payButton() => _planButton(
+        filled: _plan == 'verified',
+        onPressed: _sending ? null : _startAndPay,
+        label: _sending ? 'One moment' : 'Go Verified: continue to payment',
+        note: _pricing?.period == 'monthly'
+            ? 'Paid monthly through Stripe. Cancel any time.'
+            : 'Paid once a year through Stripe. Cancel any time.',
+      );
 
   // ------------------------------------------------------- what you get
 
@@ -1322,7 +1350,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
               constraints: const BoxConstraints(maxWidth: 660),
               child: SizedBox(width: double.infinity, child: main)),
         ),
-        SizedBox(height: wide ? 48 : 32),
+        SizedBox(height: wide ? 28 : 22),
         _plansOverview(wide),
       ]);
 
@@ -1341,9 +1369,12 @@ class _ClaimScreenState extends State<ClaimScreen> {
   ];
 
   /// Free and Verified side by side (stacked on a phone), Free first.
+  /// Each card is a choice: tapping one selects it, and step three
+  /// then leads with that plan. Kept short enough that both cards fit
+  /// on the first screen of a laptop under the search box.
   Widget _plansOverview(bool wide) {
     Widget line(String text, {bool plus = false}) =>
-        PlanFeatureRow(text, extra: plus, fontSize: wide ? 14 : 13.5);
+        PlanFeatureRow(text, extra: plus, fontSize: wide ? 13.5 : 13);
     Widget pill(String text, {bool on = false}) => Container(
           padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
           decoration: BoxDecoration(
@@ -1363,126 +1394,166 @@ class _ClaimScreenState extends State<ClaimScreen> {
               Text(big,
                   style: TextStyle(
                       fontWeight: FontWeight.w800,
-                      fontSize: wide ? 36 : 30,
+                      fontSize: wide ? 28 : 26,
                       height: 1,
-                      letterSpacing: -1)),
+                      letterSpacing: -0.8)),
               const SizedBox(width: 8),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Text(small,
-                    style: TextStyle(
-                        color: Brand.inkSecondary,
-                        fontSize: wide ? 15 : 14,
-                        fontWeight: FontWeight.w600)),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 3),
+                  child: Text(small,
+                      style: TextStyle(
+                          color: Brand.inkSecondary,
+                          fontSize: wide ? 14 : 13.5,
+                          fontWeight: FontWeight.w600)),
+                ),
               ),
             ]);
+    // The round tick in the corner: filled on the chosen plan.
+    Widget mark(bool on) => AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          width: 24,
+          height: 24,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: on ? Brand.red : Colors.transparent,
+            border: Border.all(
+                color: on ? Brand.red : Brand.border, width: on ? 0 : 1.5),
+          ),
+          child: on
+              ? const Icon(Icons.check_rounded, size: 16, color: Colors.white)
+              : null,
+        );
     Widget card({
-      required bool main,
+      required String plan,
       required Widget top,
       required List<Widget> body,
-      required String foot,
-    }) =>
-        Container(
-          padding: EdgeInsets.all(wide ? 26 : 20),
-          decoration: BoxDecoration(
-            color: Brand.surface,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-                color: main ? Brand.red : Brand.border, width: main ? 2 : 1),
-            boxShadow: main ? Brand.shadowFloating : Brand.shadowResting,
+    }) {
+      final on = _plan == plan;
+      return Semantics(
+        button: true,
+        selected: on,
+        label: plan == 'free' ? 'Free plan' : 'Verified plan',
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => _choosePlan(plan),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              padding: EdgeInsets.all(wide ? 18 : 16),
+              decoration: BoxDecoration(
+                color: Brand.surface,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                    color: on ? Brand.red : Brand.border, width: on ? 2 : 1),
+                boxShadow: on ? Brand.shadowFloating : Brand.shadowResting,
+              ),
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Expanded(child: top),
+                      const SizedBox(width: 10),
+                      mark(on),
+                    ]),
+                    const SizedBox(height: 12),
+                    const Divider(height: 1, color: Brand.hairline),
+                    const SizedBox(height: 12),
+                    ...body,
+                    if (wide) const Spacer(),
+                  ]),
+            ),
           ),
-          child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                top,
-                const SizedBox(height: 18),
-                const Divider(height: 1, color: Brand.hairline),
-                const SizedBox(height: 18),
-                ...body,
-                if (wide) const Spacer(),
-                const SizedBox(height: 6),
-                Text(foot,
-                    style: const TextStyle(
-                        fontSize: 12.5, height: 1.5, color: Brand.inkMuted)),
-              ]),
-        );
+        ),
+      );
+    }
 
     final free = card(
-      main: true,
+      plan: 'free',
       top: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           Text('Free',
               style: TextStyle(
-                  fontWeight: FontWeight.w800, fontSize: wide ? 22 : 20)),
+                  fontWeight: FontWeight.w800, fontSize: wide ? 20 : 19)),
           const SizedBox(width: 10),
           pill('WHERE EVERY SPACE STARTS', on: true),
         ]),
-        const SizedBox(height: 14),
-        price('€0', 'always'),
-        const SizedBox(height: 6),
-        const Text('Claim your page and make it yours.',
-            style: TextStyle(fontSize: 13.5, color: Brand.inkSecondary)),
+        const SizedBox(height: 10),
+        price('€0', 'always. Claim your page and make it yours.'),
       ]),
       body: [for (final t in _freeGets) line(t)],
-      foot: 'No card needed. We check you are with the team, then the page '
-          'is yours to manage.',
     );
+    // Before a space is picked the country is unknown, so the price is
+    // "from €4 a month" (the cheapest group); once a space is chosen it
+    // is that country's own price.
+    final p = _pricing;
+    final Widget verifiedPrice = p != null && p.mapped && p.monthly != null
+        ? price(formatMoney(p.monthly!, p.currency),
+            'a month, or ${p.yearly == null ? '' : formatMoney(p.yearly!, p.currency)} a year')
+        : price(
+            'from ${formatMoney(p?.fromMonthlyEur ?? 400, 'EUR')}',
+            'a month, by country. Everything in Free, plus:');
     final verified = card(
-      main: false,
+      plan: 'verified',
       top: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           Text('Verified',
               style: TextStyle(
-                  fontWeight: FontWeight.w800, fontSize: wide ? 22 : 20)),
+                  fontWeight: FontWeight.w800, fontSize: wide ? 20 : 19)),
           const SizedBox(width: 6),
-          const Icon(Icons.verified, color: Brand.success, size: 20),
+          const Icon(Icons.verified, color: Brand.success, size: 19),
           const SizedBox(width: 10),
           pill('OPTIONAL'),
         ]),
-        const SizedBox(height: 14),
-        _pricing?.monthly != null
-            ? price(formatMoney(_pricing!.monthly!, _pricing!.currency),
-                'a month, or ${_pricing!.yearly == null ? '' : formatMoney(_pricing!.yearly!, _pricing!.currency)} a year')
-            : price('€99', 'a year'),
-        const SizedBox(height: 6),
-        const Text('Everything in Free, plus:',
-            style: TextStyle(fontSize: 13.5, color: Brand.inkSecondary)),
+        const SizedBox(height: 10),
+        verifiedPrice,
+        if (p != null && p.mapped && p.monthly != null) ...[
+          const SizedBox(height: 4),
+          const Text('Everything in Free, plus:',
+              style: TextStyle(fontSize: 13, color: Brand.inkSecondary)),
+        ],
       ]),
       body: [for (final t in _verifiedAdds) line(t, plus: true)],
-      foot: 'Add it when you claim, or any time later from your Owner '
-          'account. Monthly or yearly, cancel any time.',
     );
 
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Text('Two ways to be on Nomadwise',
-          style: TextStyle(
-              fontWeight: FontWeight.w800,
-              fontSize: wide ? 22 : 19,
-              letterSpacing: -0.3)),
-      const SizedBox(height: 6),
-      Text(
-          'Claiming your page is free. Verified is an optional extra for '
-          'spaces that want more, now or later.',
-          style: TextStyle(
-              fontSize: wide ? 14.5 : 13.5,
-              height: 1.5,
-              color: Brand.inkSecondary)),
-      SizedBox(height: wide ? 20 : 16),
+      Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+        Expanded(
+          child: Text('Two ways to be on Nomadwise',
+              style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: wide ? 20 : 18,
+                  letterSpacing: -0.3)),
+        ),
+        Text('Tap one to choose',
+            style: TextStyle(
+                fontSize: wide ? 13 : 12.5, color: Brand.inkMuted)),
+      ]),
+      SizedBox(height: wide ? 14 : 12),
       if (wide)
         IntrinsicHeight(
           child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Expanded(child: free),
-            const SizedBox(width: 20),
+            const SizedBox(width: 16),
             Expanded(child: verified),
           ]),
         )
       else ...[
         free,
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         verified,
       ],
+      const SizedBox(height: 10),
+      const Text(
+          'Claiming is free and needs no card. Verified can be added when '
+          'you claim or any time later from your Owner account, monthly or '
+          'yearly, cancel any time.',
+          style: TextStyle(
+              fontSize: 12.5, height: 1.5, color: Brand.inkMuted)),
     ]);
   }
+
 }
 
 /// Where Stripe sends the owner back to after paying (and where the

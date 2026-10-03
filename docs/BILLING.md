@@ -90,9 +90,11 @@ year through today's payment link, so nothing changes by itself.
 The country groups and each country's currency are editable on the
 Pricing page (tap a country). A country name the database does not
 recognise is listed there with a "Map" button; until mapped, its
-spaces are priced as group B. The one-off Webflow copy on the Get
-listed page still says 99 EUR a year and wants updating to "from €4
-a month" once this is live.
+spaces are priced as group B. Before a space is chosen on the claim
+form (so no country is known yet) the overview says "from €4 a
+month", the cheapest group, rather than group B's price (migration
+118). The Webflow copy on the Get listed page says "from €4 a month"
+too (docs/GET_LISTED_PAGE_REPLACE.md).
 
 ## Later: monthly as well as yearly
 

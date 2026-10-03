@@ -1473,3 +1473,26 @@ Google job (enrich_venues.py) fills the rest from Google's address
 parts, a few hundred a night, within the free tier. A country already
 on a space is never overwritten; founders can still change a space's
 group on the Pricing page by country.
+
+## 3 Oct 2026: prices live; "from €4" before a space is picked
+
+All eight prices are in Stripe and the Pricing page shows every group
+"In Stripe" (678 spaces mapped). The claim form's first step, before
+a space is chosen, showed group B's "€10 a month, or €99 a year" as
+if it were the one price. pricing_for() now also returns the cheapest
+Verified price across the groups (migration 118), and the form says
+"from €4 a month, the price depends on the country of your space"
+until a space, and so a country, is known; then it shows that
+country's own price in its own currency. Stripe's product description
+was rewritten to the five things Verified gives (enquiries, not
+"booking requests"; no analytics report).
+
+Same day, the two plan cards under the search box (Jonathan): they
+needed a scroll to see whole on a laptop, so they are shorter now
+(smaller price, tighter spacing, the small print as one line under
+both cards instead of a paragraph in each) and sit closer to the
+search. Each card is also a choice: tapping Free or Verified selects
+it, with a tick in the corner, and step three leads with the filled
+button for that plan (the other stays outlined, so nothing is final).
+Free is selected to start with. Tracked as claim_plan_pick.
+

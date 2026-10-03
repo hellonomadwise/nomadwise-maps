@@ -41,6 +41,22 @@ class PricingChoice {
   /// Stripe has the prices, so Checkout can be used.
   bool get ready => pricing['ready'] == true;
 
+  /// The country is known and in a pricing group. When it is not (no
+  /// space picked yet, or an address we could not place) the amounts
+  /// are the fallback group's, so headings say "from €4" instead.
+  bool get mapped => pricing['mapped'] == true;
+
+  /// The cheapest Verified price anywhere, in euro cents (migration 118).
+  int? get fromMonthlyEur {
+    final v = pricing['from_monthly_eur'];
+    return v is num ? v.toInt() : null;
+  }
+
+  int? get fromYearlyEur {
+    final v = pricing['from_yearly_eur'];
+    return v is num ? v.toInt() : null;
+  }
+
   int? amount(String period, [String? cur]) {
     final m = pricing[period];
     if (m is! Map) return null;
@@ -59,8 +75,12 @@ class PricingChoice {
     return '${formatMoney(a, currency)} a ${period == 'monthly' ? 'month' : 'year'}';
   }
 
-  /// "from €10 a month", for headings and emails before a choice.
+  /// "from €10 a month" for headings before a choice. With no country
+  /// yet, the cheapest price anywhere: "from €4 a month".
   String get fromWords {
+    if (!mapped && fromMonthlyEur != null) {
+      return 'from ${formatMoney(fromMonthlyEur!, 'EUR')} a month';
+    }
     final a = monthly;
     return a == null ? '' : 'from ${formatMoney(a, currency)} a month';
   }
