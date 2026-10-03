@@ -57,6 +57,15 @@ def city_from(details):
     return None
 
 
+def country_from(details):
+    """The country's English name from Google's address parts, which
+    prices Verified by country (migration 115)."""
+    for c in (details or {}).get('addressComponents') or []:
+        if 'country' in (c.get('types') or []):
+            return c.get('longText') or c.get('shortText')
+    return None
+
+
 def text_search(query):
     return req(
         'https://places.googleapis.com/v1/places:searchText',
@@ -72,7 +81,7 @@ def text_search(query):
 
 venues = req(
     f'{SUPABASE_URL}/rest/v1/venues'
-    '?select=id,name,city,google_place_id,lat,lng',
+    '?select=id,name,city,country,google_place_id,lat,lng',
     headers=sb_headers())
 
 # Bound Google spend per run: after a bulk import hundreds of venues
@@ -83,7 +92,10 @@ updated, failed = 0, []
 for v in venues:
     needs_coords = v['lat'] is None or not v['google_place_id']
     needs_city = not v.get('city')
-    if not needs_coords and not needs_city:
+    # The country prices Verified (migration 115); most older rows
+    # never had one. One Essentials call each, inside the free tier.
+    needs_country = not v.get('country') and bool(v.get('google_place_id'))
+    if not needs_coords and not needs_city and not needs_country:
         continue
     if updated >= FILL_PER_RUN:
         print(f"Fill cap {FILL_PER_RUN} reached — the rest next build.")
@@ -113,6 +125,12 @@ for v in venues:
             c = city_from(details)
             if c:
                 patch['city'] = c
+        if needs_country:
+            if details is None:
+                details = place_details(pid)
+            c = country_from(details)
+            if c:
+                patch['country'] = c
         if patch:
             req(f"{SUPABASE_URL}/rest/v1/venues?id=eq.{v['id']}",
                 method='PATCH',
@@ -239,7 +257,7 @@ try:
     rows = req(
         f'{SUPABASE_URL}/rest/v1/venues'
         '?select=id,name,google_place_id,g_synced_at,closed_seen_at,'
-        'google_photo_urls,ptype:g_details->>primaryType'
+        'google_photo_urls,country,ptype:g_details->>primaryType'
         '&google_place_id=not.is.null',
         headers=sb_headers())
 except Exception as e:  # noqa: BLE001
@@ -276,6 +294,10 @@ for v in stale[:MAX_PER_RUN]:
         patch = {
             'g_details': slim(details),
             'g_synced_at': datetime.now(timezone.utc).isoformat(),
+            # The country, for Verified's price by country; written
+            # only when the row has none, so a founder's edit stays.
+            **({'country': country_from(details)}
+               if country_from(details) and not v.get('country') else {}),
             'google_photo_urls': resolve_photo_links(
                 details, v.get('google_photo_urls')),
         }

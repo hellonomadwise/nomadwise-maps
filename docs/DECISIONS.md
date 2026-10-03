@@ -1462,3 +1462,14 @@ the claim page shows the right price and carries the owner's email.
   once a year through Stripe. Cancel any time."
 - Prices are written with their symbol everywhere (€10, £9, A$25),
   never "10 EUR" (migration 116 for the email words).
+
+## 3 Oct 2026: every space gets its country
+
+The Pricing page counted 32 spaces across the four groups: most spaces
+had no country recorded, so Verified would have been priced as group
+B for nearly everyone. Migration 117 copies the country from the
+site's Region for every space whose city is a Region, and the nightly
+Google job (enrich_venues.py) fills the rest from Google's address
+parts, a few hundred a night, within the free tier. A country already
+on a space is never overwritten; founders can still change a space's
+group on the Pricing page by country.
