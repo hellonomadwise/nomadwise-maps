@@ -1,0 +1,14 @@
+{
+  "newly_applied": [
+    {
+      "file": "migration123_outreach_templates.sql",
+      "status": "applied"
+    },
+    {
+      "file": "migration124_outreach_listed.sql",
+      "status": "applied"
+    }
+  ],
+  "failed": [],
+  "error": null
+}
