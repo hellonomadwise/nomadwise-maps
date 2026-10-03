@@ -93,155 +93,118 @@ class PricingChoice {
   }
 }
 
-class PricingPicker extends StatelessWidget {
+/// Monthly / Yearly, the way pricing pages do it: the two words with a
+/// switch between them and a "2 months free" pill on the yearly side.
+/// Tapping either word also switches.
+class PeriodToggle extends StatelessWidget {
   final PricingChoice choice;
   final void Function(PricingChoice) onChanged;
 
-  /// The space's day pass price, when known ("€15"), for the line that
-  /// puts the plan next to one visitor.
-  final String? dayPass;
-  final bool compact;
-
-  const PricingPicker({
-    super.key,
-    required this.choice,
-    required this.onChanged,
-    this.dayPass,
-    this.compact = false,
-  });
+  const PeriodToggle({super.key, required this.choice, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
     final c = choice;
-    final monthly = c.monthly, yearly = c.yearly;
-    final big = !compact;
-    final months = c.monthsFree;
-    final perMonthOfYearly =
-        yearly == null ? null : formatMoney(yearly / 12, c.currency);
+    final yearly = c.period == 'yearly';
+    final months = c.monthsFree.round();
 
-    Widget seg(String value, String label, {String? badge}) {
+    Widget word(String label, String value) {
       final on = c.period == value;
-      return Expanded(
-        child: GestureDetector(
-          onTap: () => onChanged(c..period = value),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            padding: const EdgeInsets.symmetric(vertical: 9),
-            decoration: BoxDecoration(
-                color: on ? Brand.surface : Colors.transparent,
-                borderRadius: BorderRadius.circular(7),
-                boxShadow: on
-                    ? [
-                        BoxShadow(
-                            color: Colors.black.withValues(alpha: .08),
-                            blurRadius: 4,
-                            offset: const Offset(0, 1))
-                      ]
-                    : null),
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-              Text(label,
-                  style: TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w700,
-                      color: on ? Brand.ink : Brand.inkSecondary)),
-              if (badge != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 2),
-                  child: Text(badge,
-                      style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: on ? Brand.success : Brand.inkMuted)),
-                ),
-            ]),
-          ),
+      return GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => onChanged(c..period = value),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Text(label,
+              style: TextStyle(
+                  fontSize: 14.5,
+                  fontWeight: on ? FontWeight.w800 : FontWeight.w600,
+                  color: on ? Brand.ink : Brand.inkSecondary)),
         ),
       );
     }
 
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Row(children: [
-        Expanded(
-          child: Container(
-            padding: const EdgeInsets.all(3),
-            decoration: BoxDecoration(
-                color: Brand.field, borderRadius: BorderRadius.circular(9)),
-            child: Row(children: [
-              seg('monthly', 'Monthly'),
-              seg('yearly', 'Yearly',
-                  badge: months >= 1
-                      ? '${months.round()} month${months.round() == 1 ? '' : 's'} free'
-                      : null),
-            ]),
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      word('Monthly', 'monthly'),
+      const SizedBox(width: 8),
+      SizedBox(
+        height: 30,
+        child: FittedBox(
+          child: Switch(
+            value: yearly,
+            thumbColor: const WidgetStatePropertyAll(Colors.white),
+            trackColor: WidgetStateProperty.resolveWith((states) =>
+                states.contains(WidgetState.selected)
+                    ? Brand.red
+                    : Brand.inkFaint),
+            trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
+            onChanged: (v) => onChanged(c..period = v ? 'yearly' : 'monthly'),
           ),
         ),
-        if (c.currencies.length > 1 && !c.locked) ...[
-          const SizedBox(width: 10),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            decoration: BoxDecoration(
-                color: Brand.field, borderRadius: BorderRadius.circular(9)),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: c.currency,
-                isDense: true,
-                borderRadius: BorderRadius.circular(10),
-                style: const TextStyle(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w700,
-                    color: Brand.ink),
-                items: [
-                  for (final cur in c.currencies)
-                    DropdownMenuItem(
-                        value: cur,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 6),
-                          child: Text(cur),
-                        )),
-                ],
-                onChanged: (v) {
-                  if (v != null) onChanged(c..currency = v);
-                },
-              ),
-            ),
-          ),
-        ],
-      ]),
-      SizedBox(height: big ? 14 : 10),
-      Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-        Text(
-            c.chosen == null ? '' : formatMoney(c.chosen!, c.currency),
-            style: TextStyle(
-                fontSize: big ? 34 : 26,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.8,
-                height: 1,
-                color: Brand.ink)),
-        const SizedBox(width: 6),
-        Padding(
-          padding: const EdgeInsets.only(bottom: 3),
-          child: Text(
-              c.period == 'monthly'
-                  ? 'a month'
-                  : 'a year${perMonthOfYearly == null ? '' : '  ·  $perMonthOfYearly a month'}',
+      ),
+      const SizedBox(width: 8),
+      word('Yearly', 'yearly'),
+      if (months >= 1) ...[
+        const SizedBox(width: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+              color: yearly ? Brand.successTint : Brand.field,
+              borderRadius: BorderRadius.circular(20)),
+          child: Text('$months month${months == 1 ? '' : 's'} free',
               style: TextStyle(
-                  fontSize: big ? 14 : 13, color: Brand.inkSecondary)),
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w800,
+                  color: yearly ? Brand.success : Brand.inkMuted)),
         ),
-      ]),
-      const SizedBox(height: 6),
-      Text(
-          [
-            if (c.period == 'yearly' && monthly != null)
-              'Billed once a year. Monthly is ${formatMoney(monthly, c.currency)}.'
-            else if (c.period == 'monthly' && yearly != null)
-              'Billed monthly, cancel any time. Yearly is ${formatMoney(yearly, c.currency)}.',
-            if (dayPass != null && dayPass!.isNotEmpty)
-              'Less than one day pass ($dayPass) a month.',
-          ].join(' '),
-          style: TextStyle(
-              fontSize: big ? 13 : 12.5,
-              height: 1.45,
-              color: Brand.inkSecondary)),
+      ],
+    ]);
+  }
+}
+
+/// "Prices in: EUR", for countries that can pay in more than one
+/// currency. Nothing is drawn when there is only one (the UK).
+class CurrencyPicker extends StatelessWidget {
+  final PricingChoice choice;
+  final void Function(PricingChoice) onChanged;
+
+  const CurrencyPicker(
+      {super.key, required this.choice, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = choice;
+    if (c.currencies.length < 2 || c.locked) return const SizedBox.shrink();
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      const Text('Prices in',
+          style: TextStyle(fontSize: 13, color: Brand.inkSecondary)),
+      const SizedBox(width: 8),
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        decoration: BoxDecoration(
+            color: Brand.field, borderRadius: BorderRadius.circular(9)),
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<String>(
+            value: c.currency,
+            isDense: true,
+            borderRadius: BorderRadius.circular(10),
+            style: const TextStyle(
+                fontSize: 13.5, fontWeight: FontWeight.w700, color: Brand.ink),
+            items: [
+              for (final cur in c.currencies)
+                DropdownMenuItem(
+                    value: cur,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      child: Text(cur),
+                    )),
+            ],
+            onChanged: (v) {
+              if (v != null) onChanged(c..currency = v);
+            },
+          ),
+        ),
+      ),
     ]);
   }
 }

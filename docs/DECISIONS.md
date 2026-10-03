@@ -1496,3 +1496,13 @@ it, with a tick in the corner, and step three leads with the filled
 button for that plan (the other stays outlined, so nothing is final).
 Free is selected to start with. Tracked as claim_plan_pick.
 
+Later the same day, step three became a pricing page (Jonathan, with
+Canva and Zoom as the examples): a Monthly / Yearly switch with the
+"2 months free" pill at the top and "Prices in" beside it, then Free
+and Verified side by side, each with its price, its own button and
+what it gives, all on one laptop screen. The tick table and the
+separate "pick how to pay" box are gone. Verified wears a
+"Recommended" pill; Free keeps "Where every space starts". The old
+Monthly / Yearly segments were uneven (the yearly one had a second
+line), which the switch avoids.
+

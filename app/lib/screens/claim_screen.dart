@@ -135,12 +135,6 @@ class _ClaimScreenState extends State<ClaimScreen> {
     });
   }
 
-  /// "from €10 a month" for the space's country when known; "from €4 a
-  /// month" (the cheapest group) before a space is picked or while the
-  /// prices are still loading.
-  String get _fromWords => _pricing?.fromWords.isNotEmpty == true
-      ? _pricing!.fromWords
-      : 'from €4 a month';
   String? _error;
 
   // ---- the journey, for the admin's Claim journeys view ----
@@ -1109,232 +1103,112 @@ class _ClaimScreenState extends State<ClaimScreen> {
 
   // ---------------------------------------------------------- step three
 
-  /// Step three: Free and Verified side by side, so what the free
-  /// claim gives is as plain as what Verified adds. Claiming is free;
-  /// Verified is the optional upgrade (Leonie's review, 28 Sep: the
-  /// paid offer alone hid the point of claiming for free).
-  Widget _payStep(bool wide) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _heading(wide, 3, 'Choose your plan',
-              'Claiming $_spaceName is free, and stays free. Verified is an '
-                  'optional extra, $_fromWords, which you can add now or '
-                  'later from your Owner account.'),
-          SizedBox(height: wide ? 26 : 18),
-          ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: wide ? 860 : double.infinity),
-            child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _planTable(wide),
-                  if (_pricing != null) ...[
-                    const SizedBox(height: 16),
-                    Container(
-                      padding: EdgeInsets.all(wide ? 18 : 14),
-                      decoration: BoxDecoration(
-                          color: Brand.surface,
-                          border: Border.all(color: Brand.border),
-                          borderRadius: BorderRadius.circular(12)),
-                      child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Verified for $_spaceName: pick how to pay',
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 15)),
-                            const SizedBox(height: 10),
-                            PricingPicker(
-                                choice: _pricing!,
-                                onChanged: (c) => setState(() => _pricing = c)),
-                          ]),
-                    ),
-                  ],
-                  if (_error != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 14),
-                      child: Text(_error!,
-                          style:
-                              const TextStyle(color: Brand.red, fontSize: 13)),
-                    ),
-                  const SizedBox(height: 16),
+  /// Step three, laid out like a pricing page: Monthly / Yearly switch
+  /// and the currency at the top, then Free and Verified side by side,
+  /// each with its price, its button and what it gives. Everything
+  /// fits one laptop screen, so the choice is made without scrolling.
+  /// Claiming is free; Verified is the optional upgrade (Leonie's
+  /// review, 28 Sep: the paid offer alone hid the point of claiming
+  /// for free).
+  Widget _payStep(bool wide) {
+    final p = _pricing;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _heading(wide, 3, 'Choose your plan',
+            'Claiming $_spaceName is free, and stays free. Verified is an '
+                'optional extra, which you can add now or later from your '
+                'Owner account.'),
+        SizedBox(height: wide ? 18 : 14),
+        ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: wide ? 860 : double.infinity),
+          child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (p != null)
                   wide
-                      ? Row(
+                      ? Row(children: [
+                          PeriodToggle(
+                              choice: p,
+                              onChanged: (c) => setState(() => _pricing = c)),
+                          const Spacer(),
+                          CurrencyPicker(
+                              choice: p,
+                              onChanged: (c) => setState(() => _pricing = c)),
+                        ])
+                      : Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                              Expanded(child: _freeButton()),
-                              const SizedBox(width: 14),
-                              Expanded(child: _payButton()),
-                            ])
-                      : Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: _plan == 'verified'
-                              ? [
-                                  _payButton(),
-                                  const SizedBox(height: 12),
-                                  _freeButton(),
-                                ]
-                              : [
-                                  _freeButton(),
-                                  const SizedBox(height: 12),
-                                  _payButton(),
-                                ]),
-                  const SizedBox(height: 16),
-                  Text(
-                      _alreadyPublished
-                          ? 'Either way, we first check you are with the team '
-                              'at $_spaceName, then the page is yours to manage.'
-                          : 'Either way, your space joins our publishing queue '
-                              'and we email you when the page is live. We first '
-                              'check you are with the team, then it is yours to '
-                              'manage.',
-                      style: const TextStyle(
-                          color: Brand.inkMuted, fontSize: 12.5, height: 1.5)),
-                ]),
-          ),
-        ],
-      );
-
-  static const _planRows = <(String, bool)>[
-    ('Your page on Nomadwise, built to be found by Google and AI assistants',
-        true),
-    ('Correct the facts: hours, prices, wifi, contact', true),
-    ('Your own photos and description', true),
-    ('The Verified badge on your page and in every list', false),
-    ('Always shown above free spaces in your city and area', false),
-    ('A "Send an enquiry" button that emails you directly', false),
-    ('Your event or offer in the advert slot on your page', false),
-  ];
-
-  /// Free vs Verified with ticks. The Verified column is tinted.
-  Widget _planTable(bool wide) {
-    final colW = wide ? 150.0 : 84.0;
-    Widget cell(Widget child, {bool paid = false, bool top = false}) =>
-        Container(
-          width: colW,
-          color: paid ? Brand.logoTealTint : null,
-          padding: EdgeInsets.symmetric(vertical: top ? 14 : 11),
-          alignment: Alignment.center,
-          child: child,
-        );
-    Widget tick(bool on) => on
-        ? const Icon(Icons.check_circle, color: Brand.success, size: 20)
-        : const Icon(Icons.remove, color: Brand.inkFaint, size: 18);
-    Widget head(String name, String price, {bool paid = false}) => cell(
-          Column(children: [
-            Row(mainAxisSize: MainAxisSize.min, children: [
-              Text(name,
-                  style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: wide ? 16 : 14,
-                      color: Brand.ink)),
-              if (paid) ...[
-                const SizedBox(width: 4),
-                Icon(Icons.verified, color: Brand.success, size: wide ? 18 : 16),
-              ],
-            ]),
-            const SizedBox(height: 2),
-            Text(price,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                    fontSize: wide ? 12.5 : 11.5, color: Brand.inkSecondary)),
-          ]),
-          paid: paid,
-          top: true,
-        );
-    final rows = <Widget>[
-      IntrinsicHeight(
-        child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          const Expanded(child: SizedBox()),
-          head('Free', '€0'),
-          head('Verified',
-              _pricing?.words.isNotEmpty == true ? _pricing!.words : _fromWords,
-              paid: true),
-        ]),
-      ),
-      for (final (label, free) in _planRows)
-        IntrinsicHeight(
-          child: Container(
-            decoration: const BoxDecoration(
-                border: Border(top: BorderSide(color: Brand.hairline))),
-            child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(
-                    child: Padding(
-                      padding: EdgeInsets.fromLTRB(wide ? 18 : 12, 11, 8, 11),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(label,
-                            style: TextStyle(
-                                fontSize: wide ? 14 : 13, height: 1.35)),
-                      ),
-                    ),
+                              PeriodToggle(
+                                  choice: p,
+                                  onChanged: (c) =>
+                                      setState(() => _pricing = c)),
+                              const SizedBox(height: 6),
+                              CurrencyPicker(
+                                  choice: p,
+                                  onChanged: (c) =>
+                                      setState(() => _pricing = c)),
+                            ]),
+                SizedBox(height: wide ? 14 : 12),
+                _planCards(wide, buttons: true),
+                if (_error != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 14),
+                    child: Text(_error!,
+                        style: const TextStyle(color: Brand.red, fontSize: 13)),
                   ),
-                  cell(tick(free)),
-                  cell(tick(true), paid: true),
-                ]),
-          ),
+                const SizedBox(height: 12),
+                Text(
+                    _alreadyPublished
+                        ? 'Either way, we first check you are with the team '
+                            'at $_spaceName, then the page is yours to manage.'
+                        : 'Either way, your space joins our publishing queue '
+                            'and we email you when the page is live. We first '
+                            'check you are with the team, then it is yours to '
+                            'manage.',
+                    style: const TextStyle(
+                        color: Brand.inkMuted, fontSize: 12.5, height: 1.5)),
+              ]),
         ),
-    ];
-    return Container(
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: Brand.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Brand.border),
-      ),
-      child: Column(children: rows),
+      ],
     );
   }
 
-  /// The two buttons on step three. The plan chosen on the overview
-  /// cards gets the filled button; the other stays outlined, so both
-  /// are always one tap away.
+  /// The two buttons on step three, one in each card. The plan chosen
+  /// on the cards gets the filled button; the other stays outlined, so
+  /// both are always one tap away.
   Widget _planButton({
     required bool filled,
     required VoidCallback? onPressed,
     required String label,
-    required String note,
   }) {
     const textStyle = TextStyle(fontSize: 15, fontWeight: FontWeight.w700);
-    final button = filled
+    return filled
         ? FilledButton(
             onPressed: onPressed,
             style: FilledButton.styleFrom(
                 backgroundColor: Brand.red,
-                minimumSize: const Size.fromHeight(52)),
+                minimumSize: const Size.fromHeight(48)),
             child: Text(label, style: textStyle),
           )
         : OutlinedButton(
             onPressed: onPressed,
             style: OutlinedButton.styleFrom(
-                minimumSize: const Size.fromHeight(52)),
+                minimumSize: const Size.fromHeight(48)),
             child: Text(label, style: textStyle),
           );
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      button,
-      const SizedBox(height: 8),
-      Text(note,
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-              color: Brand.inkMuted, fontSize: 11.5, height: 1.4)),
-    ]);
   }
 
   Widget _freeButton() => _planButton(
         filled: _plan == 'free',
         onPressed: _sending ? null : _claimFree,
         label: _sending ? 'One moment' : 'Claim for free',
-        note: 'No card needed. Nothing to pay, ever.',
       );
 
   Widget _payButton() => _planButton(
         filled: _plan == 'verified',
         onPressed: _sending ? null : _startAndPay,
         label: _sending ? 'One moment' : 'Go Verified: continue to payment',
-        note: _pricing?.period == 'monthly'
-            ? 'Paid monthly through Stripe. Cancel any time.'
-            : 'Paid once a year through Stripe. Cancel any time.',
       );
 
   // ------------------------------------------------------- what you get
@@ -1368,191 +1242,269 @@ class _ClaimScreenState extends State<ClaimScreen> {
     'Your event or offer in the advert slot on your page',
   ];
 
+  // ------------------------------------------------------ plan cards
+
+  Widget _pill(String text, {bool on = false}) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+        decoration: BoxDecoration(
+          color: on ? Brand.red : Brand.field,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(text,
+            style: TextStyle(
+                fontSize: 10.5,
+                fontWeight: FontWeight.w800,
+                letterSpacing: .5,
+                color: on ? Colors.white : Brand.inkSecondary)),
+      );
+
+  /// "€99  a year": the big figure with its unit beside it.
+  Widget _priceLine(bool wide, String big, String small) => Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(big,
+                style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: wide ? 30 : 26,
+                    height: 1,
+                    letterSpacing: -0.8)),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 3),
+                child: Text(small,
+                    style: TextStyle(
+                        color: Brand.inkSecondary,
+                        fontSize: wide ? 14 : 13.5,
+                        fontWeight: FontWeight.w600)),
+              ),
+            ),
+          ]);
+
+  /// The round tick in a card's corner: filled on the chosen plan.
+  Widget _mark(bool on) => AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        width: 24,
+        height: 24,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: on ? Brand.red : Colors.transparent,
+          border: Border.all(
+              color: on ? Brand.red : Brand.border, width: on ? 0 : 1.5),
+        ),
+        child: on
+            ? const Icon(Icons.check_rounded, size: 16, color: Colors.white)
+            : null,
+      );
+
+  /// One plan card. Tapping it selects the plan (red border, tick).
+  /// [button] is the plan's own button on step three; the overview on
+  /// steps one and two has none.
+  Widget _planCard(
+    bool wide, {
+    required String plan,
+    required Widget top,
+    required List<Widget> body,
+    Widget? button,
+  }) {
+    final on = _plan == plan;
+    return Semantics(
+      button: true,
+      selected: on,
+      label: plan == 'free' ? 'Free plan' : 'Verified plan',
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => _choosePlan(plan),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            padding: EdgeInsets.all(wide ? 18 : 16),
+            decoration: BoxDecoration(
+              color: Brand.surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                  color: on ? Brand.red : Brand.border, width: on ? 2 : 1),
+              boxShadow: on ? Brand.shadowFloating : Brand.shadowResting,
+            ),
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Expanded(child: top),
+                    const SizedBox(width: 10),
+                    _mark(on),
+                  ]),
+                  if (button != null) ...[
+                    const SizedBox(height: 14),
+                    button,
+                  ],
+                  const SizedBox(height: 12),
+                  const Divider(height: 1, color: Brand.hairline),
+                  const SizedBox(height: 12),
+                  ...body,
+                  if (wide) const Spacer(),
+                ]),
+          ),
+        ),
+      ),
+    );
+  }
+
   /// Free and Verified side by side (stacked on a phone), Free first.
-  /// Each card is a choice: tapping one selects it, and step three
-  /// then leads with that plan. Kept short enough that both cards fit
-  /// on the first screen of a laptop under the search box.
-  Widget _plansOverview(bool wide) {
+  /// With [buttons], each card carries its own button (step three);
+  /// without, it is the overview under the search box, where the
+  /// Verified price is "from €4 a month" until a space, and so a
+  /// country, is known.
+  Widget _planCards(bool wide, {required bool buttons}) {
     Widget line(String text, {bool plus = false}) =>
         PlanFeatureRow(text, extra: plus, fontSize: wide ? 13.5 : 13);
-    Widget pill(String text, {bool on = false}) => Container(
-          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-          decoration: BoxDecoration(
-            color: on ? Brand.red : Brand.field,
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Text(text,
+    Widget title(String name, {bool verified = false, required Widget pill}) =>
+        Row(children: [
+          Text(name,
               style: TextStyle(
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: .5,
-                  color: on ? Colors.white : Brand.inkSecondary)),
+                  fontWeight: FontWeight.w800, fontSize: wide ? 20 : 19)),
+          if (verified) ...[
+            const SizedBox(width: 6),
+            const Icon(Icons.verified, color: Brand.success, size: 19),
+          ],
+          const SizedBox(width: 10),
+          pill,
+        ]);
+    Widget sub(String text) => Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Text(text,
+              style: const TextStyle(fontSize: 13, color: Brand.inkSecondary)),
         );
-    Widget price(String big, String small) => Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(big,
-                  style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: wide ? 28 : 26,
-                      height: 1,
-                      letterSpacing: -0.8)),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 3),
-                  child: Text(small,
-                      style: TextStyle(
-                          color: Brand.inkSecondary,
-                          fontSize: wide ? 14 : 13.5,
-                          fontWeight: FontWeight.w600)),
-                ),
-              ),
-            ]);
-    // The round tick in the corner: filled on the chosen plan.
-    Widget mark(bool on) => AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          width: 24,
-          height: 24,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: on ? Brand.red : Colors.transparent,
-            border: Border.all(
-                color: on ? Brand.red : Brand.border, width: on ? 0 : 1.5),
-          ),
-          child: on
-              ? const Icon(Icons.check_rounded, size: 16, color: Colors.white)
-              : null,
-        );
-    Widget card({
-      required String plan,
-      required Widget top,
-      required List<Widget> body,
-    }) {
-      final on = _plan == plan;
-      return Semantics(
-        button: true,
-        selected: on,
-        label: plan == 'free' ? 'Free plan' : 'Verified plan',
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () => _choosePlan(plan),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              padding: EdgeInsets.all(wide ? 18 : 16),
-              decoration: BoxDecoration(
-                color: Brand.surface,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                    color: on ? Brand.red : Brand.border, width: on ? 2 : 1),
-                boxShadow: on ? Brand.shadowFloating : Brand.shadowResting,
-              ),
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Expanded(child: top),
-                      const SizedBox(width: 10),
-                      mark(on),
-                    ]),
-                    const SizedBox(height: 12),
-                    const Divider(height: 1, color: Brand.hairline),
-                    const SizedBox(height: 12),
-                    ...body,
-                    if (wide) const Spacer(),
-                  ]),
-            ),
-          ),
-        ),
-      );
-    }
 
-    final free = card(
+    final free = _planCard(
+      wide,
       plan: 'free',
       top: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Text('Free',
-              style: TextStyle(
-                  fontWeight: FontWeight.w800, fontSize: wide ? 20 : 19)),
-          const SizedBox(width: 10),
-          pill('WHERE EVERY SPACE STARTS', on: true),
-        ]),
+        title('Free', pill: _pill('WHERE EVERY SPACE STARTS')),
         const SizedBox(height: 10),
-        price('€0', 'always. Claim your page and make it yours.'),
+        _priceLine(wide, '€0', 'always'),
+        sub(buttons
+            ? 'No card needed. Nothing to pay, ever.'
+            : 'Claim your page and make it yours.'),
       ]),
       body: [for (final t in _freeGets) line(t)],
-    );
-    // Before a space is picked the country is unknown, so the price is
-    // "from €4 a month" (the cheapest group); once a space is chosen it
-    // is that country's own price.
-    final p = _pricing;
-    final Widget verifiedPrice = p != null && p.mapped && p.monthly != null
-        ? price(formatMoney(p.monthly!, p.currency),
-            'a month, or ${p.yearly == null ? '' : formatMoney(p.yearly!, p.currency)} a year')
-        : price(
-            'from ${formatMoney(p?.fromMonthlyEur ?? 400, 'EUR')}',
-            'a month, by country. Everything in Free, plus:');
-    final verified = card(
-      plan: 'verified',
-      top: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Text('Verified',
-              style: TextStyle(
-                  fontWeight: FontWeight.w800, fontSize: wide ? 20 : 19)),
-          const SizedBox(width: 6),
-          const Icon(Icons.verified, color: Brand.success, size: 19),
-          const SizedBox(width: 10),
-          pill('OPTIONAL'),
-        ]),
-        const SizedBox(height: 10),
-        verifiedPrice,
-        if (p != null && p.mapped && p.monthly != null) ...[
-          const SizedBox(height: 4),
-          const Text('Everything in Free, plus:',
-              style: TextStyle(fontSize: 13, color: Brand.inkSecondary)),
-        ],
-      ]),
-      body: [for (final t in _verifiedAdds) line(t, plus: true)],
+      button: buttons ? _freeButton() : null,
     );
 
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-        Expanded(
-          child: Text('Two ways to be on Nomadwise',
-              style: TextStyle(
-                  fontWeight: FontWeight.w800,
-                  fontSize: wide ? 20 : 18,
-                  letterSpacing: -0.3)),
-        ),
-        Text('Tap one to choose',
-            style: TextStyle(
-                fontSize: wide ? 13 : 12.5, color: Brand.inkMuted)),
+    // The Verified price. On step three it is the chosen period and
+    // currency for this space; before that, "from €4 a month" unless
+    // the country is already known.
+    final p = _pricing;
+    final Widget priceLine;
+    final String priceSub;
+    if (buttons && p != null && p.chosen != null) {
+      final yearly = p.period == 'yearly';
+      priceLine = _priceLine(wide, formatMoney(p.chosen!, p.currency),
+          yearly ? 'a year' : 'a month');
+      final perMonth = p.yearly == null
+          ? null
+          : formatMoney(p.yearly! / 12, p.currency);
+      final months = p.monthsFree.round();
+      priceSub = yearly
+          ? (perMonth == null
+              ? 'Billed once a year. Cancel any time.'
+              : '$perMonth a month, billed once a year. Cancel any time.')
+          : (p.yearly == null
+              ? 'Billed monthly. Cancel any time.'
+              : 'Billed monthly. Yearly is ${formatMoney(p.yearly!, p.currency)}'
+                  '${months >= 1 ? ', $months month${months == 1 ? '' : 's'} free' : ''}.');
+    } else if (buttons) {
+      // Prices not in Stripe yet: the payment link's price.
+      priceLine = _priceLine(wide, '€99', 'a year');
+      priceSub = 'Billed once a year. Cancel any time.';
+    } else if (p != null && p.mapped && p.monthly != null) {
+      priceLine = _priceLine(
+          wide,
+          formatMoney(p.monthly!, p.currency),
+          p.yearly == null
+              ? 'a month'
+              : 'a month, or ${formatMoney(p.yearly!, p.currency)} a year');
+      priceSub = 'Everything in Free, plus:';
+    } else {
+      priceLine = _priceLine(
+          wide, 'from ${formatMoney(p?.fromMonthlyEur ?? 400, 'EUR')}',
+          'a month, by country');
+      priceSub = 'Everything in Free, plus:';
+    }
+
+    final verified = _planCard(
+      wide,
+      plan: 'verified',
+      top: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        title('Verified', verified: true, pill: _pill('RECOMMENDED', on: true)),
+        const SizedBox(height: 10),
+        priceLine,
+        sub(priceSub),
       ]),
-      SizedBox(height: wide ? 14 : 12),
-      if (wide)
-        IntrinsicHeight(
-          child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Expanded(child: free),
-            const SizedBox(width: 16),
-            Expanded(child: verified),
-          ]),
-        )
-      else ...[
-        free,
-        const SizedBox(height: 12),
-        verified,
+      body: [
+        if (buttons)
+          const Padding(
+            padding: EdgeInsets.only(bottom: 8),
+            child: Text('Everything in Free, plus:',
+                style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                    color: Brand.inkSecondary)),
+          ),
+        for (final t in _verifiedAdds) line(t, plus: true),
       ],
-      const SizedBox(height: 10),
-      const Text(
-          'Claiming is free and needs no card. Verified can be added when '
-          'you claim or any time later from your Owner account, monthly or '
-          'yearly, cancel any time.',
-          style: TextStyle(
-              fontSize: 12.5, height: 1.5, color: Brand.inkMuted)),
-    ]);
+      button: buttons ? _payButton() : null,
+    );
+
+    final cards = wide
+        ? IntrinsicHeight(
+            child:
+                Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Expanded(child: free),
+              const SizedBox(width: 16),
+              Expanded(child: verified),
+            ]),
+          )
+        : Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            if (_plan == 'verified' && buttons) ...[
+              verified,
+              const SizedBox(height: 12),
+              free,
+            ] else ...[
+              free,
+              const SizedBox(height: 12),
+              verified,
+            ],
+          ]);
+    return cards;
   }
+
+  /// The overview under the search box on steps one and two.
+  Widget _plansOverview(bool wide) =>
+      Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+          Expanded(
+            child: Text('Two ways to be on Nomadwise',
+                style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: wide ? 20 : 18,
+                    letterSpacing: -0.3)),
+          ),
+          Text('Tap one to choose',
+              style: TextStyle(
+                  fontSize: wide ? 13 : 12.5, color: Brand.inkMuted)),
+        ]),
+        SizedBox(height: wide ? 14 : 12),
+        _planCards(wide, buttons: false),
+        const SizedBox(height: 10),
+        const Text(
+            'Claiming is free and needs no card. Verified can be added when '
+            'you claim or any time later from your Owner account, monthly or '
+            'yearly, cancel any time.',
+            style: TextStyle(
+                fontSize: 12.5, height: 1.5, color: Brand.inkMuted)),
+      ]);
 
 }
 
