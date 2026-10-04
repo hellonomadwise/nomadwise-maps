@@ -1,0 +1,37 @@
+name: Preview picture (throwaway)
+
+on:
+  push:
+    branches: [candidates-preview]
+
+permissions:
+  contents: write
+
+jobs:
+  shot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+        working-directory: app
+      - name: Draw
+        working-directory: app
+        run: |
+          flutter test --update-goldens test_preview/preview_test.dart 2>&1 | tee ../shot.log || true
+          ls -la test_preview/out || true
+      - name: Publish
+        run: |
+          mkdir -p /tmp/out && cp app/test_preview/out/*.png /tmp/out/ 2>/dev/null || true
+          tail -n 60 shot.log > /tmp/out/shot.log || true
+          git config user.name "nomadwise-bot"
+          git config user.email "actions@github.com"
+          git checkout --orphan candidates-preview-out
+          git rm -rf --cached . >/dev/null 2>&1 || true
+          rm -rf preview && mkdir preview && cp /tmp/out/* preview/
+          git add -f preview
+          git commit -m "preview pictures" >/dev/null
+          git push -f origin candidates-preview-out
