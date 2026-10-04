@@ -62,7 +62,7 @@ void main() {
     test('strongest evidence first, counted in plain words', () {
       final c = Candidate.fromJson(row({}));
       expect(c.reasons, [
-        '3 reviews mention laptops or working',
+        '3 reviews mention working there',
         '1 review mentions plugs',
         '2 reviews mention WiFi',
       ]);

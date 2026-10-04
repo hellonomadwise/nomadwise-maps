@@ -92,7 +92,7 @@ class Candidate {
 
   /// Why it is on the list, strongest first, in plain words.
   List<String> get reasons => [
-        if (laptop > 0) _mentions(laptop, 'laptops or working'),
+        if (laptop > 0) _mentions(laptop, 'working there'),
         if (power > 0) _mentions(power, 'plugs'),
         if (wifi > 0) _mentions(wifi, 'WiFi'),
         if (coworking) 'Coworking space',
