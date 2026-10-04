@@ -1775,7 +1775,22 @@ Decided:
 Also new: `.github/workflows/pr_check.yml` analyses, tests and compiles
 a pull request before it is merged, with no keys and no deploy. This
 change is the first delivered as a pull request instead of a zip.
-The database side was run against a local copy of the schema built
-from every migration in this repository (list, both decisions, the
-refusals for non-founders); the screen was compiled and tested by that
-check, not opened against live data before the merge.
+
+Known effects, accepted:
+- A queued candidate's page starts with what Google knows (hours,
+  rating, photos). The work facts (WiFi speed, plugs, calls) stay
+  blank until a nomad or a founder reviews the space, as on the pages
+  from the 2025 import.
+- On the map a queued candidate turns from a violet "promising" pin
+  into a space nobody has screened yet. The nomad whose search first
+  found it gets no discovery bonus for it: that bonus is paid when a
+  nomad's own review of a new space is verified.
+
+How it was checked before the merge. The database side was run against
+a local copy of the schema built from every migration in this
+repository: the list and its order, both decisions, the way back, a
+place queued twice, and the refusal for anyone who is not a founder.
+The screen was compiled by the new check and exercised by
+`candidates_tab_test.dart` against stand-ins for the database and for
+Google, at a phone's width (360 and 320) in the app's font. It was not
+opened against live data before the merge.
