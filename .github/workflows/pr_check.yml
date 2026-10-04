@@ -1,0 +1,90 @@
+name: Check a pull request
+
+# A proposed change is checked here before it is merged: the same
+# analysis and tests as the build, plus a full compile of the web app.
+#
+# It only reads the code. No keys, no database, no deploy: nothing on
+# nomadmaps.io or in Supabase changes until the pull request is merged
+# into main, where build.yml takes over as before.
+#
+# A green tick means the app compiles with the change in it and the
+# tests pass. A red cross means merging would break the build; the
+# reason shows as a note on the lines concerned under "Files changed".
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-check-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Analyze, test, compile
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Pub get
+        run: flutter pub get
+        working-directory: app
+
+      # Errors fail the check and are pinned to their lines. Warnings
+      # and hints are counted in one note and never fail it (the build
+      # reports them without stopping, and so does this).
+      - name: Analyze
+        working-directory: app
+        run: |
+          flutter analyze --no-fatal-infos --no-fatal-warnings > ../analyze.log 2>&1 || true
+          tail -n 40 ../analyze.log
+          errors=$(grep -cE '^\s*error •' ../analyze.log || true)
+          warnings=$(grep -cE '^\s*warning •' ../analyze.log || true)
+          infos=$(grep -cE '^\s*info •' ../analyze.log || true)
+          echo "::notice title=Analysis::${errors} errors, ${warnings} warnings, ${infos} hints"
+          # "  error • message • lib/x.dart:12:5 • code" -> a note on that line
+          grep -E '^\s*error •' ../analyze.log | head -n 10 | while IFS= read -r line; do
+            msg=$(echo "$line" | awk -F ' • ' '{print $2}')
+            loc=$(echo "$line" | awk -F ' • ' '{print $3}')
+            code=$(echo "$line" | awk -F ' • ' '{print $4}')
+            file=$(echo "$loc" | cut -d: -f1)
+            ln=$(echo "$loc" | cut -d: -f2)
+            col=$(echo "$loc" | cut -d: -f3)
+            echo "::error file=app/${file},line=${ln},col=${col},title=${code}::${msg}"
+          done
+          if [ "$errors" -gt 0 ]; then
+            echo "Analysis found ${errors} errors."
+            exit 1
+          fi
+
+      - name: Run tests
+        working-directory: app
+        run: |
+          set -o pipefail
+          if ! flutter test 2>&1 | tee ../test.log; then
+            grep -E '\[E\]|Expected:|Actual:|Which:' ../test.log | head -n 10 | while IFS= read -r line; do
+              echo "::error title=Test failed::${line}"
+            done
+            exit 1
+          fi
+
+      # The real proof: every screen compiled, exactly as the build
+      # does, only without the keys (they are not needed to compile).
+      - name: Compile the web app
+        working-directory: app
+        run: |
+          set -o pipefail
+          if ! flutter build web --release --base-href "/" 2>&1 | tee ../build.log; then
+            grep -E 'Error:|error:' ../build.log | head -n 10 | while IFS= read -r line; do
+              echo "::error title=Compile failed::${line}"
+            done
+            exit 1
+          fi

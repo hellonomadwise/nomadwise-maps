@@ -11,6 +11,7 @@ import '../models/venue.dart';
 import '../services/places_service.dart';
 import '../services/supabase_service.dart';
 import '../theme.dart';
+import '../widgets/candidates_tab.dart';
 import '../widgets/control_extras.dart';
 import '../widgets/pass_on.dart';
 import '../widgets/pricing_picker.dart';
@@ -169,6 +170,21 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   List<Map<String, dynamic>> _countries = [];
   String? _error;
 
+  /// How many candidates wait (migration 129): places the nightly job
+  /// found that look worth a page and are not spaces yet. Read once
+  /// for the number on the tab; the tab keeps it right while open.
+  int _candidateCount = 0;
+
+  Future<void> _loadCandidateCount() async {
+    try {
+      final r = await _supabase.adminCandidates(limit: 1);
+      if (!mounted) return;
+      setState(() => _candidateCount = (r['total'] as num?)?.toInt() ?? 0);
+    } catch (_) {
+      // Not readable (yet): the tab itself says why when opened.
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -176,6 +192,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     // Once laid out, decide whether the right arrow is needed.
     WidgetsBinding.instance.addPostFrameCallback((_) => _tabScrolled());
     _load();
+    _loadCandidateCount();
   }
 
   @override
@@ -1033,6 +1050,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     'paid': 'Owners',
     'enquiries': 'Enquiries',
     'owner': 'Owner changes',
+    'candidates': 'Candidates',
     'fresh': 'New spaces',
     'preparing': 'Queued',
     'region': 'Blocked',
@@ -1339,7 +1357,8 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   static const _sections = [
     ('owners', 'Owners', ['paid', 'enquiries', 'owner']),
     ('pages', 'Pages',
-        ['fresh', 'preparing', 'region', 'ready', 'drafts', 'sitemap', 'released']),
+        ['fresh', 'preparing', 'region', 'ready', 'drafts', 'sitemap', 'released',
+          'candidates']),
     ('cleanup', 'Clean-up', ['closed', 'hidden']),
   ];
 
@@ -1603,6 +1622,16 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
             'oversells; the note reaches the owner.',
         empty: 'No owner changes waiting.'
       ),
+      // Before New spaces: places the nightly job found, not spaces yet.
+      // A backlog to work through, so it is not counted in To do.
+      (
+        key: 'candidates',
+        label: 'Candidates',
+        count: _candidateCount,
+        color: Brand.violet,
+        hint: '',
+        empty: ''
+      ),
       (
         key: 'fresh',
         label: 'New spaces',
@@ -1795,6 +1824,20 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     };
     // The later stages have their own list screens.
     final Widget? whole = switch (key) {
+      'candidates' => CandidatesTab(
+          key: const ValueKey('candidates-tab'),
+          supabase: _supabase,
+          places: _places,
+          regionForCity: (city) =>
+              city == null ? null : _regionFor({'city': city}),
+          dismissReasons: dismissReasons,
+          onQueued: _load,
+          onCount: (n) {
+            if (mounted && n != _candidateCount) {
+              setState(() => _candidateCount = n);
+            }
+          },
+        ),
       'drafts' => _draftsTab(),
       'released' => _releasedTab(),
       'sitemap' => _SitemapTab(
