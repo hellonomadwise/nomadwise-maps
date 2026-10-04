@@ -233,7 +233,9 @@ void main() {
 
   testWidgets('shows the candidates, why each is there, and the totals',
       (tester) async {
-    final h = await open(tester, chiangMai);
+    // Tall enough to draw all three cards at once (a list only builds
+    // the cards near the screen).
+    final h = await open(tester, chiangMai, size: const Size(360, 2400));
 
     expect(find.text('HappyBlue Coffee'), findsOneWidget);
     expect(find.text('One Workspace'), findsOneWidget);
