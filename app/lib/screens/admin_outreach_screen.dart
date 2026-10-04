@@ -1197,6 +1197,132 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
     if (done == 'deleted') _snack('Template deleted.');
   }
 
+  /// "How it works": the whole of Outreach on one card, for whoever
+  /// opens it next month and has forgotten (Jonathan, 4 Oct 2026).
+  static const _help = <(IconData, String, String)>[
+    (
+      Icons.forum_outlined,
+      'What this is',
+      'Every cafe, coworking and coliving space we are in conversation '
+          'with, in one list. Nothing here sends anything by itself: every '
+          'email is read and sent by one of us.'
+    ),
+    (
+      Icons.groups_outlined,
+      'Who is in it (the first row of chips)',
+      'Wrote to us: they emailed hello@ or filled in a form on the site.\n'
+          'Listed, unclaimed: they have a page on nomadwise.io that nobody '
+          'has claimed.\n'
+          'Prospects: spaces we found and would like to have.'
+    ),
+    (
+      Icons.linear_scale,
+      'Where each one is (the second row)',
+      'New: not written to yet.\n'
+          'Contacted: we wrote.\n'
+          'Replied: they answered.\n'
+          'Claimed and Verified: they claimed their page, or they pay. '
+          'These two move by themselves.\n'
+          'Not now, Declined, Unsubscribed: they stepped off, and we keep '
+          'the reason so we do not ask again.'
+    ),
+    (
+      Icons.upload_file_outlined,
+      'Getting spaces in',
+      'Website forms arrive by themselves.\n'
+          'The upload icon (top right) takes whatever you copied: the inbox '
+          'file, or rows from a spreadsheet such as space, email, city.\n'
+          'In the Listed group, "Bring in listed spaces" adds every '
+          'unclaimed page. Missing email addresses are looked up from each '
+          'space\'s own website over the next day.\n'
+          'The person icon adds one space by hand.'
+    ),
+    (
+      Icons.send_rounded,
+      'Writing to a space',
+      'Press Reply on its card and pick a template. Their name, space, '
+          'claim link and price fill in. Read it and change anything.\n'
+          '"Send from here" goes at once from hello@nomadwise.io. Use it to '
+          'answer someone who wrote to us.\n'
+          '"Open in mail app" makes a draft in Spark to send from your own '
+          'inbox. Use it for invitations, then press "I sent it".'
+    ),
+    (
+      Icons.mark_email_read_outlined,
+      'When they answer',
+      'Replies land in the inbox, not here. Press "They replied" on the '
+          'card, or open the three dots and choose "Log what they wrote" to '
+          'keep their words. The same menu has notes, a follow-up date and '
+          'the stage.'
+    ),
+    (
+      Icons.article_outlined,
+      'Templates',
+      'The page icon (top right). Tap one to change its name, subject or '
+          'words, or press New template. The chips above the email put in '
+          'the pieces that fill in per space.'
+    ),
+    (
+      Icons.shield_outlined,
+      'The rules built in',
+      'No second email to the same space within 30 days, unless you tick '
+          '"send anyway".\n'
+          'No more than 40 emails a day.\n'
+          'Every email carries an unsubscribe line, and nobody who used it '
+          'is written to again.'
+    ),
+  ];
+
+  void _showHelp() {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('How Outreach works'),
+        content: SizedBox(
+          width: 620,
+          child: SingleChildScrollView(
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (final h in _help)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(h.$1, size: 20, color: Brand.logoNavy),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
+                                    Text(h.$2,
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.w800,
+                                            fontSize: 14.5)),
+                                    const SizedBox(height: 3),
+                                    Text(h.$3,
+                                        style: const TextStyle(
+                                            fontSize: 13.5,
+                                            height: 1.45,
+                                            color: Brand.inkSecondary)),
+                                  ]),
+                            ),
+                          ]),
+                    ),
+                ]),
+          ),
+        ),
+        actions: [
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Got it')),
+        ],
+      ),
+    );
+  }
+
   // --------------------------------------------------------------- build
 
   Widget _chip(String text, {Color? bg, Color? fg}) => Container(
@@ -1458,17 +1584,22 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
                   child: ListView(
                       padding: const EdgeInsets.fromLTRB(14, 12, 14, 40),
                       children: [
-                        const Text(
-                            'Every space we are talking to: the ones that wrote '
-                            'to hello@ or filled in a website form, the ones we '
-                            'invite, and where each one is. Reply fills a '
-                            'template with their details; you read it, then '
-                            'send. Claimed and Verified move on their own.',
-                            style: TextStyle(
-                                fontSize: 13,
-                                height: 1.45,
-                                color: Brand.inkSecondary)),
-                        const SizedBox(height: 12),
+                        Row(children: [
+                          const Expanded(
+                            child: Text(
+                                'Every space we are talking to, and where each '
+                                'one is. Nothing is sent by itself.',
+                                style: TextStyle(
+                                    fontSize: 13,
+                                    height: 1.45,
+                                    color: Brand.inkSecondary)),
+                          ),
+                          TextButton.icon(
+                              onPressed: _showHelp,
+                              icon: const Icon(Icons.help_outline, size: 18),
+                              label: const Text('How it works')),
+                        ]),
+                        const SizedBox(height: 8),
                         TextField(
                           controller: _search,
                           onChanged: (_) => setState(() {}),

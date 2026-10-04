@@ -21,6 +21,7 @@ import '../widgets/ui.dart';
 import 'admin_analytics_screen.dart';
 import 'admin_pricing_screen.dart';
 import 'admin_outreach_screen.dart';
+import 'admin_upgrades_screen.dart';
 import 'admin_screen.dart';
 import 'admin_users_screen.dart';
 import 'claim_journeys_screen.dart';
@@ -962,6 +963,8 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                 PopupMenuItem(value: 'pricing', child: Text('Pricing')),
                 PopupMenuItem(value: 'outreach', child: Text('Outreach')),
                 PopupMenuItem(
+                    value: 'upgrades', child: Text('Page upgrades')),
+                PopupMenuItem(
                     value: 'review', child: Text('Review submissions')),
                 PopupMenuItem(
                     value: 'feedback', child: Text('Feedback inbox')),
@@ -1288,6 +1291,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       'users' => const AdminUsersScreen(),
       'pricing' => const AdminPricingScreen(),
       'outreach' => const AdminOutreachScreen(),
+      'upgrades' => const AdminUpgradesScreen(),
       'review' => const AdminScreen(),
       _ => const FeedbackInboxScreen(),
     };

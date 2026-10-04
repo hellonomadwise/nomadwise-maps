@@ -1323,6 +1323,71 @@ class SupabaseService {
     }
   }
 
+  // ---- Page upgrades (migration 125): changes to listing pages,
+  // lined up by likely impact, that a founder approves one by one ----
+
+  /// Counts by status, the gaps by kind and the open requests.
+  Future<Map<String, dynamic>> upgradesOverview() async {
+    final r = await _db.rpc('admin_upgrades_overview');
+    return r is Map ? Map<String, dynamic>.from(r) : {};
+  }
+
+  /// The queue for one status ('proposed', 'approved', 'applied',
+  /// 'skipped', 'failed'), highest impact first.
+  Future<List<Map<String, dynamic>>> upgradesList(
+      {String status = 'proposed',
+      String kind = '',
+      String query = '',
+      int limit = 60}) async {
+    final r = await _db.rpc('admin_upgrades_list', params: {
+      'p_status': status,
+      'p_kind': kind,
+      'p_q': query,
+      'p_limit': limit,
+    });
+    return [
+      for (final x in (r as List? ?? const [])) Map<String, dynamic>.from(x as Map)
+    ];
+  }
+
+  /// Prepares the next [n] rule-built upgrades of [kind]. Returns how
+  /// many were added to the queue.
+  Future<int> upgradesPrepare(String kind, int n) async {
+    final r = await _db
+        .rpc('admin_upgrades_prepare', params: {'p_kind': kind, 'p_n': n});
+    return r is num ? r.toInt() : 0;
+  }
+
+  /// Go: approve one upgrade, with the founder's own wording when
+  /// [text] is given. The website push writes it within minutes.
+  Future<void> upgradeGo(String id, {String? text}) =>
+      _db.rpc('admin_upgrade_go', params: {'p_id': id, 'p_text': text});
+
+  /// Go for several at once, as proposed. Returns how many went.
+  Future<int> upgradesGoMany(List<String> ids) async {
+    final r = await _db.rpc('admin_upgrades_go_many', params: {'p_ids': ids});
+    return r is num ? r.toInt() : 0;
+  }
+
+  Future<void> upgradeSkip(String id, {String? note}) =>
+      _db.rpc('admin_upgrade_skip', params: {'p_id': id, 'p_note': note});
+
+  /// Undo. Returns the new status: 'proposed' (it was not on the site
+  /// yet, or it was skipped) or 'undo_requested' (the push puts the
+  /// old text back).
+  Future<String> upgradeUndo(String id) async {
+    final r = await _db.rpc('admin_upgrade_undo', params: {'p_id': id});
+    return '${r ?? ''}';
+  }
+
+  /// Asks for more of a kind that has to be drafted.
+  Future<void> upgradeRequest(String kind, int n, {String? note}) =>
+      _db.rpc('admin_upgrade_request',
+          params: {'p_kind': kind, 'p_n': n, 'p_note': note});
+
+  Future<void> upgradeRequestCancel(String id) =>
+      _db.rpc('admin_upgrade_request_cancel', params: {'p_id': id});
+
   Future<Map<String, dynamic>> setPricingGroup(String code, num monthlyEur,
       num yearlyEur, String? priceMonthly, String? priceYearly) async {
     final r = await _db.rpc('admin_set_pricing_group', params: {

@@ -1643,3 +1643,39 @@ file in a Claude session.
 Also fixed: the chosen stage chip showed dark words on a dark chip,
 and refusal messages from the database were cut at the first comma.
 
+## 4 Oct 2026: "How it works" in Outreach
+
+Jonathan asked for instructions inside Outreach. A "How it works"
+button at the top opens one card with eight short sections: what it
+is, the groups, the stages, getting spaces in, writing to a space,
+what to do when they answer, templates, and the rules built in. The
+paragraph that used to sit at the top is now one line.
+
+
+## 4 Oct 2026: Page upgrades in the control centre
+
+Jonathan asked for a place in the control centre where improvements
+to coworking pages are lined up by likely impact, with buttons to ask
+for more, and where nothing changes until he presses Go.
+Built as Page upgrades (migrations 125 and 126,
+docs/PAGE_UPGRADES.md). Each card is one change to one page with
+before and after; Go sends it through the website push, Undo puts the
+old text back.
+Two kinds can be written to pages now. Search descriptions are built
+in the database from the facts we hold (1,008 of 1,011 pages shared
+one generic line), so more can be prepared at any time. Page
+descriptions have to be written from each space's own website, so
+"Ask for a batch" files a request and the batch is drafted in a
+Claude session and uploaded; the app cannot write them by itself
+without a paid writing service, which was not wanted for now. Prices
+and WiFi are shown as gaps.
+The queue is ordered by page views of each listing page (90 days,
+from PostHog), Google reviews and type. Pages with an owner keep
+their owner's description.
+The nightly sync now records what each page holds
+(venue_page_facts), and the sync report carries the open requests.
+An independent review before shipping found that a retry after a
+half-finished write could have stored the new text as the "old" one
+and broken Undo, and that Take back could race the push. The push
+now claims each change in the database just before writing
+(upgrade_begin), which also keeps the text being replaced.

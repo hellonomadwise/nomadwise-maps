@@ -9,6 +9,7 @@ import '../theme.dart';
 import 'admin_analytics_screen.dart';
 import 'admin_pricing_screen.dart';
 import 'admin_outreach_screen.dart';
+import 'admin_upgrades_screen.dart';
 import 'admin_users_screen.dart';
 import 'website_screen.dart';
 
@@ -91,7 +92,11 @@ class _AdminGateState extends State<AdminGate> {
       // the control centre, so its back arrow leads there.
       final s = widget.section;
       if (!_openedSection &&
-          (s == 'analytics' || s == 'users' || s == 'pricing' || s == 'outreach')) {
+          (s == 'analytics' ||
+              s == 'users' ||
+              s == 'pricing' ||
+              s == 'outreach' ||
+              s == 'upgrades')) {
         _openedSection = true;
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
@@ -102,7 +107,9 @@ class _AdminGateState extends State<AdminGate> {
                       ? const AdminPricingScreen()
                       : s == 'outreach'
                           ? const AdminOutreachScreen()
-                          : const AdminUsersScreen()));
+                          : s == 'upgrades'
+                              ? const AdminUpgradesScreen()
+                              : const AdminUsersScreen()));
         });
       }
       return const WebsiteScreen(standalone: true);

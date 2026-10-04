@@ -1150,8 +1150,21 @@ except Exception as e:  # noqa: BLE001
     report.setdefault('warnings', []).append(f'page text read: {e}')
     snap_ = []
 
+# Page upgrades a founder approved, or asked to undo, in the control
+# centre (migration 125): written to the page within minutes.
+try:
+    upgrades_ = sb('rpc/upgrades_to_apply', method='POST',
+                   body={'p_limit': 40}) or []
+except Exception as e:  # noqa: BLE001
+    # A warning, not an error: the first run after the upload can land
+    # before the build has applied migration 125.
+    report.setdefault('warnings', []).append(
+        f'page upgrades read: {str(e)[:160]}')
+    upgrades_ = []
+report['upgrade_writes'] = len(upgrades_)
+
 if PUSH_ONLY and not queued and not requests_ and not retire_ and not listing_ \
-        and not snap_:
+        and not snap_ and not upgrades_:
     finish(0)   # nothing to do: the common case, a second of runtime
 
 if PUSH_ONLY:
@@ -1742,6 +1755,102 @@ for v in listing_:
         except Exception:  # noqa: BLE001
             pass
 
+# ----------------------------------------------------- page upgrades
+# One approved change (migration 125) is one field on one page: the
+# search description goes into Meta Description, a page description
+# into More Info. Just before writing, the row is claimed in the
+# database (upgrade_begin), which also keeps the text being replaced
+# for Undo; a row the founder took back or reworded since this run
+# read it is left alone. A page that is live is republished, also
+# when the text is already there (an earlier run may have stopped
+# between the write and the publish).
+UPGRADE_FIELD = {'search_description': 'meta-description',
+                 'description': 'more-info-rich-text'}
+
+
+def words_in(html):
+    return len(re.sub(r'<[^>]+>|&nbsp;', ' ', str(html or '')).split())
+
+
+def apply_upgrade(u):
+    cms = u['webflow_cms_id']
+    field = UPGRADE_FIELD[u['kind']]
+    item = wf(f'/v2/collections/{COLLECTION_ID}/items/{cms}') or {}
+    if not item.get('id'):
+        raise ValueError('The page could not be found on the website.')
+    current = str((item.get('fieldData') or {}).get(field) or '')
+    if u['status'] == 'undo_requested':
+        new = str(u.get('previous_value') or '')
+    elif u['kind'] == 'description':
+        # Price lines the sync wrote stay under the new text. Lines
+        # starting "## " become headings, the rest paragraphs.
+        prices = ''.join(m.group(0) for m in PRICE_LINE.finditer(current))
+        new = (rich(html_escape((u.get('final_text') or '').strip())) or '') \
+            + prices
+    else:
+        new = ' '.join((u.get('final_text') or '').split())
+    if not sb('rpc/upgrade_begin', method='POST',
+              body={'p_id': u['id'], 'p_text': u.get('final_text'),
+                    'p_previous': current}):
+        return None
+    # Three Webflow calls a page; the pauses keep a full run under
+    # Webflow's per-minute limit.
+    if new != current:
+        wf_write(f'/v2/collections/{COLLECTION_ID}/items/{cms}', 'PATCH',
+                 {'fieldData': {field: new or None}})
+        time.sleep(1.1)
+    live = not item.get('isDraft') and not item.get('isArchived') \
+        and item.get('lastPublished')
+    if live:
+        wf_write(f'/v2/collections/{COLLECTION_ID}/items/publish', 'POST',
+                 {'itemIds': [cms]})
+        time.sleep(1.1)
+    words = (words_in(PRICE_LINE.sub('', new))
+             if u['kind'] == 'description' else None)
+    return current, words
+
+
+upgraded_cms = set()
+upgrade_tally = {'written': 0, 'undone': 0, 'failed': 0}
+for u in upgrades_:
+    undo = u.get('status') == 'undo_requested'
+    try:
+        if u.get('kind') not in UPGRADE_FIELD:
+            raise ValueError('This kind of upgrade cannot be written yet.')
+        # An owner's description is theirs: neither a new text nor an
+        # undo is written over it.
+        if u['kind'] == 'description' and u.get('owned'):
+            raise ValueError('This page now has an owner, who writes its '
+                             'description.')
+        upgraded_cms.add(u.get('webflow_cms_id'))
+        done = apply_upgrade(u)
+        if done is None:
+            continue    # taken back or reworded since this run read it
+        before, words = done
+        sb('rpc/upgrade_done', method='POST',
+           body={'p_id': u['id'], 'p_ok': True, 'p_previous': before,
+                 'p_words': words})
+        upgrade_tally['undone' if undo else 'written'] += 1
+    except Exception as e:  # noqa: BLE001
+        upgrade_tally['failed'] += 1
+        why = str(e)[:300]
+        # Shown on the card in the control centre, so a warning here.
+        report.setdefault('warnings', []).append(
+            f"page upgrade {u.get('name')}: {why}")
+        try:
+            sb('rpc/upgrade_done', method='POST',
+               body={'p_id': u['id'], 'p_ok': False, 'p_error': why})
+        except Exception:  # noqa: BLE001
+            pass
+if upgrades_:
+    report['upgrades_applied'] = upgrade_tally
+if len(upgrades_) >= 40:
+    # A full run: more may be waiting, so ask for another straight away.
+    try:
+        sb('rpc/upgrades_nudge', method='POST', body={})
+    except Exception:  # noqa: BLE001
+        pass
+
 # ------------------------------------------------------- page text
 # Copy the description on the page (Best Text) into venues, for the
 # Owner account. New owners every push (a few calls); every owned page
@@ -1781,6 +1890,64 @@ def snapshot_page_text():
 
 
 snapshot_page_text()
+
+# --------------------------------------------------------- page facts
+# What each page holds tonight, for the Page upgrades screen: is the
+# search description still the generic line, how many words of
+# description, WiFi, prices, and the area and region labels. Pages an
+# upgrade was written to in this run are left out, because the items
+# were read before the write. The requests founders filed go into the
+# report, which the nightly run publishes on the sync-reports branch.
+def page_facts_of(f):
+    more = str(f.get('more-info-rich-text') or '')
+    body = PRICE_LINE.sub('', more)
+    meta = str(f.get('meta-description') or '').strip()
+    out = {}
+    if meta.startswith(DESCRIPTION[:48]):
+        out['meta_generic'] = True
+    elif meta:
+        out['meta'] = meta
+    words = words_in(body)
+    if words:
+        out['desc_words'] = words
+    if re.search(r'<h[1-6]', body):
+        out['headings'] = True
+    wifi = num(f.get('average-internet-speed'))
+    if wifi and wifi > 0:
+        out['wifi'] = wifi
+    if PRICE_LINE.search(more) or f.get('product-category-2') \
+            or str(f.get('price-of-coffee') or '').strip():
+        out['prices'] = True
+    area = str(f.get('locations-label') or '').strip()
+    region = str(f.get('region-label') or '').strip()
+    if area:
+        out['area'] = area
+    if region:
+        out['region'] = region
+    return out
+
+
+if not PUSH_ONLY and items:
+    try:
+        facts = [{'cms_id': i['id'],
+                  'facts': page_facts_of(i.get('fieldData') or {})}
+                 for i in items
+                 if not i.get('isArchived')
+                 and i.get('id') not in upgraded_cms]
+        saved = 0
+        for k in range(0, len(facts), 300):
+            saved += sb('rpc/set_page_facts', method='POST',
+                        body={'p': facts[k:k + 300]}) or 0
+        report['page_facts'] = saved
+    except Exception as e:  # noqa: BLE001
+        report.setdefault('warnings', []).append(
+            f'page facts: {str(e)[:160]}')
+    try:
+        report['upgrades'] = sb('rpc/upgrades_report', method='POST',
+                                body={})
+    except Exception as e:  # noqa: BLE001
+        report.setdefault('warnings', []).append(
+            f'page upgrades report: {str(e)[:160]}')
 
 # ------------------------------------------------------- hours backfill
 # Pages the control centre created before it fetched Google's hours at
