@@ -307,7 +307,10 @@ void main() {
   testWidgets('a city chip narrows the list to that city', (tester) async {
     final h = await open(tester, chiangMai);
 
-    await tapText(tester, find.text('No city page nearby  1'));
+    // The third chip sits off the right edge of a phone: found even
+    // so, then scrolled into view by the tap helper.
+    await tapText(tester,
+        find.text('No city page nearby  1', skipOffstage: false));
 
     expect(h.db.areasAsked.last, 'No city page nearby');
     expect(find.text('Pai Laptop Cafe'), findsOneWidget);
