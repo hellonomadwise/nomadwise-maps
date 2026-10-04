@@ -1700,3 +1700,17 @@ added photos in the Owner account is left out and never written over;
 the push stops if the page holds a photo the founder never saw. Not
 compiled or run against the live website before upload: see
 `docs/PAGE_UPGRADES.md`.
+
+## 4 Oct 2026: Search box in Clean-up
+
+Jonathan asked for a search box on the Closed list (69 places) that
+narrows the list while typing. Added to both Clean-up lists, Closed and
+Not for the site. It matches every typed word against the name, area,
+city, country, page address and, for hidden spaces, the reason. The
+lists are already loaded, so it filters on the screen with no request;
+the Temporarily and Permanently closed chips count what is left.
+Same upload: the Retire dialog no longer promises a redirect. The sync
+asks Webflow to add one (`POST /v2/sites/{site}/redirects`), which
+Webflow documents under its Enterprise API, so on other plans it is
+refused and the card shows the two addresses to add by hand. The
+dialog and the retired card now say so.

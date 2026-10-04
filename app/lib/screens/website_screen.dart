@@ -182,6 +182,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   void dispose() {
     _searchTimer?.cancel();
     _searchCtl.dispose();
+    _cleanCtl.dispose();
     _tabScroll.dispose();
     super.dispose();
   }
@@ -1748,7 +1749,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       'region' => g.needsRegion.map(_needsRegionCard).toList(),
       'fresh' => g.fresh.map(_freshCard).toList(),
       'preparing' => g.preparing.map(_preparingTile).toList(),
-      'hidden' => _hidden.map(_hiddenTile).toList(),
+      'hidden' => _hiddenCards(),
       'closed' => _closedCards(),
       'owner' => [
           _updatesCard(),
@@ -2547,20 +2548,93 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   /// 'all', 'temp' or 'gone'.
   String _closedFilter = 'all';
 
+  // The Clean-up search box. It narrows the Closed and Not for the
+  // site lists while typing; both lists are already on the screen, so
+  // nothing is fetched and there is no wait.
+  String _cleanQuery = '';
+  final _cleanCtl = TextEditingController();
+
+  /// True when every word typed is found in the space's name, place,
+  /// country, page address or (for a hidden space) its reason.
+  bool _cleanMatch(Map<String, dynamic> v) {
+    final words = _cleanQuery
+        .toLowerCase()
+        .split(RegExp(r'\s+'))
+        .where((w) => w.isNotEmpty)
+        .toList();
+    if (words.isEmpty) return true;
+    final text = [
+      v['name'],
+      v['neighbourhood'],
+      v['city'],
+      _countryOf(v),
+      v['webflow_slug'],
+      v['website_dismiss_reason'],
+      v['website_dismiss_note'],
+    ].where((x) => x != null).join(' ').toLowerCase();
+    return words.every((w) => text.contains(w));
+  }
+
+  Widget _cleanSearch(String hint) => Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: TextField(
+          controller: _cleanCtl,
+          textInputAction: TextInputAction.search,
+          decoration: InputDecoration(
+              prefixIcon: const Icon(Icons.search),
+              hintText: hint,
+              isDense: true,
+              filled: true,
+              fillColor: Brand.field,
+              suffixIcon: _cleanQuery.isEmpty
+                  ? null
+                  : IconButton(
+                      tooltip: 'Clear',
+                      icon: const Icon(Icons.close, size: 18),
+                      onPressed: () {
+                        _cleanCtl.clear();
+                        setState(() => _cleanQuery = '');
+                      }),
+              border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none)),
+          onChanged: (t) => setState(() => _cleanQuery = t.trim()),
+        ),
+      );
+
+  List<Widget> _hiddenCards() {
+    if (_hidden.isEmpty) return const [];
+    final shown = _hidden.where(_cleanMatch).toList();
+    return [
+      _cleanSearch('Search by name, place or reason'),
+      if (shown.isEmpty)
+        _groupEmpty('Nothing here matches "$_cleanQuery".')
+      else
+        ...shown.map(_hiddenTile),
+    ];
+  }
+
   List<Widget> _closedCards() {
-    final temp = _closed.where((v) => _closedKind(v['business_status']) == 'temp');
-    final gone = _closed.where((v) => _closedKind(v['business_status']) == 'gone');
+    // The search narrows the list first; the three chips then count
+    // and show what is left.
+    final pool = _closed.where(_cleanMatch).toList();
+    final temp =
+        pool.where((v) => _closedKind(v['business_status']) == 'temp');
+    final gone =
+        pool.where((v) => _closedKind(v['business_status']) == 'gone');
     final shown = switch (_closedFilter) {
       'temp' => temp,
       'gone' => gone,
-      _ => _closed,
+      _ => pool,
     };
     final choices = [
-      ('all', 'All', _closed.length, Brand.inkSecondary),
+      ('all', 'All', pool.length, Brand.inkSecondary),
       ('temp', 'Temporarily closed', temp.length, Brand.goldTextDark),
       ('gone', 'Permanently closed', gone.length, Brand.red),
     ];
     return [
+      if (_closed.isNotEmpty)
+        _cleanSearch('Search by name, place or page address'),
       Padding(
         padding: const EdgeInsets.only(bottom: 10),
         child: Wrap(
@@ -2588,9 +2662,11 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         ),
       ),
       if (shown.isEmpty)
-        _groupEmpty(_closedFilter == 'temp'
-            ? 'Nothing is temporarily closed.'
-            : 'Nothing is permanently closed.')
+        _groupEmpty(_cleanQuery.isNotEmpty
+            ? 'Nothing here matches "$_cleanQuery".'
+            : _closedFilter == 'temp'
+                ? 'Nothing is temporarily closed.'
+                : 'Nothing is permanently closed.')
       else
         ...shown.map(_closedCard),
     ];
@@ -2621,8 +2697,11 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                   'The page comes off nomadwise.io within a minute or two: '
                   'the listing and its Images entry are unpublished and '
                   'archived, the slug /coworking/${v['webflow_slug'] ?? ''} '
-                  'is released, and a redirect to the city page is added. '
-                  'The redirect goes live when you next publish the site.'),
+                  'is released, and Webflow is asked to add a redirect to '
+                  'the city page. Webflow only accepts that on some plans: '
+                  'the card says afterwards whether it was added or needs '
+                  'adding by hand. A redirect goes live when you next '
+                  'publish the site.'),
               actions: [
                 TextButton(
                     onPressed: () => Navigator.pop(context, false),
@@ -2754,11 +2833,16 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
           Text('${note['redirect'] ?? ''}',
               style: const TextStyle(fontSize: 12, color: Brand.inkMuted)),
           const SizedBox(height: 8),
-          const Text(
-              'Two things left for you: remove this address from the '
-              'custom sitemap, and publish the site in Webflow so the '
-              'redirect goes live. Then tick it off.',
-              style: TextStyle(fontSize: 12.5, height: 1.4)),
+          Text(
+              '${note['redirect'] ?? ''}'.startsWith('not added')
+                  ? 'Three things left for you: add the redirect above in '
+                      'Webflow (Site settings, Publishing, 301 redirects), '
+                      'remove this address from the custom sitemap, and '
+                      'publish the site. Then tick it off.'
+                  : 'Two things left for you: remove this address from the '
+                      'custom sitemap, and publish the site in Webflow so '
+                      'the redirect goes live. Then tick it off.',
+              style: const TextStyle(fontSize: 12.5, height: 1.4)),
           const SizedBox(height: 10),
           Wrap(spacing: 8, runSpacing: 8, children: [
             OutlinedButton.icon(
