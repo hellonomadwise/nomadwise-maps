@@ -90,12 +90,12 @@ class Candidate {
   static String _mentions(int n, String what) =>
       '$n ${n == 1 ? 'review mentions' : 'reviews mention'} $what';
 
-  /// Why it is on the list, strongest first, in plain words.
+  /// Why it is on the list, strongest first, in plain words. A
+  /// coworking space needs no reason: its card says what it is.
   List<String> get reasons => [
         if (laptop > 0) _mentions(laptop, 'working there'),
         if (power > 0) _mentions(power, 'plugs'),
         if (wifi > 0) _mentions(wifi, 'WiFi'),
-        if (coworking) 'Coworking space',
         if (!checked) 'Reviews not read yet',
       ];
 

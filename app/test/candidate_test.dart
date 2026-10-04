@@ -77,7 +77,7 @@ void main() {
         'checked': false,
       }));
       expect(c.typeLabel, 'Coworking space');
-      expect(c.reasons, ['Coworking space', 'Reviews not read yet']);
+      expect(c.reasons, ['Reviews not read yet']);
     });
 
     test('no city page nearby is flagged', () {

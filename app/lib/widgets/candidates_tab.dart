@@ -471,11 +471,9 @@ class _CandidatesTabState extends State<CandidatesTab> {
       padding: const EdgeInsets.fromLTRB(2, 0, 2, 10),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         const Text(
-            'Found by the nightly job and not on the site: their Google '
-            'reviews mention WiFi, plugs or laptops with no warning '
-            'against working there, or they are coworking spaces. Queue '
-            'the ones worth a page. Nothing reaches Webflow until you '
-            'approve its proposal.',
+            'Found by the nightly job, not on the site yet. Queue the ones '
+            'worth a page. Nothing reaches Webflow until you approve its '
+            'proposal.',
             style: TextStyle(fontSize: 12, color: Brand.inkMuted, height: 1.4)),
         const SizedBox(height: 8),
         Wrap(
@@ -497,7 +495,9 @@ class _CandidatesTabState extends State<CandidatesTab> {
                         minimumSize: const Size(0, 28),
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         textStyle: const TextStyle(
-                            fontSize: 12.5, fontWeight: FontWeight.w600)),
+                            fontFamily: 'Roboto',
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600)),
                     child: Text('$_dismissed turned down')),
             ]),
         if (_sweepLine != null) ...[
@@ -524,6 +524,7 @@ class _CandidatesTabState extends State<CandidatesTab> {
             backgroundColor: Brand.surface,
             side: BorderSide(color: on ? Brand.violet : Brand.border),
             labelStyle: TextStyle(
+                fontFamily: 'Roboto',
                 fontSize: 12.5,
                 fontWeight: FontWeight.w700,
                 color: on
@@ -659,7 +660,6 @@ class _CandidatesTabState extends State<CandidatesTab> {
               spacing: 4,
               runSpacing: 4,
               crossAxisAlignment: WrapCrossAlignment.center,
-              alignment: WrapAlignment.end,
               children: [
                 TextButton.icon(
                     onPressed: () => _open(c.mapsUrl),
