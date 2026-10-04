@@ -98,6 +98,16 @@ Future<void> loadFonts() async {
     roboto.addFont(Future.value(ByteData.view(bytes.buffer)));
   }
   await roboto.load();
+  // The star in the rating is not in Roboto; the app falls back to
+  // another font for it. Here: the runner's DejaVu, under the theme's
+  // fallback name.
+  final dejavu = File('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf');
+  if (dejavu.existsSync()) {
+    final loader = FontLoader('Arial');
+    final bytes = await dejavu.readAsBytes();
+    loader.addFont(Future.value(ByteData.view(bytes.buffer)));
+    await loader.load();
+  }
   final root = Platform.environment['FLUTTER_ROOT'];
   final icons = File(
       '$root/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf');
