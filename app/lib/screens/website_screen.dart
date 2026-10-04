@@ -2732,6 +2732,83 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       {'website_retire_done_at': DateTime.now().toUtc().toIso8601String()},
       'Done. ${v['name']} is fully retired.');
 
+  /// Ticks or unticks one of the founder's own steps on a retired
+  /// card. The ticks live in the retire note, so they are still there
+  /// after a reload or on another device. Shown at once; put back if
+  /// the save fails.
+  Future<void> _retireTick(
+      Map<String, dynamic> v, String key, bool on) async {
+    final before = v['website_retire_note'];
+    final note = <String, dynamic>{
+      if (before is Map)
+        for (final e in before.entries) '${e.key}': e.value,
+      key: on,
+    };
+    setState(() => v['website_retire_note'] = note);
+    try {
+      await _supabase.updateVenueFields(
+          '${v['id']}', {'website_retire_note': note});
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => v['website_retire_note'] = before);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('That tick did not save: $e'),
+          backgroundColor: Brand.red));
+    }
+  }
+
+  /// One step on a retired card: a tick, what it is, and anything
+  /// worth copying for it.
+  Widget _retireStep(Map<String, dynamic> v, String key,
+      {required String title,
+      required String detail,
+      List<Widget> actions = const []}) {
+    final note = (v['website_retire_note'] as Map?) ?? const {};
+    final on = note[key] == true;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        SizedBox(
+          width: 32,
+          height: 32,
+          child: Checkbox(
+              value: on,
+              activeColor: Brand.success,
+              onChanged: (x) => _retireTick(v, key, x ?? false)),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                InkWell(
+                  onTap: () => _retireTick(v, key, !on),
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 6, bottom: 2),
+                    child: Text(title,
+                        style: TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w700,
+                            decoration:
+                                on ? TextDecoration.lineThrough : null,
+                            color: on ? Brand.inkMuted : Brand.ink)),
+                  ),
+                ),
+                Text(detail,
+                    style: const TextStyle(
+                        fontSize: 12.5,
+                        height: 1.4,
+                        color: Brand.inkSecondary)),
+                if (actions.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Wrap(spacing: 8, runSpacing: 6, children: actions),
+                ],
+              ]),
+        ),
+      ]),
+    );
+  }
+
   Widget _closedCard(Map<String, dynamic> v) {
     final note = (v['website_retire_note'] as Map?) ?? const {};
     final retired = v['website_retired_at'] != null;
@@ -2741,6 +2818,13 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         ? null
         : 'https://www.nomadwise.io/coworking/${v['webflow_slug']}';
     final country = _countryOf(v);
+    // For a retired card: the two addresses of the redirect, whether
+    // Webflow took it from the sync, and the founder's two ticks.
+    final from = '${note['from'] ?? ''}';
+    final to = '${note['to'] ?? ''}';
+    final redirectAdded = '${note['redirect'] ?? ''}'.startsWith('added');
+    final stepsDone =
+        note['redirect_done'] == true && note['sitemap_done'] == true;
     return _card(
       tint: retired ? Brand.field : null,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -2826,36 +2910,59 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
               'Retired ${_ago(v['website_retired_at'])}. Off the site and '
               'archived; the slug is released.',
               style: const TextStyle(fontSize: 13, height: 1.4)),
-          const SizedBox(height: 6),
-          Text('Redirect: ${note['from'] ?? '?'}  to  ${note['to'] ?? '?'}',
-              style: const TextStyle(
-                  fontSize: 12.5, fontFamily: 'monospace', height: 1.4)),
-          Text('${note['redirect'] ?? ''}',
-              style: const TextStyle(fontSize: 12, color: Brand.inkMuted)),
-          const SizedBox(height: 8),
-          Text(
-              '${note['redirect'] ?? ''}'.startsWith('not added')
-                  ? 'Three things left for you: add the redirect above in '
-                      'Webflow (Site settings, Publishing, 301 redirects), '
-                      'remove this address from the custom sitemap, and '
-                      'publish the site. Then tick it off.'
-                  : 'Two things left for you: remove this address from the '
-                      'custom sitemap, and publish the site in Webflow so '
-                      'the redirect goes live. Then tick it off.',
-              style: const TextStyle(fontSize: 12.5, height: 1.4)),
+          const SizedBox(height: 4),
+          const Text(
+              'Two steps are left for you. Tick each one when it is done, '
+              'then mark the card as complete and it leaves this list.',
+              style: TextStyle(fontSize: 12.5, height: 1.4)),
           const SizedBox(height: 10),
-          Wrap(spacing: 8, runSpacing: 8, children: [
-            OutlinedButton.icon(
-                onPressed: () => _copy(
-                    'https://www.nomadwise.io${note['from'] ?? ''}',
-                    'Old address copied'),
-                icon: const Icon(Icons.copy, size: 16),
-                label: const Text('Copy old address')),
-            FilledButton.icon(
-                onPressed: () => _retireDone(v),
-                icon: const Icon(Icons.check, size: 18),
-                label: const Text('Sitemap and publish done')),
-          ]),
+          _retireStep(v, 'redirect_done',
+              title: redirectAdded
+                  ? 'Site published, so the redirect is live'
+                  : 'Redirect added in Webflow and the site published',
+              detail: redirectAdded
+                  ? 'Webflow accepted the redirect from $from to $to. It '
+                      'goes live when the site is next published.'
+                  : 'Webflow did not add this one automatically. Add it '
+                      'under Site settings, Publishing, 301 redirects: old '
+                      'path $from, redirect to $to. Then publish the site.',
+              actions: [
+                if (!redirectAdded) ...[
+                  OutlinedButton.icon(
+                      onPressed: () => _copy(from, 'Old path copied'),
+                      icon: const Icon(Icons.copy, size: 16),
+                      label: const Text('Copy old path')),
+                  OutlinedButton.icon(
+                      onPressed: () => _copy(to, 'New path copied'),
+                      icon: const Icon(Icons.copy, size: 16),
+                      label: const Text('Copy new path')),
+                ],
+              ]),
+          _retireStep(v, 'sitemap_done',
+              title: 'Removed from the custom sitemap',
+              detail: 'https://www.nomadwise.io$from',
+              actions: [
+                OutlinedButton.icon(
+                    onPressed: () => _copy(
+                        'https://www.nomadwise.io$from',
+                        'Old address copied'),
+                    icon: const Icon(Icons.copy, size: 16),
+                    label: const Text('Copy old address')),
+              ]),
+          Wrap(
+              spacing: 10,
+              runSpacing: 6,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                FilledButton.icon(
+                    onPressed: stepsDone ? () => _retireDone(v) : null,
+                    icon: const Icon(Icons.check, size: 18),
+                    label: const Text('Mark as complete')),
+                if (!stepsDone)
+                  const Text('Tick both steps first.',
+                      style: TextStyle(
+                          fontSize: 12.5, color: Brand.inkMuted)),
+              ]),
         ],
       ]),
     );

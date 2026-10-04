@@ -1714,3 +1714,15 @@ asks Webflow to add one (`POST /v2/sites/{site}/redirects`), which
 Webflow documents under its Enterprise API, so on other plans it is
 refused and the card shows the two addresses to add by hand. The
 dialog and the retired card now say so.
+
+## 4 Oct 2026: Two ticks on a retired card
+
+Jonathan asked for a tick for each of his own steps after a page is
+retired (the redirect, the sitemap), and for the card to go once it is
+marked complete. A retired card now shows two ticks and a "Mark as
+complete" button that is live only when both are ticked. The ticks are
+kept in `venues.website_retire_note` as `redirect_done` and
+`sitemap_done`, so they survive a reload; "Mark as complete" sets
+`website_retire_done_at` as before, which takes the card off the list.
+When Webflow did not take the redirect from the sync, the card gives
+the old and new path with copy buttons.
