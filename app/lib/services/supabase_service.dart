@@ -1388,6 +1388,27 @@ class SupabaseService {
   Future<void> upgradeRequestCancel(String id) =>
       _db.rpc('admin_upgrade_request_cancel', params: {'p_id': id});
 
+  /// Live pages with fewer than five photos, highest impact first
+  /// (migration 127): the photos on each now ('urls') and whether a
+  /// change is already on its way ('pending').
+  Future<List<Map<String, dynamic>>> upgradesPhotoGaps(
+      {String query = '', int limit = 60}) async {
+    final r = await _db.rpc('admin_upgrades_photo_gaps',
+        params: {'p_q': query, 'p_limit': limit});
+    return [
+      for (final x in (r as List? ?? const [])) Map<String, dynamic>.from(x as Map)
+    ];
+  }
+
+  /// The photo links for a live page, in page order. Saving is the
+  /// Go: the website push writes them within minutes. [seen] is the
+  /// list the screen started from; the save is refused when the
+  /// page's photos have changed since, so nothing is overwritten.
+  Future<void> upgradePhotos(String venueId, List<String> urls,
+          {List<String>? seen}) =>
+      _db.rpc('admin_upgrade_photos',
+          params: {'p_venue': venueId, 'p_urls': urls, 'p_seen': seen});
+
   Future<Map<String, dynamic>> setPricingGroup(String code, num monthlyEur,
       num yearlyEur, String? priceMonthly, String? priceYearly) async {
     final r = await _db.rpc('admin_set_pricing_group', params: {

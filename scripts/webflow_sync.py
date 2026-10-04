@@ -1810,20 +1810,135 @@ def apply_upgrade(u):
     return current, words
 
 
+IMAGE_SLOTS = ('image', 'image-2', 'image-3', 'image-4', 'image-5')
+# The links Webflow gave the photos after copying them in (page id ->
+# links), so the database holds the site's own addresses and a second
+# top-up does not send the pasted links again.
+hosted_photos = {}
+
+
+def slot_urls(ifd):
+    """The link in each of the five photo slots (None when empty)."""
+    out = []
+    for k in IMAGE_SLOTS:
+        val = (ifd or {}).get(k)
+        out.append(val.get('url') if isinstance(val, dict) and val.get('url')
+                   else None)
+    return out
+
+
+def apply_photos(u):
+    """A founder's photo list for a live page (migration 127), written
+    into the page's Images entry: a slot whose link is unchanged is
+    left alone, a new link is handed to Webflow (which copies the
+    picture in), a slot beyond the list is emptied. Returns the links
+    that were there before, as the JSON the database keeps for Undo."""
+    cms = u['webflow_cms_id']
+    # Up to six Webflow calls a page; the pauses keep a full run under
+    # Webflow's per-minute limit.
+    item = wf(f'/v2/collections/{COLLECTION_ID}/items/{cms}') or {}
+    time.sleep(1.1)
+    if not item.get('id'):
+        raise ValueError('The page could not be found on the website.')
+    fd = item.get('fieldData') or {}
+    img_id = fd.get('image-reference')
+    if not img_id:
+        raise ValueError('This page has no Images entry on the website.')
+    img = wf(f'/v2/collections/{IMAGES_ID}/items/{img_id}') or {}
+    time.sleep(1.1)
+    if not img.get('id'):
+        raise ValueError('The Images entry could not be found on the website.')
+    now_ = slot_urls(img.get('fieldData') or {})
+    before = json.dumps([x for x in now_ if x])
+    raw = u.get('previous_value') if u['status'] == 'undo_requested' \
+        else u.get('final_text')
+    try:
+        wanted = [str(x).strip() for x in json.loads(raw or '[]')
+                  if str(x).strip().startswith('http')][:5]
+    except (TypeError, ValueError):
+        raise ValueError('The photo list could not be read.') from None
+    if not wanted and u['status'] != 'undo_requested':
+        raise ValueError('There are no photo links to put on the page.')
+    # The write replaces the whole set. If the page now holds a photo
+    # the founder's list neither keeps nor started from (the page was
+    # edited in Webflow, or an owner's photos arrived), stop: writing
+    # would remove a picture nobody chose to remove. Compared by file
+    # name. Skipped on a retry (the first attempt already claimed it).
+    if u['status'] != 'undo_requested' and not u.get('previous_value'):
+        def tail(x):
+            return str(x).strip().rsplit('/', 1)[-1]
+        try:
+            seen = {tail(x) for x in json.loads(u.get('before_text') or '[]')}
+        except (TypeError, ValueError):
+            seen = set()
+        keep = {tail(x) for x in wanted}
+        if any(x and tail(x) not in keep and tail(x) not in seen
+               for x in now_):
+            raise ValueError('The photos on the page changed after this '
+                             'list was made. Open Add photos again and '
+                             'save.')
+    if not sb('rpc/upgrade_begin', method='POST',
+              body={'p_id': u['id'], 'p_text': u.get('final_text'),
+                    'p_previous': before}):
+        return None
+    caption = fd.get('h1-label') or u.get('name') or ''
+    patch = {}
+    for n, key in enumerate(IMAGE_SLOTS, start=1):
+        suffix = '' if n == 1 else f'-{n}'
+        if n <= len(wanted):
+            alt = caption if n == 1 else f'{caption} {n}'
+            if wanted[n - 1] != now_[n - 1]:
+                patch[key] = {'url': wanted[n - 1], 'alt': alt}
+                patch[f'alt-text{suffix}'] = alt
+                patch[f'image-title{suffix}'] = caption
+        elif now_[n - 1]:
+            patch[key] = None
+    if patch:
+        # The big photo grid needs four or more.
+        patch['has-enough-images'] = len(wanted) > 3
+        wf_write(f'/v2/collections/{IMAGES_ID}/items/{img_id}', 'PATCH',
+                 {'fieldData': patch})
+        time.sleep(1.1)
+    if not img.get('isDraft') and not img.get('isArchived') \
+            and img.get('lastPublished'):
+        wf_write(f'/v2/collections/{IMAGES_ID}/items/publish', 'POST',
+                 {'itemIds': [img_id]})
+        time.sleep(1.1)
+    if not item.get('isDraft') and not item.get('isArchived') \
+            and item.get('lastPublished'):
+        wf_write(f'/v2/collections/{COLLECTION_ID}/items/publish', 'POST',
+                 {'itemIds': [cms]})
+        time.sleep(1.1)
+    if patch:
+        try:
+            fresh = wf(f'/v2/collections/{IMAGES_ID}/items/{img_id}') or {}
+            hosted_photos[cms] = [x for x in slot_urls(fresh.get('fieldData'))
+                                  if x]
+        except Exception:  # noqa: BLE001
+            pass
+    return before, None
+
+
 upgraded_cms = set()
 upgrade_tally = {'written': 0, 'undone': 0, 'failed': 0}
 for u in upgrades_:
     undo = u.get('status') == 'undo_requested'
     try:
-        if u.get('kind') not in UPGRADE_FIELD:
+        if u.get('kind') not in UPGRADE_FIELD and u.get('kind') != 'photos':
             raise ValueError('This kind of upgrade cannot be written yet.')
         # An owner's description is theirs: neither a new text nor an
         # undo is written over it.
         if u['kind'] == 'description' and u.get('owned'):
             raise ValueError('This page now has an owner, who writes its '
                              'description.')
+        # The same goes for photos an owner has added in the Owner
+        # account: the page shows those, so a founder's list is not
+        # written over them.
+        if u['kind'] == 'photos' and u.get('owner_photos'):
+            raise ValueError('This page now shows its owner\'s own photos; '
+                             'they are changed in the Owner account.')
         upgraded_cms.add(u.get('webflow_cms_id'))
-        done = apply_upgrade(u)
+        done = apply_photos(u) if u['kind'] == 'photos' else apply_upgrade(u)
         if done is None:
             continue    # taken back or reworded since this run read it
         before, words = done
@@ -1831,6 +1946,13 @@ for u in upgrades_:
            body={'p_id': u['id'], 'p_ok': True, 'p_previous': before,
                  'p_words': words})
         upgrade_tally['undone' if undo else 'written'] += 1
+        if u['kind'] == 'photos' and u.get('webflow_cms_id') in hosted_photos:
+            try:
+                sb('rpc/set_page_photos', method='POST',
+                   body={'p': [{'cms_id': u['webflow_cms_id'],
+                                'photos': hosted_photos[u['webflow_cms_id']]}]})
+            except Exception:  # noqa: BLE001
+                pass
     except Exception as e:  # noqa: BLE001
         upgrade_tally['failed'] += 1
         why = str(e)[:300]
@@ -2015,6 +2137,8 @@ if not PUSH_ONLY and items:
 
     backfill_hours()
 
+    images_seen = []
+
     def fix_image_layout():
         """'Has Enough Images' picks the big photo grid (four or more
         photos) or the simple slider. Older pages had it set by hand,
@@ -2025,6 +2149,7 @@ if not PUSH_ONLY and items:
         except Exception as e:  # noqa: BLE001
             report.setdefault('warnings', []).append(f'images read: {e}')
             return
+        images_seen.extend(imgs)
         fixes = []
         for it in imgs:
             if it.get('isArchived'):
@@ -2055,6 +2180,37 @@ if not PUSH_ONLY and items:
         report['image_layout_fixed'] = done
 
     fix_image_layout()
+
+    def photo_facts():
+        """How many photos each page has, and their links, for the
+        Photos row of Page upgrades (migration 127). Read from the
+        Images entries the layout fix just loaded. Pages an upgrade
+        was written to in this run are left out: they were read
+        before the write."""
+        if not images_seen:
+            return
+        by_img = {it['id']: it for it in images_seen}
+        rows = []
+        for i in items:
+            if i.get('isArchived') or i.get('id') in upgraded_cms:
+                continue
+            it = by_img.get((i.get('fieldData') or {}).get('image-reference'))
+            if not it:
+                continue
+            rows.append({'cms_id': i['id'],
+                         'photos': [x for x in slot_urls(it.get('fieldData'))
+                                    if x]})
+        try:
+            saved = 0
+            for k in range(0, len(rows), 300):
+                saved += sb('rpc/set_page_photos', method='POST',
+                            body={'p': rows[k:k + 300]}) or 0
+            report['page_photos'] = saved
+        except Exception as e:  # noqa: BLE001
+            report.setdefault('warnings', []).append(
+                f'page photos: {str(e)[:160]}')
+
+    photo_facts()
 
 # ------------------------------------------------------- verified rotation
 # Inside the Verified group nobody buys position and nothing an owner

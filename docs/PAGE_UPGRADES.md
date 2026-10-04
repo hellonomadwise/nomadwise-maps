@@ -1,7 +1,7 @@
 # Page upgrades: improvements to listing pages, approved one by one
 
 Control centre, Team tools menu, **Page upgrades** (or
-`nomadmaps.io/?admin=upgrades`). Migrations 125 and 126.
+`nomadmaps.io/?admin=upgrades`). Migrations 125 to 128.
 
 ## What it is
 
@@ -32,8 +32,43 @@ The reason is printed on every card, for example "151 page views in
 |---|---|---|
 | Search description | The line Google shows under the title (Webflow: Meta Description) | Built in the database from the facts we hold. **Prepare more** adds the next 10 to 100 at once. |
 | Page description | The text of the page (Webflow: More Info) | Written from the space's own website. **Ask for a batch** files a request; the batch is drafted in a Claude session and uploaded. |
+| Photos | The five pictures of the page (Webflow: its Images entry) | Pasted by a founder, the way it is done for a new listing. See below. |
 | Prices | Listed as a gap, with a request button | To be drafted the same way; not written to pages yet. |
 | WiFi speed | Listed as a gap only | Comes from a nomad's test in the app or from the owner. |
+
+## Photos
+
+A page holds five photos. On 4 Oct 2026, 597 of the 1,011 live pages
+had fewer, 378 of them a single one; nearly all are cafes.
+
+**Add photos** on the Photos row opens the list of pages short of
+five, the most visited first. **Add photos** on a page's card opens
+the same photo page a new listing uses: the photos on the page now sit
+in the slots, "Open on Google" and "Photos on Google Maps" open the
+place, and an image address copied there (right-click a photo, "Copy
+image address") goes into a free slot. The first slot is the main
+picture.
+
+Saving is the Go. The list is stored as an approved upgrade, the push
+writes the changed slots into the page's Images entry, sets the big
+photo grid when there are four or more, and republishes. It then
+shows under On its way and Live like any other upgrade, and Undo puts
+the earlier photos back. A page can be topped up again later; the
+earlier change is kept as history (status `superseded`) and can no
+longer be undone from the screen, only the latest one can.
+
+"Photos on Google Maps" is offered from the list of pages short of
+photos. **Edit** on a queue card opens the same photo page with "Open
+on Google" only.
+
+Two safeguards: if the photos on the page changed between opening the
+photo page and saving, the save is refused and the list is reloaded;
+and a page whose owner has added photos in the Owner account is left
+out of the list and refused, so a founder's paste never replaces an
+owner's pictures.
+
+Nothing is fetched from Google by the app for this: the founder
+copies the image addresses by hand, as for new listings.
 
 ## Buttons
 
@@ -90,9 +125,10 @@ Page views are refreshed the same way: a migration calling
 
 | Thing | Where |
 |---|---|
-| Queue | `page_upgrades` (status: proposed, approved, applied, skipped, failed, undo_requested, undone) |
+| Queue | `page_upgrades` (status: proposed, approved, applied, skipped, failed, undo_requested, undone, superseded) |
 | Requests | `upgrade_requests` |
 | Page views | `page_popularity` (slug, views, visitors, days) |
+| Photos on each page | `venue_page_facts` (`photos`, `photo_urls`): seeded by migration 128, refreshed nightly from the Images collection, and updated straight after each photo write or undo |
 | What each page holds | `venue_page_facts`, written nightly by `scripts/webflow_sync.py` (its own table, so the map's read of `venues` does not carry it) |
 | Writing to Webflow | `scripts/webflow_sync.py`, "page upgrades" section, in the ten-minute push and the nightly run |
 | Screen | `app/lib/screens/admin_upgrades_screen.dart` |
@@ -108,6 +144,13 @@ Page views are refreshed the same way: a migration calling
   inside Webflow's per-minute limit. A run that fills up asks for the
   next one straight away, so a larger "Go for all" finishes over a few
   runs.
+- A photo change takes six calls to Webflow (read the page, read its
+  Images entry, write, publish the entry, publish the page, read the
+  hosted links back), so photo changes go through more slowly than
+  text.
+- Photo thumbnails on the screen load straight from the pasted
+  address. Some hosts refuse that, and the thumbnail then shows as a
+  broken picture although the website copy is fine.
 - Every Go asks GitHub to start the push. If the GitHub token in Vault
   is missing, changes wait for the schedule instead, which can be
   hours.

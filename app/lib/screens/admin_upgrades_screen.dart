@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
@@ -5,13 +7,64 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../services/supabase_service.dart';
 import '../theme.dart';
+import 'website_screen.dart' show openLivePagePhotos;
+
+/// The database's own words for a refused action.
+String _plainError(Object e) {
+  if (e is PostgrestException) return e.message;
+  final s = '$e';
+  final m = RegExp(r'message: (.*?), code: ', dotAll: true).firstMatch(s);
+  return m?.group(1)?.trim() ?? s;
+}
+
+/// A photo list as the database keeps it (a JSON array of links, or
+/// already a list), as links.
+List<String> _photoLinks(dynamic v) {
+  dynamic j = v;
+  if (v is String) {
+    try {
+      j = jsonDecode(v);
+    } catch (_) {
+      return const [];
+    }
+  }
+  if (j is! List) return const [];
+  return [
+    for (final x in j)
+      if ('$x'.trim().startsWith('http')) '$x'.trim()
+  ];
+}
+
+/// Small pictures in a row, in page order.
+Widget _photoStrip(List<String> urls) {
+  if (urls.isEmpty) {
+    return const Text('No photos.',
+        style: TextStyle(fontSize: 13, color: Brand.inkSecondary));
+  }
+  return Wrap(spacing: 6, runSpacing: 6, children: [
+    for (final u in urls)
+      ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.network(u,
+            width: 84,
+            height: 63,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => Container(
+                width: 84,
+                height: 63,
+                color: Brand.field,
+                child: const Icon(Icons.broken_image_outlined,
+                    color: Brand.inkMuted))),
+      ),
+  ]);
+}
 
 /// Page upgrades (migration 125): changes to listing pages on
 /// nomadwise.io, lined up by how much they are likely to matter. Each
 /// card is one change to one page, with the text on the page now and
 /// the proposed text. Nothing reaches the website until a founder
 /// presses Go; the website push then writes it within minutes, and
-/// Undo puts the old text back. Founders only.
+/// Undo puts the earlier version back. Founders only.
 class AdminUpgradesScreen extends StatefulWidget {
   const AdminUpgradesScreen({super.key});
   @override
@@ -44,6 +97,7 @@ class _AdminUpgradesScreenState extends State<AdminUpgradesScreen> {
     ('', 'All kinds'),
     ('search_description', 'Search descriptions'),
     ('description', 'Page descriptions'),
+    ('photos', 'Photos'),
   ];
 
   @override
@@ -85,13 +139,7 @@ class _AdminUpgradesScreenState extends State<AdminUpgradesScreen> {
         content: Text(text), backgroundColor: bad ? Brand.red : null));
   }
 
-  /// The database's own words for a refused action.
-  String _plain(Object e) {
-    if (e is PostgrestException) return e.message;
-    final s = '$e';
-    final m = RegExp(r'message: (.*?), code: ', dotAll: true).firstMatch(s);
-    return m?.group(1)?.trim() ?? s;
-  }
+  String _plain(Object e) => _plainError(e);
 
   static String _when(dynamic iso) {
     final d = DateTime.tryParse('${iso ?? ''}');
@@ -117,6 +165,7 @@ class _AdminUpgradesScreenState extends State<AdminUpgradesScreen> {
   static String _kindLabel(String k) => switch (k) {
         'search_description' => 'Search description',
         'description' => 'Page description',
+        'photos' => 'Photos',
         'prices' => 'Prices',
         'wifi' => 'WiFi speed',
         _ => 'Other',
@@ -162,9 +211,9 @@ class _AdminUpgradesScreenState extends State<AdminUpgradesScreen> {
       final ok = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text('Put the old text back?'),
+          title: const Text('Put the earlier version back?'),
           content: Text(
-              'The page for ${u['name']} goes back to what it said before '
+              'The page for ${u['name']} goes back to what it had before '
               'this change. It takes a few minutes.'),
           actions: [
             TextButton(
@@ -182,7 +231,7 @@ class _AdminUpgradesScreenState extends State<AdminUpgradesScreen> {
     try {
       final now = await _supabase.upgradeUndo(id);
       _snack(now == 'undo_requested'
-          ? '${u['name']}: the old text is being put back.'
+          ? '${u['name']}: the earlier version is being put back.'
           : '${u['name']}: back in the queue.');
       await _load();
     } catch (e) {
@@ -192,8 +241,55 @@ class _AdminUpgradesScreenState extends State<AdminUpgradesScreen> {
     }
   }
 
+  /// Photos are changed on the photo page, not in a text box. Saving
+  /// there sends the new list to the page.
+  Future<void> _editPhotos(Map<String, dynamic> u) async {
+    final current = _photoLinks(u['final'] ?? u['proposed']);
+    final saved = await openLivePagePhotos(context,
+        name: '${u['name'] ?? ''}',
+        searchText: [u['name'], u['area'], u['region'], u['country']]
+            .where((x) => x != null && '$x'.trim().isNotEmpty)
+            .join(' '),
+        current: current);
+    if (saved == null || !mounted) return;
+    if (saved.isEmpty) {
+      _snack('Add at least one photo.', bad: true);
+      return;
+    }
+    // Saving an untouched list changes nothing, except on a card the
+    // website refused, where it is a second try.
+    if ('${u['status']}' != 'failed' &&
+        saved.length == current.length &&
+        [for (var i = 0; i < saved.length; i++) saved[i] == current[i]]
+            .every((same) => same)) {
+      _snack('Nothing changed.');
+      return;
+    }
+    try {
+      await _supabase.upgradePhotos('${u['venue_id']}', saved, seen: current);
+      _snack('${u['name']}: on its way to the website.');
+      await _load();
+    } catch (e) {
+      _snack(_plain(e), bad: true);
+      // A refusal usually means the card is out of date: show it fresh.
+      await _load();
+    }
+  }
+
+  Future<void> _openPhotoGaps() async {
+    await Navigator.push(context,
+        MaterialPageRoute(builder: (_) => const _PhotoGapsPage()));
+    if (!mounted) return;
+    setState(() => _rows = null);
+    await _load();
+  }
+
   Future<void> _edit(Map<String, dynamic> u) async {
     final kind = '${u['kind']}';
+    if (kind == 'photos') {
+      await _editPhotos(u);
+      return;
+    }
     final isLine = kind == 'search_description';
     final ctl = TextEditingController(
         text: '${u['final'] ?? u['proposed'] ?? ''}');
@@ -440,6 +536,16 @@ class _AdminUpgradesScreenState extends State<AdminUpgradesScreen> {
           'like everything else.'
     ),
     (
+      Icons.photo_library_outlined,
+      'Photos',
+      '"Add photos" lists the pages with fewer than five. On a page\'s '
+          'card, press Add photos: the photos on it now are in the slots. '
+          'Open the place on Google, right-click a photo, choose "Copy '
+          'image address" and paste it into a free slot. Saving sends '
+          'them to the page; it shows here under "On its way", then Live, '
+          'and Undo puts the earlier photos back.'
+    ),
+    (
       Icons.play_arrow_rounded,
       'Go, Edit and Skip',
       'Go sends the proposed text to the page. It is live within minutes.\n'
@@ -604,6 +710,11 @@ class _AdminUpgradesScreenState extends State<AdminUpgradesScreen> {
                 ]),
               ),
             )
+          else if (k['paste'] == true)
+            OutlinedButton.icon(
+                onPressed: gap > 0 || waiting > 0 ? _openPhotoGaps : null,
+                icon: const Icon(Icons.photo_library_outlined, size: 18),
+                label: const Text('Add photos'))
           else if (canAsk)
             OutlinedButton(
                 onPressed: () => _ask(kind, title),
@@ -672,6 +783,27 @@ class _AdminUpgradesScreenState extends State<AdminUpgradesScreen> {
     );
   }
 
+  Widget _photoBox(String label, List<String> urls, {required bool proposed}) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+          color: proposed ? Brand.logoTealTint : Brand.field,
+          borderRadius: BorderRadius.circular(8)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('${label.toUpperCase()} · ${urls.length} OF 5',
+            style: TextStyle(
+                fontSize: 10.5,
+                letterSpacing: 0.4,
+                fontWeight: FontWeight.w800,
+                color: proposed ? Brand.logoNavy : Brand.inkMuted)),
+        const SizedBox(height: 6),
+        _photoStrip(urls),
+      ]),
+    );
+  }
+
   Widget _card(Map<String, dynamic> u) {
     final id = '${u['id']}';
     final kind = '${u['kind']}';
@@ -694,6 +826,10 @@ class _AdminUpgradesScreenState extends State<AdminUpgradesScreen> {
     final error = '${u['error'] ?? ''}'.trim();
     final busy = _busy.contains(id);
     final isLine = kind == 'search_description';
+    final isPhotos = kind == 'photos';
+    final photosBefore = isPhotos ? _photoLinks(u['before']) : const <String>[];
+    final photosAfter =
+        isPhotos ? _photoLinks(u['final'] ?? u['proposed']) : const <String>[];
     final edited = u['final'] != null &&
         '${u['final']}'.trim() != '${u['proposed'] ?? ''}'.trim();
 
@@ -728,23 +864,36 @@ class _AdminUpgradesScreenState extends State<AdminUpgradesScreen> {
               '${u['reason'] ?? ''}',
             ].where((x) => x.isNotEmpty).join(' · '),
             style: const TextStyle(fontSize: 12.5, color: Brand.inkSecondary)),
-        _textBox(
-            status == 'applied' || status == 'undo_requested'
-                ? 'Before this change'
-                : 'On the page now',
-            before.isEmpty
-                ? (isLine ? 'Nothing.' : 'No description on the page.')
-                : before,
-            proposed: false),
-        _textBox(
-            status == 'applied'
-                ? 'Live on the page'
-                : edited
-                    ? 'Your wording'
-                    : 'Proposed',
-            proposed,
-            proposed: true,
-            foot: isLine ? '${proposed.length} characters' : null),
+        if (isPhotos) ...[
+          _photoBox(
+              status == 'applied' || status == 'undo_requested'
+                  ? 'Before this change'
+                  : 'On the page now',
+              photosBefore,
+              proposed: false),
+          _photoBox(
+              status == 'applied' ? 'Live on the page' : 'Your photos',
+              photosAfter,
+              proposed: true),
+        ] else ...[
+          _textBox(
+              status == 'applied' || status == 'undo_requested'
+                  ? 'Before this change'
+                  : 'On the page now',
+              before.isEmpty
+                  ? (isLine ? 'Nothing.' : 'No description on the page.')
+                  : before,
+              proposed: false),
+          _textBox(
+              status == 'applied'
+                  ? 'Live on the page'
+                  : edited
+                      ? 'Your wording'
+                      : 'Proposed',
+              proposed,
+              proposed: true,
+              foot: isLine ? '${proposed.length} characters' : null),
+        ],
         if (note.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 6),
@@ -785,7 +934,7 @@ class _AdminUpgradesScreenState extends State<AdminUpgradesScreen> {
                     child: const Text('Take back')),
               ],
               if (status == 'undo_requested')
-                const Text('The old text is being put back.',
+                const Text('The earlier version is being put back.',
                     style: TextStyle(fontSize: 13, color: Brand.inkSecondary)),
               if (status == 'applied') ...[
                 Text('Live since ${_when(u['applied_at'])}.',
@@ -1025,6 +1174,291 @@ class _AdminUpgradesScreenState extends State<AdminUpgradesScreen> {
                               ]),
                             ),
                           for (final u in rows) _card(u),
+                        ],
+                      ]),
+                ),
+              ),
+            ),
+    );
+  }
+}
+
+
+/// The pages with fewer than five photos, highest impact first. Each
+/// opens the same photo page a new listing uses: its photos sit in the
+/// slots, and image addresses copied from Google go into the free
+/// ones. Saving sends the list to the page (it is the Go).
+class _PhotoGapsPage extends StatefulWidget {
+  const _PhotoGapsPage();
+  @override
+  State<_PhotoGapsPage> createState() => _PhotoGapsPageState();
+}
+
+class _PhotoGapsPageState extends State<_PhotoGapsPage> {
+  final _supabase = SupabaseService();
+  final _search = TextEditingController();
+  List<Map<String, dynamic>>? _rows;
+  String? _error;
+  int _limit = 60;
+  final Set<String> _busy = {};
+  int _req = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    final n = ++_req;
+    try {
+      final rows = await _supabase.upgradesPhotoGaps(
+          query: _search.text.trim(), limit: _limit);
+      if (!mounted || n != _req) return;
+      setState(() {
+        _rows = rows;
+        _error = null;
+      });
+    } catch (e) {
+      if (mounted && n == _req) setState(() => _error = _plainError(e));
+    }
+  }
+
+  void _snack(String text, {bool bad = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(text), backgroundColor: bad ? Brand.red : null));
+  }
+
+  Future<void> _add(Map<String, dynamic> r) async {
+    final id = '${r['venue_id']}';
+    if (_busy.contains(id)) return;
+    // A change still on its way holds the newer list: start from it.
+    final current = _photoLinks(r['pending_urls'] ?? r['urls']);
+    final saved = await openLivePagePhotos(context,
+        name: '${r['name'] ?? ''}',
+        searchText: [r['name'], r['area'], r['region'], r['country']]
+            .where((x) => x != null && '$x'.trim().isNotEmpty)
+            .join(' '),
+        placeId: r['place_id'] == null ? null : '${r['place_id']}',
+        current: current);
+    if (saved == null || !mounted) return;
+    if (saved.isEmpty) {
+      _snack('Add at least one photo.', bad: true);
+      return;
+    }
+    if (saved.length == current.length &&
+        [for (var i = 0; i < saved.length; i++) saved[i] == current[i]]
+            .every((same) => same)) {
+      _snack('Nothing changed.');
+      return;
+    }
+    setState(() => _busy.add(id));
+    try {
+      await _supabase.upgradePhotos(id, saved, seen: current);
+      _snack('${r['name']}: ${saved.length} of 5, on its way to the website.');
+      await _load();
+    } catch (e) {
+      _snack(_plainError(e), bad: true);
+      // A refusal usually means the list is out of date: load it fresh.
+      await _load();
+    } finally {
+      if (mounted) setState(() => _busy.remove(id));
+    }
+  }
+
+  Widget _card(Map<String, dynamic> r) {
+    final id = '${r['venue_id']}';
+    final name = '${r['name'] ?? ''}'.trim();
+    final area = '${r['area'] ?? ''}'.trim();
+    final region = '${r['region'] ?? ''}'.trim();
+    final country = '${r['country'] ?? ''}'.trim();
+    final where = <String>[
+      if (area.isNotEmpty) area,
+      if (region.isNotEmpty && region.toLowerCase() != area.toLowerCase())
+        region,
+      if (country.isNotEmpty && country.toLowerCase() != region.toLowerCase())
+        country,
+    ].join(', ');
+    final urls = _photoLinks(r['urls']);
+    final n = r['photos'] is num ? (r['photos'] as num).toInt() : urls.length;
+    final pending = '${r['pending'] ?? ''}';
+    final slug = '${r['slug'] ?? ''}'.trim();
+    final busy = _busy.contains(id);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Brand.surface,
+        border: Border.all(color: Brand.border),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(name.isEmpty ? 'A page' : name,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w800, fontSize: 15.5)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                    color: n <= 1 ? Brand.accentTint : Brand.goldTint,
+                    borderRadius: BorderRadius.circular(20)),
+                child: Text('$n OF 5 PHOTOS',
+                    style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: n <= 1 ? Brand.red : Brand.goldTextDark)),
+              ),
+            ]),
+        const SizedBox(height: 3),
+        Text(
+            [
+              if (where.isNotEmpty) where,
+              '${r['reason'] ?? ''}',
+            ].where((x) => x.isNotEmpty).join(' · '),
+            style: const TextStyle(fontSize: 12.5, color: Brand.inkSecondary)),
+        const SizedBox(height: 8),
+        _photoStrip(urls),
+        const SizedBox(height: 8),
+        Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              FilledButton.icon(
+                  onPressed: busy || pending == 'undo_requested'
+                      ? null
+                      : () => _add(r),
+                  icon: const Icon(Icons.add_photo_alternate_outlined,
+                      size: 18),
+                  label: Text(pending.isEmpty ? 'Add photos' : 'Change')),
+              if (pending == 'approved')
+                const Text('A change is on its way to the website.',
+                    style: TextStyle(fontSize: 13, color: Brand.inkSecondary)),
+              if (pending == 'failed')
+                const Text('The last change did not go through.',
+                    style: TextStyle(fontSize: 13, color: Brand.red)),
+              if (pending == 'undo_requested')
+                const Text('The earlier photos are being put back.',
+                    style: TextStyle(fontSize: 13, color: Brand.inkSecondary)),
+              if (slug.isNotEmpty)
+                TextButton.icon(
+                    onPressed: () => launchUrl(
+                        Uri.parse('https://www.nomadwise.io/coworking/$slug')),
+                    icon: const Icon(Icons.open_in_new, size: 16),
+                    label: const Text('See the page')),
+            ]),
+      ]),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = _rows;
+    return Scaffold(
+      appBar: AppBar(title: const Text('Pages short of photos')),
+      body: _error != null
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  Text(_error!, style: const TextStyle(color: Brand.red)),
+                  const SizedBox(height: 12),
+                  OutlinedButton(
+                      onPressed: () {
+                        setState(() => _error = null);
+                        _load();
+                      },
+                      child: const Text('Try again')),
+                ]),
+              ),
+            )
+          : RefreshIndicator(
+              onRefresh: _load,
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 820),
+                  child: ListView(
+                      padding: const EdgeInsets.fromLTRB(14, 12, 14, 40),
+                      children: [
+                        const Text(
+                            'Pages with fewer than five photos, the most '
+                            'visited first. Press Add photos, open the place '
+                            'on Google, copy the image address of a photo and '
+                            'paste it into a free slot. Saving sends the '
+                            'photos to the page within minutes.',
+                            style: TextStyle(
+                                fontSize: 13,
+                                height: 1.45,
+                                color: Brand.inkSecondary)),
+                        const SizedBox(height: 10),
+                        TextField(
+                          controller: _search,
+                          onChanged: (_) => setState(() {}),
+                          onSubmitted: (_) {
+                            setState(() => _rows = null);
+                            _load();
+                          },
+                          decoration: InputDecoration(
+                            hintText: 'Search by space, area, city or country',
+                            prefixIcon: const Icon(Icons.search),
+                            suffixIcon: _search.text.isEmpty
+                                ? null
+                                : IconButton(
+                                    icon: const Icon(Icons.clear),
+                                    onPressed: () {
+                                      _search.clear();
+                                      setState(() => _rows = null);
+                                      _load();
+                                    }),
+                            border: const OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        if (rows == null)
+                          const Padding(
+                            padding: EdgeInsets.all(24),
+                            child: Center(
+                                child: CircularProgressIndicator(
+                                    color: Brand.red)),
+                          )
+                        else if (rows.isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.all(24),
+                            child: Center(
+                              child: Text(
+                                  'No page is short of photos here. If the '
+                                  'screen was only just set up, the counts '
+                                  'arrive with tonight\'s sync.',
+                                  textAlign: TextAlign.center,
+                                  style:
+                                      TextStyle(color: Brand.inkSecondary)),
+                            ),
+                          )
+                        else ...[
+                          for (final r in rows) _card(r),
+                          if (rows.length >= _limit && _limit < 300)
+                            Center(
+                              child: OutlinedButton(
+                                  onPressed: () {
+                                    setState(() => _limit =
+                                        _limit + 60 > 300 ? 300 : _limit + 60);
+                                    _load();
+                                  },
+                                  child: const Text('Show more')),
+                            ),
                         ],
                       ]),
                 ),

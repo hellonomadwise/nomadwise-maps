@@ -1679,3 +1679,24 @@ half-finished write could have stored the new text as the "old" one
 and broken Undo, and that Take back could race the push. The push
 now claims each change in the database just before writing
 (upgrade_begin), which also keeps the text being replaced.
+
+## 4 Oct 2026: Photos in Page upgrades
+
+Counted from the Images collection: 597 of the 1,011 live pages have
+fewer than five photos and 378 have one; 541 of the 597 are cafes.
+Jonathan wants every page at five. Offered to have the app propose
+Google photos for existing pages as it does for new ones; he chose the
+manual way he already uses for new listings: open the place on Google,
+copy a photo's image address, paste it into a slot.
+So Page upgrades has a Photos row (migrations 127 and 128). It lists
+the pages short of five, most visited first, and opens the existing
+photo page with the page's current photos in the slots. Saving sends
+the list to the page through the same approve, write and undo path as
+the text upgrades. The nightly sync records each page's photo count
+and links.
+Safeguards added after review: a save is refused when the page's
+photos changed after the photo page was opened; a page whose owner has
+added photos in the Owner account is left out and never written over;
+the push stops if the page holds a photo the founder never saw. Not
+compiled or run against the live website before upload: see
+`docs/PAGE_UPGRADES.md`.

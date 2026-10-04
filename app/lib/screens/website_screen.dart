@@ -5548,15 +5548,38 @@ class _PhotosPage extends StatefulWidget {
   final String? placeId;
   final List<String> initial;
   final List<Map<String, dynamic>> candidates;
+  // For a page that is already live (Page upgrades): its photos sit
+  // in the slots, the aim is five, and saving sends them to the page.
+  final bool livePage;
   const _PhotosPage(
       {required this.name,
       required this.searchText,
       required this.initial,
       this.candidates = const [],
-      this.placeId});
+      this.placeId,
+      this.livePage = false});
   @override
   State<_PhotosPage> createState() => _PhotosPageState();
 }
+
+/// The photos page for a listing that is already on nomadwise.io
+/// (Page upgrades): [current] are the photos on it now, in page order.
+/// Returns the links to put on the page, or null when it was closed
+/// without saving.
+Future<List<String>?> openLivePagePhotos(BuildContext context,
+        {required String name,
+        required String searchText,
+        String? placeId,
+        List<String> current = const []}) =>
+    Navigator.push<List<String>>(
+        context,
+        MaterialPageRoute(
+            builder: (_) => _PhotosPage(
+                name: name,
+                searchText: searchText,
+                placeId: placeId,
+                initial: current,
+                livePage: true)));
 
 class _PhotosPageState extends State<_PhotosPage> {
   late final List<TextEditingController> _ctl = List.generate(
@@ -5750,13 +5773,19 @@ class _PhotosPageState extends State<_PhotosPage> {
               decoration: BoxDecoration(
                   color: Brand.field, borderRadius: BorderRadius.circular(12)),
               child: Text(
-                  widget.candidates.isEmpty
-                      ? 'Suggestions arrive a minute or two after queueing. '
-                          'Or open the place on Google, right-click a photo, '
-                          'choose "Copy image address", and paste it below. '
-                          'At least three; the first one is the main picture.'
-                      : 'Any photo not in the grid: right-click it on Google, '
-                          '"Copy image address", paste into a free slot.',
+                  widget.livePage
+                      ? 'The photos on the page now are in the slots. Open '
+                          'the place on Google, right-click a photo, choose '
+                          '"Copy image address", and paste it into a free '
+                          'slot. A page holds five; the first one is the '
+                          'main picture.'
+                      : widget.candidates.isEmpty
+                          ? 'Suggestions arrive a minute or two after queueing. '
+                              'Or open the place on Google, right-click a photo, '
+                              'choose "Copy image address", and paste it below. '
+                              'At least three; the first one is the main picture.'
+                          : 'Any photo not in the grid: right-click it on Google, '
+                              '"Copy image address", paste into a free slot.',
                   style: const TextStyle(fontSize: 12.5, height: 1.45)),
             ),
             const SizedBox(height: 10),
@@ -5833,20 +5862,26 @@ class _PhotosPageState extends State<_PhotosPage> {
               const SizedBox(height: 10),
             ],
             Text(
-                n >= _WebsiteScreenState.minPhotos
-                    ? '$n photos. Enough to approve.'
-                    : '$n of ${_WebsiteScreenState.minPhotos} needed.',
+                widget.livePage
+                    ? (n >= 5
+                        ? 'Five photos. The page is full.'
+                        : '$n of 5. You can save now and add the rest later.')
+                    : n >= _WebsiteScreenState.minPhotos
+                        ? '$n photos. Enough to approve.'
+                        : '$n of ${_WebsiteScreenState.minPhotos} needed.',
                 style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: n >= _WebsiteScreenState.minPhotos
+                    color: n >= (widget.livePage ? 5 : _WebsiteScreenState.minPhotos)
                         ? Brand.success
                         : Brand.goldTextDark)),
             const SizedBox(height: 10),
             ElevatedButton.icon(
                 onPressed: () => Navigator.pop(context, _urls),
                 icon: const Icon(Icons.check, size: 18),
-                label: const Text('Save photos')),
+                label: Text(widget.livePage
+                    ? 'Save and send to the page'
+                    : 'Save photos')),
             const SizedBox(height: 40),
           ]),
         ),
