@@ -27,7 +27,11 @@ jobs:
     name: Analyze, test, compile
     runs-on: ubuntu-latest
     steps:
+      # Two commits deep: the change and the main it was made from,
+      # so the files it touched can be told apart from the rest.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
 
       - uses: subosito/flutter-action@v2
         with:
@@ -60,6 +64,28 @@ jobs:
             col=$(echo "$loc" | cut -d: -f3)
             echo "::error file=app/${file},line=${ln},col=${col},title=${code}::${msg}"
           done
+          # Warnings and hints in the files this change touched, as notes
+          # on their lines (the first ten), so new ones are seen.
+          git diff --name-only HEAD^1 HEAD > ../changed.txt 2>/dev/null || true
+          grep -E '^\s*(warning|info) •' ../analyze.log | while IFS= read -r line; do
+            msg=$(echo "$line" | awk -F ' • ' '{print $2}')
+            loc=$(echo "$line" | awk -F ' • ' '{print $3}')
+            code=$(echo "$line" | awk -F ' • ' '{print $4}')
+            file=$(echo "$loc" | cut -d: -f1)
+            ln=$(echo "$loc" | cut -d: -f2)
+            if grep -qxF "app/${file}" ../changed.txt; then
+              echo "::warning file=app/${file},line=${ln},title=${code}::${msg}"
+            fi
+          done | head -n 10
+          # And the count per touched file, in one note.
+          per_file=""
+          for f in $(grep -E '^app/.*\.dart$' ../changed.txt || true); do
+            n=$(grep -E '^\s*(warning|info) •' ../analyze.log | grep -cF " • ${f#app/}:" || true)
+            per_file="${per_file}${f#app/}: ${n}; "
+          done
+          if [ -n "$per_file" ]; then
+            echo "::notice title=Warnings and hints in the files changed::${per_file}"
+          fi
           if [ "$errors" -gt 0 ]; then
             echo "Analysis found ${errors} errors."
             exit 1

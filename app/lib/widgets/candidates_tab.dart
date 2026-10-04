@@ -359,6 +359,7 @@ class _CandidatesTabState extends State<CandidatesTab> {
                                 try {
                                   await widget.supabase.candidateRestore(id);
                                   changed = true;
+                                  if (!ctx.mounted) return;
                                   setSheet(() {
                                     rows.remove(r);
                                   });
