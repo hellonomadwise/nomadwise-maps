@@ -47,6 +47,14 @@ const _jobs = <String, _JobInfo>{
       'Nightly photo check',
       'Every night, marks food and drink close-ups so they are not used '
           'as a space\'s main photo.'),
+  'candidate evidence': _JobInfo(
+      'Candidate evidence',
+      'Every night, for the Candidates list: asks Google\'s search for '
+          'places to work in the cities being worked on, and looks up the '
+          'places other sites name to see they are still open. Kept inside '
+          'Google\'s free monthly amount for this kind of call (Text '
+          'Search Pro), with part of it left for the app: the Candidates '
+          'list says how much is used.'),
   'app': _JobInfo(
       'Visitors in the app',
       'People using the map: opening a space (live hours and rating), '

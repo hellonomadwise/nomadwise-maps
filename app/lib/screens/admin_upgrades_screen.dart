@@ -1148,12 +1148,34 @@ class _PagesPageState extends State<_PagesPage> {
     ('search', 'Searched for on Google'),
     ('requested', 'Requested'),
     ('waiting', 'Waiting for your Go'),
+    ('done', 'Done'),
   ];
 
   @override
   void initState() {
     super.initState();
     _load();
+  }
+
+  /// "Done for now" on a page, or "Back to the list" (migration 142).
+  /// Done moves it to the bottom of the list and under "Done"; a new
+  /// draft for it brings it back to the top by itself.
+  Future<void> _markDone(Map<String, dynamic> r, bool done) async {
+    final id = '${r['venue_id']}';
+    if (_busy.contains(id)) return;
+    setState(() => _busy.add(id));
+    try {
+      await _supabase.upgradePageDone(id, done: done);
+      _snack(done
+          ? '${r['name']}: done for now. It is at the bottom of the list '
+              'and under "Done".'
+          : '${r['name']}: back on the list.');
+      await _load();
+    } catch (e) {
+      _snack(_plainError(e), bad: true);
+    } finally {
+      if (mounted) setState(() => _busy.remove(id));
+    }
   }
 
   @override
@@ -1302,12 +1324,22 @@ class _PagesPageState extends State<_PagesPage> {
     final words = _int(r['desc_words']);
     final title = '${r['title'] ?? ''}'.trim();
     final photos = r['photos'] is num ? (r['photos'] as num).toInt() : null;
+    // Dealt with (a Go, a request, or "Done for now"): at the bottom
+    // of the list and under "Done" until a new draft arrives.
+    final done = r['done'] == true;
+    final doneDay = _when(r['done_at']);
+    final doneHow = switch ('${r['done_how'] ?? ''}') {
+      'go' => 'you decided on a draft',
+      'requested' => 'an upgrade was requested',
+      'marked' => 'marked done',
+      _ => '',
+    };
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Brand.surface,
+        color: done ? Brand.field : Brand.surface,
         border: Border.all(color: Brand.border),
         borderRadius: BorderRadius.circular(12),
       ),
@@ -1329,6 +1361,10 @@ class _PagesPageState extends State<_PagesPage> {
                 _chip('$failed NEED A LOOK', bg: Brand.accentTint, fg: Brand.red),
               if (onWay > 0) _chip('$onWay ON THE WAY'),
               if (live > 0) _chip('$live LIVE'),
+              // a requested page is in hand, not done: it says REQUESTED
+              if (done && !requested)
+                _chip(doneDay.isEmpty ? 'DONE' : 'DONE $doneDay'.toUpperCase(),
+                    bg: Brand.successTint, fg: Brand.success),
               if (r['owned'] == true)
                 _chip('HAS AN OWNER',
                     bg: Brand.goldTint, fg: Brand.goldTextDark),
@@ -1363,6 +1399,15 @@ class _PagesPageState extends State<_PagesPage> {
                 style: const TextStyle(
                     fontSize: 12.5, height: 1.4, color: Brand.goldTextDark)),
           ),
+        if (done && !requested && doneHow.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text(
+                'Dealt with${doneDay.isEmpty ? '' : ' on $doneDay'}: '
+                '$doneHow. A new draft brings it back to the top.',
+                style: const TextStyle(
+                    fontSize: 12.5, height: 1.4, color: Brand.inkMuted)),
+          ),
         const SizedBox(height: 8),
         Wrap(
             spacing: 8,
@@ -1391,6 +1436,17 @@ class _PagesPageState extends State<_PagesPage> {
                         Uri.parse('https://www.nomadwise.io/coworking/$slug')),
                     icon: const Icon(Icons.open_in_new, size: 16),
                     label: const Text('See it live')),
+              // Checked and nothing to change, or enough for now: off
+              // the top of the list. Not offered while a draft waits.
+              if (done && !requested)
+                TextButton(
+                    onPressed: busy ? null : () => _markDone(r, false),
+                    child: const Text('Back to the list'))
+              else if (!done && waiting == 0 && failed == 0)
+                TextButton.icon(
+                    onPressed: busy ? null : () => _markDone(r, true),
+                    icon: const Icon(Icons.check, size: 16),
+                    label: const Text('Done for now')),
             ]),
       ]),
     );
@@ -1428,10 +1484,15 @@ class _PagesPageState extends State<_PagesPage> {
                         Row(children: [
                           const Expanded(
                             child: Text(
-                                'Every live page, the most promising first. '
-                                'Open a page to see what it says now and to '
-                                'change it, or request an upgrade to have '
-                                'it drafted for you.',
+                                'Your to-do list of live pages: drafts '
+                                'waiting for your Go first, then the most '
+                                'promising pages. Open a page to see what '
+                                'it says now and to change it, or request '
+                                'an upgrade to have it drafted for you. A '
+                                'page you have dealt with (a Go or a skip '
+                                'on a draft, or "Done for now") moves to '
+                                'the bottom and under "Done"; a requested '
+                                'page waits under "Requested".',
                                 style: TextStyle(
                                     fontSize: 13,
                                     height: 1.45,
@@ -1513,6 +1574,8 @@ class _PagesPageState extends State<_PagesPage> {
                                     'search' =>
                                       'No page is known to rank for a '
                                           'search yet.',
+                                    'done' =>
+                                      'No page has been dealt with yet.',
                                     _ => 'No page matches that.',
                                   },
                                   textAlign: TextAlign.center,

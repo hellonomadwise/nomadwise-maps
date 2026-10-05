@@ -73,6 +73,15 @@ class Candidate {
   /// phrase is a brand's ("wework london") rather than this place's.
   final int searchShared;
 
+  /// How many other sites and blogs name it (migration 140), and the
+  /// first few of them, the most trusted first.
+  final int mentions;
+  final List<String> mentionSources;
+
+  /// What Google's own search returns it for in its city: "laptop
+  /// friendly cafe", "cafe to work from", both or neither.
+  final List<String> workPhrases;
+
   const Candidate({
     required this.placeId,
     required this.name,
@@ -103,7 +112,15 @@ class Candidate {
     this.address,
     this.sameName = 1,
     this.searchShared = 1,
+    this.mentions = 0,
+    this.mentionSources = const [],
+    this.workPhrases = const [],
   });
+
+  static List<String> _strings(dynamic x) => [
+        for (final e in (x is List ? x : const []))
+          if ('${e ?? ''}'.trim().isNotEmpty) '$e'.trim(),
+      ];
 
   factory Candidate.fromJson(Map<String, dynamic> j) => Candidate(
         placeId: '${j['google_place_id']}',
@@ -136,6 +153,9 @@ class Candidate {
             : j['address'].toString().trim(),
         sameName: (j['same_name'] as num?)?.toInt() ?? 1,
         searchShared: (j['search_shared'] as num?)?.toInt() ?? 1,
+        mentions: (j['mentions'] as num?)?.toInt() ?? 0,
+        mentionSources: _strings(j['mention_sources']),
+        workPhrases: _strings(j['work_phrases']),
         priority: (j['priority'] as num?)?.toInt() ?? 0,
       );
 
@@ -168,22 +188,66 @@ class Candidate {
   /// map (which keeps the counts without the day they were read).
   bool get reviewsRead => checked || laptop + power + wifi > 0;
 
-  /// How sure the reviews make us that a cafe is a place to open a
-  /// laptop: 'strong', 'some', 'thin' or 'unread'. Google gives five
-  /// reviews per place, so this is a first sign and not a verdict.
-  /// Null for a coworking space, which needs no such sign.
+  /// True when its reviews were read or something else speaks for it.
+  bool get _anySign =>
+      reviewsRead || mentions > 0 || workPhrases.isNotEmpty;
+
+  /// How sure we are that a cafe is a place to open a laptop:
+  /// 'strong', 'some', 'thin' or 'unread'. Null for a coworking
+  /// space, which needs no such sign.
   ///
-  /// Strong: two or more of the five reviews talk about working
-  /// there. Some: one review does, or plugs and WiFi are both
-  /// mentioned (one review can be counted for each, so this is not
-  /// two voices). Thin: a mention of WiFi or of plugs alone, which
-  /// any cafe can get.
+  /// Three kinds of sign count (migrations 139 and 140): reviews that
+  /// talk about working there (Google gives five reviews a place),
+  /// other sites naming it in their lists of cafes to work from, and
+  /// Google's own search returning it for "laptop friendly cafe" or
+  /// "cafe to work from".
+  ///
+  /// Strong: one kind twice over (two reviews, two sites, both
+  /// phrases), or two kinds agreeing. Some: one of them once, or
+  /// plugs and WiFi both mentioned. Thin: WiFi alone or plugs alone,
+  /// which any cafe can get.
   String? get workEvidence {
     if (coworking) return null;
-    if (laptop >= 2) return 'strong';
-    if (laptop == 1 || (power >= 1 && wifi >= 1)) return 'some';
+    final kinds = (laptop >= 1 ? 1 : 0) +
+        (mentions >= 1 ? 1 : 0) +
+        (workPhrases.isNotEmpty ? 1 : 0);
+    if (laptop >= 2 || mentions >= 2 || workPhrases.length >= 2 || kinds >= 2) {
+      return 'strong';
+    }
+    if (kinds == 1 || (power >= 1 && wifi >= 1)) return 'some';
     if (power + wifi >= 1) return 'thin';
-    return reviewsRead ? 'thin' : 'unread';
+    return _anySign ? 'thin' : 'unread';
+  }
+
+  /// What speaks for it from outside its own reviews, in plain words:
+  /// who names it, and what Google's search returns it for.
+  List<String> get outsideReasons {
+    final out = <String>[];
+    if (mentions > 0) {
+      final names = mentionSources.take(3).toList();
+      final rest = mentions - names.length;
+      String list;
+      if (names.isEmpty) {
+        list = '';
+      } else if (rest > 0) {
+        list = '${names.join(', ')} and $rest more';
+      } else if (names.length == 1) {
+        list = names.first;
+      } else {
+        list = '${names.sublist(0, names.length - 1).join(', ')} '
+            'and ${names.last}';
+      }
+      out.add(mentions == 1
+          ? (list.isEmpty ? 'Named by 1 other site' : 'Named by $list')
+          : (list.isEmpty
+              ? 'Named by $mentions other sites'
+              : 'Named by $mentions sites: $list'));
+    }
+    if (workPhrases.isNotEmpty) {
+      out.add('Google returns it for '
+          '${workPhrases.map((p) => '"$p"').join(' and ')}');
+    }
+    return out;
   }
 
   /// The same, as the card says it.

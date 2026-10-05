@@ -29,7 +29,10 @@ Map<String, dynamic> place(String id, String name, String area,
         bool other = false,
         String? address,
         int shared = 1,
-        int sameName = 1}) =>
+        int sameName = 1,
+        int mentions = 0,
+        List<String> mentionSources = const [],
+        List<String> workPhrases = const []}) =>
     {
       'google_place_id': id,
       'name': name,
@@ -60,6 +63,10 @@ Map<String, dynamic> place(String id, String name, String area,
       'address': address,
       'search_shared': shared,
       'same_name': sameName,
+      // Other sites and Google's own search (migration 140).
+      'mentions': mentions,
+      'mention_sources': mentionSources,
+      'work_phrases': workPhrases,
     };
 
 /// The database, as far as this screen is concerned.
@@ -78,6 +85,12 @@ class FakeDatabase extends SupabaseService {
   /// day they were looked up (none unless a test sets them).
   Map<String, Map<String, dynamic>> areaFacts = {};
   String? searchDay;
+
+  /// What other sites name (none unless a test sets it).
+  Map<String, dynamic>? mentionSummary;
+
+  /// What may be asked of Google for the evidence (none unless set).
+  Map<String, dynamic>? evidencePlan;
 
   List<Map<String, dynamic>> get _open => places
       .where((p) =>
@@ -118,6 +131,8 @@ class FakeDatabase extends SupabaseService {
       'dismissed': dismissed.length,
       'search_measured': searchDay,
       'without_search': searchDay == null ? 0 : 1,
+      if (mentionSummary != null) 'mention_summary': mentionSummary,
+      if (evidencePlan != null) 'evidence_plan': evidencePlan,
     };
   }
 
@@ -223,14 +238,18 @@ Future<Harness> open(WidgetTester tester, List<Map<String, dynamic>> places,
     {Size size = const Size(360, 780),
     bool fail = false,
     Map<String, Map<String, dynamic>> areaFacts = const {},
-    String? searchDay}) async {
+    String? searchDay,
+    Map<String, dynamic>? mentionSummary,
+    Map<String, dynamic>? evidencePlan}) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.reset);
   final db = FakeDatabase(places)
     ..fail = fail
     ..areaFacts = areaFacts
-    ..searchDay = searchDay;
+    ..searchDay = searchDay
+    ..mentionSummary = mentionSummary
+    ..evidencePlan = evidencePlan;
   final h = Harness(db, FakeGoogle());
   await tester.pumpWidget(MaterialApp(
     theme: nomadwiseTheme(),
@@ -423,6 +442,83 @@ void main() {
     expect(find.text('Google'), findsNWidgets(4));
     expect(find.text('Map'), findsNWidgets(4));
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a card says who else names it and what Google returns it for',
+      (tester) async {
+    await open(
+        tester,
+        [
+          place('m1', 'Named Cafe', 'Chiang Mai',
+              mentions: 5,
+              mentionSources: ['Thatsup', 'LaptopFriendly', 'Blog', 'More'],
+              workPhrases: ['laptop friendly cafe', 'cafe to work from']),
+          place('m2', 'Once Named', 'Chiang Mai',
+              wifi: 1, mentions: 1, mentionSources: ['Thatsup']),
+          place('m3', 'Plain Cafe', 'Chiang Mai', wifi: 1),
+        ],
+        size: const Size(360, 3000),
+        mentionSummary: {
+          'sources': 38,
+          'places': 845,
+          'listed': 120,
+          'on_site': 95,
+          'matched': 300,
+          'closed': 20,
+          'not_found': 40,
+          'several': 12,
+          'waiting': 67,
+          'parked': 286,
+        },
+        evidencePlan: {
+          'kind': 'Text Search Pro',
+          'cities': ['london'],
+          'min_points': 2,
+          'calls_per_run': 40,
+          'calls_per_month': 1000,
+          'free_per_month': 5000,
+          'keep_back': 1500,
+          'used_job': 46,
+          'used_all': 310,
+          'left_month': 954,
+          'left_run': 40,
+        });
+
+    expect(find.text('Named by 5 sites: Thatsup, LaptopFriendly, Blog and 2 more'),
+        findsOneWidget);
+    expect(
+        find.text('Google returns it for "laptop friendly cafe" and '
+            '"cafe to work from"'),
+        findsOneWidget);
+    expect(find.text('Named by Thatsup'), findsOneWidget);
+    // Two kinds of sign make it strong; one makes it some; WiFi alone thin.
+    expect(find.text('Strong signs people work here'), findsOneWidget);
+    expect(find.text('Some signs people work here'), findsOneWidget);
+    expect(find.text('Thin signs people work here: look before you queue'),
+        findsOneWidget);
+    // What became of everything the other sites name.
+    expect(
+        find.text('Other sites: 38 sites name 845 places. 120 are on Nomad '
+            'Maps already (95 on the site), 300 were found open and are '
+            'candidates, 20 have closed, 40 not found on Google, 12 are '
+            'brands with several places, 67 still to check, 286 named by '
+            'one ordinary site are not checked for now.'),
+        findsOneWidget);
+    // How much Google is asked for it, inside the free amount.
+    expect(
+        find.text('Google lookups for this: 46 of 1,000 this month, at most '
+            '40 a day, London only. Google\'s free 5,000 a month for this '
+            'kind of call: 310 used by everything, 1,500 kept back for the '
+            'app.'),
+        findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('no line about other sites when none were read',
+      (tester) async {
+    await open(tester, chiangMai);
+    expect(find.textContaining('Other sites:'), findsNothing);
+    expect(find.textContaining('Google lookups for this'), findsNothing);
   });
 
   testWidgets('a city chip narrows the list to that city', (tester) async {

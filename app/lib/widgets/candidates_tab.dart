@@ -86,6 +86,14 @@ class _CandidatesTabState extends State<CandidatesTab> {
   DateTime? _searchMeasured;
   int _withoutSearch = 0;
 
+  /// What other sites name in the chosen city (or everywhere), and
+  /// where each named place stands (migration 140).
+  Map<String, dynamic> _mentionSummary = const {};
+
+  /// What may be asked of Google for this evidence, and what has been
+  /// this month (public.evidence_plan(), migration 140).
+  Map<String, dynamic> _evidencePlan = const {};
+
   /// Places with a decision on its way to the database.
   final Set<String> _busy = {};
 
@@ -165,6 +173,12 @@ class _CandidatesTabState extends State<CandidatesTab> {
       _searchMeasured =
           DateTime.tryParse((r['search_measured'] ?? '').toString());
       _withoutSearch = (r['without_search'] as num?)?.toInt() ?? 0;
+      _mentionSummary = r['mention_summary'] is Map
+          ? Map<String, dynamic>.from(r['mention_summary'] as Map)
+          : const {};
+      _evidencePlan = r['evidence_plan'] is Map
+          ? Map<String, dynamic>.from(r['evidence_plan'] as Map)
+          : const {};
       _loading = false;
       _error = null;
     });
@@ -600,8 +614,93 @@ class _CandidatesTabState extends State<CandidatesTab> {
               style: const TextStyle(
                   fontSize: 12, color: Brand.inkMuted, height: 1.4)),
         ],
+        if (_mentionLine() != null) ...[
+          const SizedBox(height: 4),
+          Text(_mentionLine()!,
+              style: const TextStyle(
+                  fontSize: 12, color: Brand.inkMuted, height: 1.4)),
+        ],
+        if (_planLine() != null) ...[
+          const SizedBox(height: 4),
+          Text(_planLine()!,
+              style: const TextStyle(
+                  fontSize: 12, color: Brand.inkMuted, height: 1.4)),
+        ],
       ]),
     );
+  }
+
+  /// How much Google is asked for this evidence, kept inside its free
+  /// monthly amount: "Google lookups for this: 46 of 1,000 this month,
+  /// at most 40 a day, London only. Google's free 5,000 a month for
+  /// this kind of call: 310 used by everything, 1,500 kept back for
+  /// the app." Null when the plan could not be read.
+  String? _planLine() {
+    final p = _evidencePlan;
+    if (p['calls_per_month'] is! num) return null;
+    int v(String k) => (p[k] as num?)?.toInt() ?? 0;
+    String n(int x) => Candidate.thousands(x);
+    // "london" as "London", "chiang mai" as "Chiang Mai"
+    String cap(String s) => s
+        .split(' ')
+        .map((w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}')
+        .join(' ');
+    final cities = [
+      for (final c in (p['cities'] is List ? p['cities'] as List : const []))
+        if ('$c'.trim().isNotEmpty) cap('$c'.trim()),
+    ];
+    final where = cities.isEmpty
+        ? 'no city chosen'
+        : cities.length == 1
+            ? '${cities.first} only'
+            : cities.join(', ');
+    final stopped = v('left_month') <= 0
+        ? ' Nothing more is asked this month.'
+        : '';
+    return 'Google lookups for this: ${n(v('used_job'))} of '
+        '${n(v('calls_per_month'))} this month, at most '
+        '${n(v('calls_per_run'))} a day, $where. Google\'s free '
+        '${n(v('free_per_month'))} a month for this kind of call: '
+        '${n(v('used_all'))} used by everything, ${n(v('keep_back'))} kept '
+        'back for the app.$stopped';
+  }
+
+  /// What the other sites and blogs name, and what became of each
+  /// name: "Other sites: 38 sites name 845 places in London. 120 are
+  /// on Nomad Maps already, 90 were found open and are candidates, 20
+  /// have closed, 150 still to check, 586 named by one ordinary site
+  /// are not checked for now.". Null when none were read for this
+  /// city.
+  String? _mentionLine() {
+    int v(String k) => (_mentionSummary[k] as num?)?.toInt() ?? 0;
+    final places = v('places');
+    if (places == 0) return null;
+    final sources = v('sources');
+    final where = _area == null ? '' : ' in $_area';
+    final listed = v('listed');
+    final onSite = v('on_site');
+    final parts = <String>[
+      if (listed > 0)
+        '$listed ${listed == 1 ? 'is' : 'are'} on Nomad Maps already'
+            '${onSite > 0 && onSite < listed ? ' ($onSite on the site)' : ''}',
+      if (v('matched') > 0)
+        '${v('matched')} ${v('matched') == 1 ? 'was' : 'were'} found open '
+            'and ${v('matched') == 1 ? 'is a candidate' : 'are candidates'}',
+      if (v('closed') > 0)
+        '${v('closed')} ${v('closed') == 1 ? 'has' : 'have'} closed',
+      if (v('not_found') > 0) '${v('not_found')} not found on Google',
+      if (v('several') > 0)
+        '${v('several')} ${v('several') == 1 ? 'is a brand' : 'are brands'} '
+            'with several places',
+      if (v('waiting') > 0) '${v('waiting')} still to check',
+      // named by too little to be worth a lookup for now
+      if (v('parked') > 0)
+        '${v('parked')} named by one ordinary site ${v('parked') == 1 ? 'is' : 'are'} '
+            'not checked for now',
+    ];
+    return 'Other sites: $sources ${sources == 1 ? 'site names' : 'sites name'} '
+        '$places ${places == 1 ? 'place' : 'places'}$where. '
+        '${parts.join(', ')}.';
   }
 
   /// What the numbers say about the chosen city, and the order of the
@@ -661,9 +760,10 @@ class _CandidatesTabState extends State<CandidatesTab> {
         const SizedBox(height: 4),
         const Text(
             'On a cafe, "strong", "some" or "thin" signs says how sure '
-            'the reviews make us that people work there. Google shows '
-            'five reviews a place, so look at a thin one before you '
-            'queue it.',
+            'we are that people work there: what its reviews say '
+            '(Google shows five a place), whether other sites name it, '
+            'and whether Google\'s own search returns it for a place '
+            'to work. Look at a thin one before you queue it.',
             style:
                 TextStyle(fontSize: 12, color: Brand.inkMuted, height: 1.4)),
       ]),
@@ -820,6 +920,8 @@ class _CandidatesTabState extends State<CandidatesTab> {
                     'some' => Brand.gold,
                     _ => Brand.inkMuted,
                   }),
+            // Who else names it, and what Google's search says.
+            for (final r in c.outsideReasons) _why(r, Brand.success),
             // What the search numbers say, then what the reviews say.
             for (final (text, good) in c.searchReasons)
               _why(text, good ? Brand.success : Brand.inkMuted),

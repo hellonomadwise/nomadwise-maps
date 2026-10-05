@@ -2275,3 +2275,170 @@ Bastard Cafe and The Cluster untouched; applying twice; paging), the
 address catch-up against stand-ins for Google and the database, and
 one independent review of the Dart, the tests and the nightly job.
 Not compiled here.
+
+## 5 Oct 2026: two more kinds of evidence for a candidate (Google's search, other sites)
+
+Jonathan said yes to asking Google's own search for places to work in
+each city, and added: "review competitor websites and other leading
+blogs that mention cafes and coworking spaces, and then screen them to
+make sure they are still open for business." He chose London first,
+and laptop-cafe directories, coworking directories and city blogs and
+magazines, with the list of sites shown to him.
+
+Built (migrations 140 and 141, `scripts/place_evidence.py` called at
+the end of `enrich_venues.py`, `candidate.dart`, `candidates_tab.dart`):
+
+- **Google's search.** For each city worked on (London to start; see
+  the next entry), most searched first: "laptop friendly cafe in
+  <city>" and "cafe to work from in <city>", up to three pages each. Open cafes and coworking spaces within 45 km are
+  kept with the phrases that returned them
+  (`discovered_places.work_phrases`); a place not known yet is added,
+  so this also finds candidates. Asked again after 120 days. Libraries,
+  hotels and bars are left out (found places are drawn on the map).
+- **Other sites.** A session reads the sites and loads the names
+  (`set_mention_sources`, `set_place_mentions(city, rows)`; names, the
+  neighbourhood or address a site gives, where it was read; none of
+  their text). Each name is matched to a place: free first, against the
+  spaces and found places we have (same name, or the name before a
+  dash); then Google is asked by name, the most named first, within
+  the plan of the next entry. Google's answer also says whether it is open. Outcomes:
+  listed (a space on Nomad Maps), matched (a candidate), closed, not
+  found, several (a brand with several places and no branch named).
+  Closed, not found and several are asked again after 120 days.
+- **A closed place is never a candidate**: when Google says a named
+  place has closed, the found place with that id leaves the list
+  whatever its reviews said.
+- **On the card:** "Named by 3 sites: Thatsup, LaptopFriendly and
+  Blog" and "Google returns it for ...". A place can be on the list on
+  these alone. A coworking list naming a place makes it a coworking
+  space on the card, whatever Google files it under.
+- **The cafe grade** now counts three kinds of sign: reviews that talk
+  about working there, other sites naming it, Google's search returning
+  it. Strong: one kind twice over or two kinds agreeing. Some: one of
+  them once, or plugs and WiFi both. Thin: WiFi or plugs alone.
+- **In "best bets first":** 4 points a phrase (two at most), 3 points
+  a site (a trusted one counts double, 6 at most).
+- **The line under the totals** says what became of everything the
+  other sites name in the chosen city.
+
+London, read on 5 Oct 2026: 38 sites, 1,096 mentions, 845 places (492
+cafes, 354 coworking spaces; 148 named by two sites or more). Weight 2
+(hand-picked lists from known publishers): Thatsup, The Infatuation,
+SquareMeal, London x London, The Handbook, Time Out London, Londonist,
+CBRE, Work Cafes London. Left out as too loose: Cafe Nomad, Downunder
+Cafe, Workfrom. Could not be read: Coworker.com, Corner, Londonyaar.
+To strike a site: `update mention_sources set weight = 0 where source
+= '...'`. The full list is in the project
+(`growth-engine/data/2026-10-05-london-mention-sources.csv`).
+
+Cost: see the next entry (kept inside Google's free monthly amount).
+Both parts also stop at the day's Google limit and when the job is
+paused in the app, and a problem saving stops the run after at most
+ten calls.
+
+Limits, said plainly. A place matched for free was open when the
+sweep found it and is checked again by the 30-day review scan, not at
+the moment of matching. A name can be matched to the wrong place of a
+similar name; the card shows Google's name and address so it can be
+seen. A brand named without a branch (Grind, WeWork) is "several" and
+credits no branch. Other cities need a session to read their sites
+first.
+
+Checked (with the next entry's changes): 92 checks on a local Postgres with the 477 real candidates
+and the real script against a stand-in for Google (pages, closed,
+far away, a brand, a pub of the same name, a closed place of the exact
+name beside an open branch, the day's limit, Google refusing, a save
+that fails, the 120-day retry), both migrations applied twice, the
+London load timed with 5,000 extra places (0.2 s), and one independent
+review whose findings were fixed. Not compiled here, and not run
+against the real Google: the first nightly run is the first real test.
+
+## 5 Oct 2026: the evidence job stays inside Google's free amount
+
+Jonathan, on being told the two would cost up to about $46 at list
+price: "can you reduce volume down to sit within the free allowance,
+minus contingency for current traffic / activity. At the moment it's
+quality over quantity, and I want to make sure we iterate and get the
+flow / system / process right." Nothing had been uploaded, so the
+first version never ran.
+
+Google gives each kind of call its own free amount a month (their
+pricing list, checked 5 Oct 2026: Text Search Pro 5,000, Text Search
+Enterprise 1,000, Place Details Essentials 10,000, Place Details
+Enterprise + Atmosphere 1,000). So:
+
+- **One kind of call, the one with the most free room.** Every call of
+  the job is a Text Search asking only for name, place, type, open or
+  closed and short address: "Text Search Pro". The rating would make
+  it "Enterprise", so it is no longer asked for there; the review scan
+  now reads the rating on a call it already makes (same price).
+- **A plan the database gives each run** (`evidence_plan()`, settings
+  in `sync_settings` key `place_evidence`): at most 40 calls a day and
+  1,000 a month for this job; 1,500 of the 5,000 kept back for the app
+  and the other jobs; and the job stops when everyone's use of the
+  kind this month, read from `api_usage`, reaches 3,500. The script
+  counts its own calls and cannot make more than the plan gives.
+- **Quality before quantity.** London only. A named place is looked up
+  only when two sites or one trusted list give it (257 of London's
+  845); the 586 named by one ordinary site are parked and said so on
+  the list. The search phrases are asked for London alone (6 calls).
+  London needs about 260 calls in all, about a week at 40 a day.
+- **Seen and stopped from the app.** The Candidates list says how many
+  lookups the month has used, of the job's 1,000 and of Google's free
+  5,000. The Google calls page lists the job as "Candidate evidence"
+  with its own pause switch (its calls are counted apart from the
+  nightly refresh: `google_meter.switch`).
+- **To widen later:** `update sync_settings set value = value ||
+  '{"cities": ["London", "Lisbon"]}' where key = 'place_evidence'`;
+  the same for `min_points`, `calls_per_run`, `calls_per_month`,
+  `keep_back`. A new city also needs its sites read and loaded.
+
+Said to Jonathan, not acted on: the nightly review scan (250 places a
+night, "Place Details Enterprise + Atmosphere") is a kind with 1,000
+free a month, so at its present pace most of it is paid for at list
+price. It was there before today and is his to decide.
+
+## 5 Oct 2026: "Choose a page" is an inbox
+
+Jonathan: "once I've reviewed and checked and pushed with a listing, I
+would like it to cycle to the bottom of the list or move into a
+different section, whichever you think is best. So that there is a
+kind of an inbox list of todo, so it cycles, and I can just focus on
+the top of the list all the time, unless I want to search."
+
+Both (migration 142, `admin_upgrades_screen.dart`). The list runs in
+three parts: pages with a draft waiting for a Go; pages not dealt with
+yet, the most promising first; pages dealt with, the longest ago
+first, so the list comes round again once the rest is done. A page is
+dealt with when a Go or a skip was pressed on a draft for it, when an
+upgrade was requested for it, or when "Done for now" was pressed on
+its card. A new draft brings it back to the top by itself; "Back to
+the list" does it by hand. A new chip, "Done", shows the pages dealt
+with, the latest first (a requested page stays under "Requested"
+instead). Search finds any page. From the first day every page that
+already had a Go or a skip is "Done".
+
+Checked: 24 checks on a local Postgres with the real pages (done, Go,
+skip, requested, a new draft, back to the list, the order at the end,
+nothing lost or twice), one independent review. Not compiled here.
+
+## 5 Oct 2026: the Price check list is an inbox too
+
+Jonathan, on the Price check list, where the four spaces already
+checked sat at the top (the list ran by name): "same with this area.
+For those that have been reviewed, cycle them."
+
+Migration 143 (`admin_prices_spaces`): changes waiting for a Go first;
+then the spaces not looked at yet, by name as before; then the spaces
+dealt with, the longest ago first, so the stalest check is the next
+one up when the rest is done. Dealt with means: looked at against
+their own website, a check requested, or a Go or a skip pressed on a
+change. A new change waiting for a Go brings a space back to the top.
+"Checked" shows the spaces looked at, the latest first. No button was
+added: here "reviewed" is a fact the check records, not a choice.
+
+Checked: 22 checks on a local Postgres with the real products (order
+of the three parts, the cycle, Checked, requested, a new change,
+nothing lost or twice), applied twice. Not compiled here (the screen
+only gained a sentence).
+

@@ -484,6 +484,8 @@ for p in unchecked:
     negatives = 0
     hours = None
     address = None
+    rating = None          # never the place before's
+    rating_count = None
     try:
         # Opening hours ride along on the same call the review scan
         # already pays for; stored, they make "open now?" free forever.
@@ -496,8 +498,13 @@ for p in unchecked:
                 'X-Goog-Api-Key': PLACES_KEY,
                 'X-Goog-FieldMask':
                     'reviews,businessStatus,regularOpeningHours'
+                    # the rating too: places found by the evidence
+                    # searches come without one (migration 140)
+                    ',rating,userRatingCount'
                     + (',shortFormattedAddress' if has_address_col else ''),
             })
+        rating = (details or {}).get('rating')
+        rating_count = (details or {}).get('userRatingCount')
         hours = ((details or {}).get('regularOpeningHours')
                  or {}).get('periods')
         address = ((details or {}).get('shortFormattedAddress')
@@ -540,6 +547,10 @@ for p in unchecked:
                 **({'hours': hours} if hours else {}),
                 **({'address': address[:200]}
                    if address and has_address_col else {}),
+                **({'rating': rating}
+                   if isinstance(rating, (int, float)) else {}),
+                **({'user_rating_count': rating_count}
+                   if isinstance(rating_count, int) else {}),
             })
         checked += 1
         if any(counts.values()) and negatives == 0:
@@ -833,3 +844,25 @@ try:
         print('Sweep: queue fully swept.')
 except Exception as e:  # noqa: BLE001
     print(f'Sweep phase skipped (migration 34 not run yet?): {e}')
+
+
+# ============================================================
+# Phase 5: evidence for Candidates (migration 140). Google's own
+# search for places to work in each city, and the places other sites
+# name, matched and checked as still open. Its own module
+# (scripts/place_evidence.py); a problem there is a line in this log
+# and nothing else.
+# ============================================================
+try:
+    import place_evidence  # noqa: E402
+    # Its calls are counted as a job of their own ("candidate
+    # evidence" on the Google calls page, with its own pause switch).
+    google_meter.switch('candidate evidence')
+    place_evidence.run(req, SUPABASE_URL, sb_headers, PLACES_KEY)
+except Exception as e:  # noqa: BLE001
+    print(f'Evidence phase skipped: {e}')
+finally:
+    try:
+        google_meter.switch('nightly refresh')
+    except Exception:  # noqa: BLE001
+        pass

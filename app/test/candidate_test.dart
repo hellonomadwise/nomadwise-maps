@@ -228,6 +228,55 @@ void main() {
           'Thin signs people work here: look before you queue');
     });
 
+    test('other sites and Google\'s search count too (migration 140)', () {
+      Candidate c(Map<String, dynamic> extra) => Candidate.fromJson(
+          row({'laptop': 0, 'power': 0, 'wifi': 0, 'checked': false, ...extra}));
+      // one kind twice over
+      expect(c({'mentions': 2}).workEvidence, 'strong');
+      expect(
+          c({
+            'work_phrases': ['laptop friendly cafe', 'cafe to work from']
+          }).workEvidence,
+          'strong');
+      // two kinds agreeing
+      expect(
+          c({
+            'mentions': 1,
+            'work_phrases': ['cafe to work from']
+          }).workEvidence,
+          'strong');
+      expect(c({'laptop': 1, 'mentions': 1}).workEvidence, 'strong');
+      // one of them once
+      expect(c({'mentions': 1}).workEvidence, 'some');
+      expect(
+          c({
+            'work_phrases': ['laptop friendly cafe']
+          }).workEvidence,
+          'some');
+      // nothing at all, reviews not read
+      expect(c({}).workEvidence, 'unread');
+    });
+
+    test('who names it is said in words', () {
+      Candidate c(int n, List<String> names) => Candidate.fromJson(
+          row({'mentions': n, 'mention_sources': names}));
+      expect(c(0, []).outsideReasons, isEmpty);
+      expect(c(1, ['Thatsup']).outsideReasons, ['Named by Thatsup']);
+      expect(c(2, ['Thatsup', 'Blog']).outsideReasons,
+          ['Named by 2 sites: Thatsup and Blog']);
+      expect(c(3, ['A', 'B', 'C']).outsideReasons,
+          ['Named by 3 sites: A, B and C']);
+      expect(c(6, ['A', 'B', 'C', 'D']).outsideReasons,
+          ['Named by 6 sites: A, B, C and 3 more']);
+      // a count without names still says something
+      expect(c(2, []).outsideReasons, ['Named by 2 other sites']);
+      expect(
+          Candidate.fromJson(row({
+            'work_phrases': ['laptop friendly cafe', '', null]
+          })).outsideReasons,
+          ['Google returns it for "laptop friendly cafe"']);
+    });
+
     test('a coworking space needs no such sign', () {
       final c = Candidate.fromJson(row({'coworking': true}));
       expect(c.workEvidence, isNull);

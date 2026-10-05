@@ -971,7 +971,12 @@ class _AdminPricesScreenState extends State<AdminPricesScreen> {
                                     'coworking page shows, and whether their '
                                     'prices still match the space\'s own '
                                     'website. One space at a time: request a '
-                                    'check, then decide each change yourself.',
+                                    'check, then decide each change yourself. '
+                                    'Changes waiting for your Go come first, '
+                                    'then the spaces not looked at yet. A '
+                                    'space that has been looked at moves to '
+                                    'the bottom, the longest ago first, and '
+                                    'is under "Checked".',
                                     style: TextStyle(
                                         fontSize: 13,
                                         height: 1.45,

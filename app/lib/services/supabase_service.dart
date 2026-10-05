@@ -1419,10 +1419,13 @@ class SupabaseService {
     ];
   }
 
-  /// Live pages for the one-page-at-a-time list (migration 129), the
-  /// most promising first. [filter]: '' all, 'requested', 'waiting'
-  /// (a text upgrade waits for a Go), 'search' (ranks for a search
-  /// people make).
+  /// Live pages for the one-page-at-a-time list (migration 129), as an
+  /// inbox (migration 142): pages with a draft waiting for a Go, then
+  /// the pages not dealt with yet, the most promising first, then the
+  /// pages dealt with, the longest ago first. [filter]: '' all,
+  /// 'requested', 'waiting' (a text upgrade waits for a Go), 'search'
+  /// (ranks for a search people make), 'done' (dealt with, the latest
+  /// first).
   Future<List<Map<String, dynamic>>> upgradesPages(
       {String query = '', String filter = '', int limit = 60}) async {
     final r = await _db.rpc('admin_upgrades_pages',
@@ -1431,6 +1434,12 @@ class SupabaseService {
       for (final x in (r as List? ?? const [])) Map<String, dynamic>.from(x as Map)
     ];
   }
+
+  /// "Done for now" on a page of that list ([done] true), or "Back to
+  /// the list" (false). Migration 142.
+  Future<void> upgradePageDone(String venueId, {required bool done}) =>
+      _db.rpc('admin_upgrade_page_done',
+          params: {'p_venue': venueId, 'p_done': done});
 
   /// One page, whole: for the title, the search description and the
   /// page description, what is on the page now and the upgrade if

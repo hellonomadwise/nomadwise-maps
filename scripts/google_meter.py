@@ -30,7 +30,9 @@ import urllib.request
 # A call is billed at the most expensive field it asks for.
 _TIER = {}
 for _f in ('id', 'name', 'photos', 'attributions', 'movedPlace',
-           'movedPlaceId', 'consumerAlert'):
+           'movedPlaceId', 'consumerAlert',
+           # the next page of a search: not a field of a place, free
+           'nextPageToken'):
     _TIER[_f] = 0
 for _f in ('location', 'addressComponents', 'formattedAddress',
            'shortFormattedAddress', 'adrFormatAddress', 'addressDescriptor',
@@ -171,6 +173,8 @@ def _save():
     key = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
     if not (url and key):
         return
+    if _owed:
+        _pay_owed()
     if delta and _post('record_api_usage', {
             'p_day': datetime.datetime.now(
                 datetime.timezone.utc).date().isoformat(),
@@ -216,6 +220,47 @@ def _flush():
         print(f'Daily Google limit reached or job paused: {_blocked} calls '
               'not made.')
     _save()
+
+
+# Calls counted under a job that could not be saved when the job's
+# name changed: kept with their own name and tried again at each save.
+_owed = []
+
+
+def _pay_owed():
+    for item in list(_owed):
+        src, delta = item
+        if _post('record_api_usage', {
+                'p_day': datetime.datetime.now(
+                    datetime.timezone.utc).date().isoformat(),
+                'p_source': src, 'p_counts': delta}) is not False:
+            _owed.remove(item)
+
+
+def switch(source):
+    """From here on the calls belong to another job (one script, two
+    lines on the Google calls page, each with its own pause switch).
+    What was counted so far is saved under the old name first; if
+    that save fails it is kept, under the old name, for the next."""
+    global _source
+    if source == _source:
+        return
+    try:
+        _save()
+        delta = {}
+        for k, v in _counts.items():
+            s = _saved.get(k, [0, 0])
+            if v[0] - s[0] or v[1] - s[1]:
+                delta[k] = {'calls': v[0] - s[0], 'errors': v[1] - s[1]}
+        if delta and os.environ.get('SUPABASE_URL') and os.environ.get(
+                'SUPABASE_SERVICE_ROLE_KEY'):
+            _owed.append((_source, delta))     # the save above failed
+        # The tally starts afresh under the new name.
+        for k, v in _counts.items():
+            _saved[k] = list(v)
+    except Exception as e:  # noqa: BLE001
+        print(f'google_meter: switch failed ({e})')
+    _source = source
 
 
 def install(source):
