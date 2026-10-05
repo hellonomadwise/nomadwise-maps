@@ -897,53 +897,6 @@ class SupabaseService {
     }
   }
 
-  // ---------- candidates (admin, migration 129) ----------
-
-  /// Admin: promising places and coworking spaces the nightly job
-  /// found that are not spaces yet, strongest evidence first. One page
-  /// of rows for [area] (null = everywhere), the count per area and
-  /// the totals. Throws when it cannot be read, so the screen can say
-  /// so instead of showing an empty list.
-  Future<Map<String, dynamic>> adminCandidates(
-      {String? area, int limit = 60, int offset = 0}) async {
-    final r = await _db.rpc('admin_candidates',
-        params: {'p_area': area, 'p_limit': limit, 'p_offset': offset});
-    return r is Map ? Map<String, dynamic>.from(r) : <String, dynamic>{};
-  }
-
-  /// Admin: a candidate becomes a space, already queued for the site.
-  /// [google] carries what Google said just now (city, country,
-  /// website), each optional. Returns the space's id, name and city.
-  Future<Map<String, dynamic>> candidateQueue(
-      String placeId, Map<String, dynamic> google) async {
-    final r = await _db.rpc('candidate_queue',
-        params: {'p_place': placeId, 'p': google});
-    return r is Map ? Map<String, dynamic>.from(r) : <String, dynamic>{};
-  }
-
-  /// Admin: a candidate is not for the site; kept with its reason.
-  Future<void> candidateDismiss(String placeId, String reason,
-          {String? note}) =>
-      _db.rpc('candidate_dismiss',
-          params: {'p_place': placeId, 'p_reason': reason, 'p_note': note});
-
-  /// Admin: a dismissed candidate goes back on the list.
-  Future<void> candidateRestore(String placeId) =>
-      _db.rpc('candidate_restore', params: {'p_place': placeId});
-
-  /// Admin: the candidates turned down, newest first.
-  Future<List<Map<String, dynamic>>> candidatesDismissed() async {
-    try {
-      final r = await _db.rpc('admin_candidates_dismissed');
-      return [
-        for (final x in (r as List? ?? const []))
-          if (x is Map) Map<String, dynamic>.from(x),
-      ];
-    } catch (_) {
-      return [];
-    }
-  }
-
   Future<Map<String, dynamic>?> adminEconomy() async {
     try {
       final res = await _db.rpc('admin_economy');
@@ -1370,10 +1323,10 @@ class SupabaseService {
     }
   }
 
-  // ---- Page upgrades (migration 125): changes to listing pages,
-  // lined up by likely impact, that a founder approves one by one ----
+  // ---- Page upgrades (migrations 125, 127, 129): changes to listing
+  // pages, one page at a time, that a founder approves himself ----
 
-  /// Counts by status, the gaps by kind and the open requests.
+  /// Counts by status and the numbers for the text and photo parts.
   Future<Map<String, dynamic>> upgradesOverview() async {
     final r = await _db.rpc('admin_upgrades_overview');
     return r is Map ? Map<String, dynamic>.from(r) : {};
@@ -1397,24 +1350,52 @@ class SupabaseService {
     ];
   }
 
-  /// Prepares the next [n] rule-built upgrades of [kind]. Returns how
-  /// many were added to the queue.
-  Future<int> upgradesPrepare(String kind, int n) async {
-    final r = await _db
-        .rpc('admin_upgrades_prepare', params: {'p_kind': kind, 'p_n': n});
-    return r is num ? r.toInt() : 0;
+  /// Live pages for the one-page-at-a-time list (migration 129), the
+  /// most promising first. [filter]: '' all, 'requested', 'waiting'
+  /// (a text upgrade waits for a Go), 'search' (ranks for a search
+  /// people make).
+  Future<List<Map<String, dynamic>>> upgradesPages(
+      {String query = '', String filter = '', int limit = 60}) async {
+    final r = await _db.rpc('admin_upgrades_pages',
+        params: {'p_q': query, 'p_filter': filter, 'p_limit': limit});
+    return [
+      for (final x in (r as List? ?? const [])) Map<String, dynamic>.from(x as Map)
+    ];
   }
+
+  /// One page, whole: for the title, the search description and the
+  /// page description, what is on the page now and the upgrade if
+  /// there is one; the searches it ranks for; any open request.
+  Future<Map<String, dynamic>> upgradePage(String venueId) async {
+    final r = await _db.rpc('admin_upgrade_page', params: {'p_venue': venueId});
+    return r is Map ? Map<String, dynamic>.from(r) : {};
+  }
+
+  /// "Request upgrade" for one page; asking again changes the note.
+  Future<void> upgradePageRequest(String venueId, {String? note}) =>
+      _db.rpc('admin_upgrade_page_request',
+          params: {'p_venue': venueId, 'p_note': note});
+
+  Future<void> upgradePageRequestCancel(String venueId) =>
+      _db.rpc('admin_upgrade_page_request_cancel',
+          params: {'p_venue': venueId});
+
+  /// Builds the plain search description for one page from the facts
+  /// we hold, as a proposal to look at. Nothing is sent.
+  Future<void> upgradePrepareOne(String venueId) =>
+      _db.rpc('admin_upgrade_prepare_one', params: {'p_venue': venueId});
+
+  /// A founder's own wording for one part of one page ([kind]:
+  /// 'title', 'search_description' or 'description'). Saving is the
+  /// Go: the website push writes it within minutes.
+  Future<void> upgradeWrite(String venueId, String kind, String text) =>
+      _db.rpc('admin_upgrade_write',
+          params: {'p_venue': venueId, 'p_kind': kind, 'p_text': text});
 
   /// Go: approve one upgrade, with the founder's own wording when
   /// [text] is given. The website push writes it within minutes.
   Future<void> upgradeGo(String id, {String? text}) =>
       _db.rpc('admin_upgrade_go', params: {'p_id': id, 'p_text': text});
-
-  /// Go for several at once, as proposed. Returns how many went.
-  Future<int> upgradesGoMany(List<String> ids) async {
-    final r = await _db.rpc('admin_upgrades_go_many', params: {'p_ids': ids});
-    return r is num ? r.toInt() : 0;
-  }
 
   Future<void> upgradeSkip(String id, {String? note}) =>
       _db.rpc('admin_upgrade_skip', params: {'p_id': id, 'p_note': note});
@@ -1426,14 +1407,6 @@ class SupabaseService {
     final r = await _db.rpc('admin_upgrade_undo', params: {'p_id': id});
     return '${r ?? ''}';
   }
-
-  /// Asks for more of a kind that has to be drafted.
-  Future<void> upgradeRequest(String kind, int n, {String? note}) =>
-      _db.rpc('admin_upgrade_request',
-          params: {'p_kind': kind, 'p_n': n, 'p_note': note});
-
-  Future<void> upgradeRequestCancel(String id) =>
-      _db.rpc('admin_upgrade_request_cancel', params: {'p_id': id});
 
   /// Live pages with fewer than five photos, highest impact first
   /// (migration 127): the photos on each now ('urls') and whether a

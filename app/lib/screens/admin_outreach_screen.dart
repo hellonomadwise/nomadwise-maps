@@ -115,13 +115,31 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
 
   // ------------------------------------------------------------ actions
 
-  Future<void> _setStage(Map<String, dynamic> c, String stage) async {
+  /// Moves a contact to another stage. The message that confirms it
+  /// carries an Undo for a few seconds, which puts the contact back
+  /// where it was (a slip of the finger on "They replied", say).
+  Future<void> _setStage(Map<String, dynamic> c, String stage,
+      {bool undoable = true}) async {
+    final was = '${c['stage'] ?? ''}';
+    final who = '${c['space_name'] ?? c['email']}';
     try {
       await _supabase.outreachUpdate('${c['id']}', {'stage': stage});
-      _snack('${c['space_name'] ?? c['email']}: ${_stageLabel(stage)}.');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(
+            duration: const Duration(seconds: 8),
+            content: Text('$who: ${_stageLabel(stage)}.'),
+            action: undoable && was.isNotEmpty && was != stage
+                ? SnackBarAction(
+                    label: 'Undo',
+                    onPressed: () => _setStage(
+                        {...c, 'stage': stage}, was,
+                        undoable: false))
+                : null));
       await _load();
     } catch (e) {
-      _snack(_plain(e), bad: true);
+      if (mounted) _snack(_plain(e), bad: true);
     }
   }
 
@@ -1253,7 +1271,10 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
       'Replies land in the inbox, not here. Press "They replied" on the '
           'card, or open the three dots and choose "Log what they wrote" to '
           'keep their words. The same menu has notes, a follow-up date and '
-          'the stage.'
+          'the stage.\n'
+          'Pressed it by mistake? The message at the bottom has an Undo for '
+          'a few seconds, and a Replied card has "Did not reply", which '
+          'puts it back.'
     ),
     (
       Icons.article_outlined,
@@ -1491,6 +1512,18 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
             OutlinedButton(
                 onPressed: () => _setStage(c, 'not_now'),
                 child: const Text('Not now')),
+          // For a card marked Replied by mistake: back to where it was
+          // before, Contacted if we have written to them, otherwise New.
+          if ('${c['stage']}' == 'replied')
+            Tooltip(
+              message: c['last_out_at'] == null
+                  ? 'Marked Replied by mistake: back to New'
+                  : 'Marked Replied by mistake: back to Contacted',
+              child: TextButton(
+                  onPressed: () => _setStage(
+                      c, c['last_out_at'] == null ? 'new' : 'contacted'),
+                  child: const Text('Did not reply')),
+            ),
           TextButton(
               onPressed: () async {
                 try {

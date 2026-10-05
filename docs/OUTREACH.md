@@ -24,6 +24,12 @@ match it.
 | Not now / Declined | Their answer | a founder |
 | Unsubscribed | They used the link in an email | by itself |
 
+A stage set by mistake can be put back two ways: the message that
+confirms a stage change carries **Undo** for a few seconds, and a
+Replied card has **Did not reply**, which returns it to Contacted (or
+to New if we never wrote to them). The three dots also hold every
+stage.
+
 ## Replying
 
 **Reply** on a card opens the email with a template already filled in

@@ -1765,7 +1765,10 @@ for v in listing_:
 # when the text is already there (an earlier run may have stopped
 # between the write and the publish).
 UPGRADE_FIELD = {'search_description': 'meta-description',
-                 'description': 'more-info-rich-text'}
+                 'description': 'more-info-rich-text',
+                 # The page title Google shows (the template's SEO
+                 # title is this field), migration 129.
+                 'title': 'title-tag'}
 
 
 def words_in(html):
@@ -2024,7 +2027,11 @@ def page_facts_of(f):
     more = str(f.get('more-info-rich-text') or '')
     body = PRICE_LINE.sub('', more)
     meta = str(f.get('meta-description') or '').strip()
-    out = {}
+    # The title and the page text are always kept, even when empty:
+    # that is how the control centre tells "nothing on the page" from
+    # "not read yet" (migration 129).
+    out = {'title': str(f.get('title-tag') or '').strip(),
+           'desc': plain_text(body)[:6000]}
     if meta.startswith(DESCRIPTION[:48]):
         out['meta_generic'] = True
     elif meta:

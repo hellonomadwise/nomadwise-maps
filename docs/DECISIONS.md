@@ -1727,70 +1727,45 @@ kept in `venues.website_retire_note` as `redirect_done` and
 When Webflow did not take the redirect from the sync, the card gives
 the old and new path with copy buttons.
 
-## 4 Oct 2026: Candidates, the list between the map and the site
+## 4 Oct 2026: Undo in Outreach
 
-Jonathan wanted the places the nightly job finds to queue up in the
-control centre for him to review and decide whether each gets a page.
-The pieces existed (Sweep a city, the nightly review scan, the
-"promising" pins, the pipeline from New spaces to Webflow) with one
-link missing: a promising place only reached New spaces after someone
-reviewed it in the app. Nothing listed the promising ones to decide on.
+Jonathan pressed "They replied" on the wrong card. A stage could
+already be set back from the three dots, but that is not where anyone
+looks after a slip. Now every stage change shows **Undo** in its
+confirming message for eight seconds, and a Replied card has **Did not
+reply**, which returns it to Contacted (New if we never wrote). App
+only: the stage is a plain field, so nothing else has to be reversed.
 
-Candidates is that list (migration 129, `candidates_tab.dart`), the
-first chip under Pages. A candidate is a discovered place that is not
-a space yet, was not turned down, and either passes the map's
-"promising" rule (reviews mention wifi, plugs or laptops, none warn
-against working there) or is a coworking space. Best first: laptop
-mentions weigh most, then plugs and wifi, coworking gets a head start,
-rating and review count break ties. Worked through city by city: the
-chips are the site's city pages (nearest Region within 30 km) with
-candidates near them, busiest first.
+## 4 Oct 2026: Page upgrades goes one page at a time
 
-Two decisions per card:
-- Queue for the site: the place becomes a space, already queued
-  (`candidate_queue`), and carries on through Queued, Ready to approve
-  and In Webflow like any other. Nothing reaches Webflow without the
-  Approve that was always needed. Google is asked once, at that tap,
-  for the city and country, so the space is filed under the right city
-  page from the start.
-- Not for the site: off the list with a reason from the control
-  centre's own list, kept in `candidate_decisions` (founders only),
-  with a way back under "turned down".
+Jonathan on the batch buttons: he is happy with the photos flow, but
+for text he does not want batches. One page at a time, with what the
+page says now next to the upgrade, and the upgrade should come from
+what people search for (Ahrefs), so that a listing can compete with
+other directories. Anything about structure and design is to be kept
+apart, because he works through that in Webflow.
 
-Decided:
-- A candidate skips New spaces and goes straight to Queued. New spaces
-  is for spaces nomads verified; a founder who taps Queue on a
-  candidate has made the same decision the Queue button there records.
-- Candidates are not counted in To do or in the Pages number. They are
-  a backlog to work through, and a standing count of hundreds would
-  bury the items that are waiting on a person.
-- Review quotes are shown only when asked for ("What reviews say"),
-  one place at a time: each look is a paid Google call.
-- The decisions live in their own table, not on `discovered_places`,
-  because anyone may write to that cache.
-- Not built yet, on purpose: leads scraped from other directories, and
-  reading more than Google's five reviews per place. Both would feed
-  this same list, so the list came first.
+What changed (migrations 129 and 130):
 
-Also new: `.github/workflows/pr_check.yml` analyses, tests and compiles
-a pull request before it is merged, with no keys and no deploy. This
-change is the first delivered as a pull request instead of a zip.
+- "Prepare more", "Go for all shown" and "Ask for a batch" are gone,
+  with the three database functions behind them.
+- "Choose a page" lists the live pages, most promising first; a page
+  opens with Current and Upgraded side by side for its title, search
+  description and page description, each with its own Go.
+- The page title is a third text part. The template's SEO title is
+  the Title Tag field, so it can be changed per page.
+- "Request upgrade" asks for one page; drafts are written in a Claude
+  session from Ahrefs and the space's own website and uploaded with
+  what each was based on. "Write my own" and, for the search
+  description, "Build from the facts" work without a session.
+- What a page ranks for is loaded from Ahrefs (`page_search`) and
+  counts in the order of the list.
+- `docs/LISTING_TEMPLATE.md` holds the structure and design items.
 
-Known effects, accepted:
-- A queued candidate's page starts with what Google knows (hours,
-  rating, photos). The work facts (WiFi speed, plugs, calls) stay
-  blank until a nomad or a founder reviews the space, as on the pages
-  from the 2025 import.
-- On the map a queued candidate turns from a violet "promising" pin
-  into a space nobody has screened yet. The nomad whose search first
-  found it gets no discovery bonus for it: that bonus is paid when a
-  nomad's own review of a new space is verified.
-
-How it was checked before the merge. The database side was run against
-a local copy of the schema built from every migration in this
-repository: the list and its order, both decisions, the way back, a
-place queued twice, and the refusal for anyone who is not a founder.
-The screen was compiled by the new check and exercised by
-`candidates_tab_test.dart` against stand-ins for the database and for
-Google, at a phone's width (360 and 320) in the app's font. It was not
-opened against live data before the merge.
+Found on the way: listing pages are found almost only by the place's
+name ("alchemy uluwatu", 5,300 searches a month, position 7), not by
+"coworking in [city]", which the region and location pages compete
+for. So a listing's title and text should serve someone checking a
+place they already know. The Ahrefs project has no Search Console
+data connected; connecting it would give real figures per page.
+Ahrefs units used for this: about 1,650 of the month's 200,000.
