@@ -36,6 +36,20 @@ jobs:
           GOOGLE_PLACES_KEY: ${{ secrets.GOOGLE_PLACES_SERVER_KEY || secrets.GOOGLE_PLACES_KEY }}
         run: |
           python3 scripts/webflow_sync.py --push-only
+      # Products and prices (migration 131): the changes a founder
+      # pressed Go on in Price check are written to the Webflow
+      # Products collection, and about once a day that collection is
+      # copied into Nomad Maps. Exits in a second when there is
+      # nothing to do.
+      - name: Products and prices
+        if: always()
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          WEBFLOW_API_TOKEN: ${{ secrets.WEBFLOW_API_TOKEN }}
+        run: |
+          python3 scripts/webflow_products.py
       # Enquiries from the Send an enquiry pop-up on nomadwise.io:
       # filed in Nomad Maps (straight to a Verified space, or into
       # Enquiries to pass on with a phone ping), and the space's own
