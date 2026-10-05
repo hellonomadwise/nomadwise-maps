@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../services/supabase_service.dart';
 import '../theme.dart';
 import 'admin_analytics_screen.dart';
+import 'admin_prices_screen.dart';
 import 'admin_pricing_screen.dart';
 import 'admin_outreach_screen.dart';
 import 'admin_upgrades_screen.dart';
@@ -96,7 +97,8 @@ class _AdminGateState extends State<AdminGate> {
               s == 'users' ||
               s == 'pricing' ||
               s == 'outreach' ||
-              s == 'upgrades')) {
+              s == 'upgrades' ||
+              s == 'prices')) {
         _openedSection = true;
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
@@ -109,7 +111,9 @@ class _AdminGateState extends State<AdminGate> {
                           ? const AdminOutreachScreen()
                           : s == 'upgrades'
                               ? const AdminUpgradesScreen()
-                              : const AdminUsersScreen()));
+                              : s == 'prices'
+                                  ? const AdminPricesScreen()
+                                  : const AdminUsersScreen()));
         });
       }
       return const WebsiteScreen(standalone: true);

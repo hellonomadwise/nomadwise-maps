@@ -1906,3 +1906,78 @@ group chips above it, shown only when there is more to see in that
 direction. The arrows are a small widget of their own
 (`app/lib/widgets/arrow_scroll_row.dart`) so any other chip row can
 use them.
+
+## 5 Oct 2026: Products in Nomad Maps, and the price check
+
+Jonathan's rule: the bare minimum expected of us is that a price on a
+listing is the price on the space's own website, so that if a space
+ever asks, we can point to their site. The Webflow Products collection
+held 753 products on 153 pages, 741 of them untouched since May or
+August 2025 and none ever compared with a space's website.
+
+Asked how to handle the old prices, he chose: keep them as they are,
+and add a piece in the control centre to review them one space at a
+time, the check done in a session against the space's website, with
+his own Go for each update. The products are to feed the Owner
+account later, so a space that claims its page finds them already
+there to edit.
+
+Built (migrations 131 and 132, `scripts/webflow_products.py`,
+`admin_prices_screen.dart`, `products_service.dart`; full notes in
+`docs/PRICE_CHECK.md`):
+
+- `venue_products`, our copy of every product, with the day it last
+  changed on the website and the day it was last checked against the
+  space's site. Loaded from the Webflow export; refreshed from Webflow
+  about once a day.
+- Price check, in Team tools. Request a check for a space; "Copy
+  requests" for the session that does it; the result comes back as
+  "the same" (stamped, nothing to press), "different", "not found",
+  "no longer offered" or "new". Each change shows current next to
+  proposed and has its own Go, Edit, Skip and Undo. A founder can also
+  correct, add or remove a product directly.
+- The website push writes an approved change to Webflow within
+  minutes: only the fields the change changes, republished when the
+  product is live. Taking a product off archives it; a new product
+  copies the page's settings from a sibling.
+
+Decided:
+
+- Nothing changes on a public page without a Go on that one change. A
+  product found unchanged is stamped as checked without a Go, because
+  that changes nothing anyone sees.
+- "Not found on their website" proposes nothing. Not finding a price
+  is not proof the product ended; the founder decides.
+- The push claims a change before it writes. Until it reports back,
+  taking the change back or editing the product again is refused. An
+  independent review found that without this the page and our copy
+  could part ways (Undo pressed mid-write left the new price live and
+  our copy on the old one).
+- A failed report back is never recorded as a failed write: the page
+  has been changed by then. The next run repeats the write, which
+  changes nothing more, and records it.
+- Only what a change changes is written. A price update must not put
+  back details that were edited by hand in Webflow in the meantime.
+- Is it safe to change a price while the old booking code is still in
+  the listing template? Yes. That code keeps no price of its own: the
+  reservation request quotes the price on the page, and the card
+  payment path works its deposit out from the same number. A correct
+  price on the page is correct everywhere.
+- New work went into new files (its own screen, service file, script
+  and workflow step) so it does not share files with the other
+  session's Candidates work. The shared files touched are
+  `website_screen.dart` and `admin_gate.dart` (a menu entry each) and
+  `webflow_push.yml` (one step).
+
+Not built yet: the product list in the Owner account (next); products
+for a page that has none on the website; changing which product
+carries the "starting from" price (still done in Webflow).
+
+How it was checked: the database functions on a local Postgres built
+from the migrations; the script end to end against those functions
+and a stand-in for Webflow (59 checks: write, undo, a failed write, a
+failed report back, an interrupted run, a hand edit in Webflow, a
+short read, the daily copy). Two independent reviews, one of the SQL
+and Python, one of the screen; their findings are fixed. The screen
+could not be compiled here and has not been opened against live data;
+the first real write to Webflow will be the first Go.

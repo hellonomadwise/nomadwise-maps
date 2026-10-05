@@ -20,6 +20,7 @@ import '../widgets/phone_field.dart';
 import '../widgets/resubmit_changes.dart';
 import '../widgets/ui.dart';
 import 'admin_analytics_screen.dart';
+import 'admin_prices_screen.dart';
 import 'admin_pricing_screen.dart';
 import 'admin_outreach_screen.dart';
 import 'admin_upgrades_screen.dart';
@@ -989,6 +990,8 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
               const PopupMenuItem(
                   value: 'upgrades', child: Text('Page upgrades')),
               const PopupMenuItem(
+                  value: 'prices', child: Text('Price check')),
+              const PopupMenuItem(
                   value: 'review', child: Text('Review submissions')),
               const PopupMenuItem(
                   value: 'feedback', child: Text('Feedback inbox')),
@@ -1319,6 +1322,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       'pricing' => const AdminPricingScreen(),
       'outreach' => const AdminOutreachScreen(),
       'upgrades' => const AdminUpgradesScreen(),
+      'prices' => const AdminPricesScreen(),
       'review' => const AdminScreen(),
       _ => const FeedbackInboxScreen(),
     };
