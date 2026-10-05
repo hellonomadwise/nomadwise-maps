@@ -1897,3 +1897,12 @@ over the page. Thanks!" The number is the one given on the claim
 form, with the country code added when it was typed without one. The
 separate "WhatsApp Google's number" button (shown when ownership is
 not proven) keeps its own longer message.
+
+## 5 Oct 2026: Arrows on the city chips in Candidates
+
+The row of city chips in Candidates scrolled sideways only by swipe,
+which a mouse cannot do. It now has the same round arrows as the
+group chips above it, shown only when there is more to see in that
+direction. The arrows are a small widget of their own
+(`app/lib/widgets/arrow_scroll_row.dart`) so any other chip row can
+use them.

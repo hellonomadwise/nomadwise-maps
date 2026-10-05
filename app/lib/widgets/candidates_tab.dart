@@ -6,6 +6,7 @@ import '../models/candidate.dart';
 import '../services/places_service.dart';
 import '../services/supabase_service.dart';
 import '../theme.dart';
+import 'arrow_scroll_row.dart';
 import 'ui.dart';
 
 /// The control centre's Candidates list (migration 129): places the
@@ -535,18 +536,17 @@ class _CandidatesTabState extends State<CandidatesTab> {
             label: Text('$label  $count'),
           ),
         );
-    return SizedBox(
-      height: 44,
-      child: ListView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.only(bottom: 8),
-          children: [
-            chip('Everywhere', _total, _area == null, () => _pickArea(null)),
-            for (final a in _areas)
-              chip(a.area, a.count, _area == a.area, () => _pickArea(a.area),
-                  muted: !a.hasPage),
-          ]),
-    );
+    // Arrows at either end on a laptop, where a mouse cannot swipe
+    // (Jonathan, 5 Oct 2026).
+    return ArrowScrollRow(
+        height: 44,
+        padding: const EdgeInsets.only(bottom: 8),
+        children: [
+          chip('Everywhere', _total, _area == null, () => _pickArea(null)),
+          for (final a in _areas)
+            chip(a.area, a.count, _area == a.area, () => _pickArea(a.area),
+                muted: !a.hasPage),
+        ]);
   }
 
   Widget _emptyView() => Padding(
