@@ -1091,6 +1091,19 @@ class _AdminPricesScreenState extends State<AdminPricesScreen> {
   }
 }
 
+/// One space's prices and the changes waiting for a Go, opened from
+/// outside this file: the control centre's "Next up" card goes
+/// straight to the space that is next.
+class PriceSpaceScreen extends StatelessWidget {
+  const PriceSpaceScreen(
+      {super.key, required this.venueId, required this.name});
+  final String venueId;
+  final String name;
+  @override
+  Widget build(BuildContext context) =>
+      _PriceSpacePage(venueId: venueId, name: name);
+}
+
 /// One space: every product its page shows, with what the last check
 /// found, and the changes waiting for a Go.
 class _PriceSpacePage extends StatefulWidget {

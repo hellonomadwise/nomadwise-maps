@@ -2442,3 +2442,106 @@ of the three parts, the cycle, Checked, requested, a new change,
 nothing lost or twice), applied twice. Not compiled here (the screen
 only gained a sentence).
 
+## 5 Oct 2026: an upload no longer re-runs the night's Google work
+
+Jonathan's phone, 5 Oct: "Google lookups at half the daily limit"
+three minutes after one upload, then "Google lookups paused" (the
+£10 daily limit at list prices) four minutes after the next.
+
+Cause: `enrich.yml` starts the whole nightly job whenever
+`scripts/enrich_venues.py` changes on GitHub, and two of the day's
+uploads changed that file (the address catch-up, then the evidence
+job). Each started a full extra night's work, mainly the review scan
+(250 places a run on Google's dearest kind of lookup, about £4.70 a
+run at list price) and 300 address lookups. A session had said the
+evidence job would start at the upload, and missed that everything
+else in the file would run again too. The daily limit did its job:
+nothing was asked of Google past £10, and lookups came back at
+midnight UTC.
+
+Fix (`enrich_venues.py`): a run started by a file change
+(`GITHUB_EVENT_NAME` is `push`) is a test of the code. Every part asks
+Google for at most 3 (coordinates, the venue refresh, the open/closed
+check, the review scan, addresses, the evidence job), and a city sweep
+waits for the night. The nightly schedule and the "Run workflow"
+button do the full work as before.
+
+Rule for sessions: an upload that changes `enrich_venues.py`,
+`webflow_sync.py` or `photo_suggest.py` starts that workflow. Say so
+before the upload, with what it will ask of Google.
+
+Still his to decide: the review scan itself (250 a night is about
+7,500 lookups a month on a kind with 1,000 free).
+
+## 5 Oct 2026: the review scan reads 10 places a night
+
+Jonathan, after the day's Google limit was reached: "yes make that
+change. Reduce it down to 10 a night." (30 had been suggested.)
+
+`SIGNALS_PER_RUN` is 10 (it was 250): about 300 lookups a month on a
+kind of lookup with 1,000 free, where 250 a night was about 7,500. The
+ten are chosen by `review_scan_due()` (migration 144): first the places
+not read yet that another site names or that Google's search returns
+for a place to work; then coworking spaces not read yet; then the
+other unread places, the latest found first; then places read more
+than 30 days ago. A place that is already a space, or was turned down
+on Candidates, is left out. Google refusing a call (a quota, a key) no
+longer marks the place as read.
+
+What it costs in speed, said to him: the 4,198 found places not read
+yet would take over a year at this pace, so most of them will never be
+read; the ones that reach Candidates on other signs are read first. A
+place read once is looked at again only when its turn comes round,
+which is no longer monthly. Places found by the evidence job get their
+star rating from this scan, so about ten a night.
+
+## 5 Oct 2026: "Next up", one thing at a time
+
+Jonathan: "Ideally I would like to get into a rhythm of opening up the
+admin panel, and to have in front of me a low brain required, where I
+have something in front of me, and can make a decision on that one
+thing, whether it's to add photos, or review something else, or decide
+whether to list it. I'm finding it a bit tricky to look in the top
+right and remember the right selection, there's a few too many
+different menu options at the moment."
+
+Asked, he chose: a "Next up" card at the top of the control centre
+(not a full focus screen), and "people first, then a mix".
+
+Built (migration 145 `admin_next_up()`, `website_screen.dart`):
+
+- **One card, above the To do line:** the next job, why, one button
+  that goes straight to it, "Skip for now", and "Then: ..." naming the
+  three after it.
+- **Order.** People waiting on us: enquiries, claims, payments,
+  suggested updates, owner changes. Then what waits for a Go: pages to
+  approve, text drafts (opens that page's review), price changes
+  (opens that space). Then the other jobs take turns, one each: a new
+  space, a candidate, a page short of photos, a page to look at, a
+  page to finish in Webflow, a closed place, a blocked page, sitemap
+  entries. The turn moves on when something is decided or the screen
+  opened from the card is closed.
+- **Straight to the thing.** Drafts and the page to look at open that
+  one page (`UpgradePageReviewScreen`); price changes open that one
+  space (`PriceSpaceScreen`); photos open the list with the most
+  promising page on top; the rest jump to their group in the control
+  centre, and the card folds to one line so the list has the room.
+  "Look at a page" also offers "Nothing to change", which marks the
+  page done without opening it.
+- **Nothing else moved.** The To do line, the three sections and the
+  top-right menus are as they were. The card is what makes them
+  unnecessary for the daily round; trimming the menus can follow once
+  the card has been lived with.
+
+Not done, and said: decisions are not yet made on the card itself
+(Queue / Not for the site on a candidate, say). The card takes him to
+the place where the decision is one press away. A candidate decided
+right on the card would be the next step if this works for him.
+
+Checked: `admin_next_up()` on a local Postgres with the real pages,
+products and candidates (0.2 s); migration 144's order with a made-up
+cast; one independent review of the Dart, whose findings were fixed
+(the card waits for its reading, folds when a job is open below, shows
+what was skipped, moves on when a candidate is turned down). Not
+compiled here.
+

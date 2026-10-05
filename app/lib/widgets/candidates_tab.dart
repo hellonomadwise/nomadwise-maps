@@ -555,7 +555,7 @@ class _CandidatesTabState extends State<CandidatesTab> {
       n(_total, 'place waiting', 'places waiting'),
       if (_waitingScan > 0)
         '${n(_waitingScan, 'more', 'more')} found, reviews not read yet '
-            '(about 250 a night)',
+            '(about 10 a night, the ones other sites or Google point at first)',
     ];
     // Where the search numbers come from, and how fresh they are.
     String? searchLine;

@@ -416,7 +416,10 @@ class Evidence:
         return out
 
 
-def run(req, supabase_url, sb_headers, places_key, log=print):
+def run(req, supabase_url, sb_headers, places_key, log=print,
+        max_calls=None):
+    """[max_calls]: a ceiling under the plan's, for a run that is only
+    a test of the code (started by a file change, not the night)."""
     ev = Evidence(req, supabase_url, sb_headers, places_key, log=log)
     if not ev.read_plan():
         # the free matching costs nothing and still runs
@@ -425,6 +428,9 @@ def run(req, supabase_url, sb_headers, places_key, log=print):
         except Exception:  # noqa: BLE001
             pass
         return ev
+    if max_calls is not None and ev.calls_left > max_calls:
+        ev.calls_left = max(0, int(max_calls))
+        log(f'Evidence: a test run, so {ev.calls_left} calls at most.')
     ev.work_search()
     ev.check_mentions()
     log(f'Evidence: {ev.calls_made} calls made.')

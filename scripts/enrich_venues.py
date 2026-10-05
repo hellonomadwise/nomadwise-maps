@@ -15,6 +15,25 @@ SUPABASE_URL = os.environ['SUPABASE_URL'].rstrip('/')
 SERVICE_KEY = os.environ['SUPABASE_SERVICE_ROLE_KEY']
 PLACES_KEY = os.environ['GOOGLE_PLACES_KEY']
 
+# GitHub also starts this job whenever one of its files changes (an
+# upload). That run is a test that the new code works, not another
+# night's work: on 5 Oct 2026 two uploads in one afternoon each read
+# 250 places' reviews again and the day's Google limit was reached.
+# So a run started by a file change asks Google for a handful of each
+# thing and leaves the rest to the night. The nightly schedule and the
+# "Run workflow" button do the full work.
+ON_PUSH = os.environ.get('GITHUB_EVENT_NAME') == 'push'
+TEST_SIZE = 3
+if ON_PUSH:
+    print('Started by a file change: a test run. Each part asks Google '
+          f'for at most {TEST_SIZE}; the full work is done at night.')
+
+
+def _a_night(n):
+    """How many to do in this run: the night's number, or a handful
+    when the run is a test."""
+    return TEST_SIZE if ON_PUSH else n
+
 
 def req(url, method='GET', headers=None, body=None):
     r = urllib.request.Request(url, method=method, headers=headers or {})
@@ -86,7 +105,7 @@ venues = req(
 
 # Bound Google spend per run: after a bulk import hundreds of venues
 # can need coordinates at once; fill them over a few builds instead.
-FILL_PER_RUN = 250
+FILL_PER_RUN = _a_night(250)
 
 updated, failed = 0, []
 for v in venues:
@@ -195,7 +214,7 @@ RESOLVE_AT_REFRESH = 0  # plain links made at each refresh. Was 6: about
                         # the first time anyone looks at it and saves it
                         # on the venue for everyone (cache_google_photos),
                         # so only photos people see are paid for.
-MAX_PER_RUN = 300     # hard cap per run, bounds worst-case API spend
+MAX_PER_RUN = _a_night(300)   # hard cap per run, bounds worst-case API spend
 
 
 def snapshot_details(place_id):
@@ -330,7 +349,7 @@ if snap_failed:
 # knowing. The monthly snapshot above records the same thing for
 # every venue when it comes round.
 # ------------------------------------------------------------
-STATUS_MAX_PER_RUN = 150
+STATUS_MAX_PER_RUN = _a_night(150)
 try:
     old_cut = (datetime.now(timezone.utc) - timedelta(days=MAX_AGE_DAYS)).isoformat()
     pages = req(
@@ -440,21 +459,36 @@ NEGATIVE_PHRASES = [
     'hope they add wifi', 'hopefully they will add wifi',
     'there is no internet', 'no internet',
 ]
-SIGNALS_PER_RUN = 250
+# Ten places a night (Jonathan, 5 Oct 2026; it was 250). Reading
+# reviews is Google's dearest kind of lookup, with 1,000 free a month:
+# 250 a night was about 7,500 a month. Ten is about 300, inside the
+# free amount with room for the app.
+SIGNALS_PER_RUN = _a_night(10)
 
 try:
-    cutoff_30d = (datetime.now(timezone.utc)
-                  - timedelta(days=30)).isoformat()
+    # With so few, which ten matters: the database gives the order
+    # (migration 144): places another site names or Google's search
+    # returns first, then coworking spaces, then the rest.
     unchecked = req(
-        f'{SUPABASE_URL}/rest/v1/discovered_places'
-        '?select=google_place_id,name'
-        f'&or=(signals_checked_at.is.null,signals_checked_at.lt.{cutoff_30d})'
-        '&order=signals_checked_at.asc.nullsfirst'
-        f'&limit={SIGNALS_PER_RUN}',
-        headers=sb_headers())
+        f'{SUPABASE_URL}/rest/v1/rpc/review_scan_due',
+        method='POST', headers=sb_headers(),
+        body={'p_limit': SIGNALS_PER_RUN}) or []
 except Exception as e:  # noqa: BLE001
-    unchecked = []
-    print(f'Signals phase skipped (migration 29 not run yet?): {e}')
+    print(f'Signals: the ordered list is not there yet (migration 144?), '
+          f'the plain one is used: {e}')
+    try:
+        cutoff_30d = (datetime.now(timezone.utc)
+                      - timedelta(days=30)).isoformat()
+        unchecked = req(
+            f'{SUPABASE_URL}/rest/v1/discovered_places'
+            '?select=google_place_id,name'
+            f'&or=(signals_checked_at.is.null,signals_checked_at.lt.{cutoff_30d})'
+            '&order=signals_checked_at.asc.nullsfirst'
+            f'&limit={SIGNALS_PER_RUN}',
+            headers=sb_headers())
+    except Exception as e2:  # noqa: BLE001
+        unchecked = []
+        print(f'Signals phase skipped (migration 29 not run yet?): {e2}')
 
 import urllib.error  # noqa: E402
 
@@ -526,8 +560,15 @@ for p in unchecked:
             for signal, words in SIGNAL_WORDS.items():
                 if any(w in text for w in words):
                     counts[signal] += 1
-    except urllib.error.HTTPError:
-        pass  # place gone or no access: store zeros, do not retry
+    except urllib.error.HTTPError as e:
+        # Only a place Google no longer has is marked read with zeros.
+        # Google refusing (a quota, a key) says nothing about the
+        # place: with ten a night these are the ten that matter, so
+        # they stay unread for the next run.
+        if e.code == 429:
+            break
+        if e.code not in (400, 404):
+            continue
     except Exception:  # noqa: BLE001
         continue  # transient problem: leave unchecked for next run
     try:
@@ -571,7 +612,7 @@ print(f'Signals: {checked} places checked, {promising} promising.')
 # until all of them have one. A place Google no longer has gets an
 # empty address, so it is not asked for again.
 # ------------------------------------------------------------
-ADDRESSES_PER_RUN = 300
+ADDRESSES_PER_RUN = _a_night(300)
 
 addressed = 0
 if has_address_col:
@@ -838,7 +879,10 @@ try:
     done = {r['city'].lower() for r in done_rows}
     pending = [r['city'] for r in queued_rows
                if r['city'].lower() not in done]
-    if pending:
+    if pending and ON_PUSH:
+        # a city is swept whole or not at all: left for the night
+        print(f'Sweep: {pending[0]} waits for the nightly run.')
+    elif pending:
         _sweep_city(pending[0])  # one city per run, bounds cost
     else:
         print('Sweep: queue fully swept.')
@@ -858,7 +902,8 @@ try:
     # Its calls are counted as a job of their own ("candidate
     # evidence" on the Google calls page, with its own pause switch).
     google_meter.switch('candidate evidence')
-    place_evidence.run(req, SUPABASE_URL, sb_headers, PLACES_KEY)
+    place_evidence.run(req, SUPABASE_URL, sb_headers, PLACES_KEY,
+                       max_calls=TEST_SIZE if ON_PUSH else None)
 except Exception as e:  # noqa: BLE001
     print(f'Evidence phase skipped: {e}')
 finally:

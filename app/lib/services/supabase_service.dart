@@ -1435,6 +1435,20 @@ class SupabaseService {
     ];
   }
 
+  /// What the control centre's "Next up" card cannot see in its own
+  /// lists (migration 145): drafts and price changes waiting for a Go,
+  /// the best candidate, the next page short of photos and the next
+  /// page to work on, each with how many wait. Null when it cannot be
+  /// read (the card then works from the control centre's own lists).
+  Future<Map<String, dynamic>?> adminNextUp() async {
+    try {
+      final r = await _db.rpc('admin_next_up');
+      return r is Map ? Map<String, dynamic>.from(r) : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// "Done for now" on a page of that list ([done] true), or "Back to
   /// the list" (false). Migration 142.
   Future<void> upgradePageDone(String venueId, {required bool done}) =>

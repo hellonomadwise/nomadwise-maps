@@ -1604,6 +1604,27 @@ class _PagesPageState extends State<_PagesPage> {
   }
 }
 
+/// One page's review (what it says now beside the upgrade, a Go for
+/// each part), opened from outside this file: the control centre's
+/// "Next up" card goes straight to the page that is next.
+class UpgradePageReviewScreen extends StatelessWidget {
+  const UpgradePageReviewScreen(
+      {super.key, required this.venueId, required this.name});
+  final String venueId;
+  final String name;
+  @override
+  Widget build(BuildContext context) =>
+      _PageReviewPage(venueId: venueId, name: name);
+}
+
+/// The pages short of photos, the most promising first, opened from
+/// outside this file (the "Next up" card).
+class UpgradePhotoGapsScreen extends StatelessWidget {
+  const UpgradePhotoGapsScreen({super.key});
+  @override
+  Widget build(BuildContext context) => const _PhotoGapsPage();
+}
+
 /// One page: what its title, search description and page description
 /// say now, next to the upgrade for each, with a Go for each part.
 class _PageReviewPage extends StatefulWidget {

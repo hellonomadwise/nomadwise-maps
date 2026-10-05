@@ -194,6 +194,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _tabScrolled());
     _load();
     _loadCandidateCount();
+    _loadNextUp();
   }
 
   @override
@@ -206,6 +207,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   }
 
   Future<void> _load() async {
+    final firstLoad = _inbox == null;
     try {
       final passOnF = _supabase.enquiriesToPassOn();
       final results = await Future.wait([
@@ -292,7 +294,16 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         }
         _ownerContact = contact;
         _error = null;
+        // Something was decided in a job opened from "Next up": the
+        // next of the turn-taking jobs is up, and the card opens out.
+        if (_openedTurn != null) {
+          _turn = _turns.indexOf(_openedTurn!) + 1;
+          _openedTurn = null;
+        }
+        _nextUpFolded = false;
       });
+      // The first reading was started with the page (initState).
+      if (!firstLoad) _loadNextUp();
     } catch (e) {
       if (mounted) setState(() => _error = '$e');
     }
@@ -1426,6 +1437,440 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     if (_tabScroll.hasClients) _tabScroll.jumpTo(0);
   }
 
+  // ------------------------------------------------------------ next up
+
+  /// What waits outside the control centre's own lists (drafts and
+  /// price changes waiting for a Go, the best candidate, the next page
+  /// short of photos, the next page to work on): admin_next_up(),
+  /// migration 145. Null until read, or when it cannot be.
+  Map<String, dynamic>? _nextUp;
+
+  /// Jobs put aside with "Skip for now", until they are shown again
+  /// from the card or the control centre is opened afresh.
+  final Set<String> _skipped = {};
+
+  /// False until admin_next_up() has answered (or failed): the card
+  /// waits for it, so it does not show one job and then swap to
+  /// another under the pointer.
+  bool _nextUpRead = false;
+  int _nextUpReq = 0;
+
+  /// True after a job that lives in this page was opened from the
+  /// card: the card folds to one line, out of the way of the list
+  /// below, until something is decided.
+  bool _nextUpFolded = false;
+
+  /// The jobs that take turns once nobody is waiting on us, in the
+  /// order of their turns, and whose turn it is.
+  static const _turns = [
+    'fresh', 'candidates', 'photos', 'page', 'webflow', 'closed', 'region',
+    'sitemap',
+  ];
+  static int _turn = 0;
+
+  /// The turn-taking job last opened from the card, in this page:
+  /// when the page next reloads (something was decided) the turn
+  /// moves on.
+  String? _openedTurn;
+
+  Future<void> _loadNextUp() async {
+    final n = ++_nextUpReq;
+    final r = await _supabase.adminNextUp();
+    // a later reading is on its way: this one is out of date
+    if (!mounted || n != _nextUpReq) return;
+    setState(() {
+      if (r != null) _nextUp = r;
+      _nextUpRead = true;
+    });
+  }
+
+  void _nextUpSay(String text, {bool bad = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(text),
+        duration: const Duration(seconds: 2),
+        backgroundColor: bad ? Brand.red : null));
+  }
+
+  /// A job of the card that lives in this page: go to its group.
+  void _nextUpHere(String kind, String groupKey) {
+    if (_turns.contains(kind)) _openedTurn = kind;
+    _nextUpFolded = true;
+    _goToGroup(groupKey);
+  }
+
+  /// A job of the card with a screen of its own: open it, and when
+  /// you come back show what is next.
+  Future<void> _nextUpOpen(String kind, Widget screen) async {
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
+    if (!mounted) return;
+    if (_turns.contains(kind)) {
+      setState(() => _turn = _turns.indexOf(kind) + 1);
+    }
+    await _loadNextUp();
+  }
+
+  /// Everything there is to do, the next thing first: people waiting
+  /// on us, then what waits for a Go, then the other jobs in turn.
+  List<_NextJob> _nextJobs(
+      ({
+        List<Map<String, dynamic>> ready,
+        List<Map<String, dynamic>> needsRegion,
+        List<Map<String, dynamic>> preparing,
+        List<Map<String, dynamic>> fresh
+      }) g) {
+    String n(int x, String one, String many) => '$x ${x == 1 ? one : many}';
+    Map<String, dynamic> part(String k) {
+      final p = _nextUp?[k];
+      return p is Map ? Map<String, dynamic>.from(p) : const {};
+    }
+
+    int count(Map<String, dynamic> p, [String k = 'n']) =>
+        (p[k] as num?)?.toInt() ?? 0;
+    String name(Map<String, dynamic> p) {
+      final s = '${p['name'] ?? ''}'.trim();
+      return s.isEmpty ? 'the next one' : s;
+    }
+
+    final drafts = part('drafts');
+    final prices = part('prices');
+    final candidate = part('candidate');
+    final photos = part('photos');
+    final page = part('page');
+    final webflow = _drafts.length + _approvedTonight.length;
+
+    final first = <_NextJob>[
+      // People waiting on us.
+      if (_passOn.isNotEmpty)
+        _NextJob(
+            'enquiries',
+            'Pass on an enquiry',
+            '${n(_passOn.length, 'nomad has', 'nomads have')} asked a space '
+                'something and nobody has passed it on yet.',
+            'Open enquiries',
+            () => _nextUpHere('enquiries', 'enquiries')),
+      if (_held.isNotEmpty)
+        _NextJob(
+            'claims',
+            'Decide a claim',
+            '${n(_held.length, 'owner is', 'owners are')} waiting to hear '
+                'whether the page is theirs.',
+            'Open claims',
+            () => _nextUpHere('claims', 'paid')),
+      if (_orders.isNotEmpty)
+        _NextJob(
+            'payments',
+            'Match a payment',
+            '${n(_orders.length, 'payment has', 'payments have')} come in '
+                'and we could not tell which space it is for.',
+            'Open payments',
+            () => _nextUpHere('payments', 'paid')),
+      if (_updates.isNotEmpty)
+        _NextJob(
+            'updates',
+            'Look at a suggested update',
+            '${n(_updates.length, 'visitor has', 'visitors have')} said '
+                'something on a page needs updating.',
+            'Open suggested updates',
+            () => _nextUpHere('updates', 'owner')),
+      if (_ownerDrafts.isNotEmpty)
+        _NextJob(
+            'ownerchanges',
+            'Look at an owner\'s change',
+            '${n(_ownerDrafts.length, 'owner has', 'owners have')} sent a '
+                'change to their page that waits for you.',
+            'Open owner changes',
+            () => _nextUpHere('ownerchanges', 'owner')),
+      // Waiting for your Go.
+      if (g.ready.isNotEmpty)
+        _NextJob(
+            'ready',
+            'Approve a page',
+            '${n(g.ready.length, 'new page is', 'new pages are')} prepared '
+                'and waiting for your approval.',
+            'Open pages to approve',
+            () => _nextUpHere('ready', 'ready')),
+      if (count(drafts) > 0 && drafts['venue_id'] != null)
+        _NextJob(
+            'drafts',
+            'Give your Go: ${name(drafts)}',
+            '${n(count(drafts, 'waiting'), 'draft is', 'drafts are')} waiting '
+                'for this page'
+                '${count(drafts, 'pages') > 1 ? ' (${count(drafts)} drafts across ${count(drafts, 'pages')} pages in all)' : ''}'
+                '. You see what the page says now beside the upgrade.',
+            'Review the drafts',
+            () => _nextUpOpen(
+                'drafts',
+                UpgradePageReviewScreen(
+                    venueId: '${drafts['venue_id']}', name: name(drafts)))),
+      if (count(prices) > 0 && prices['venue_id'] != null)
+        _NextJob(
+            'prices',
+            'Decide price changes: ${name(prices)}',
+            '${n(count(prices, 'waiting'), 'price change is', 'price changes are')} '
+                'waiting for your Go on this space'
+                '${count(prices, 'spaces') > 1 ? ' (${count(prices)} across ${count(prices, 'spaces')} spaces in all)' : ''}'
+                '.',
+            'Review the changes',
+            () => _nextUpOpen(
+                'prices',
+                PriceSpaceScreen(
+                    venueId: '${prices['venue_id']}', name: name(prices)))),
+    ];
+
+    // The jobs that take turns, by kind.
+    final turn = <String, _NextJob>{
+      if (g.fresh.isNotEmpty)
+        'fresh': _NextJob(
+            'fresh',
+            'Decide a new space',
+            '${n(g.fresh.length, 'space was', 'spaces were')} added on the '
+                'map: for the site, or not?',
+            'Open new spaces',
+            () => _nextUpHere('fresh', 'fresh')),
+      if (count(candidate) > 0 || _candidateCount > 0)
+        'candidates': _NextJob(
+            'candidates',
+            candidate['name'] == null
+                ? 'Decide whether to list a place'
+                : 'Decide whether to list it: ${name(candidate)}',
+            [
+              if ('${candidate['area'] ?? ''}'.trim().isNotEmpty)
+                '${candidate['area']}'.trim(),
+              if (candidate['name'] != null)
+                candidate['coworking'] == true ? 'coworking space' : 'cafe',
+              if (count(candidate, 'mentions') > 0)
+                'named by ${n(count(candidate, 'mentions'), 'other site', 'other sites')}',
+              '${n(count(candidate) > 0 ? count(candidate) : _candidateCount, 'place waits', 'places wait')} '
+                  'on the list, the best bet on top',
+            ].join(' · '),
+            'Open the list',
+            () => _nextUpHere('candidates', 'candidates')),
+      if (count(photos) > 0)
+        'photos': _NextJob(
+            'photos',
+            'Add photos: ${name(photos)}',
+            'It shows ${count(photos, 'photos')} of 5 photos. '
+                '${n(count(photos), 'live page is', 'live pages are')} short '
+                'of photos; it is near the top of the list.',
+            'Add photos',
+            () => _nextUpOpen('photos', const UpgradePhotoGapsScreen())),
+      if (count(page) > 0 && page['venue_id'] != null)
+        'page': _NextJob(
+            'page',
+            'Look at a page: ${name(page)}',
+            [
+              if ('${page['reason'] ?? ''}'.trim().isNotEmpty)
+                '${page['reason']}'.trim(),
+              'Change it, request an upgrade, or say there is nothing to '
+                  'change.',
+            ].join('. '),
+            'Open the page',
+            () => _nextUpOpen(
+                'page',
+                UpgradePageReviewScreen(
+                    venueId: '${page['venue_id']}', name: name(page))),
+            second: 'Nothing to change',
+            onSecond: () async {
+              try {
+                await _supabase.upgradePageDone('${page['venue_id']}',
+                    done: true);
+                if (!mounted) return;
+                setState(() => _turn = _turns.indexOf('page') + 1);
+                _nextUpSay('${name(page)}: done for now.');
+                await _loadNextUp();
+              } catch (e) {
+                _nextUpSay('That did not save: $e', bad: true);
+              }
+            }),
+      if (webflow > 0)
+        'webflow': _NextJob(
+            'webflow',
+            'Finish a page in Webflow',
+            '${n(webflow, 'approved page is', 'approved pages are')} in '
+                'Webflow as a draft, waiting for words and Publish.',
+            'Open pages in Webflow',
+            () => _nextUpHere('webflow', 'drafts')),
+      if (_closed.isNotEmpty)
+        'closed': _NextJob(
+            'closed',
+            'Check a closed place',
+            'Google says ${n(_closed.length, 'place has', 'places have')} '
+                'closed: retire the page, or say it is still open.',
+            'Open closed places',
+            () => _nextUpHere('closed', 'closed')),
+      if (g.needsRegion.isNotEmpty)
+        'region': _NextJob(
+            'region',
+            'Unblock a page',
+            '${n(g.needsRegion.length, 'page cannot', 'pages cannot')} be '
+                'prepared until something is fixed (usually the city page).',
+            'Open blocked pages',
+            () => _nextUpHere('region', 'region')),
+      if (_sitemapCount > 0)
+        'sitemap': _NextJob(
+            'sitemap',
+            'Add sitemap entries',
+            '${n(_sitemapCount, 'entry is', 'entries are')} waiting to be '
+                'added to the sitemap.',
+            'Open the sitemap list',
+            () => _nextUpHere('sitemap', 'sitemap')),
+    };
+    final start = _turn % _turns.length;
+    return [
+      ...first,
+      for (var i = 0; i < _turns.length; i++)
+        if (turn[_turns[(start + i) % _turns.length]] != null)
+          turn[_turns[(start + i) % _turns.length]]!,
+    ];
+  }
+
+  /// One thing at a time (Jonathan, 5 Oct 2026): the next job, why,
+  /// and one button that goes straight to it. "Skip for now" shows
+  /// the one after.
+  Widget _nextUpCard(
+      ({
+        List<Map<String, dynamic>> ready,
+        List<Map<String, dynamic>> needsRegion,
+        List<Map<String, dynamic>> preparing,
+        List<Map<String, dynamic>> fresh
+      }) g) {
+    // Typing (a search, a note): the list below needs the room.
+    if (MediaQuery.viewInsetsOf(context).bottom > 0) {
+      return const SizedBox.shrink();
+    }
+    final all = _nextJobs(g);
+    final jobs = all.where((j) => !_skipped.contains(j.kind)).toList();
+    final hidden = all.length - jobs.length;
+    Widget shell(List<Widget> children) => Container(
+          width: double.infinity,
+          margin: const EdgeInsets.fromLTRB(14, 12, 14, 4),
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+          decoration: BoxDecoration(
+            color: Brand.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Brand.accent, width: 1.5),
+          ),
+          child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: children),
+        );
+    const label = Text('NEXT UP',
+        style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            letterSpacing: .6,
+            color: Brand.accent));
+    if (!_nextUpRead) {
+      return shell([
+        label,
+        const SizedBox(height: 6),
+        const Text('Finding the next thing...',
+            style: TextStyle(fontSize: 14, color: Brand.inkSecondary)),
+      ]);
+    }
+    if (jobs.isEmpty) {
+      return shell([
+        label,
+        const SizedBox(height: 6),
+        Text(
+            all.isEmpty
+                ? 'Nothing is waiting. All clear.'
+                : 'You have skipped everything that is waiting.',
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+        if (all.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          OutlinedButton(
+              onPressed: () => setState(_skipped.clear),
+              child: const Text('Start again')),
+        ],
+      ]);
+    }
+    final job = jobs.first;
+    if (_nextUpFolded) {
+      // You are in the job, in the list below: one line, out of the
+      // way. It opens again when something is decided, or on "Show".
+      return Container(
+        width: double.infinity,
+        margin: const EdgeInsets.fromLTRB(14, 10, 14, 2),
+        padding: const EdgeInsets.fromLTRB(14, 4, 6, 4),
+        decoration: BoxDecoration(
+          color: Brand.surface,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Brand.accent),
+        ),
+        child: Row(children: [
+          label,
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(job.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                    fontSize: 13.5, fontWeight: FontWeight.w700)),
+          ),
+          TextButton(
+              onPressed: () => setState(() => _nextUpFolded = false),
+              child: const Text('Show')),
+        ]),
+      );
+    }
+    final after = jobs.skip(1).take(3).map((j) => j.title).toList();
+    return shell([
+      Row(children: [
+        label,
+        const Spacer(),
+        if (jobs.length > 1)
+          Text('${jobs.length - 1} more after this',
+              style: const TextStyle(fontSize: 11.5, color: Brand.inkMuted)),
+      ]),
+      const SizedBox(height: 6),
+      Text(job.title,
+          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+      const SizedBox(height: 4),
+      Text(job.detail,
+          style: const TextStyle(
+              fontSize: 13, height: 1.45, color: Brand.inkSecondary)),
+      const SizedBox(height: 10),
+      Wrap(
+          spacing: 8,
+          runSpacing: 6,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            ElevatedButton(onPressed: job.open, child: Text(job.button)),
+            if (job.second != null && job.onSecond != null)
+              OutlinedButton(
+                  onPressed: job.onSecond, child: Text(job.second!)),
+            TextButton(
+                onPressed: () => setState(() => _skipped.add(job.kind)),
+                style: TextButton.styleFrom(
+                    foregroundColor: Brand.inkSecondary),
+                child: const Text('Skip for now')),
+          ]),
+      if (after.isNotEmpty) ...[
+        const SizedBox(height: 8),
+        Text('Then: ${after.join('  ·  ')}',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 12, color: Brand.inkMuted)),
+      ],
+      if (hidden > 0)
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton(
+              onPressed: () => setState(_skipped.clear),
+              style: TextButton.styleFrom(
+                  foregroundColor: Brand.inkMuted,
+                  padding: EdgeInsets.zero,
+                  minimumSize: const Size(0, 28),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+              child: Text(hidden == 1
+                  ? 'Show the 1 you skipped'
+                  : 'Show the $hidden you skipped')),
+        ),
+    ]);
+  }
+
   /// Everything waiting on us, in one line: tap an item to go there.
   Widget _todayStrip(
       ({
@@ -1869,7 +2314,17 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
           onQueued: _load,
           onCount: (n) {
             if (mounted && n != _candidateCount) {
-              setState(() => _candidateCount = n);
+              setState(() {
+                // One was decided from "Next up" (turned down does
+                // not reload the page): the next job is up.
+                if (n < _candidateCount && _openedTurn == 'candidates') {
+                  _turn = _turns.indexOf('candidates') + 1;
+                  _openedTurn = null;
+                  _nextUpFolded = false;
+                }
+                _candidateCount = n;
+              });
+              _loadNextUp();
             }
           },
         ),
@@ -1939,6 +2394,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         .where((x) => _sectionOf(x.key) == section)
         .toList();
     return Column(children: [
+      _nextUpCard(g),
       _todayStrip(g),
       _sectionSwitch(g, section),
       // The groups of the chosen section, side by side: a swipe on a
@@ -7978,4 +8434,21 @@ class _PreviewPickerState extends State<_PreviewPicker> {
               child: const Text('Cancel')),
         ],
       );
+}
+
+/// One job on the control centre's "Next up" card: what it is, why,
+/// and where its button goes.
+class _NextJob {
+  const _NextJob(this.kind, this.title, this.detail, this.button, this.open,
+      {this.second, this.onSecond});
+  final String kind;
+  final String title;
+  final String detail;
+  final String button;
+  final VoidCallback open;
+
+  /// A second way to settle it without opening anything ("Nothing to
+  /// change" on a page).
+  final String? second;
+  final VoidCallback? onSecond;
 }
