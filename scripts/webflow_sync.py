@@ -46,6 +46,7 @@ or migration 49 has not been applied yet.
 Output: ci-debug/webflow_sync_report.json
 """
 import datetime
+import io
 import json
 import os
 import sys
@@ -133,9 +134,13 @@ def _call(url, headers, method='GET', body=None, retries=3):
                 detail = e.read().decode()[:400]
             except Exception:  # noqa: BLE001
                 detail = ''
+            # The body can be read only once, so hand the callers a
+            # fresh copy: several of them report e.read(), and without
+            # this they printed a bare "400" with no reason (seen
+            # 5 Oct 2026, Place Coworking Phuket).
             raise urllib.error.HTTPError(
                 e.url, e.code, f'{e.reason}: {detail}' if detail else e.reason,
-                e.headers, None) from None
+                e.headers, io.BytesIO(detail.encode())) from None
 
 
 def wf(path, params=None):
@@ -824,8 +829,11 @@ def build_fields(v, region, loc, country, slug_, embed_key):
         'map-directions': ('https://www.google.com/maps/search/?api=1'
                            f"&query={urllib.parse.quote(v['name'])}"
                            f'&query_place_id={pid}'),
-        'website-url': v.get('website'),
-        'instagram': v.get('instagram'),
+        # Link fields take a full address only. An owner who typed
+        # "@handle" for Instagram got the whole page refused with a
+        # 400 (5 Oct 2026), so both are made into links here.
+        'website-url': as_link(v.get('website')),
+        'instagram': as_link(v.get('instagram'), 'instagram'),
         'rating': v.get('google_rating_snapshot'),
         'reviews': v.get('google_reviews_snapshot'),
         'average-internet-speed': v.get('wifi_speed_mbps'),
@@ -1655,6 +1663,8 @@ def as_link(val, kind=None):
     if not t:
         return None
     if kind == 'instagram' and not re.match(r'https?://', t):
+        if re.match(r'(www\.)?instagram\.com/', t, re.I):
+            return 'https://' + t
         return 'https://www.instagram.com/' + t.lstrip('@').strip('/')
     if not re.match(r'https?://', t):
         t = 'https://' + t
@@ -2622,10 +2632,12 @@ if queued:
             try:
                 create_listing(v, fields, slug_, where)
             except urllib.error.HTTPError as e:
+                detail = e.read().decode()[:300] or str(e.reason)[:300]
                 report['errors'].append(
-                    f"create {v['name']}: {e.code} {e.read().decode()[:300]}")
+                    f"create {v['name']}: {e.code} {detail}")
                 save_prepared(v, dict(prepared, error='create_failed',
-                                      why=f'Webflow said {e.code}'))
+                                      why=f'Webflow said {e.code}: '
+                                          f'{detail[:200]}'.rstrip(': ')))
             except Exception as e:  # noqa: BLE001
                 report['errors'].append(f"create {v['name']}: {e}")
                 save_prepared(v, dict(prepared, error='create_failed',
