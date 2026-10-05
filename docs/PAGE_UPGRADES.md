@@ -100,7 +100,12 @@ in a Claude session, one page at a time.
    - the space's own website, for what is true about the place.
 3. The title, search description and page description are written
    from that. Nothing is claimed that the space's own site or the
-   facts we hold do not support.
+   facts we hold do not support. A price is written only as it is
+   shown on the space's own website (same currency and unit, "from"
+   when they say from), and the "Based on" line names the page it
+   came from and the date it was checked. No price on their site
+   means no price in the draft. If a space ever questions a price,
+   the answer has to be "it is the one on your site".
 4. A migration is produced that calls `import_page_upgrades('[{"slug":
    ..., "kind": "title" | "search_description" | "description", "text":
    ..., "note": "what it was based on"}]', '<name>')`, and is uploaded

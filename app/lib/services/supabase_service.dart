@@ -897,6 +897,53 @@ class SupabaseService {
     }
   }
 
+  // ---------- candidates (admin, migration 129) ----------
+
+  /// Admin: promising places and coworking spaces the nightly job
+  /// found that are not spaces yet, strongest evidence first. One page
+  /// of rows for [area] (null = everywhere), the count per area and
+  /// the totals. Throws when it cannot be read, so the screen can say
+  /// so instead of showing an empty list.
+  Future<Map<String, dynamic>> adminCandidates(
+      {String? area, int limit = 60, int offset = 0}) async {
+    final r = await _db.rpc('admin_candidates',
+        params: {'p_area': area, 'p_limit': limit, 'p_offset': offset});
+    return r is Map ? Map<String, dynamic>.from(r) : <String, dynamic>{};
+  }
+
+  /// Admin: a candidate becomes a space, already queued for the site.
+  /// [google] carries what Google said just now (city, country,
+  /// website), each optional. Returns the space's id, name and city.
+  Future<Map<String, dynamic>> candidateQueue(
+      String placeId, Map<String, dynamic> google) async {
+    final r = await _db.rpc('candidate_queue',
+        params: {'p_place': placeId, 'p': google});
+    return r is Map ? Map<String, dynamic>.from(r) : <String, dynamic>{};
+  }
+
+  /// Admin: a candidate is not for the site; kept with its reason.
+  Future<void> candidateDismiss(String placeId, String reason,
+          {String? note}) =>
+      _db.rpc('candidate_dismiss',
+          params: {'p_place': placeId, 'p_reason': reason, 'p_note': note});
+
+  /// Admin: a dismissed candidate goes back on the list.
+  Future<void> candidateRestore(String placeId) =>
+      _db.rpc('candidate_restore', params: {'p_place': placeId});
+
+  /// Admin: the candidates turned down, newest first.
+  Future<List<Map<String, dynamic>>> candidatesDismissed() async {
+    try {
+      final r = await _db.rpc('admin_candidates_dismissed');
+      return [
+        for (final x in (r as List? ?? const []))
+          if (x is Map) Map<String, dynamic>.from(x),
+      ];
+    } catch (_) {
+      return [];
+    }
+  }
+
   Future<Map<String, dynamic>?> adminEconomy() async {
     try {
       final res = await _db.rpc('admin_economy');
