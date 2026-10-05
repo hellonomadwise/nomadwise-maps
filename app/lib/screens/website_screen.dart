@@ -6224,40 +6224,61 @@ class _ListingPlanPageState extends State<_ListingPlanPage> {
         '${formatMoney(p.yearly!, p.currency)} a year';
   }
 
+  /// The Verified offer, ready to paste into Gmail. It says what the
+  /// claim page says (Free keeps its own photos, words and passed-on
+  /// enquiries; Verified adds four things), so it reads right to an
+  /// owner who has already claimed for free as well as to one who has
+  /// not. The page is linked only once it is live (the same rule as
+  /// the owner emails, migration 108): a draft's address opens nothing.
+  /// Body text says "Nomadwise", never the web address, which mail
+  /// apps would turn into a link to the homepage (EMAIL_STYLE.md).
   String get _offerEmail {
     final v = widget.venue;
     final name = v['name'] ?? 'your space';
     final city = (v['city'] ?? '').toString().trim();
-    final page = v['webflow_slug'] != null
-        ? 'https://www.nomadwise.io/coworking/${v['webflow_slug']}'
+    final hood = (v['neighbourhood'] ?? '').toString().trim();
+    final slug = (v['webflow_slug'] ?? '').toString().trim();
+    final page = slug.isNotEmpty && v['website_status'] == 'released'
+        ? 'https://www.nomadwise.io/coworking/$slug'
         : null;
     final who = _ownerName.text.trim().isEmpty ? 'there' : _ownerName.text.trim();
+    final where = city.isEmpty
+        ? 'your city'
+        : (hood.isEmpty || hood.toLowerCase() == city.toLowerCase())
+            ? city
+            : '$hood and across $city';
+    final months = _pricing?.monthsFree.round() ?? 0;
+    final saving =
+        months >= 1 ? ' ($months month${months == 1 ? '' : 's'} free)' : '';
     return [
-      'Subject: $name on nomadwise.io',
+      'Subject: $name on Nomadwise',
       '',
       'Hi $who,',
       '',
       if (page != null)
-        '$name is listed on nomadwise.io as a free listing: $page'
+        '$name has a free page on Nomadwise: $page'
       else
-        'We have added $name to nomadwise.io as a free listing; the page '
-            'is on its way.',
+        '$name has a free page on Nomadwise. It is being built now, and '
+            'the link follows as soon as it is live.',
       '',
-      'Free listings are built from public information and marked '
-          '"unclaimed": nomads can find you, but they cannot contact you '
-          'from the page, and we cannot promise when we get to updates.',
+      'The free page stays free. Through your Owner account you can '
+          "update your listing's details and add or change your own "
+          'photos and description, and we pass on any enquiries that '
+          'come in.',
       '',
-      'If you would like the page to work for you, Verified is $_priceWords: '
-          'a Verified badge, your own description, photos and hours, '
-          'a place above every free listing in ${city.isEmpty ? 'your city' : city}, '
-          'structured data and a link to your site (the signals Google and '
-          'the AI assistants use to recommend places), a Send an enquiry '
-          'button that sends enquiries straight to your inbox, and your '
-          'own event or offer in the advert slot on your page.',
+      'Verified adds four things:',
+      '',
+      '- The green Verified badge on your page and in every list',
+      '- A place above every free space in $where',
+      '- Enquiries straight to your inbox from the button on your '
+          'page, with no commission',
+      '- Your own event or offer in the advert slot on your page',
+      '',
+      'It is $_priceWords$saving. Cancel any time.',
       '',
       'Get Verified: $_payLink',
       '',
-      'Either way, thanks for being on the map.',
+      'Any questions, just reply to this email.',
       '',
       'Jonathan',
       'Nomadwise',
