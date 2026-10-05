@@ -2,6 +2,14 @@
 
 Three emails, in the house voice: short, specific, no hard sell.
 
+The first is the same offer the control centre's **Copy offer email**
+button writes (Listing plan page), which fills in the name, area,
+price and link. It was rewritten on 5 Oct 2026 to match the claim
+page: Free already includes the owner's own photos, words and
+passed-on enquiries, so the offer is the four things Verified adds.
+It no longer promises structured data (the template has none yet) and
+it links the page only once it is live.
+
 Which link to paste. For a space already in the directory, use the
 **Copy payment link** button on its Listing plan page in the control
 centre: that link carries the space's id, so the payment attaches
@@ -22,20 +30,24 @@ Thanks for sending Magical Garden over. We have added it to
 nomadwise.io as a free listing; the page is here once it is live:
 [link].
 
-Free listings are built from public information and marked
-"unclaimed": nomads can find you, but they cannot contact you from the
-page, and we cannot promise when we get to updates.
+The free page stays free. Through your Owner account you can correct
+the facts and add your own photos and description, and we pass on any
+enquiries that come in.
 
-If you would like the page to work for you, Verified is 99 EUR a
-year: a Verified badge, your own description, photos and hours, a
-place above every free listing in Koh Samui, structured data and a link to
-your site (the signals Google and the AI assistants use to recommend
-places), a Request a booking button that sends enquiries straight to
-your inbox, and your own event or offer in the advert slot on your
-page. Details and the
-link: [Get listed page or the claim link].
+Verified adds four things:
 
-Either way, thanks for being on the map.
+- The green Verified badge on your page and in every list
+- A place above every free space in Koh Samui
+- Enquiries straight to your inbox from the button on your page, with
+  no commission
+- Your own event or offer in the advert slot on your page
+
+It is [price for the space's country, monthly or yearly]. Cancel any
+time.
+
+Get Verified: [the claim link]
+
+Any questions, just reply to this email.
 
 Jonathan
 Nomadwise
