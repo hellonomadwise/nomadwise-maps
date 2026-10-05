@@ -900,14 +900,36 @@ class SupabaseService {
   // ---------- candidates (admin, migration 129) ----------
 
   /// Admin: promising places and coworking spaces the nightly job
-  /// found that are not spaces yet, strongest evidence first. One page
-  /// of rows for [area] (null = everywhere), the count per area and
-  /// the totals. Throws when it cannot be read, so the screen can say
-  /// so instead of showing an empty list.
+  /// found that are not spaces yet. One page of rows for [area]
+  /// (null = everywhere), the count per area and the totals. [sort]
+  /// is 'best' (searches for the name, city gaps and reviews
+  /// together) or 'searches' (most searched name first); migration
+  /// 137. Throws when it cannot be read, so the screen can say so
+  /// instead of showing an empty list.
   Future<Map<String, dynamic>> adminCandidates(
-      {String? area, int limit = 60, int offset = 0}) async {
-    final r = await _db.rpc('admin_candidates',
-        params: {'p_area': area, 'p_limit': limit, 'p_offset': offset});
+      {String? area,
+      int limit = 60,
+      int offset = 0,
+      String sort = 'best'}) async {
+    final params = <String, dynamic>{
+      'p_area': area,
+      'p_limit': limit,
+      'p_offset': offset,
+    };
+    dynamic r;
+    try {
+      r = await _db.rpc('admin_candidates',
+          params: <String, dynamic>{...params, 'p_sort': sort});
+    } on PostgrestException catch (e) {
+      // The database is one step behind the app (migration 137 not
+      // applied), so it knows no function that takes an order: ask
+      // the way the earlier version understands. Any other failure
+      // is passed on.
+      final unknown = e.code == 'PGRST202' ||
+          e.message.contains('Could not find the function');
+      if (!unknown) rethrow;
+      r = await _db.rpc('admin_candidates', params: params);
+    }
     return r is Map ? Map<String, dynamic>.from(r) : <String, dynamic>{};
   }
 

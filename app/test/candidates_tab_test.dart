@@ -20,7 +20,13 @@ Map<String, dynamic> place(String id, String name, String area,
         int laptop = 0,
         bool checked = true,
         int score = 0,
-        bool page = true}) =>
+        bool page = true,
+        int? searches,
+        String? confidence,
+        String? phrase,
+        int gap = 0,
+        int listed = 0,
+        bool other = false}) =>
     {
       'google_place_id': id,
       'name': name,
@@ -40,6 +46,13 @@ Map<String, dynamic> place(String id, String name, String area,
       'region_id': page ? 'reg_$area' : null,
       'region_name': page ? area : null,
       'region_country': page ? 'Thailand' : null,
+      // The search numbers of migration 137 (none unless given).
+      'searches': searches,
+      'search_confidence': confidence,
+      'search_phrase': phrase,
+      'gap_points': gap,
+      'city_listed': listed,
+      'other_type': other,
     };
 
 /// The database, as far as this screen is concerned.
@@ -50,7 +63,13 @@ class FakeDatabase extends SupabaseService {
   final Map<String, Map<String, dynamic>> queued = {};
   final Map<String, String> dismissed = {};
   final List<String?> areasAsked = [];
+  final List<String> sortsAsked = [];
   bool fail = false;
+
+  /// What the search numbers say about a city, by area name, and the
+  /// day they were looked up (none unless a test sets them).
+  Map<String, Map<String, dynamic>> areaFacts = {};
+  String? searchDay;
 
   List<Map<String, dynamic>> get _open => places
       .where((p) =>
@@ -60,8 +79,12 @@ class FakeDatabase extends SupabaseService {
 
   @override
   Future<Map<String, dynamic>> adminCandidates(
-      {String? area, int limit = 60, int offset = 0}) async {
+      {String? area,
+      int limit = 60,
+      int offset = 0,
+      String sort = 'best'}) async {
     areasAsked.add(area);
+    sortsAsked.add(sort);
     if (fail) throw Exception('the database is away');
     final all = _open;
     final shown =
@@ -79,11 +102,14 @@ class FakeDatabase extends SupabaseService {
             'area': e.key,
             'n': e.value,
             'has_page': e.key != 'No city page nearby',
+            ...?areaFacts[e.key],
           },
       ],
       'rows': shown.skip(offset).take(limit).toList(),
       'waiting_scan': 7,
       'dismissed': dismissed.length,
+      'search_measured': searchDay,
+      'without_search': searchDay == null ? 0 : 1,
     };
   }
 
@@ -185,11 +211,18 @@ class Harness {
 }
 
 Future<Harness> open(WidgetTester tester, List<Map<String, dynamic>> places,
-    {Size size = const Size(360, 780), bool fail = false}) async {
+    {Size size = const Size(360, 780),
+    bool fail = false,
+    Map<String, Map<String, dynamic>> areaFacts = const {},
+    String? searchDay}) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.reset);
-  final h = Harness(FakeDatabase(places)..fail = fail, FakeGoogle());
+  final db = FakeDatabase(places)
+    ..fail = fail
+    ..areaFacts = areaFacts
+    ..searchDay = searchDay;
+  final h = Harness(db, FakeGoogle());
   await tester.pumpWidget(MaterialApp(
     theme: nomadwiseTheme(),
     home: Scaffold(
@@ -372,5 +405,92 @@ void main() {
     expect(find.textContaining('The Social Club Chiang Mai'), findsOneWidget);
     expect(find.text('5 reviews mention working there'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  // ---- the search numbers (migration 137) ----
+
+  final searched = [
+    place('s1', 'The Cluster', 'Melbourne',
+        coworking: true,
+        score: 7,
+        searches: 870,
+        confidence: 'sure',
+        phrase: 'the cluster',
+        gap: 5,
+        listed: 0),
+    place('s2', 'Quiet Corner Cafe', 'Melbourne',
+        wifi: 1, score: 5, searches: 0, confidence: 'none'),
+    place('s3', 'Found Last Night', 'Chiang Mai', laptop: 1, score: 6),
+  ];
+
+  testWidgets('a card says what the search numbers say', (tester) async {
+    await open(tester, searched,
+        size: const Size(360, 2400), searchDay: '2026-10-05');
+
+    expect(find.text('About 870 searches a month for "the cluster"'),
+        findsOneWidget);
+    expect(
+        find.text('People search for coworking here and we list no '
+            'coworking spaces'),
+        findsOneWidget);
+    expect(find.text('No searches found for its name'), findsOneWidget);
+    // A place found after the lookup says nothing about searches.
+    expect(find.textContaining('searches a month'), findsOneWidget);
+    // Where the numbers come from, and that one place has none yet.
+    expect(find.textContaining('Search numbers: Ahrefs'), findsOneWidget);
+    expect(find.textContaining('1 place found since then has none yet'),
+        findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('long search reasons fit a narrow phone', (tester) async {
+    await open(
+        tester,
+        [
+          place('s9', 'Generator London', 'London',
+              power: 2,
+              score: 9,
+              searches: 9000,
+              confidence: 'sure',
+              phrase: 'generator london',
+              other: true),
+        ],
+        size: const Size(320, 900));
+    expect(find.textContaining('9,000 searches a month'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the order can be switched to most searched', (tester) async {
+    final h = await open(tester, searched);
+    expect(h.db.sortsAsked.last, 'best');
+
+    await tapText(tester, find.text('Most searched first'));
+
+    expect(h.db.sortsAsked.last, 'searches');
+    expect(find.text('The Cluster'), findsOneWidget);
+  });
+
+  testWidgets('a chosen city shows what people search for there',
+      (tester) async {
+    await open(tester, searched, areaFacts: {
+      'Melbourne': {
+        'coworking_searches': 1800,
+        'cafe_searches': 90,
+        'difficulty': 4,
+        'coworking_listed': 0,
+        'cafes_listed': 1,
+      },
+    });
+    // Nothing about a city until one is chosen.
+    expect(find.textContaining('searches a month for coworking in'),
+        findsNothing);
+
+    await tapText(tester, find.text('Melbourne  2', skipOffstage: false));
+
+    expect(
+        find.text('About 1,800 searches a month for coworking in '
+            'Melbourne. How hard to rank, by Ahrefs: easy (4 of 100). We '
+            'list 0 coworking spaces and 1 cafe there.'),
+        findsOneWidget);
   });
 }

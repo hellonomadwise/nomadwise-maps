@@ -2063,3 +2063,76 @@ details you sent us and what we could confirm ourselves, with a button
 that sends people to you. It is in your hands now." A page that was
 already listed and then claimed keeps "built from public information".
 Verified is unchanged.
+
+## 5 Oct 2026: Candidates say why, and are ordered by search demand
+
+Jonathan: "I want to know the reason why it is a candidate ... whether
+Ahrefs says it has high traffic demand ... list the cafes and coworking
+spaces with the highest probability of bringing us more traffic, and
+generating us revenue." Until now the list was ordered only by what
+Google's reviews say about working there.
+
+Built (migration 137, `candidates_tab.dart`, `candidate.dart`), with
+the other chat's agreement that Candidates was clear to change:
+
+- **Search numbers on each card.** How often the place's name is
+  searched on Google each month (Ahrefs, worldwide, looked up 5 Oct
+  2026 for the 477 candidates on the list that day), with the phrase
+  that was counted, so a doubtful one can be judged: `About 870
+  searches a month for "the cluster"`. A number is not shown as a
+  point in the place's favour when the bare name may mean something
+  else, or when Google calls the place a hotel, a hostel, a library
+  and the like (those searches are for a bed or a book, not for a
+  place to work; the card says "but as a hostel, not a place to
+  work").
+- **Gap city.** A coworking space in a city where people search for
+  coworking (300 or more a month) and the site lists fewer than eight
+  coworking spaces says so: "People search for coworking here and we
+  list no coworking spaces". The count of what we list comes from the
+  nightly read of the pages, so a page published today counts from
+  tomorrow.
+- **The order, "Best bets first".** Ten points for each step of name
+  searches (10, 30, 100, 200, 500, 1,000 a month; five when the name
+  may mean something else), six for each gap
+  point (5 in a city with 1,000 or more coworking searches, 3 from
+  300), eight for being a coworking space (the kind that can become a
+  customer), plus the review score as before. The full rule is at the
+  top of migration 137.
+- **"Most searched first"** is the other order: by name searches
+  alone. It puts hotels and chains on top, which is why it is not the
+  default.
+- **The chosen city's own numbers** show above the list: searches a
+  month for coworking there, how hard Ahrefs rates it (its own bands:
+  easy to 10, medium to 30, hard to 70, very hard above), and what we
+  list there today.
+- The same places are on the list as before. Nothing joins or leaves
+  it because of the numbers.
+
+What it does not do, and why:
+
+- **A place found after the lookup has no name searches** until the
+  next lookup. The list says how many those are. It still gets its gap
+  points and its review score. A new lookup is loaded with
+  `set_candidate_search()` in a migration (about 11 Ahrefs units a
+  place).
+- **"Do other directories list it?" is not there.** That costs about
+  58 Ahrefs units a place; it was looked at for 48 candidates on 5 Oct
+  and is in the project's search demand note, not on the cards.
+- **How hard the place's own name is to rank for is not there**
+  either. The city's difficulty is.
+- **"Another branch of a place we list"** (Jonathan's Openhouse
+  example) was tried on the real names and left out: of 11 matches a
+  simple name rule found, 4 were right. It needs a better signal than
+  the name.
+
+How it was checked: on a local Postgres loaded with the 477 real
+candidates and the real page counts (the order in five cities read by
+eye; every place returned once across pages in both orders; the same
+477 as the old rule; a place with no numbers; bad input to the
+loaders; the admin gate). The app's own tests were extended (the
+wording on cards and cities, the order switch, a narrow phone) but
+could not be run here; neither could the screen be compiled. One
+independent review traced every test against the code by hand and
+read the SQL; its findings are fixed. The app asks the old way if the
+database change has not been applied, so the list cannot go blank
+over this.

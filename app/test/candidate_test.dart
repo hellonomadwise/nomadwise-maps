@@ -106,5 +106,146 @@ void main() {
     expect(a.area, 'Pai, Thailand');
     expect(a.count, 12);
     expect(a.hasPage, isFalse);
+    // Not looked up: nothing to say about searches.
+    expect(a.searchLine, isNull);
+  });
+
+  group('what the search numbers say (migration 137)', () {
+    test('a row without them says nothing', () {
+      final c = Candidate.fromJson(row({}));
+      expect(c.searches, isNull);
+      expect(c.searchReasons, isEmpty);
+    });
+
+    test('a searched name counts in its favour', () {
+      final c = Candidate.fromJson(row({
+        'searches': 1870,
+        'search_confidence': 'sure',
+        'search_phrase': 'the cluster',
+        'priority': 95,
+      }));
+      expect(c.priority, 95);
+      expect(c.searchReasons, [
+        ('About 1,870 searches a month for "the cluster"', true),
+      ]);
+    });
+
+    test('a name that may mean something else is said so', () {
+      final c = Candidate.fromJson(row({
+        'searches': 300.0,
+        'search_confidence': 'unsure',
+        'search_phrase': 'true space',
+      }));
+      expect(c.searchReasons, [
+        (
+          'About 300 searches a month for "true space", which may mean '
+              'other things',
+          false
+        ),
+      ]);
+    });
+
+    test('a hostel is searched for as a hostel', () {
+      final c = Candidate.fromJson(row({
+        'primary_type': 'guest_house',
+        'searches': 9000,
+        'search_confidence': 'sure',
+        'search_phrase': 'generator london',
+        'other_type': true,
+      }));
+      expect(c.searchReasons, [
+        (
+          'About 9,000 searches a month for "generator london", but as a '
+              'guest house, not a place to work',
+          false
+        ),
+      ]);
+    });
+
+    test('no searches, a common name and a quiet name each say so', () {
+      Candidate with_(String confidence, int searches) =>
+          Candidate.fromJson(row(
+              {'searches': searches, 'search_confidence': confidence}));
+      expect(with_('none', 0).searchReasons,
+          [('No searches found for its name', false)]);
+      expect(with_('general', 0).searchReasons,
+          [('Name too common to measure searches', false)]);
+      expect(with_('city', 5).searchReasons,
+          [('Hardly searched by name', false)]);
+    });
+
+    test('a coworking space in a gap city says how many we list', () {
+      final c = Candidate.fromJson(row({
+        'coworking': true,
+        'gap_points': 5,
+        'city_listed': 1,
+        'city_searches': 1800,
+      }));
+      expect(c.searchReasons, [
+        ('People search for coworking here and we list 1 coworking space', true),
+      ]);
+      final none = Candidate.fromJson(
+          row({'coworking': true, 'gap_points': 3, 'city_listed': 0}));
+      expect(none.searchReasons, [
+        (
+          'People search for coworking here and we list no coworking spaces',
+          true
+        ),
+      ]);
+    });
+
+    test('thousands are written with commas', () {
+      expect(Candidate.thousands(0), '0');
+      expect(Candidate.thousands(999), '999');
+      expect(Candidate.thousands(1000), '1,000');
+      expect(Candidate.thousands(49580), '49,580');
+      expect(Candidate.thousands(1234567), '1,234,567');
+    });
+
+    test('a city says what people search for there and what we list', () {
+      final a = CandidateArea.fromJson({
+        'area': 'Lisbon',
+        'n': 92,
+        'has_page': true,
+        'coworking_searches': 850,
+        'cafe_searches': 80,
+        'difficulty': 0,
+        'coworking_listed': 15,
+        'cafes_listed': 33,
+      });
+      expect(
+          a.searchLine,
+          'About 850 searches a month for coworking in Lisbon. How hard to '
+          'rank, by Ahrefs: easy (0 of 100). We list 15 coworking spaces '
+          'and 33 cafes there.');
+      // One fewer waiting keeps what is known about the city.
+      final b = a.withCount(91);
+      expect(b.count, 91);
+      expect(b.searchLine, a.searchLine);
+    });
+
+    test('a hard city, and one with no difficulty known', () {
+      final hard = CandidateArea.fromJson({
+        'area': 'Barcelona',
+        'n': 3,
+        'has_page': true,
+        'coworking_searches': 3300,
+        'difficulty': 74,
+        'coworking_listed': 1,
+      });
+      expect(
+          hard.searchLine,
+          'About 3,300 searches a month for coworking in Barcelona. How '
+          'hard to rank, by Ahrefs: very hard (74 of 100). We list 1 '
+          'coworking space there.');
+      final plain = CandidateArea.fromJson({
+        'area': 'Chiang Mai',
+        'n': 29,
+        'has_page': true,
+        'coworking_searches': 350,
+      });
+      expect(plain.searchLine,
+          'About 350 searches a month for coworking in Chiang Mai.');
+    });
   });
 }

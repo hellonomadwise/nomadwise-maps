@@ -21,6 +21,12 @@ import 'ui.dart';
 ///
 /// The list is worked through city by city: the chips on top are the
 /// site's city pages with candidates near them, busiest first.
+///
+/// Each card says why it is worth a look (migration 137): how often
+/// its name is searched on Google, whether its city is one where
+/// people search for coworking and the site lists few, and what the
+/// reviews say about working there. The list is ordered on all of it,
+/// or by searches alone.
 class CandidatesTab extends StatefulWidget {
   final SupabaseService supabase;
   final PlacesService places;
@@ -71,6 +77,15 @@ class _CandidatesTabState extends State<CandidatesTab> {
   /// The area being worked through; null shows every area together.
   String? _area;
 
+  /// The order of the list: 'best' (searches for the name, city gaps
+  /// and reviews together) or 'searches' (most searched name first).
+  String _sort = 'best';
+
+  /// The day the search numbers were looked up, and how many places
+  /// on the list were found after that and have none yet.
+  DateTime? _searchMeasured;
+  int _withoutSearch = 0;
+
   /// Places with a decision on its way to the database.
   final Set<String> _busy = {};
 
@@ -89,13 +104,17 @@ class _CandidatesTabState extends State<CandidatesTab> {
   }
 
   Future<void> _reload() async {
+    // An answer that arrives after the city or the order was changed
+    // again is dropped; the later request brings the right list.
+    final area = _area;
+    final sort = _sort;
     try {
-      final r = await widget.supabase
-          .adminCandidates(area: _area, limit: _pageSize, offset: 0);
-      if (!mounted) return;
+      final r = await widget.supabase.adminCandidates(
+          area: area, limit: _pageSize, offset: 0, sort: sort);
+      if (!mounted || area != _area || sort != _sort) return;
       _apply(r, append: false);
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || area != _area || sort != _sort) return;
       setState(() {
         _loading = false;
         _error = '$e';
@@ -106,10 +125,12 @@ class _CandidatesTabState extends State<CandidatesTab> {
   Future<void> _loadMore() async {
     if (_loadingMore) return;
     setState(() => _loadingMore = true);
+    final area = _area;
+    final sort = _sort;
     try {
       final r = await widget.supabase.adminCandidates(
-          area: _area, limit: _pageSize, offset: _rows.length);
-      if (!mounted) return;
+          area: area, limit: _pageSize, offset: _rows.length, sort: sort);
+      if (!mounted || area != _area || sort != _sort) return;
       _apply(r, append: true);
     } catch (e) {
       if (!mounted) return;
@@ -141,6 +162,9 @@ class _CandidatesTabState extends State<CandidatesTab> {
       _shownTotal = (r['shown_total'] as num?)?.toInt() ?? rows.length;
       _waitingScan = (r['waiting_scan'] as num?)?.toInt() ?? 0;
       _dismissed = (r['dismissed'] as num?)?.toInt() ?? 0;
+      _searchMeasured =
+          DateTime.tryParse((r['search_measured'] ?? '').toString());
+      _withoutSearch = (r['without_search'] as num?)?.toInt() ?? 0;
       _loading = false;
       _error = null;
     });
@@ -194,6 +218,16 @@ class _CandidatesTabState extends State<CandidatesTab> {
     _reload();
   }
 
+  void _pickSort(String sort) {
+    if (sort == _sort) return;
+    setState(() {
+      _sort = sort;
+      _loading = true;
+      _rows = [];
+    });
+    _reload();
+  }
+
   /// A decided card leaves the list at once; the numbers follow.
   void _removeLocally(Candidate c) {
     setState(() {
@@ -205,8 +239,7 @@ class _CandidatesTabState extends State<CandidatesTab> {
           if (a.area != c.area)
             a
           else if (a.count > 1)
-            CandidateArea(
-                area: a.area, count: a.count - 1, hasPage: a.hasPage),
+            a.withCount(a.count - 1),
       ];
       _quotes.remove(c.placeId);
     });
@@ -407,6 +440,7 @@ class _CandidatesTabState extends State<CandidatesTab> {
             children: [
               _intro(),
               if (_areas.length > 1) _areaRow(),
+              if (_total > 0) _orderRow(),
               if (_loading && _rows.isEmpty)
                 const Padding(
                   padding: EdgeInsets.only(top: 40),
@@ -468,6 +502,18 @@ class _CandidatesTabState extends State<CandidatesTab> {
         '${n(_waitingScan, 'more', 'more')} found, reviews not read yet '
             '(about 250 a night)',
     ];
+    // Where the search numbers come from, and how fresh they are.
+    String? searchLine;
+    final measured = _searchMeasured;
+    if (measured != null) {
+      final day = DateFormat('d MMM yyyy').format(measured);
+      searchLine = 'Search numbers: Ahrefs, worldwide, looked up $day.';
+      if (_withoutSearch > 0) {
+        final since = n(_withoutSearch, 'place', 'places');
+        final verb = _withoutSearch == 1 ? 'has' : 'have';
+        searchLine = '$searchLine $since found since then $verb none yet.';
+      }
+    }
     return Padding(
       padding: const EdgeInsets.fromLTRB(2, 0, 2, 10),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -507,9 +553,95 @@ class _CandidatesTabState extends State<CandidatesTab> {
               style: const TextStyle(
                   fontSize: 12, color: Brand.inkMuted, height: 1.4)),
         ],
+        if (searchLine != null) ...[
+          const SizedBox(height: 4),
+          Text(searchLine,
+              style: const TextStyle(
+                  fontSize: 12, color: Brand.inkMuted, height: 1.4)),
+        ],
       ]),
     );
   }
+
+  /// What the numbers say about the chosen city, and the order of the
+  /// list: best bets first, or most searched first.
+  Widget _orderRow() {
+    String? cityLine;
+    for (final a in _areas) {
+      if (a.area == _area) cityLine = a.searchLine;
+    }
+    Widget pick(String key, String label) {
+      final on = _sort == key;
+      return ChoiceChip(
+        selected: on,
+        showCheckmark: false,
+        onSelected: (_) => _pickSort(key),
+        selectedColor: Brand.ink,
+        backgroundColor: Brand.surface,
+        side: BorderSide(color: on ? Brand.ink : Brand.border),
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        visualDensity: VisualDensity.compact,
+        labelStyle: TextStyle(
+            fontFamily: 'Roboto',
+            fontSize: 12.5,
+            fontWeight: FontWeight.w700,
+            color: on ? Colors.white : Brand.inkSecondary),
+        label: Text(label),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(2, 0, 2, 10),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        if (cityLine != null) ...[
+          Text(cityLine,
+              style: const TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: Brand.inkSecondary,
+                  height: 1.4)),
+          const SizedBox(height: 8),
+        ],
+        Wrap(spacing: 6, runSpacing: 6, children: [
+          pick('best', 'Best bets first'),
+          pick('searches', 'Most searched first'),
+        ]),
+        const SizedBox(height: 6),
+        Text(
+            _sort == 'best'
+                ? 'Weighs searches for the name, coworking spaces in '
+                    'cities where we list few, and what the reviews say.'
+                : 'By Google searches a month for the name. The most '
+                    'searched are often hotels and chains, so read the '
+                    'reason on each card.',
+            style: const TextStyle(
+                fontSize: 12, color: Brand.inkMuted, height: 1.4)),
+      ]),
+    );
+  }
+
+  /// One reason on a card, in words. Long ones wrap inside the card
+  /// instead of running off it.
+  Widget _why(String text, Color dot) => Container(
+        constraints: const BoxConstraints(minHeight: 26),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+            color: Brand.field, borderRadius: BorderRadius.circular(13)),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+              width: 7,
+              height: 7,
+              decoration: BoxDecoration(color: dot, shape: BoxShape.circle)),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(text,
+                style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: Brand.inkSecondary)),
+          ),
+        ]),
+      );
 
   /// City by city: the areas with candidates, busiest first.
   Widget _areaRow() {
@@ -622,6 +754,9 @@ class _CandidatesTabState extends State<CandidatesTab> {
           Wrap(spacing: 6, runSpacing: 6, children: [
             if (rating != null)
               StatusChip('★ $rating', dotColor: Brand.gold),
+            // What the search numbers say, then what the reviews say.
+            for (final (text, good) in c.searchReasons)
+              _why(text, good ? Brand.success : Brand.inkMuted),
             for (final r in c.reasons)
               StatusChip(r,
                   dotColor: r == 'Reviews not read yet'
