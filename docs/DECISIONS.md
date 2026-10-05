@@ -1981,3 +1981,27 @@ short read, the daily copy). Two independent reviews, one of the SQL
 and Python, one of the screen; their findings are fixed. The screen
 could not be compiled here and has not been opened against live data;
 the first real write to Webflow will be the first Go.
+
+## 5 Oct 2026: The first price check, four spaces
+
+Jonathan requested 4 WALLS Coworking, ACE Coworking Space, Alt_ChiangMai
+and AT 06 (migration 133).
+
+- 4 WALLS: all ten prices match their site. Two things on their site
+  that we do not show are proposed as new: a monthly subscription and
+  a Monday or Friday price for the large conference room.
+- Alt_ChiangMai: sixteen of eighteen match. The meeting room for 4 and
+  for 8 hours is cheaper on their site than on our page (1,200 and
+  2,000 THB against 1,500 and 2,500): two changes. Monitor and locker
+  rental are proposed as new.
+- ACE and AT 06 have no website of their own, only Instagram, which
+  cannot be read for prices. Decided: their products are marked "not
+  found" with a note that says exactly that, and nothing is proposed.
+  A price that cannot be confirmed is not evidence that it is wrong,
+  and another directory is not a source. These two need the space to
+  be asked, or a look at their Instagram by a person.
+
+Also seen on the first day: the daily copy from Webflow ran as soon as
+the workflow step was in, and the screen showed 710 products on 144
+pages against 753 in the export (the export's archived listings and a
+few products no longer live in Webflow).

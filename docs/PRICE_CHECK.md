@@ -174,6 +174,16 @@ select public.import_price_check($check$[
   visible from a session. The space's page in Price check shows the
   counts of the last check.
 
+A space with no website of its own (only an Instagram or Facebook
+page, which cannot be read for a price list): every product is loaded
+as `not_found`, with a note saying so. Nothing is proposed. Other
+directories are never used to fill the gap. The founder can still
+correct a price by hand after asking the space.
+
+When a new product is proposed for a page, its price is written the
+way that page's other products are ("€ 285" where they read "€ 7"),
+by giving `label`.
+
 Left out, with a reason: a name that matches no product or more than
 one; a product no longer on the page; a product with a change already
 on its way to the page; a new product whose name is already on the
