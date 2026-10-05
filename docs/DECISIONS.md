@@ -1876,3 +1876,12 @@ the map's menu. Jonathan asked for both ways to lead to the same
 things. The button now shows either way; "Open the map" stays only
 on the team link, because from the map the back arrow already leads
 there.
+
+## 5 Oct 2026: A pointing hand on Owners, Pages, Clean-up
+
+Hovering the three tabs at the top of the control centre showed the
+typing cursor. The whole page is selectable (so a name or an address
+can be copied), and the tabs were plain tap areas, so their labels
+counted as text. They now show a pointing hand and are left out of
+text selection. The chips and buttons were already right: Material
+buttons set their own cursor.

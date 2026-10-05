@@ -1516,7 +1516,11 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         child: Row(children: [
           for (final (key, label, groupKeys) in _sections)
             Expanded(
-              child: GestureDetector(
+              // A pointing hand, and labels that are not picked up as
+              // text: the page around them is selectable, which gave
+              // these tabs a typing cursor (Jonathan, 5 Oct 2026).
+              child: _tapArea(GestureDetector(
+                behavior: HitTestBehavior.opaque,
                 onTap: () {
                   if (key == current) return;
                   // The first group in it with work, else its first.
@@ -1578,12 +1582,19 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                         ],
                       ]),
                 ),
-              ),
+              )),
             ),
         ]),
       ),
     );
   }
+
+  /// Something to press that is not a Material button: a pointing
+  /// hand over all of it, and its words left out of text selection.
+  Widget _tapArea(Widget child) => MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: SelectionContainer.disabled(child: child),
+      );
 
   Widget _pipeline() {
     final g = _groups();
