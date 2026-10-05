@@ -2005,3 +2005,61 @@ Also seen on the first day: the daily copy from Webflow ran as soon as
 the workflow step was in, and the screen showed 710 products on 144
 pages against 753 in the export (the export's archived listings and a
 few products no longer live in Webflow).
+
+## 5 Oct 2026: the Owner account opens with the page as it is
+
+Jonathan, looking at PLACE Coworking Phuket's Owner account after a
+free claim: the preview said "No photos yet" although the page has
+photos, every day's hours read "Not set" although the page shows
+Google's, and he wanted to see the page as a computer shows it too.
+An owner who sees their real page is more likely to work on it.
+
+Decided and built (migration 135, `owner_screen.dart`):
+
+- **Phone / Computer** above the page preview. Computer lays the page
+  out as the site does (main column, and hours, links, enquiry button
+  and advert in a column on the right), made smaller to fit the side
+  panel, with "Open full size" for reading it.
+- **The page's own photos.** The preview and the form's Photos section
+  show the photos on the page today (the links the nightly read keeps
+  in `venue_page_facts`), until the owner adds their own. Google's
+  photos are the last fallback, as before.
+- **"See Accommodation options nearby" is gone from the preview.** It
+  is not the owner's to change and sends people away from them.
+- **Tags invite more.** Under the tags the page has, two or three that
+  are not ticked show faintly; tapping opens "What is true for your
+  space?", every tag with one line on what it means. Same facts as the
+  form's list. "Laptop Friendly" is not offered there: every listing
+  is a place to work by definition and it is not one of the ten tags
+  an owner's change writes to the page.
+- **Hours already known are shown.** With no hours of their own, the
+  form opens with the hours Google shows (what the page shows). They
+  are saved as the owner's only once a day is changed, so an untouched
+  page keeps following Google.
+- **Passes already on the page are shown**, in the form ("On your page
+  now") and in the preview's Prices, to look at. Changing them from
+  the Owner account is still to build (the product list); until then
+  the form says to write to hello@nomadwise.io if one is wrong, and to
+  use the four price boxes only for a pass that is not listed.
+- The description box now also opens with the page's text for a brand
+  new owner, before the first nightly copy has run.
+
+Not changed: what an owner can submit, and how a change is approved.
+
+How it was checked: the database functions on a local Postgres (hours
+in Google's own punctuation, a page with and without photos, products
+and text, the admin gate, and that the helper cannot be called
+directly). One independent review of the screen and the SQL; its eight
+findings are fixed. The screen could not be compiled here.
+
+## 5 Oct 2026: "Your page is live" for a space the owner asked for
+
+The email told every owner the free listing was "built from public
+information". Jonathan: when a manager asked us to add the space, they
+gave the first details and we added to them while checking the claim.
+Decided (migration 136): for a space that came from such a request (a
+claim marked as a space not listed yet) the line reads "built from the
+details you sent us and what we could confirm ourselves, with a button
+that sends people to you. It is in your hands now." A page that was
+already listed and then claimed keeps "built from public information".
+Verified is unchanged.

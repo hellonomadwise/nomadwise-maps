@@ -26,6 +26,14 @@ and, on a Verified page, the address booking requests go to. A live
 preview shows the page as they type. Save draft keeps it private;
 Submit for review sends it to the control centre.
 
+The form opens with the page as it is (5 Oct 2026, migration 135): the
+page's own text, the photos on the page, the hours Google shows when
+the owner has set none (saved as theirs only once a day is changed),
+and the passes the page already lists (to look at; changing them from
+here is still to build). The preview has a Phone / Computer switch,
+and its tags open "What is true for your space?" with what each tag
+means.
+
 **Your message** (Verified only; a free page sees why and a Go
 Verified button). An event, offer or announcement with a headline,
 text, button label and link. It replaces the advert slot on their

@@ -103,6 +103,13 @@ class _OwnerScreenState extends State<OwnerScreen> {
   final _hours = {for (final d in _days) d: TextEditingController()};
   final _facts = <String, bool?>{};
   List<String> _photos = [];
+  // The hours Google shows today, when the owner has set none of their
+  // own: the form opens with them, and they are only saved as the
+  // owner's once a day is changed, so an untouched page keeps
+  // following Google.
+  Map<String, String> _googleHours = {};
+  // The page preview: as a phone shows it, or as a computer does.
+  bool _previewComputer = false;
   final _mentionTitle = TextEditingController();
   final _mentionBody = TextEditingController();
   final _mentionCta = TextEditingController();
@@ -150,6 +157,28 @@ class _OwnerScreenState extends State<OwnerScreen> {
   Map<String, dynamic>? get _draft => (_venue?['draft'] is Map)
       ? Map<String, dynamic>.from(_venue!['draft'] as Map)
       : null;
+
+  /// True while the hours in the form are still Google's, as loaded.
+  bool get _hoursUntouched =>
+      _googleHours.isNotEmpty &&
+      _days.every((d) => _hours[d]!.text.trim() == (_googleHours[d] ?? ''));
+
+  /// The photos on the page today (the website's own copies).
+  List<String> get _pagePhotos => [
+        for (final u in (_venue?['page_photos'] as List? ?? const []))
+          if ('$u'.startsWith('http')) '$u'
+      ];
+
+  /// The passes and prices the page shows today: (name, price, kind).
+  List<(String, String, String)> get _pageProducts => [
+        for (final p in (_venue?['page_products'] as List? ?? const []))
+          if (p is Map && '${p['name'] ?? ''}'.trim().isNotEmpty)
+            (
+              '${p['name']}'.trim(),
+              '${p['label'] ?? ''}'.trim(),
+              '${p['category'] ?? ''}'
+            )
+      ];
 
   @override
   void initState() {
@@ -476,10 +505,27 @@ class _OwnerScreenState extends State<OwnerScreen> {
     _waCountry.value = waIso;
     _whatsapp.text = waNumber;
     _enquiryEmail.text = s(d['enquiry_email'] ?? v['listing_enquiry_email']);
+    // An empty hours map in a draft means "nothing changed" (that is
+    // what an untouched form saves), so the page's own hours still count.
+    final draftHours = d['hours'];
     final hours = Map<String, dynamic>.from(
-        (d['hours'] ?? v['opening_hours'] ?? {}) as Map);
+        ((draftHours is Map && draftHours.isNotEmpty)
+            ? draftHours
+            : v['opening_hours'] ?? {}) as Map);
+    // No hours of their own: open with the ones Google shows, which
+    // is what the page shows too (Jonathan, 5 Oct 2026).
+    final own = _days.any((day) => s(hours[day]).trim().isNotEmpty);
+    final google = v['google_hours'] is Map
+        ? Map<String, dynamic>.from(v['google_hours'] as Map)
+        : const <String, dynamic>{};
+    _googleHours = own
+        ? {}
+        : {
+            for (final day in _days)
+              if (s(google[day]).trim().isNotEmpty) day: s(google[day]).trim()
+          };
     for (final day in _days) {
-      _hours[day]!.text = s(hours[day]);
+      _hours[day]!.text = own ? s(hours[day]) : (_googleHours[day] ?? '');
     }
     final facts = Map<String, dynamic>.from(
         (d['facts'] ?? v['facts'] ?? {}) as Map);
@@ -511,11 +557,14 @@ class _OwnerScreenState extends State<OwnerScreen> {
           'month': Price.format(Price.cleanAmount(_priceMonth.text), _currency),
           'coffee': Price.format(Price.cleanAmount(_priceCoffee.text), _currency),
         },
-        'hours': {
-          for (final day in _days)
-            if (_hours[day]!.text.trim().isNotEmpty)
-              day: _hours[day]!.text.trim()
-        },
+        // Google's hours, untouched, are not saved as the owner's own.
+        'hours': _hoursUntouched
+            ? <String, String>{}
+            : {
+                for (final day in _days)
+                  if (_hours[day]!.text.trim().isNotEmpty)
+                    day: _hours[day]!.text.trim()
+              },
         'facts': {
           for (final e in _facts.entries)
             if (e.value != null) e.key: e.value
@@ -1950,13 +1999,21 @@ class _OwnerScreenState extends State<OwnerScreen> {
             _priceField(_priceCoffee, 'Cappuccino', width: w),
           ]);
         }),
+        if (_pageProducts.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          _pageProductsBox(),
+        ],
         const SizedBox(height: 18),
         const Text('Opening hours',
             style: TextStyle(fontWeight: FontWeight.w700)),
         const SizedBox(height: 4),
-        const Text('Pick the times for each day. "Not set" keeps what '
-            'Google shows.',
-            style: TextStyle(color: Brand.inkMuted, fontSize: 12)),
+        Text(
+            _hoursUntouched
+                ? 'These are the hours Google shows for you today, and '
+                    'what your page shows. Change any day that is wrong.'
+                : 'Pick the times for each day. "Not set" keeps what '
+                    'Google shows.',
+            style: const TextStyle(color: Brand.inkMuted, fontSize: 12)),
         const SizedBox(height: 10),
         for (final day in _days) _dayHours(day),
         Align(
@@ -1990,11 +2047,30 @@ class _OwnerScreenState extends State<OwnerScreen> {
         const SizedBox(height: 14),
         const Text('Photos', style: TextStyle(fontWeight: FontWeight.w700)),
         const SizedBox(height: 4),
-        const Text('Up to five of your own. They replace the Google photos '
-            'on your page once approved.',
-            style: TextStyle(color: Brand.inkMuted, fontSize: 12)),
+        Text(
+            _photos.isEmpty && _pagePhotos.isNotEmpty
+                ? 'These are on your page now. Add up to five of your own '
+                    'and, once approved, they take their place.'
+                : 'Up to five of your own. They replace the photos on '
+                    'your page once approved.',
+            style: const TextStyle(color: Brand.inkMuted, fontSize: 12)),
         const SizedBox(height: 10),
         Wrap(spacing: 8, runSpacing: 8, children: [
+          // What the page shows today, until they add their own.
+          if (_photos.isEmpty)
+            for (final p in _pagePhotos.take(5))
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.network(p,
+                    width: 110,
+                    height: 82,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                        width: 110,
+                        height: 82,
+                        color: Brand.field,
+                        child: const Icon(Icons.broken_image_outlined))),
+              ),
           for (final p in _photos)
             Stack(children: [
               ClipRRect(
@@ -2136,9 +2212,14 @@ class _OwnerScreenState extends State<OwnerScreen> {
       for (final (key, label) in _factLabels)
         if (_facts[key] == true) _siteTags[key] ?? label
     ];
+    // Their own photos once added; else the ones on the page today;
+    // else Google's.
     final photos = _photos.isNotEmpty
         ? _photos
-        : List<String>.from((v['google_photos'] ?? const []) as List);
+        : _pagePhotos.isNotEmpty
+            ? _pagePhotos
+            : List<String>.from((v['google_photos'] ?? const []) as List);
+    final pageProducts = _pageProducts;
     final prices = [
       if (_priceDay.text.trim().isNotEmpty)
         ('Day pass', Price.format(_priceDay.text, _currency)),
@@ -2160,7 +2241,9 @@ class _OwnerScreenState extends State<OwnerScreen> {
                   fontSize: 13, fontWeight: FontWeight.w600, color: _pageInk)),
         ]);
 
-    final main = _pageCard(
+    // The main column of the page. On a computer the photos stand
+    // taller; in the full-size view the tags are not buttons.
+    Widget page({required bool computer, bool tappable = true}) => _pageCard(
         Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text(title,
           style: const TextStyle(
@@ -2214,26 +2297,15 @@ class _OwnerScreenState extends State<OwnerScreen> {
         stat(Icons.laptop, isCafe ? 'Cafe' : 'Coworking Space'),
       ]),
       const SizedBox(height: 12),
-      _photoGrid(photos),
+      _photoGrid(photos, height: computer ? 250 : 130),
       const SizedBox(height: 12),
-      Wrap(spacing: 6, runSpacing: 6, children: [
-        if (_verified) _pageButton('Send an enquiry'),
-        _pageButton('See Accommodation options nearby'),
-      ]),
-      if (tags.isNotEmpty) ...[
+      if (_verified) ...[
+        Align(
+            alignment: Alignment.centerLeft,
+            child: _pageButton('Send an enquiry')),
         const SizedBox(height: 12),
-        Wrap(spacing: 6, runSpacing: 6, children: [
-          for (final t in tags)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-              decoration: BoxDecoration(
-                  color: _pageTag, borderRadius: BorderRadius.circular(6)),
-              child: Text(t,
-                  style: const TextStyle(
-                      fontSize: 11.5, color: Color(0xFF6B6B6B))),
-            ),
-        ]),
       ],
+      _tagsBlock(tags, tappable: tappable),
       const SizedBox(height: 12),
       const Text('Something need updating? Let us know.',
           style: TextStyle(
@@ -2243,12 +2315,23 @@ class _OwnerScreenState extends State<OwnerScreen> {
               decorationColor: _pageRed)),
       const SizedBox(height: 14),
       ..._descriptionBlocks(),
-      if (prices.isNotEmpty) ...[
+      if (prices.isNotEmpty || pageProducts.isNotEmpty) ...[
         const SizedBox(height: 10),
         const Text('Prices',
             style: TextStyle(
                 fontWeight: FontWeight.w700, fontSize: 15, color: _pageInk)),
         const SizedBox(height: 6),
+        // The passes the page shows today, then what is typed here.
+        for (final (name, price, _) in pageProducts)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 3),
+            child: Text.rich(TextSpan(children: [
+              TextSpan(
+                  text: price.isEmpty ? name : '$name: ',
+                  style: const TextStyle(fontWeight: FontWeight.w700)),
+              TextSpan(text: price),
+            ]), style: const TextStyle(fontSize: 12.5, color: _pageInk)),
+          ),
         for (final (label, val) in prices)
           Padding(
             padding: const EdgeInsets.only(bottom: 3),
@@ -2275,18 +2358,314 @@ class _OwnerScreenState extends State<OwnerScreen> {
             const Text('Unsaved edits',
                 style: TextStyle(fontSize: 11.5, color: Brand.inkMuted)),
         ]),
-        const SizedBox(height: 2),
-        const Text(
-            'Your page as a phone shows it. On a computer, the hours, '
-            'links, enquiry button and advert sit in a column on the right.',
-            style: TextStyle(fontSize: 11.5, color: Brand.inkMuted, height: 1.4)),
+        const SizedBox(height: 8),
+        _previewToggle(),
+        const SizedBox(height: 8),
+        Text(
+            _previewComputer
+                ? 'Your page as a computer shows it, made smaller to fit '
+                    'here. The hours, links and advert sit in a column on '
+                    'the right.'
+                : 'Your page as a phone shows it: one column, with the '
+                    'hours, links and advert under the map.',
+            style: const TextStyle(
+                fontSize: 11.5, color: Brand.inkMuted, height: 1.4)),
         const SizedBox(height: 12),
-        main,
-        const SizedBox(height: 10),
-        _sidebar(),
+        if (_previewComputer) ...[
+          SizedBox(
+            width: double.infinity,
+            child: FittedBox(
+                fit: BoxFit.fitWidth,
+                alignment: Alignment.topLeft,
+                child: _computerLayout(
+                    page(computer: true, tappable: false))),
+          ),
+          const SizedBox(height: 6),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+                onPressed: () => _openComputerPreview(
+                    _computerLayout(page(computer: true, tappable: false))),
+                icon: const Icon(Icons.open_in_full, size: 16),
+                label: const Text('Open full size')),
+          ),
+        ] else ...[
+          page(computer: false),
+          const SizedBox(height: 10),
+          _sidebar(),
+        ],
       ]),
     );
   }
+
+  /// Phone or Computer, above the page preview (Jonathan, 5 Oct 2026).
+  Widget _previewToggle() {
+    Widget side(bool computer, IconData icon, String label) {
+      final on = _previewComputer == computer;
+      return Expanded(
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: () => setState(() => _previewComputer = computer),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 7),
+            decoration: BoxDecoration(
+              color: on ? Brand.surface : Colors.transparent,
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: on ? Brand.shadowResting : null,
+            ),
+            child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon,
+                      size: 16, color: on ? Brand.ink : Brand.inkSecondary),
+                  const SizedBox(width: 6),
+                  Text(label,
+                      style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: on ? FontWeight.w700 : FontWeight.w500,
+                          color: on ? Brand.ink : Brand.inkSecondary)),
+                ]),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+          color: Brand.field, borderRadius: BorderRadius.circular(10)),
+      child: Row(children: [
+        side(false, Icons.phone_iphone, 'Phone'),
+        side(true, Icons.computer, 'Computer'),
+      ]),
+    );
+  }
+
+  /// The page as a computer lays it out: the main column, and the
+  /// hours, links, enquiry button and advert in a column on the right.
+  static const double _computerWidth = 940;
+
+  Widget _computerLayout(Widget main) => SizedBox(
+        width: _computerWidth,
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Expanded(child: main),
+          const SizedBox(width: 16),
+          SizedBox(width: 290, child: _sidebar()),
+        ]),
+      );
+
+  /// The computer view at its real size, in a window over the page
+  /// (made smaller only when the screen is narrower than the page).
+  Future<void> _openComputerPreview(Widget layout) => showDialog<void>(
+        context: context,
+        builder: (ctx) => Dialog(
+          insetPadding: const EdgeInsets.all(16),
+          backgroundColor: Brand.bg,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: _computerWidth + 40),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 10, 8, 2),
+                child: Row(children: [
+                  const Expanded(
+                    child: Text('Your page on a computer',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w800, fontSize: 15)),
+                  ),
+                  IconButton(
+                      onPressed: () => Navigator.of(ctx).pop(),
+                      tooltip: 'Close',
+                      icon: const Icon(Icons.close)),
+                ]),
+              ),
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+                  child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.topCenter,
+                      child: layout),
+                ),
+              ),
+            ]),
+          ),
+        ),
+      );
+
+  /// What each tag means, for the list that opens from the preview.
+  static const _factGuide = {
+    'laptops_allowed': 'People are welcome to work on a laptop here.',
+    'power_outlets': 'There is a socket within reach of most seats.',
+    'good_for_calls':
+        'Someone can take a video call without disturbing others.',
+    'quiet_space': 'There is an area where people keep their voices down.',
+    'comfortable_seating': 'Seats someone can work in for a few hours.',
+    'aircon': 'The work area is air conditioned.',
+    'access_24h': 'Members can get in at any hour.',
+    'call_room': 'There is a room or booth for a private call.',
+    'monitor': 'There are screens people can plug a laptop into.',
+    'office_chairs': 'Proper desk chairs, not only cafe chairs.',
+    'cozy': 'A warm, relaxed feel.',
+  };
+
+  /// The page's tags, with room for more: the ones ticked, then two or
+  /// three that are not, shown faintly. Tapping any of them opens the
+  /// list of what a space can say about itself (Jonathan, 5 Oct 2026).
+  Widget _tagsBlock(List<String> tags, {bool tappable = true}) {
+    Widget chip(String text, {bool faint = false}) => Container(
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+          decoration: BoxDecoration(
+              color: faint ? Colors.white : _pageTag,
+              borderRadius: BorderRadius.circular(6),
+              border: faint
+                  ? Border.all(color: const Color(0xFFCFCFCF))
+                  : null),
+          child: Text(text,
+              style: TextStyle(
+                  fontSize: 11.5,
+                  color: faint ? Brand.inkMuted : const Color(0xFF6B6B6B))),
+        );
+    // "Laptop Friendly" is left out of the suggestions and of the list
+    // that opens: every listing is a place to work by definition, and
+    // it is not one of the tags an owner's change writes to the page.
+    final missing = [
+      for (final (key, label) in _factLabels)
+        if (key != 'laptops_allowed' && _facts[key] != true)
+          _siteTags[key] ?? label
+    ];
+    if (!tappable) {
+      // The full-size view shows the page only: the tags it has.
+      return Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: [for (final t in tags) chip(t)]);
+    }
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: _openTagGuide,
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Wrap(spacing: 6, runSpacing: 6, children: [
+            for (final t in tags) chip(t),
+            for (final t in missing.take(tags.isEmpty ? 3 : 2))
+              chip('+ $t', faint: true),
+          ]),
+          if (missing.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+                tags.isEmpty
+                    ? 'No tags on your page yet. Tap to add the ones that '
+                        'are true for your space.'
+                    : 'Tap the tags to add more that are true for your '
+                        'space.',
+                style: const TextStyle(fontSize: 11, color: Brand.inkMuted)),
+          ],
+        ]),
+      ),
+    );
+  }
+
+  /// "What is true for your space?": every tag with what it means, to
+  /// tick. The same facts as the list in the form.
+  Future<void> _openTagGuide() => showDialog<void>(
+        context: context,
+        builder: (ctx) => StatefulBuilder(
+          builder: (ctx, redraw) => Theme(
+            data: siteButtons(Theme.of(ctx)),
+            child: AlertDialog(
+            title: const Text('What is true for your space?'),
+            content: SizedBox(
+              width: 460,
+              child: SingleChildScrollView(
+                child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                          'Each one you tick shows as a tag on your page '
+                          'once you submit and we have read the change. '
+                          'Tick only what a visitor would find true today.',
+                          style: TextStyle(
+                              fontSize: 13,
+                              height: 1.45,
+                              color: Brand.inkSecondary)),
+                      const SizedBox(height: 8),
+                      for (final (key, label) in _factLabels)
+                        if (key != 'laptops_allowed')
+                          CheckboxListTile(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          controlAffinity: ListTileControlAffinity.leading,
+                          title: Text(_siteTags[key] ?? label,
+                              style: const TextStyle(
+                                  fontSize: 14, fontWeight: FontWeight.w600)),
+                          subtitle: Text(_factGuide[key] ?? label,
+                              style: const TextStyle(fontSize: 12.5)),
+                          value: _facts[key] == true,
+                          onChanged: (x) {
+                            setState(() {
+                              _facts[key] = x == true;
+                              _dirty = true;
+                              _editSeq++;
+                              _lastEdit = DateTime.now();
+                            });
+                            redraw(() {});
+                          },
+                        ),
+                    ]),
+              ),
+            ),
+            actions: [
+              FilledButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  style: FilledButton.styleFrom(backgroundColor: Brand.red),
+                  child: const Text('Done')),
+            ],
+          )),
+        ),
+      );
+
+  /// The passes and prices already on the page, to look at. Changing
+  /// them from the Owner account is not built yet (they are checked
+  /// against the space's own website: docs/PRICE_CHECK.md).
+  Widget _pageProductsBox() => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+            color: Brand.field, borderRadius: BorderRadius.circular(10)),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('On your page now',
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+          const SizedBox(height: 6),
+          for (final (name, price, _) in _pageProducts)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 3),
+              child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                        child:
+                            Text(name, style: const TextStyle(fontSize: 13))),
+                    const SizedBox(width: 12),
+                    Flexible(
+                      child: Text(price,
+                          textAlign: TextAlign.right,
+                          style: const TextStyle(
+                              fontSize: 13, fontWeight: FontWeight.w600)),
+                    ),
+                  ]),
+            ),
+          const SizedBox(height: 6),
+          const Text(
+              'These are the passes and prices your page shows today. If '
+              'one is wrong, write to hello@nomadwise.io and we will '
+              'correct it. Use the boxes above only for a pass that is not '
+              'in this list.',
+              style:
+                  TextStyle(color: Brand.inkMuted, fontSize: 12, height: 1.4)),
+        ]),
+      );
 
   Widget _pageCard(Widget child) => Container(
         width: double.infinity,
@@ -2313,7 +2692,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
       );
 
   /// One large photo and four small ones, as on the page.
-  Widget _photoGrid(List<String> photos) {
+  Widget _photoGrid(List<String> photos, {double height = 130}) {
     Widget img(int i) => ClipRRect(
           borderRadius: BorderRadius.circular(8),
           child: i < photos.length
@@ -2334,7 +2713,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
               style: TextStyle(color: Brand.inkMuted)));
     }
     return SizedBox(
-      height: 130,
+      height: height,
       child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Expanded(flex: 2, child: img(0)),
         const SizedBox(width: 4),
