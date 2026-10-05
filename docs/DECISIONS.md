@@ -1866,3 +1866,13 @@ For every zip from now on:
   `129_page_by_page`). They are applied by file name and define
   nothing in common, so both are in place; the next free number is
   131.
+
+## 5 Oct 2026: Team tools from both doors
+
+Pricing, Outreach and Page upgrades could only be opened from the
+team link (nomadmaps.io/admin): the Team tools button in the control
+centre's top bar was hidden when the control centre was opened from
+the map's menu. Jonathan asked for both ways to lead to the same
+things. The button now shows either way; "Open the map" stays only
+on the team link, because from the map the back arrow already leads
+there.

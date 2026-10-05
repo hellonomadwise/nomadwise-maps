@@ -970,26 +970,34 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
               onPressed: _openSearch,
               icon: const Icon(Icons.search)),
           const HealthButton(),
-          if (widget.standalone)
-            PopupMenuButton<String>(
-              tooltip: 'Team tools',
-              icon: const Icon(Icons.apps),
-              onSelected: _openTool,
-              itemBuilder: (_) => const [
-                PopupMenuItem(value: 'analytics', child: Text('Analytics')),
-                PopupMenuItem(value: 'users', child: Text('Users')),
-                PopupMenuItem(value: 'pricing', child: Text('Pricing')),
-                PopupMenuItem(value: 'outreach', child: Text('Outreach')),
-                PopupMenuItem(
-                    value: 'upgrades', child: Text('Page upgrades')),
-                PopupMenuItem(
-                    value: 'review', child: Text('Review submissions')),
-                PopupMenuItem(
-                    value: 'feedback', child: Text('Feedback inbox')),
+          // The team's other screens. Shown however the control centre
+          // was opened (the team link, or the map's menu): Pricing,
+          // Outreach and Page upgrades have no other door (Jonathan,
+          // 5 Oct 2026). From the map, the back arrow leads to the
+          // map, so "Open the map" is only offered on the team link.
+          PopupMenuButton<String>(
+            tooltip: 'Team tools',
+            icon: const Icon(Icons.apps),
+            onSelected: _openTool,
+            itemBuilder: (_) => <PopupMenuEntry<String>>[
+              const PopupMenuItem(
+                  value: 'analytics', child: Text('Analytics')),
+              const PopupMenuItem(value: 'users', child: Text('Users')),
+              const PopupMenuItem(value: 'pricing', child: Text('Pricing')),
+              const PopupMenuItem(
+                  value: 'outreach', child: Text('Outreach')),
+              const PopupMenuItem(
+                  value: 'upgrades', child: Text('Page upgrades')),
+              const PopupMenuItem(
+                  value: 'review', child: Text('Review submissions')),
+              const PopupMenuItem(
+                  value: 'feedback', child: Text('Feedback inbox')),
+              if (widget.standalone) ...const <PopupMenuEntry<String>>[
                 PopupMenuDivider(),
                 PopupMenuItem(value: 'map', child: Text('Open the map')),
               ],
-            ),
+            ],
+          ),
           // The site's taxonomy, made from here: a Region (city page) or
           // a Location (neighbourhood page), built and published by the
           // sync within a minute or two, then in every picker.
