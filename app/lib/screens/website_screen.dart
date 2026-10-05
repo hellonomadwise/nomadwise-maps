@@ -439,9 +439,15 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                             controller: note,
                             minLines: 1,
                             maxLines: 3,
-                            decoration: const InputDecoration(
-                                labelText: 'Note (optional)',
-                                hintText: 'Anything worth remembering')),
+                            onChanged: (_) => setLocal(() {}),
+                            decoration: InputDecoration(
+                                // "Other" says nothing by itself
+                                labelText: reason == 'Other'
+                                    ? 'The reason'
+                                    : 'Note (optional)',
+                                hintText: reason == 'Other'
+                                    ? 'In a few words, for later'
+                                    : 'Anything worth remembering')),
                       ]),
                 ),
                 actions: [
@@ -449,8 +455,10 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                       onPressed: () => Navigator.pop(ctx, false),
                       child: const Text('Cancel')),
                   ElevatedButton(
-                      onPressed:
-                          reason == null ? null : () => Navigator.pop(ctx, true),
+                      onPressed: reason == null ||
+                              (reason == 'Other' && note.text.trim().isEmpty)
+                          ? null
+                          : () => Navigator.pop(ctx, true),
                       child: const Text('Not for the site')),
                 ],
               ),

@@ -26,7 +26,10 @@ Map<String, dynamic> place(String id, String name, String area,
         String? phrase,
         int gap = 0,
         int listed = 0,
-        bool other = false}) =>
+        bool other = false,
+        String? address,
+        int shared = 1,
+        int sameName = 1}) =>
     {
       'google_place_id': id,
       'name': name,
@@ -53,6 +56,10 @@ Map<String, dynamic> place(String id, String name, String area,
       'gap_points': gap,
       'city_listed': listed,
       'other_type': other,
+      // Where it is and who shares its name (migration 139).
+      'address': address,
+      'search_shared': shared,
+      'same_name': sameName,
     };
 
 /// The database, as far as this screen is concerned.
@@ -62,6 +69,7 @@ class FakeDatabase extends SupabaseService {
   final List<Map<String, dynamic>> places;
   final Map<String, Map<String, dynamic>> queued = {};
   final Map<String, String> dismissed = {};
+  final Map<String, String?> notes = {};
   final List<String?> areasAsked = [];
   final List<String> sortsAsked = [];
   bool fail = false;
@@ -124,6 +132,7 @@ class FakeDatabase extends SupabaseService {
   Future<void> candidateDismiss(String placeId, String reason,
       {String? note}) async {
     dismissed[placeId] = reason;
+    notes[placeId] = note;
   }
 
   @override
@@ -335,6 +344,85 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('HappyBlue Coffee'), findsOneWidget);
     expect(find.textContaining('3 places waiting'), findsOneWidget);
+  });
+
+  testWidgets('"Other" asks for the reason and keeps it', (tester) async {
+    final h = await open(tester, chiangMai);
+
+    await tapText(tester, find.text('Not for the site').first);
+    await tapText(tester, find.text('Other').last);
+
+    // Asked, and nothing saved until a reason is typed.
+    expect(find.text('Why not HappyBlue Coffee?'), findsOneWidget);
+    expect(h.db.dismissed, isEmpty);
+    final send = find.widgetWithText(ElevatedButton, 'Not for the site');
+    expect(tester.widget<ElevatedButton>(send).onPressed, isNull);
+
+    await tester.enterText(find.byType(TextField), '  Only open weekends ');
+    await tester.pumpAndSettle();
+    expect(tester.widget<ElevatedButton>(send).onPressed, isNotNull);
+    await tester.tap(send);
+    await tester.pumpAndSettle();
+
+    expect(h.db.dismissed, {'p1': 'Other'});
+    expect(h.db.notes, {'p1': 'Only open weekends'});
+    expect(find.text('HappyBlue Coffee'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('"Other" closed without a reason turns nothing down',
+      (tester) async {
+    final h = await open(tester, chiangMai);
+
+    await tapText(tester, find.text('Not for the site').first);
+    await tapText(tester, find.text('Other').last);
+    await tapText(tester, find.text('Cancel'));
+
+    expect(h.db.dismissed, isEmpty);
+    expect(find.text('HappyBlue Coffee'), findsOneWidget);
+  });
+
+  testWidgets('a card says where the place is and how sure the reviews are',
+      (tester) async {
+    await open(
+        tester,
+        [
+          place('w1', 'WeWork - Office Space & Coworking', 'Chiang Mai',
+              coworking: true,
+              searches: 2300,
+              confidence: 'city',
+              phrase: 'wework chiang mai',
+              shared: 4,
+              sameName: 4,
+              address: '8 Devonshire Square'),
+          place('w2', 'WeWork - Office Space & Coworking', 'Chiang Mai',
+              coworking: true,
+              searches: 2300,
+              confidence: 'city',
+              phrase: 'wework chiang mai',
+              shared: 4,
+              sameName: 4,
+              address: '1 Poultry'),
+          place('c1', 'Thin Cafe', 'Chiang Mai', wifi: 1),
+          place('c2', 'Sure Cafe', 'Chiang Mai', laptop: 2, power: 1),
+        ],
+        size: const Size(360, 3000));
+
+    // The two branches can be told apart.
+    expect(find.text('8 Devonshire Square'), findsOneWidget);
+    expect(find.text('1 Poultry'), findsOneWidget);
+    expect(
+        find.text('About 2,300 searches a month for "wework chiang mai", '
+            'shared by 4 places with this name'),
+        findsNWidgets(2));
+    // A cafe says how sure the reviews are; a coworking space does not.
+    expect(find.text('Thin signs people work here: look before you queue'),
+        findsOneWidget);
+    expect(find.text('Strong signs people work here'), findsOneWidget);
+    // Google and the map, on every card.
+    expect(find.text('Google'), findsNWidgets(4));
+    expect(find.text('Map'), findsNWidgets(4));
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('a city chip narrows the list to that city', (tester) async {

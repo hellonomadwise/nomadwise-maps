@@ -61,6 +61,18 @@ class Candidate {
   /// Where it stands when the list is ordered "best bets first".
   final int priority;
 
+  /// Its short address as Google gives it ("8 Devonshire Square,
+  /// London"); null until the nightly job has read it (migration 139).
+  final String? address;
+
+  /// How many places Google shows around it under the same name
+  /// (itself counted): 4 for one of four WeWorks in a city.
+  final int sameName;
+
+  /// How many places share its name's searches: above 1 when the
+  /// phrase is a brand's ("wework london") rather than this place's.
+  final int searchShared;
+
   const Candidate({
     required this.placeId,
     required this.name,
@@ -88,6 +100,9 @@ class Candidate {
     this.gapPoints = 0,
     this.otherType = false,
     this.priority = 0,
+    this.address,
+    this.sameName = 1,
+    this.searchShared = 1,
   });
 
   factory Candidate.fromJson(Map<String, dynamic> j) => Candidate(
@@ -116,6 +131,11 @@ class Candidate {
         cityListed: (j['city_listed'] as num?)?.toInt() ?? 0,
         gapPoints: (j['gap_points'] as num?)?.toInt() ?? 0,
         otherType: j['other_type'] == true,
+        address: ((j['address'] ?? '').toString().trim().isEmpty)
+            ? null
+            : j['address'].toString().trim(),
+        sameName: (j['same_name'] as num?)?.toInt() ?? 1,
+        searchShared: (j['search_shared'] as num?)?.toInt() ?? 1,
         priority: (j['priority'] as num?)?.toInt() ?? 0,
       );
 
@@ -141,8 +161,40 @@ class Candidate {
         if (laptop > 0) _mentions(laptop, 'working there'),
         if (power > 0) _mentions(power, 'plugs'),
         if (wifi > 0) _mentions(wifi, 'WiFi'),
-        if (!checked) 'Reviews not read yet',
+        if (!reviewsRead) 'Reviews not read yet',
       ];
+
+  /// True when its reviews were read, by the nightly job or by the
+  /// map (which keeps the counts without the day they were read).
+  bool get reviewsRead => checked || laptop + power + wifi > 0;
+
+  /// How sure the reviews make us that a cafe is a place to open a
+  /// laptop: 'strong', 'some', 'thin' or 'unread'. Google gives five
+  /// reviews per place, so this is a first sign and not a verdict.
+  /// Null for a coworking space, which needs no such sign.
+  ///
+  /// Strong: two or more of the five reviews talk about working
+  /// there. Some: one review does, or plugs and WiFi are both
+  /// mentioned (one review can be counted for each, so this is not
+  /// two voices). Thin: a mention of WiFi or of plugs alone, which
+  /// any cafe can get.
+  String? get workEvidence {
+    if (coworking) return null;
+    if (laptop >= 2) return 'strong';
+    if (laptop == 1 || (power >= 1 && wifi >= 1)) return 'some';
+    if (power + wifi >= 1) return 'thin';
+    return reviewsRead ? 'thin' : 'unread';
+  }
+
+  /// The same, as the card says it.
+  String? get workEvidenceLabel => switch (workEvidence) {
+        'strong' => 'Strong signs people work here',
+        'some' => 'Some signs people work here',
+        'thin' => otherType
+            ? 'Thin signs people work here'
+            : 'Thin signs people work here: look before you queue',
+        _ => null,
+      };
 
   /// 1234 as "1,234".
   static String thousands(int n) {
@@ -167,6 +219,7 @@ class Candidate {
     final phrase = (searchPhrase ?? '').trim();
     final what = phrase.isEmpty ? 'its name' : '"$phrase"';
     final conf = searchConfidence;
+    var saidShared = false;
     if (conf == 'general') {
       out.add(('Name too common to measure searches', false));
     } else if (conf == 'none') {
@@ -175,6 +228,13 @@ class Candidate {
       final count = 'About ${thousands(n)} searches a month for $what';
       if (n < 10) {
         out.add(('Hardly searched by name', false));
+      } else if (searchShared > 1 && !otherType) {
+        // the brand's searches, not this branch's
+        saidShared = true;
+        out.add((
+          '$count, shared by $searchShared places with this name',
+          false
+        ));
       } else if (otherType) {
         final kind = typeWords;
         final article =
@@ -190,6 +250,9 @@ class Candidate {
       } else {
         out.add((count, true));
       }
+    }
+    if (sameName > 1 && !saidShared) {
+      out.add(('One of $sameName places with this name here', false));
     }
     if (gapPoints > 0) {
       final listed = cityListed == 0
@@ -208,8 +271,12 @@ class Candidate {
   /// What to type into Google to find it: its name, and its city when
   /// the name does not already say it ("Generator London" stays as it
   /// is; "Hotel Conqueridor" becomes "Hotel Conqueridor Valencia").
+  /// With an address the address is added instead, so one branch of
+  /// several is the one found.
   String get googleQuery {
     final n = name.trim();
+    final a = (address ?? '').trim();
+    if (a.isNotEmpty) return '$n $a';
     final city = (regionName ?? (hasCityPage ? area : area.split(',').first))
         .trim();
     if (city.isEmpty ||

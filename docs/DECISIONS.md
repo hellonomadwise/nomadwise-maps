@@ -2223,3 +2223,55 @@ later.
   any other reason; the reason is what a later accommodation shortlist
   reads (`candidate_decisions.reason`). No database change: reasons
   are free text.
+
+## 5 Oct 2026: a brand's searches are shared, a candidate says where it is, and how sure we are of a cafe
+
+Jonathan, looking at Candidates under "most searched first": four
+cards read "WeWork - Office Space & Coworking, London", each with
+"About 2,300 searches a month for wework london". "Too generic":
+nothing told the four apart, and the 2,300 belong to WeWork in London,
+not to one branch. Then: "Other" should ask for a reason. Then, on
+Blank Street Coffee with one mention of WiFi: "I need to be more
+confident a cafe on the list is a strong likelihood as a good spot to
+pull out your laptop."
+
+Built (migration 139, `enrich_venues.py`, `candidate.dart`,
+`candidates_tab.dart`):
+
+- **Shared searches.** A search phrase given to several places, and
+  for a name that only counts with its city ("starbucks porto") every
+  place Google shows around under that name, is the brand's. The card
+  says "shared by N places with this name" in grey, and the place is
+  ordered on its share (2,300 across four is 575 each) in both orders.
+  "Same name" is the name before a dash, a bar or a comma, compared
+  across everything the sweeps found within about 30 km, read or not.
+- **Address.** `discovered_places.address` is Google's short address.
+  The nightly review scan stores it from now on (same call, same
+  cost), the city sweep too, and a catch-up fills it for the places
+  that can be candidates, 300 a night, with an address-only call (the
+  cheapest kind, about $0.005 each at list price). The card shows
+  it under the city and the Google button searches the name with it.
+  Until the first nightly run after the upload the cards have none.
+- **How sure the reviews make us (cafes only).** Google gives five
+  reviews a place. "Strong signs people work here": two or more of
+  them talk about working there. "Some": one does, or plugs and WiFi
+  are both mentioned. "Thin": WiFi alone or plugs alone, which any
+  cafe can get. This is honest labelling of thin evidence, not new
+  evidence. What would add evidence, not built, waiting for his Go:
+  asking Google's own search for "laptop friendly cafe" and "cafe to
+  work from" in each city and marking the places it returns (a few
+  calls a city), and a session reading the web for the short list he
+  is about to queue.
+- **"Reviews not read yet"** no longer shows beside a count: the map
+  keeps counts without the day they were read.
+- **"Other"** under "Not for the site" asks for the reason and keeps
+  it as the note, on Candidates and on the spaces' own dialog. Closed
+  without one, nothing is turned down.
+
+Checked: migration 139 on the 477 real candidates in a local Postgres
+(the four WeWorks drop from the top to their share; a Starbucks among
+six in Porto, a Regus and a Blank Street with a second branch found;
+Bastard Cafe and The Cluster untouched; applying twice; paging), the
+address catch-up against stand-ins for Google and the database, and
+one independent review of the Dart, the tests and the nightly job.
+Not compiled here.

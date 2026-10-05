@@ -135,6 +135,119 @@ void main() {
     expect(d.googleQuery, 'Cafe & Co');
   });
 
+  test('with an address the Google link finds the one branch', () {
+    final c = Candidate.fromJson(row({
+      'name': 'WeWork - Office Space & Coworking',
+      'area': 'London',
+      'region_name': 'London',
+      'address': ' 8 Devonshire Square, London ',
+    }));
+    expect(c.address, '8 Devonshire Square, London');
+    expect(c.googleQuery,
+        'WeWork - Office Space & Coworking 8 Devonshire Square, London');
+    // no address read yet: null, never an empty line on the card
+    expect(Candidate.fromJson(row({'address': ''})).address, isNull);
+    expect(Candidate.fromJson(row({})).address, isNull);
+  });
+
+  group('a brand with several places (migration 139)', () {
+    test('its searches are shared, and do not count for one branch', () {
+      final c = Candidate.fromJson(row({
+        'name': 'WeWork - Office Space & Coworking',
+        'coworking': true,
+        'searches': 2300,
+        'search_confidence': 'city',
+        'search_phrase': 'wework london',
+        'search_shared': 4,
+        'same_name': 4,
+      }));
+      expect(c.searchReasons, [
+        (
+          'About 2,300 searches a month for "wework london", shared by 4 '
+              'places with this name',
+          false
+        ),
+      ]);
+    });
+
+    test('a name several places carry is said when no searches say it', () {
+      final c = Candidate.fromJson(row({
+        'name': 'CreativeCubes.Co - Carlton',
+        'searches': 0,
+        'search_confidence': 'none',
+        'search_phrase': 'creativecubes co',
+        'search_shared': 7,
+        'same_name': 7,
+      }));
+      expect(c.searchReasons, [
+        ('No searches found for its name', false),
+        ('One of 7 places with this name here', false),
+      ]);
+    });
+
+    test('a place alone under its name says neither', () {
+      final c = Candidate.fromJson(row({
+        'searches': 870,
+        'search_confidence': 'sure',
+        'search_phrase': 'the cluster',
+      }));
+      expect(c.sameName, 1);
+      expect(c.searchShared, 1);
+      expect(c.searchReasons,
+          [('About 870 searches a month for "the cluster"', true)]);
+    });
+  });
+
+  group('how sure the reviews make us a cafe is a place to work', () {
+    String? grade(int laptop, int power, int wifi, {bool checked = true}) =>
+        Candidate.fromJson(row({
+          'laptop': laptop,
+          'power': power,
+          'wifi': wifi,
+          'checked': checked,
+        })).workEvidence;
+
+    test('strong: two or more reviews talk about working there', () {
+      expect(grade(2, 0, 0), 'strong');
+      expect(grade(3, 1, 2), 'strong');
+    });
+
+    test('some: one talks about working there, or plugs and WiFi both', () {
+      expect(grade(1, 0, 0), 'some');
+      // one review can say both, so this is not two voices
+      expect(grade(1, 1, 0), 'some');
+      expect(grade(1, 0, 1), 'some');
+      expect(grade(0, 1, 2), 'some');
+    });
+
+    test('thin: WiFi alone or plugs alone', () {
+      expect(grade(0, 0, 1), 'thin');
+      expect(grade(0, 2, 0), 'thin');
+      final c = Candidate.fromJson(row({'laptop': 0, 'power': 0, 'wifi': 1}));
+      expect(c.workEvidenceLabel,
+          'Thin signs people work here: look before you queue');
+    });
+
+    test('a coworking space needs no such sign', () {
+      final c = Candidate.fromJson(row({'coworking': true}));
+      expect(c.workEvidence, isNull);
+      expect(c.workEvidenceLabel, isNull);
+    });
+
+    test('counts kept by the map mean the reviews were read', () {
+      // The map keeps the counts without the day they were read.
+      final c = Candidate.fromJson(
+          row({'laptop': 0, 'power': 0, 'wifi': 1, 'checked': false}));
+      expect(c.reviewsRead, isTrue);
+      expect(c.reasons, ['1 review mentions WiFi']);
+      final d = Candidate.fromJson(
+          row({'laptop': 0, 'power': 0, 'wifi': 0, 'checked': false}));
+      expect(d.reviewsRead, isFalse);
+      expect(d.workEvidence, 'unread');
+      expect(d.workEvidenceLabel, isNull);
+    });
+  });
+
   test('the map link carries the name and the place id', () {
     final c = Candidate.fromJson(row({'name': 'Cafe & Co'}));
     final uri = Uri.parse(c.mapsUrl);

@@ -288,15 +288,56 @@ class _CandidatesTabState extends State<CandidatesTab> {
     }
   }
 
+  /// "Other" says nothing by itself: the reason is asked for and kept
+  /// with it. Null when the question was closed without an answer.
+  Future<String?> _askOtherReason(Candidate c) async {
+    final text = TextEditingController();
+    final said = await showDialog<String>(
+        context: context,
+        builder: (ctx) => StatefulBuilder(
+              builder: (ctx, setLocal) => AlertDialog(
+                title: Text('Why not ${c.name}?'),
+                content: TextField(
+                    controller: text,
+                    autofocus: true,
+                    minLines: 1,
+                    maxLines: 3,
+                    maxLength: 200,
+                    onChanged: (_) => setLocal(() {}),
+                    decoration: const InputDecoration(
+                        labelText: 'The reason',
+                        hintText: 'In a few words, for later')),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('Cancel')),
+                  ElevatedButton(
+                      onPressed: text.text.trim().isEmpty
+                          ? null
+                          : () => Navigator.pop(ctx, text.text.trim()),
+                      child: const Text('Not for the site')),
+                ],
+              ),
+            ));
+    return (said ?? '').trim().isEmpty ? null : said!.trim();
+  }
+
   Future<void> _dismiss(Candidate c, String reason) async {
     if (_busy.contains(c.placeId)) return;
+    String? note;
+    if (reason == 'Other') {
+      note = await _askOtherReason(c);
+      if (note == null || !mounted) return;
+      if (_busy.contains(c.placeId)) return;
+    }
     setState(() => _busy.add(c.placeId));
     try {
-      await widget.supabase.candidateDismiss(c.placeId, reason);
+      await widget.supabase.candidateDismiss(c.placeId, reason, note: note);
       if (!mounted) return;
       _removeLocally(c);
       setState(() => _dismissed = _dismissed + 1);
-      _snack('${c.name} is off the list: ${reason.toLowerCase()}.');
+      _snack('${c.name} is off the list: '
+          '${note ?? reason.toLowerCase()}.');
     } catch (e) {
       if (!mounted) return;
       _snack('That did not save: $e', bad: true);
@@ -613,9 +654,18 @@ class _CandidatesTabState extends State<CandidatesTab> {
                     'cities where we list few, and what the reviews say.'
                 : 'By Google searches a month for the name. The most '
                     'searched are often hotels and chains, so read the '
-                    'reason on each card.',
+                    'reason on each card. A brand with several places '
+                    'here counts its share of the searches.',
             style: const TextStyle(
                 fontSize: 12, color: Brand.inkMuted, height: 1.4)),
+        const SizedBox(height: 4),
+        const Text(
+            'On a cafe, "strong", "some" or "thin" signs says how sure '
+            'the reviews make us that people work there. Google shows '
+            'five reviews a place, so look at a thin one before you '
+            'queue it.',
+            style:
+                TextStyle(fontSize: 12, color: Brand.inkMuted, height: 1.4)),
       ]),
     );
   }
@@ -716,6 +766,7 @@ class _CandidatesTabState extends State<CandidatesTab> {
       c.area,
       if (c.hasCityPage && (c.regionCountry ?? '').isNotEmpty) c.regionCountry,
     ].join(', ');
+    final evidence = c.workEvidenceLabel;
     return Card(
       key: ValueKey('candidate-${c.placeId}'),
       margin: const EdgeInsets.only(bottom: 12),
@@ -747,6 +798,11 @@ class _CandidatesTabState extends State<CandidatesTab> {
                     Text(where,
                         style: const TextStyle(
                             fontSize: 12, color: Brand.inkMuted)),
+                    // which one of several with the same name
+                    if (c.address != null)
+                      Text(c.address!,
+                          style: const TextStyle(
+                              fontSize: 12, color: Brand.inkSecondary)),
                   ]),
             ),
           ]),
@@ -754,6 +810,16 @@ class _CandidatesTabState extends State<CandidatesTab> {
           Wrap(spacing: 6, runSpacing: 6, children: [
             if (rating != null)
               StatusChip('★ $rating', dotColor: Brand.gold),
+            // A cafe: how sure the reviews make us it is a place to
+            // open a laptop.
+            if (evidence != null)
+              _why(
+                  evidence,
+                  switch (c.workEvidence) {
+                    'strong' => Brand.success,
+                    'some' => Brand.gold,
+                    _ => Brand.inkMuted,
+                  }),
             // What the search numbers say, then what the reviews say.
             for (final (text, good) in c.searchReasons)
               _why(text, good ? Brand.success : Brand.inkMuted),
@@ -808,7 +874,7 @@ class _CandidatesTabState extends State<CandidatesTab> {
                         foregroundColor: Brand.inkSecondary),
                     icon: const Icon(Icons.map_outlined, size: 16),
                     label: const Text('Map')),
-                if (quotes == null && c.checked)
+                if (quotes == null && c.reviewsRead)
                   TextButton.icon(
                       onPressed: _quotesLoading.contains(c.placeId)
                           ? null

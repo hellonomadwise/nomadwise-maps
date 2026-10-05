@@ -468,23 +468,40 @@ except Exception:  # noqa: BLE001
     print('signal_food column missing (migration 38 not run yet) — '
           'food signals skipped this run.')
 
+# Does it have the address column yet (migration 139)?
+try:
+    req(f'{SUPABASE_URL}/rest/v1/discovered_places'
+        '?select=address&limit=1', headers=sb_headers())
+    has_address_col = True
+except Exception:  # noqa: BLE001
+    has_address_col = False
+    print('address column missing (migration 139 not run yet): '
+          'addresses skipped this run.')
+
 checked, promising = 0, 0
 for p in unchecked:
     counts = {'wifi': 0, 'power': 0, 'laptop': 0, 'food': 0}
     negatives = 0
     hours = None
+    address = None
     try:
         # Opening hours ride along on the same call the review scan
         # already pays for; stored, they make "open now?" free forever.
+        # So does the short address (Candidates shows it, to tell one
+        # branch of a brand from another): a cheaper field than the
+        # reviews, so the call costs what it did.
         details = req(
             f"https://places.googleapis.com/v1/places/{p['google_place_id']}",
             headers={
                 'X-Goog-Api-Key': PLACES_KEY,
                 'X-Goog-FieldMask':
-                    'reviews,businessStatus,regularOpeningHours',
+                    'reviews,businessStatus,regularOpeningHours'
+                    + (',shortFormattedAddress' if has_address_col else ''),
             })
         hours = ((details or {}).get('regularOpeningHours')
                  or {}).get('periods')
+        address = ((details or {}).get('shortFormattedAddress')
+                   or '').strip() or None
         if (details or {}).get('businessStatus') not in (None, 'OPERATIONAL'):
             # Permanently/temporarily closed: off the map entirely.
             req(f"{SUPABASE_URL}/rest/v1/discovered_places"
@@ -521,6 +538,8 @@ for p in unchecked:
                 **({'signal_food': counts['food']}
                    if has_food_col else {}),
                 **({'hours': hours} if hours else {}),
+                **({'address': address[:200]}
+                   if address and has_address_col else {}),
             })
         checked += 1
         if any(counts.values()) and negatives == 0:
@@ -529,6 +548,76 @@ for p in unchecked:
         pass
 
 print(f'Signals: {checked} places checked, {promising} promising.')
+
+
+# ------------------------------------------------------------
+# Addresses for the places already read (migration 139). The scan
+# above stores an address with every place it reads from now on; the
+# ones read before have none, and Candidates cannot tell four WeWorks
+# apart without it. A small call of its own (the address only, the
+# cheapest kind of lookup), for the places that can be candidates
+# (read or not: a coworking space is one before its reviews are),
+# until all of them have one. A place Google no longer has gets an
+# empty address, so it is not asked for again.
+# ------------------------------------------------------------
+ADDRESSES_PER_RUN = 300
+
+addressed = 0
+if has_address_col:
+    try:
+        no_address = req(
+            f'{SUPABASE_URL}/rest/v1/discovered_places'
+            '?select=google_place_id'
+            '&address=is.null'
+            '&or=(signal_laptop.gt.0,signal_power.gt.0,signal_wifi.gt.0,'
+            'primary_type.eq.coworking_space,name.ilike.*cowork*,'
+            'name.ilike.*workspace*,name.ilike.*wework*)'
+            '&order=signals_checked_at.desc.nullslast'
+            f'&limit={ADDRESSES_PER_RUN}',
+            headers=sb_headers()) or []
+    except Exception as e:  # noqa: BLE001
+        no_address = []
+        print(f'Addresses phase skipped: {e}')
+    for p in no_address:
+        address = None
+        try:
+            details = req(
+                'https://places.googleapis.com/v1/places/'
+                f"{p['google_place_id']}",
+                headers={
+                    'X-Goog-Api-Key': PLACES_KEY,
+                    'X-Goog-FieldMask': 'shortFormattedAddress',
+                })
+            address = ((details or {}).get('shortFormattedAddress')
+                       or '').strip()
+        except urllib.error.HTTPError as e:
+            # Gone from Google (or an id Google no longer knows): do
+            # not ask again. Anything else is Google refusing the
+            # call (a key, a quota): stop for this run.
+            gone = e.code == 404
+            if e.code == 400:
+                try:
+                    gone = b'Place ID' in e.read()
+                except Exception:  # noqa: BLE001
+                    gone = False
+            if not gone:
+                break
+            address = ''
+        except google_meter.DailyLimitReached:
+            break              # the day's spending limit: stop
+        except Exception:  # noqa: BLE001
+            continue           # transient: try again next run
+        try:
+            req(f"{SUPABASE_URL}/rest/v1/discovered_places"
+                f"?google_place_id=eq.{p['google_place_id']}",
+                method='PATCH',
+                headers=sb_headers({'Prefer': 'return=minimal'}),
+                body={'address': (address or '')[:200]})
+            if address:
+                addressed += 1
+        except Exception:  # noqa: BLE001
+            pass
+    print(f'Addresses: {addressed} of {len(no_address)} places filled in.')
 
 
 # ============================================================
@@ -549,7 +638,10 @@ MAX_SWEEP_CALLS = 260     # hard cap per run, bounds API spend
 SEARCH_MASK = ('places.id,places.displayName,places.location,'
                'places.primaryType,places.rating,'
                'places.userRatingCount,places.businessStatus,'
-               'places.regularOpeningHours')
+               'places.regularOpeningHours'
+               # the short address rides along (a cheaper field than
+               # the ones above), for Candidates (migration 139)
+               + (',places.shortFormattedAddress' if has_address_col else ''))
 
 import re  # noqa: E402
 COWORK_NAME = re.compile(
@@ -641,7 +733,11 @@ def _row_from_place(pl, cowork=False):
     if _excluded_place(pl):
         return None
     hours = (pl.get('regularOpeningHours') or {}).get('periods')
+    address = (pl.get('shortFormattedAddress') or '').strip()
     return {
+        # always sent once the column exists, so every row of a batch
+        # carries the same keys
+        **({'address': address[:200] or None} if has_address_col else {}),
         'google_place_id': pl['id'],
         'name': (pl.get('displayName') or {}).get('text') or 'Unnamed',
         'lat': loc['latitude'],
