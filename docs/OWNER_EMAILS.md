@@ -30,9 +30,9 @@ Thanks for sending Magical Garden over. We have added it to
 nomadwise.io as a free listing; the page is here once it is live:
 [link].
 
-The free page stays free. Through your Owner account you can correct
-the facts and add your own photos and description, and we pass on any
-enquiries that come in.
+The free page stays free. Through your Owner account you can update
+your listing's details and add or change your own photos and
+description, and we pass on any enquiries that come in.
 
 Verified adds four things:
 

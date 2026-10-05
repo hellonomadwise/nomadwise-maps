@@ -6262,8 +6262,9 @@ class _ListingPlanPageState extends State<_ListingPlanPage> {
             'the link follows as soon as it is live.',
       '',
       'The free page stays free. Through your Owner account you can '
-          'correct the facts and add your own photos and description, '
-          'and we pass on any enquiries that come in.',
+          "update your listing's details and add or change your own "
+          'photos and description, and we pass on any enquiries that '
+          'come in.',
       '',
       'Verified adds four things:',
       '',
