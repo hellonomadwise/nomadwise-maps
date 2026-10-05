@@ -1885,3 +1885,15 @@ can be copied), and the tabs were plain tap areas, so their labels
 counted as text. They now show a pointing hand and are left out of
 text selection. The chips and buttons were already right: Material
 buttons set their own cursor.
+
+## 5 Oct 2026: WhatsApp on a claim card opens with the question typed
+
+The WhatsApp button under a claim waiting for a decision opened an
+empty chat. It now opens with Jonathan's wording, to edit or send:
+"Hi, this is Jonathan from nomadwise.io. Someone called [name] has
+just claimed the [space] page on our directory. Is that you, or
+someone from your team? A quick yes is all we need before we hand
+over the page. Thanks!" The number is the one given on the claim
+form, with the country code added when it was typed without one. The
+separate "WhatsApp Google's number" button (shown when ownership is
+not proven) keeps its own longer message.

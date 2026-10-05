@@ -3503,6 +3503,9 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     ].where((x) => (x ?? '').toString().isNotEmpty).join('  ·  ');
     final email = (c['owner_email'] ?? '').toString().toLowerCase();
     final site = (v['website'] ?? c['space_website'] ?? '').toString();
+    // The phone from the claim form, as WhatsApp wants it.
+    final claimWa = _waNumber((c['owner_phone'] ?? '').toString(),
+        (v['country'] ?? c['space_country'] ?? '').toString());
     // A cheap sanity check: does the claimant's email domain match the
     // space's own website? A match is reassuring; a miss is not proof
     // of anything (many owners use Gmail), just a reason to look.
@@ -3644,12 +3647,26 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
           if (email.isNotEmpty)
             _lookupButton(Icons.mail_outline, 'Email',
                 'mailto:$email?subject=${Uri.encodeComponent('Your $spaceName listing on nomadwise.io')}'),
-          if ((c['owner_phone'] ?? '').toString().isNotEmpty)
+          // Opens the chat with the question already typed, to edit
+          // or send (Jonathan's wording, 5 Oct 2026). The number is
+          // the one given on the claim form.
+          if (claimWa != null)
             _lookupButton(Icons.chat_outlined, 'WhatsApp',
-                'https://wa.me/${c['owner_phone'].toString().replaceAll(RegExp(r'[^0-9]'), '')}'),
+                'https://wa.me/$claimWa?text=${Uri.encodeComponent(_claimHello(c, spaceName))}'),
         ]),
       ]),
     );
+  }
+
+  /// The first message to someone who has claimed a page: who we are,
+  /// who claimed which page, and one easy question.
+  static String _claimHello(Map<String, dynamic> c, String spaceName) {
+    final name = (c['owner_name'] ?? '').toString().trim();
+    return 'Hi, this is Jonathan from nomadwise.io. '
+        '${name.isEmpty ? 'Someone' : 'Someone called $name'} has just '
+        'claimed the $spaceName page on our directory. Is that you, or '
+        'someone from your team? A quick yes is all we need before we '
+        'hand over the page. Thanks!';
   }
 
   Widget _lookupButton(IconData icon, String label, String url) =>
