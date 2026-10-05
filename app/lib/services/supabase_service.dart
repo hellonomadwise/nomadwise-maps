@@ -1744,6 +1744,19 @@ class SupabaseService {
     }
   }
 
+  /// Admin: the Money line of the Owners tab as a funnel (migration
+  /// 138): pages live, claimed, Verified, really paying through
+  /// Stripe, the monthly income in euros and the total collected.
+  /// Null when it cannot be read (the card then says so).
+  Future<Map<String, dynamic>?> adminMoney() async {
+    try {
+      final r = await _db.rpc('admin_money');
+      return r is Map ? Map<String, dynamic>.from(r) : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Admin: owners who switched their Verified renewal off (or back
   /// on) in the last [days] days, newest first, with the space's name.
   Future<List<Map<String, dynamic>>> billingSwitches({int days = 90}) async {

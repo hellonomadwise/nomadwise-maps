@@ -392,6 +392,10 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
 
   static const dismissReasons = [
     'Not really a place to work from',
+    // A hostel, hotel or coliving: off the list, and found again
+    // under this reason when the accommodation pages are built
+    // (Jonathan, 5 Oct 2026).
+    'A place to stay: keep for accommodation',
     'Closed, closing or unreliable',
     'Too small or a locals-only gem',
     'Chain or not on brand',

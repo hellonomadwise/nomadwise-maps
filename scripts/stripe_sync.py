@@ -419,4 +419,17 @@ for g in groups:
         report['errors'].append(f"cache prices {g['code']}: {e}")
     time.sleep(0.2)
 
+# ------------------------------------------------------------- money
+# What each subscription charges and has brought in, for the Money
+# line of the Owners tab (migration 138). Its own module, and only a
+# warning if it fails: the plans above never depend on it. Looked at
+# about once an hour, or at once after a new payment or a plan that
+# ended.
+try:
+    import stripe_money
+    stripe_money.run(stripe, sb, report,
+                     force=bool(report['orders_new'] or report['lapsed']))
+except Exception as e:  # noqa: BLE001
+    report['warnings'].append(f'money: {e}')
+
 finish(1 if report['errors'] else 0)

@@ -205,6 +205,26 @@ class Candidate {
     return out;
   }
 
+  /// What to type into Google to find it: its name, and its city when
+  /// the name does not already say it ("Generator London" stays as it
+  /// is; "Hotel Conqueridor" becomes "Hotel Conqueridor Valencia").
+  String get googleQuery {
+    final n = name.trim();
+    final city = (regionName ?? (hasCityPage ? area : area.split(',').first))
+        .trim();
+    if (city.isEmpty ||
+        city == 'No city page nearby' ||
+        n.toLowerCase().contains(city.toLowerCase())) {
+      return n;
+    }
+    return '$n $city';
+  }
+
+  /// The ordinary Google results page for it (its own website, what
+  /// it calls itself, its panel on the right), not Google Maps.
+  String get googleUrl =>
+      'https://www.google.com/search?q=${Uri.encodeQueryComponent(googleQuery)}';
+
   /// The place on Google Maps (the full listing: photos, all reviews).
   String get mapsUrl =>
       'https://www.google.com/maps/search/?api=1'

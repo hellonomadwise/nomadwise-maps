@@ -91,6 +91,50 @@ void main() {
     });
   });
 
+  test('the Google link searches the name, with the city when needed', () {
+    // the name already says the city
+    final a = Candidate.fromJson(row({
+      'name': 'Generator London',
+      'area': 'London',
+      'region_id': 'r1',
+      'region_name': 'London',
+      'region_country': 'England',
+    }));
+    expect(a.googleQuery, 'Generator London');
+    final uri = Uri.parse(a.googleUrl);
+    expect(uri.host, 'www.google.com');
+    expect(uri.path, '/search');
+    expect(uri.queryParameters['q'], 'Generator London');
+    // it does not: the city is added
+    final b = Candidate.fromJson(row({
+      'name': 'Hotel Conqueridor',
+      'area': 'Valencia',
+      'region_id': 'r2',
+      'region_name': 'Valencia',
+      'region_country': 'Spain',
+    }));
+    expect(b.googleQuery, 'Hotel Conqueridor Valencia');
+    // no city page: the city of the sweep, without its country
+    final c = Candidate.fromJson(row({
+      'name': 'Cafe & Co',
+      'area': 'Pai, Thailand',
+      'region_id': null,
+      'region_name': null,
+      'region_country': null,
+    }));
+    expect(c.googleQuery, 'Cafe & Co Pai');
+    expect(Uri.parse(c.googleUrl).queryParameters['q'], 'Cafe & Co Pai');
+    // nothing known about where it is: the name alone
+    final d = Candidate.fromJson(row({
+      'name': 'Cafe & Co',
+      'area': 'No city page nearby',
+      'region_id': null,
+      'region_name': null,
+      'region_country': null,
+    }));
+    expect(d.googleQuery, 'Cafe & Co');
+  });
+
   test('the map link carries the name and the place id', () {
     final c = Candidate.fromJson(row({'name': 'Cafe & Co'}));
     final uri = Uri.parse(c.mapsUrl);

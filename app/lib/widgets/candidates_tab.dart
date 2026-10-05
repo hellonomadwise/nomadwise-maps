@@ -797,6 +797,12 @@ class _CandidatesTabState extends State<CandidatesTab> {
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 TextButton.icon(
+                    onPressed: () => _open(c.googleUrl),
+                    style: TextButton.styleFrom(
+                        foregroundColor: Brand.inkSecondary),
+                    icon: const Icon(Icons.search, size: 16),
+                    label: const Text('Google')),
+                TextButton.icon(
                     onPressed: () => _open(c.mapsUrl),
                     style: TextButton.styleFrom(
                         foregroundColor: Brand.inkSecondary),

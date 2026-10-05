@@ -95,7 +95,9 @@ Website: `webflow_regions`, `webflow_locations`, `webflow_countries`
 `sync_nudges`, `sync_settings`.
 
 Money and owners: `stripe_orders` (every Stripe checkout, matched to a
-venue or left for matching), `listing_claims` (a claim from the form;
+venue or left for matching), `stripe_subscriptions` (what each
+subscription charges and has brought in, written hourly by
+`scripts/stripe_money.py`; read by `admin_money()` for the Money line), `listing_claims` (a claim from the form;
 statuses started, paid, awaiting_approval, rejected, abandoned),
 `claim_visits` (every opening of the claim page), `enquiries`
 (booking requests).

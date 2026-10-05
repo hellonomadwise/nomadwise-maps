@@ -296,8 +296,14 @@ class _HealthButtonState extends State<HealthButton> {
 
 // -------------------------------------------------------------- money
 
-/// The money line at the top of Owners: how many pay, what renews in
-/// the next 30 days, and who switched to Free lately and why.
+/// The money line at the top of Owners, read left to right as a
+/// funnel (Jonathan, 5 Oct 2026; migration 138): pages claimed,
+/// Verified, really paying through Stripe, the monthly income in
+/// euros and the total collected. Then what renews in the next 30
+/// days and who switched to Free lately and why.
+///
+/// "Paying" counts a running Stripe subscription whose last payment
+/// was above zero. A listing made Verified by hand does not count.
 class MoneyCard extends StatefulWidget {
   /// The Verified listings the control centre already loaded.
   final List<Map<String, dynamic>> verified;
@@ -311,41 +317,236 @@ class _MoneyCardState extends State<MoneyCard> {
   final _supabase = SupabaseService();
   List<Map<String, dynamic>> _switches = [];
 
+  /// The numbers last read, kept while the app is open: coming back
+  /// to the tab shows them at once while they are read again.
+  static Map<String, dynamic>? _last;
+
+  /// The funnel's numbers; null until read, or when they cannot be.
+  Map<String, dynamic>? _money = _last;
+  bool _moneyLoaded = _last != null;
+
   @override
   void initState() {
     super.initState();
+    _loadMoney();
     _supabase.billingSwitches().then((r) {
       if (mounted) setState(() => _switches = r);
     });
   }
 
   @override
-  Widget build(BuildContext context) {
-    final now = DateTime.now();
-    final v = widget.verified
+  void didUpdateWidget(covariant MoneyCard old) {
+    super.didUpdateWidget(old);
+    // The control centre reloaded (a plan was changed, say): read the
+    // numbers again.
+    if (!identical(old.verified, widget.verified)) _loadMoney();
+  }
+
+  void _loadMoney() {
+    _supabase.adminMoney().then((r) {
+      if (!mounted) return;
+      setState(() {
+        // A failed re-read keeps the numbers already shown.
+        if (r != null || !_moneyLoaded) _money = r;
+        if (r != null) _last = r;
+        _moneyLoaded = true;
+      });
+    });
+  }
+
+  static int _n(dynamic x) => x is num ? x.toInt() : 0;
+  static num _amount(dynamic x) => x is num ? x : 0;
+
+  static const _symbols = {'EUR': '€', 'GBP': '£', 'USD': r'$', 'AUD': r'A$'};
+
+  /// "€1,234.50", "£13", "120 THB": cents only when there are any.
+  static String _cash(num v, String currency) {
+    final whole = v == v.roundToDouble();
+    final text = NumberFormat(whole ? '#,##0' : '#,##0.00', 'en_US').format(v);
+    final code = currency.trim().toUpperCase();
+    final symbol = _symbols[code];
+    return symbol != null ? '$symbol$text' : '$text $code'.trim();
+  }
+
+  /// "33%" of a part in a whole; "" when there is no whole.
+  static String _share(int part, int whole) {
+    if (whole <= 0) return '';
+    final pct = part * 100 / whole;
+    if (pct > 0 && pct < 1) return 'under 1%';
+    return '${pct.round()}%';
+  }
+
+  /// Money in other currencies that our price list cannot turn into
+  /// euros: "£13, 120 THB".
+  static String _others(dynamic rows) => [
+        for (final r in (rows is List ? rows : const []))
+          if (r is Map) _cash(_amount(r['amount']), '${r['currency'] ?? ''}'),
+      ].join(', ');
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(builder: (context, box) {
+        // the room inside the card: 16 + 16 padding, 1 + 1 border
+        final inner = box.maxWidth - 34;
+        // two tiles side by side on a narrow phone
+        return _card(box.maxWidth.isFinite && inner < 312
+            ? ((inner - 12) / 2).floorToDouble().clamp(96.0, 150.0).toDouble()
+            : 150.0);
+      });
+
+  Widget _card(double tileWidth) {
+    final m = _money;
+    final verifiedShown = widget.verified
         .where((x) => (x['listing_tier'] ?? 'free') != 'free')
-        .toList();
-    final paying = v.where((x) => x['listing_paid_at'] != null).length;
-    final renewing = v.where((x) {
-      final t = DateTime.tryParse('${x['listing_renews_at']}');
-      return t != null &&
-          !t.isBefore(DateTime(now.year, now.month, now.day)) &&
-          t.isBefore(now.add(const Duration(days: 30)));
-    }).toList()
-      ..sort((a, b) => '${a['listing_renews_at']}'
-          .compareTo('${b['listing_renews_at']}'));
+        .length;
     final cancels = _switches.where((s) => s['action'] == 'cancel').toList();
 
-    Widget stat(String n, String label) => SizedBox(
-          width: 150,
+    Widget stat(String n, String label, [String note = '']) => SizedBox(
+          width: tileWidth,
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(n,
                 style:
                     const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
             Text(label,
-                style: const TextStyle(fontSize: 11.5, color: Brand.inkMuted)),
+                style: const TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w600,
+                    color: Brand.inkSecondary)),
+            if (note.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(note,
+                    style:
+                        const TextStyle(fontSize: 11, color: Brand.inkMuted)),
+              ),
           ]),
         );
+
+    final tiles = <Widget>[];
+    final lines = <String>[];
+    if (m == null) {
+      // Not read yet, or the database change is not in: what is known.
+      tiles.add(stat('$verifiedShown', 'Verified'));
+      lines.add(_moneyLoaded
+          ? 'The payment numbers could not be read just now.'
+          : 'Reading the payment numbers.');
+    } else {
+      final live = _n(m['live']);
+      final claimed = _n(m['claimed']);
+      final claimedLive =
+          m['claimed_live'] is num ? _n(m['claimed_live']) : claimed;
+      final verified = _n(m['verified']);
+      final verifiedClaimed = _n(m['verified_claimed']);
+      final paying = _n(m['paying']);
+      final unmatched = _n(m['paying_unmatched']);
+      final monthly = _n(m['paying_monthly']);
+      final yearly = _n(m['paying_yearly']);
+      final ending = _n(m['ending']);
+      final retrying = _n(m['retrying']);
+      final byUs = verified - paying;
+      final exact = m['exact'] != false;
+      final mrrOther = _others(m['mrr_other']);
+      final collectedOther = _others(m['collected_other']);
+      final renewing = [
+        for (final r in (m['renewing'] is List ? m['renewing'] as List : const []))
+          if (r is Map) r,
+      ];
+
+      tiles.addAll([
+        stat(
+            '$claimed',
+            'pages claimed',
+            live > 0
+                ? '${claimedLive != claimed ? '$claimedLive of them live, ' : ''}'
+                    '${_share(claimedLive, live)} of '
+                    '${NumberFormat('#,##0', 'en_US').format(live)} live pages'
+                : ''),
+        stat(
+            '$verified',
+            'Verified',
+            verified == 0
+                ? ''
+                : verifiedClaimed != verified
+                    // some were made Verified on a page nobody claimed
+                    ? '$verifiedClaimed of them on a claimed page'
+                    : claimed > 0
+                        ? '${_share(verified, claimed)} of the claimed pages'
+                        : ''),
+        stat(
+            '$paying',
+            'paying through Stripe',
+            verified == 0
+                ? ''
+                : paying == 0
+                    ? 'none of the Verified yet'
+                    : '${_share(paying, verified)} of the Verified'),
+        stat(
+            _cash(_amount(m['mrr_eur']), 'EUR'),
+            'a month (MRR)',
+            [
+              if (monthly + yearly > 0)
+                '$monthly on the monthly plan, $yearly on the yearly',
+              if (mrrOther.isNotEmpty) 'plus $mrrOther',
+            ].join(', ')),
+        stat(
+            _cash(_amount(m['collected_eur']), 'EUR'),
+            'collected so far',
+            [
+              if (collectedOther.isNotEmpty) 'plus $collectedOther',
+              exact ? 'refunds taken off' : 'some first payments only',
+            ].join(', ')),
+      ]);
+
+      if (byUs > 0) {
+        lines.add(byUs == 1
+            ? '1 Verified listing pays nothing (made Verified by us, or on '
+                'a free code).'
+            : '$byUs Verified listings pay nothing (made Verified by us, or '
+                'on a free code).');
+      }
+      if (unmatched > 0) {
+        lines.add(unmatched == 1
+            ? '1 more subscription is paying but is not attached to a '
+                'Verified listing (a claim waiting for your decision, a '
+                'payment to match, or a listing set back to free by hand). '
+                'Its money is counted.'
+            : '$unmatched more subscriptions are paying but are not '
+                'attached to a Verified listing (claims waiting for your '
+                'decision, payments to match, or listings set back to free '
+                'by hand). Their money is counted.');
+      }
+      if (retrying > 0) {
+        lines.add(retrying == 1
+            ? '1 paying subscription had its latest payment fail. Stripe is '
+                'trying the card again, so it still counts for now.'
+            : '$retrying paying subscriptions had their latest payment '
+                'fail. Stripe is trying the cards again, so they still '
+                'count for now.');
+      }
+      if (ending > 0) {
+        lines.add(ending == 1
+            ? '1 paying subscription ends when its period is up.'
+            : '$ending paying subscriptions end when their period is up.');
+      }
+      if (renewing.isNotEmpty) {
+        final names = [
+          for (final r in renewing.take(5))
+            '${r['name'] ?? 'A space'} '
+                '(${_dayOf(r['renews_at'])})',
+        ].join(', ');
+        final more =
+            renewing.length > 5 ? ' and ${renewing.length - 5} more' : '';
+        lines.add('Renewing in the next 30 days: $names$more.');
+      }
+      if (!exact) {
+        lines.add('For some subscriptions the total counts the first payment '
+            'only, so renewals and refunds may be missing. If this stays, '
+            'give the Stripe key the "Charges and Refunds: Read" '
+            'permission.');
+      }
+      lines.add('Pounds and dollars are turned into euros using our own '
+          'price list, not the day\'s exchange rate. Stripe\'s fees are '
+          'not taken off.${_checked(m['checked_at'])}');
+    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -359,23 +560,25 @@ class _MoneyCardState extends State<MoneyCard> {
         const Text('Money',
             style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
         const SizedBox(height: 10),
-        Wrap(spacing: 12, runSpacing: 10, children: [
-          stat('${v.length}', 'Verified'),
-          stat('$paying', 'paying through Stripe'),
-          stat('${renewing.length}', 'renew in the next 30 days'),
-          stat('${cancels.length}', 'switched to Free, last 90 days'),
-        ]),
-        if (renewing.isNotEmpty) ...[
-          const SizedBox(height: 10),
-          Text(
-              'Renewing: ${renewing.take(5).map((x) => '${x['name']} '
-                  '(${DateFormat('d MMM').format(DateTime.parse('${x['listing_renews_at']}'))})').join(', ')}'
-              '${renewing.length > 5 ? ' and ${renewing.length - 5} more' : ''}',
-              style:
-                  const TextStyle(fontSize: 12.5, color: Brand.inkSecondary)),
-        ],
+        Wrap(spacing: 12, runSpacing: 12, children: tiles),
+        if (lines.isNotEmpty) const SizedBox(height: 10),
+        for (final l in lines)
+          Padding(
+            padding: const EdgeInsets.only(top: 3),
+            child: Text(l,
+                style:
+                    const TextStyle(fontSize: 12.5, color: Brand.inkSecondary)),
+          ),
         if (cancels.isNotEmpty) ...[
           const SizedBox(height: 8),
+          Text(
+              cancels.length == 1
+                  ? '1 switched to Free in the last 90 days:'
+                  : '${cancels.length} switched to Free in the last 90 days:',
+              style: const TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: Brand.inkSecondary)),
           for (final c in cancels.take(5))
             Padding(
               padding: const EdgeInsets.only(top: 3),
@@ -390,5 +593,20 @@ class _MoneyCardState extends State<MoneyCard> {
         ],
       ]),
     );
+  }
+
+  /// "22 Oct" for a date as the database sends it; "" when it is none.
+  static String _dayOf(dynamic x) {
+    final t = DateTime.tryParse('${x ?? ''}');
+    return t == null ? '' : DateFormat('d MMM').format(t);
+  }
+
+  /// " Stripe last read 5 Oct, 14:17." for the last time the payments
+  /// were read; "" when they have not been.
+  static String _checked(dynamic x) {
+    final t = DateTime.tryParse('${x ?? ''}')?.toLocal();
+    return t == null
+        ? ''
+        : ' Stripe last read ${DateFormat('d MMM, HH:mm').format(t)}.';
   }
 }

@@ -2136,3 +2136,90 @@ independent review traced every test against the code by hand and
 read the SQL; its findings are fixed. The app asks the old way if the
 database change has not been applied, so the list cannot go blank
 over this.
+
+## 5 Oct 2026: the Money line is a funnel, and counts real money
+
+The line read "6 Verified, 6 paying through Stripe" when all six had
+been made Verified by hand and nobody had paid: it counted every
+Verified listing with a "paid on" date, and the Listing plan page
+fills that date in by itself. Jonathan wants it to read left to right
+as a funnel that starts with the listings claimed, to count as paying
+only the listings that really pay, and to show the monthly income in
+euros (MRR) and the total collected.
+
+Built (migration 138, `scripts/stripe_money.py`, `MoneyCard` in
+`control_extras.dart`):
+
+- **Left to right:** pages claimed (and the share of the live pages
+  that are claimed), Verified (the share of claimed pages that are;
+  when some were made Verified on a page nobody claimed, "N of them on
+  a claimed page" instead), paying through Stripe (share of the
+  Verified), a month (MRR), collected so far.
+- **Paying** means a subscription Stripe says is running whose last
+  payment was above zero. Not counted: a listing made Verified by
+  hand, a 100% promotion code, a payment refunded in full, a
+  subscription that ended, a subscription Stripe no longer has, a
+  payment marked "ignored" under Payments. The line under the numbers
+  says how many Verified listings pay nothing.
+- **A payment that failed** (Stripe's "past due") still counts while
+  Stripe tries the card again, and the card says how many are in that
+  state. When Stripe gives up the subscription ends and drops out.
+- **MRR** is each paying subscription's last payment, a yearly one
+  divided by twelve.
+- **Euros** come from our own price list, not an outside exchange
+  rate: a plan that costs 15 EUR and 13 GBP makes a pound worth 15/13
+  of a euro. Money in a currency the price list does not have is shown
+  beside the euro figure in its own currency, never guessed.
+- **Collected** is everything paid with refunds taken off, before
+  Stripe's fees. It needs the hourly Stripe job to read each paying
+  customer's payments ("Charges and Refunds: Read" on the GitHub key,
+  docs/BILLING.md). Until that is allowed, each subscription's first
+  payment at the checkout stands in and the card says "some first
+  payments only".
+- **Money no Verified listing carries** (a payment still to match, a
+  listing set back to free by hand while the subscription runs) is
+  counted in the euros and said in a line of its own.
+- The Stripe job's new part only reads Stripe and writes one table.
+  It runs after the plans are settled and can only add a warning to
+  the report, so it cannot stop a payment from making a listing
+  Verified. It looks about once an hour, and at once after a new
+  payment or a plan that ended.
+
+Limits, said plainly: a customer with two subscriptions has first
+payments standing in for both (nothing is counted twice; this is rare
+because each checkout makes its own customer). Stripe's fees are not
+taken off. The euro figure is at list-price rates, so it will differ a
+little from what lands in the bank.
+
+If none of the subscriptions is found in Stripe the key is pointing at
+the wrong Stripe mode (test against live): the job then records
+nothing and warns, so the card keeps what it had.
+
+How it was checked: 83 checks on a local Postgres with a made-up cast
+(by hand, monthly, yearly in pounds, a free code, lapsed, refunded,
+unmatched, ignored at the start and ignored later, a failed payment
+being retried, a currency with no rate, an order with no currency, a
+shared customer, a subscription gone from Stripe, a claimed page that
+is not live) and the real script against a stand-in for Stripe, with
+and without the permission to read charges, and with the wrong mode.
+Two independent reviews, their findings fixed. The card could not be
+compiled here and the job has not run against the real Stripe; its
+first hourly run after the upload is the first real test.
+
+## 5 Oct 2026: Candidates open on Google, and a place to stay is kept
+
+Jonathan: a candidate's card should open the ordinary Google page for
+the place, not only Google Maps (the Map button stays). And Generator
+London is a hostel: neither a cafe nor a coworking space, but worth
+remembering for the "best hostels / coliving in a city" pages he wants
+later.
+
+- **Google button** on each card, before Map: searches the place's
+  name, with its city added when the name does not already say it
+  (`Candidate.googleQuery`).
+- **"A place to stay: keep for accommodation"** is a new reason under
+  "Not for the site" (second in `dismissReasons`, shared with the
+  spaces' own "Not for the site"). The place leaves the list as with
+  any other reason; the reason is what a later accommodation shortlist
+  reads (`candidate_decisions.reason`). No database change: reasons
+  are free text.

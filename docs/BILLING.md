@@ -43,6 +43,23 @@ says billing tools are being switched on; nothing breaks.
    "Their Owner account") and the Plan & billing tab: the card and
    invoices appear.
 
+## The Money line's total (Jonathan, once, two minutes)
+
+The Money line at the top of Owners (5 Oct 2026, migration 138) shows
+pages claimed, Verified, really paying through Stripe, the monthly
+income in euros and the total collected. To count renewals and take
+refunds off the total, the hourly Stripe job reads each paying
+customer's payments, and the GitHub key needs one more permission:
+
+1. Stripe: Developers, API keys. Edit the GitHub key (the one in the
+   STRIPE_API_KEY secret): set **Charges and Refunds** to **Read**.
+   Save. (No new key to paste anywhere.)
+2. Within the hour the line under the numbers stops saying "first
+   payments only".
+
+Until then everything else on the line is right; only the total
+collected counts each subscription's first payment and nothing after.
+
 ## Prices by region (Jonathan, once, about 30 minutes)
 
 Decided 1 Oct 2026 (Leonie): Verified is priced by the space's
