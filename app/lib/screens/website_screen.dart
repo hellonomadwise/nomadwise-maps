@@ -213,6 +213,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     _searchCtl.dispose();
     _cleanCtl.dispose();
     _tabScroll.dispose();
+    _menuBell.dispose();
     super.dispose();
   }
 
@@ -312,6 +313,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         }
         _nextUpFolded = false;
       });
+      _ringMenu();
       // The first reading was started with the page (initState).
       if (!firstLoad) _loadNextUp();
     } catch (e) {
@@ -1070,10 +1072,91 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     });
   }
 
+  /// Rung whenever a number beside the menu may have changed. The
+  /// menu beside an open tool is drawn by the tool's own screen, which
+  /// does not redraw when the control centre does: it listens here.
+  final ValueNotifier<int> _menuBell = ValueNotifier<int>(0);
+  void _ringMenu() => _menuBell.value++;
+
+  /// When the tools' numbers were last read because the pointer came
+  /// to the menu (at most every fifteen seconds).
+  DateTime? _menuReadAt;
+  void _menuPointed() {
+    if (!mounted) return;
+    final now = DateTime.now();
+    final last = _menuReadAt;
+    if (last != null && now.difference(last) < const Duration(seconds: 15)) {
+      return;
+    }
+    _menuReadAt = now;
+    _loadNextUp();
+  }
+
+  /// Everything the To do line counts: what waits in the control
+  /// centre itself.
+  int get _todoCount {
+    final g = _groups();
+    return _passOn.length +
+        _held.length +
+        _orders.length +
+        _ownerDrafts.length +
+        _updates.length +
+        g.ready.length +
+        g.needsRegion.length +
+        g.fresh.length +
+        _drafts.length +
+        _approvedTonight.length +
+        _sitemapCount +
+        _closed.length;
+  }
+
+  /// What is open behind a menu item (Jonathan, 6 Oct 2026), and what
+  /// the number means in words. Zero: no number is shown.
+  (int, String) _menuCount(String key) {
+    int part(String k, [String f = 'n']) {
+      final p = _nextUp?[k];
+      return p is Map ? ((p[f] as num?)?.toInt() ?? 0) : 0;
+    }
+
+    return switch (key) {
+      'home' => (_todoCount, 'waiting in the control centre (its To do line)'),
+      'upgrades' => (
+          part('drafts'),
+          'drafts waiting for your Go, or needing a look'
+        ),
+      'prices' => (
+          part('prices'),
+          'price changes waiting for your Go, or needing a look'
+        ),
+      'outreach' => (
+          part('menu', 'outreach'),
+          'spaces that replied, or follow-ups that have come due and '
+              'have not been sent'
+        ),
+      'review' => (
+          part('menu', 'review'),
+          'submissions and photos waiting to be checked'
+        ),
+      'feedback' => (part('menu', 'feedback'), 'messages not marked done'),
+      _ => (0, ''),
+    };
+  }
+
   /// The menu down the left on a wide screen: the control centre and
   /// the tools used every day on top, what makes new pages on
   /// nomadwise.io in the middle, the tools seldom used at the bottom.
-  Widget _sideMenu(String? current) {
+  Widget _sideMenu(String? current) => !mounted
+      // the control centre has gone (signed out elsewhere) while a
+      // tool's menu is still on screen: draw it, listen to nothing
+      ? _sideMenuNow(current)
+      : MouseRegion(
+          onEnter: (_) => _menuPointed(),
+          child: ValueListenableBuilder<int>(
+              valueListenable: _menuBell,
+              builder: (context, _, __) => _sideMenuNow(current)),
+        );
+
+  Widget _sideMenuNow(String? current) {
     Widget heading(String text) => Padding(
           padding: const EdgeInsets.fromLTRB(16, 14, 12, 4),
           child: Text(text,
@@ -1084,7 +1167,9 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                   color: Brand.inkMuted)),
         );
     Widget item(IconData icon, String label, VoidCallback onTap,
-        {bool on = false, bool quiet = false}) {
+        {bool on = false, bool quiet = false, String? countOf}) {
+      final (count, meaning) =
+          countOf == null ? (0, '') : _menuCount(countOf);
       final color = on
           ? Brand.accent
           : quiet
@@ -1113,6 +1198,32 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                           fontWeight: on ? FontWeight.w800 : FontWeight.w600,
                           color: color)),
                 ),
+                // How many are open behind it; nothing when none are.
+                if (count > 0)
+                  Tooltip(
+                    message: '$count $meaning',
+                    child: Container(
+                      margin: const EdgeInsets.only(left: 6),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 7, vertical: 1.5),
+                      decoration: BoxDecoration(
+                          color: on
+                              ? Brand.accent
+                              : quiet
+                                  ? Brand.field
+                                  : Brand.accentTint,
+                          borderRadius: BorderRadius.circular(10)),
+                      child: Text(count > 999 ? '999+' : '$count',
+                          style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w800,
+                              color: on
+                                  ? Colors.white
+                                  : quiet
+                                      ? Brand.inkSecondary
+                                      : Brand.accent)),
+                    ),
+                  ),
               ]),
             ),
           ),
@@ -1124,7 +1235,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
             {bool quiet = false}) =>
         item(icon, label, () {
           if (current != key) _showTool(key);
-        }, on: current == key, quiet: quiet);
+        }, on: current == key, quiet: quiet, countOf: key);
 
     final top = <Widget>[
       const Padding(
@@ -1133,7 +1244,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
             style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
       ),
       item(Icons.dashboard_outlined, 'Control centre', () => _showTool(null),
-          on: current == null),
+          on: current == null, countOf: 'home'),
       tool('upgrades', Icons.auto_fix_high_outlined, 'Page upgrades'),
       tool('prices', Icons.sell_outlined, 'Price check'),
       tool('outreach', Icons.mail_outline, 'Outreach'),
@@ -1688,6 +1799,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       if (r != null) _nextUp = r;
       _nextUpRead = true;
     });
+    _ringMenu();
   }
 
   void _nextUpSay(String text, {bool bad = false}) {

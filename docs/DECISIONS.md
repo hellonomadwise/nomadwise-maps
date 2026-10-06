@@ -2582,3 +2582,37 @@ the tool already showing is not restarted, linked tools get the menu,
 the menu is safe after sign-out). Not compiled here, and not seen on a
 screen: the widths, spacing and icons are a first cut.
 
+
+## 6 Oct 2026: numbers beside the left menu
+
+Jonathan: "for each of the left hand side menu items, can you add
+numbers for each, if there are open items."
+
+Built (`website_screen.dart`, `migration146_menu_counts.sql`): a small
+number sits at the right of a menu item when something is open behind
+it, and nothing when nothing is. Resting the pointer on a number says
+what it counts.
+
+- Control centre: the same total as its To do line.
+- Page upgrades: drafts waiting for a Go, or needing a look.
+- Price check: price changes waiting for a Go, or needing a look.
+- Outreach: spaces that replied, plus follow-ups that have come due
+  and have not been sent (a follow-up already sent on or after its day
+  is not counted; nor is a space that claimed, verified, declined,
+  unsubscribed or bounced).
+- Review submissions: submissions waiting, plus photos waiting.
+- Feedback inbox: messages not marked done.
+- Analytics, Users, Pricing and the "Create on nomadwise.io" items
+  have nothing that waits, so they never show a number.
+
+The numbers come with the "Next up" reading (`admin_next_up()` gains a
+`menu` part), so there is no extra round trip. They are read again
+when the control centre reloads, when "Next up" is read again, and
+when the pointer comes to the menu (at most every fifteen seconds), so
+a number goes down after something is dealt with inside a tool. The
+phone menu has no numbers.
+
+Checked: the database function on the test copy (counts right, applies
+twice); one independent review of the Dart, its findings fixed (the
+menu is safe after sign-out, the outreach count no longer includes
+follow-ups already sent). Not compiled here, and not seen on a screen.
