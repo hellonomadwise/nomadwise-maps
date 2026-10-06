@@ -1294,7 +1294,8 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
     (
       'claimed',
       'Claimed their page',
-      'Every space with an owner on record.',
+      'Spaces whose owner claimed the page themselves, or has been in '
+          'their Owner account.',
       'not_opened',
       'not signed in yet',
       'They claimed and never came back. Next: a short note that their '
@@ -1352,6 +1353,16 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
     for (final s in _ownerSteps) {
       if (s.$1 == key) return (s.$2, s.$3);
       if (s.$4 == key) return ('${s.$2}, ${s.$5}', s.$6);
+    }
+    if (key == 'ours') {
+      return (
+        'Set up by us, not claimed yet',
+        'We made these Verified ourselves, or put the owner on for them: '
+            'booking partners, and spaces that paid for a listing the old '
+            'way. Nobody there has claimed the page or been in the Owner '
+            'account. Next: write to say their Owner account is ready, and '
+            'how to get in.'
+      );
     }
     if (key == 'stepped_off') {
       return (
@@ -1472,6 +1483,7 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
     ].fold<int>(0, (a, b) => a > b ? a : b);
     final claimed = _pathN('owners', 'claimed');
     final off = _pathN('reach', 'stepped_off');
+    final ours = _pathN('owners', 'ours');
     final paying = (p['paying'] as num?)?.toInt();
     final tests = (p['tests'] as num?)?.toInt() ?? 0;
     final since = _when(p['visits_since']);
@@ -1505,6 +1517,26 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
             stuckKey: s.$4,
             stuckWords: s.$5,
             stuckN: s.$4.isEmpty ? 0 : _pathN('owners', s.$4)),
+      // Verified by us, or an owner we put on: not claimed, so not in
+      // the steps above. The ones to invite.
+      if (ours > 0)
+        Padding(
+          padding: const EdgeInsets.only(left: 66, right: 8),
+          child: InkWell(
+            onTap: () => _showStep(_step == 'ours' ? null : 'ours'),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Text('$ours set up by us, not claimed yet',
+                  style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: _step == 'ours'
+                          ? FontWeight.w800
+                          : FontWeight.w500,
+                      color: Brand.inkSecondary,
+                      decoration: TextDecoration.underline)),
+            ),
+          ),
+        ),
       if (paying != null)
         Padding(
           padding: const EdgeInsets.fromLTRB(66, 4, 8, 0),
@@ -1637,6 +1669,10 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
   String _ownerLine(Map o) {
     int n(String k) => (o[k] as num?)?.toInt() ?? 0;
     String times(int x) => x == 1 ? 'once' : '$x times';
+    if (o['mine'] == false) {
+      return 'Set up by us. They have not claimed the page, and there is '
+          'no sign of them in their Owner account yet.';
+    }
     if (o['accessed'] != true) {
       return 'Owner account: not signed in yet.';
     }
@@ -1701,9 +1737,11 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
       'New: not written to yet.\n'
           'Contacted: we wrote.\n'
           'Replied: they answered.\n'
-          'Claimed and Verified: the space has an owner on record, or is '
-          'on the Verified plan. These two move by themselves, and a '
-          'space that claims is added here if it was not in the list.\n'
+          'Claimed and Verified: the owner claimed the page themselves, '
+          'or has been in their Owner account. These two move by '
+          'themselves, and a space that claims is added here if it was '
+          'not in the list. Spaces we set up ourselves are under "Set up '
+          'by us" until then.\n'
           'Not now, Declined, Unsubscribed: they stepped off, and we keep '
           'the reason so we do not ask again.'
     ),
@@ -1719,6 +1757,19 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
           'red lines under a step are the spaces stuck there.\n'
           'A claimed space\'s card says what its owner has done in the '
           'Owner account, and how often.'
+    ),
+    (
+      Icons.storefront_outlined,
+      'Set up by us, not claimed yet',
+      'Some spaces are on Verified, or have an owner, because we set '
+          'them up: booking partners we agreed terms with, and spaces '
+          'that paid for a listing the old way. Nobody there has claimed '
+          'the page or been in the Owner account, so they are not '
+          'counted under the Claimed or Verified chips. They have their '
+          'own chip and their own line on the path, and are the ones to '
+          'invite to their Owner account. A space leaves this group by '
+          'itself when its owner claims the page, or opens the Owner '
+          'account.'
     ),
     (
       Icons.science_outlined,
@@ -1877,12 +1928,15 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
     final tier = '${c['listing_tier'] ?? ''}';
     final notes = '${c['notes'] ?? ''}'.trim();
     final follow = '${c['follow_up_on'] ?? ''}';
+    // We set this space up (Verified by us, or an owner put on by
+    // hand) and nobody there has claimed it: migration 150.
+    final ours = c['owner'] is Map && (c['owner'] as Map)['mine'] == false;
     final source = switch ('${c['source']}') {
       'webflow_form' => 'Website form${c['form_name'] == null ? '' : ': ${c['form_name']}'}',
       'email' => 'Emailed us',
       'prospect' => 'Prospect',
       'listing' => 'Listed',
-      'claim' => 'Claimed their page',
+      'claim' => ours ? 'Set up by us' : 'Claimed their page',
       _ => 'Added by hand',
     };
     final slug = '${c['webflow_slug'] ?? ''}';
@@ -1904,7 +1958,15 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
                     style: const TextStyle(
                         fontWeight: FontWeight.w800, fontSize: 15.5)),
                 if ('${c['kind'] ?? ''}'.isNotEmpty) _chip('${c['kind']}'),
-                _stageChip('${c['stage']}'),
+                if (ours)
+                  _chip(
+                      '${c['stage']}' == 'verified'
+                          ? 'VERIFIED BY US'
+                          : 'NOT CLAIMED YET',
+                      bg: Brand.logoTealTint,
+                      fg: Brand.logoNavy)
+                else
+                  _stageChip('${c['stage']}'),
                 if (c['is_test'] == true)
                   _chip('TEST', bg: Brand.goldTint, fg: Brand.goldTextDark),
               ]),
@@ -1932,7 +1994,7 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
                         : null,
                     child: Text(
                         '${onSite ? 'On nomadwise.io' : 'On the map'}: $venueName'
-                        '${tier == 'verified' ? ' (Verified)' : tier == 'free' && '${c['listing_owner_email'] ?? ''}'.isNotEmpty ? ' (claimed, Free)' : ''}',
+                        '${tier == 'verified' ? (ours ? ' (Verified by us)' : ' (Verified)') : tier == 'free' && '${c['listing_owner_email'] ?? ''}'.isNotEmpty ? (ours ? ' (owner put on by us, Free)' : ' (claimed, Free)') : ''}',
                         style: TextStyle(
                             fontSize: 12.5,
                             color: onSite ? Brand.logoNavy : Brand.inkSecondary,
@@ -2237,6 +2299,29 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
                               onSelected: (_) {
                                 setState(() {
                                   _stage = s.$1;
+                                  _step = null;
+                                  _rows = null;
+                                });
+                                _load();
+                              },
+                            ),
+                          // Spaces we set up and nobody has claimed:
+                          // their own chip, out of Claimed and Verified.
+                          if ((_counts['ours'] ?? 0) > 0 || _stage == 'ours')
+                            ChoiceChip(
+                              label: Text(
+                                  'Set up by us ${_counts['ours'] ?? 0}'),
+                              showCheckmark: false,
+                              selectedColor: Brand.logoNavy,
+                              labelStyle: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  color: _step == null && _stage == 'ours'
+                                      ? Colors.white
+                                      : Brand.logoNavy),
+                              selected: _step == null && _stage == 'ours',
+                              onSelected: (_) {
+                                setState(() {
+                                  _stage = 'ours';
                                   _step = null;
                                   _rows = null;
                                 });

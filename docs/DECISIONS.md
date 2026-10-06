@@ -2824,3 +2824,144 @@ one for a while.
 
 Checked: every picture looked at after it was made, and the loading
 screen drawn in a browser here with the new icon.
+
+## 6 Oct 2026: spaces we set up ourselves are not "claimed"
+
+Jonathan, on SOKKOOL and Neighbors and Nomads standing in Outreach as
+"Claimed their page": SOKKOOL is a booking partner (terms agreed in
+person, we take bookings for them) and Neighbors and Nomads paid $25
+for a listing the old way. We made both Verified ourselves. "They
+technically haven't claimed their profile... so they could be in that
+kind of queue": the spaces to tell that their Owner account is ready.
+
+This replaces the rule of the entry "Outreach shows the spaces that
+have claimed" above ("a space with an owner on record is Claimed").
+
+Built (`migration150_set_up_by_us.sql`, `admin_outreach_screen.dart`):
+
+- A space is Claimed (or Verified) when a claim of its own went
+  through, or its owner has opened the Owner account or done something
+  in it. Every other space with an owner on record or on the Verified
+  plan is "Set up by us, not claimed yet".
+- Those have their own chip in Outreach ("Set up by us"), their own
+  line under "The path" with its own list, and a card that says so
+  ("VERIFIED BY US" or "NOT CLAIMED YET", and "Set up by us" where it
+  said "Claimed their page"). They are out of Claimed, "not signed in
+  yet", Verified, and the Money card's "pages claimed".
+- A space leaves the group by itself when its owner claims the page or
+  opens the Owner account.
+- For a space with no claim on record, a sign-in by itself does not
+  count as being in the Owner account: the address may have used the
+  map long before we put it on the space, and there is no date to
+  count from. Opening the Owner account does count (counted since
+  6 Oct 2026).
+- The note on the line says "Set up by us: <space>" instead of
+  "Claimed <space>", for new lines and for the ones already written.
+  A claim that was dropped or turned down does not make it "Claimed".
+
+Nothing is sent to anybody by this, and no stage moves. Writing to
+these spaces waits for the framework Leonie approves.
+
+Not done: the HQ's owners card still shows the earlier count. An
+owner we put on by hand who signed in before 6 Oct 2026, and did
+nothing in the Owner account, reads as "no sign of them yet".
+
+Checked: the migration on the test copy, applied twice (the two
+spaces of the screenshots, an owner put on by hand with an old map
+sign-in, one who opened the Owner account, a real claim with its
+address put right since, a dropped claim under the same address, a
+claim that adds a new space; the Money card's "claimed" equal to the
+path's). Two independent reviews (no compile errors or failing SQL
+found; findings fixed: the old sign-in counting as theirs, the note's
+rule too loose, the Money card). Not compiled here, and not seen on a
+screen.
+
+## 6 Oct 2026: on a phone the "Next up" card steps aside
+
+Jonathan, with a screenshot from his phone: the card and the To do
+line are frozen at the top and "it blocks, uh, prevents me from being
+able to do anything on the bottom side". He likes the card; it takes
+too much of a small screen.
+
+Built (`website_screen.dart`, `candidates_tab.dart`): on a screen
+narrower than 700, scrolling the list down with a finger folds the
+card to one line ("NEXT UP", the job, "Show") and hides the To do
+line. It comes back when the list is dragged back to its top or
+pulled down there, on "Show", and when another group is opened (each
+group's list now starts at its top). The Candidates list does the
+same. A laptop is unchanged, and a mouse wheel never folds it.
+
+Not done: the fold is a step, not a glide with the finger. The card is
+not made smaller when open.
+
+Checked: two independent reviews acting as the compiler (no compile
+errors found; findings fixed: Candidates never folding, no way back
+with a mouse, a list too short to scroll folding on an iPhone). Not
+compiled here, and not seen on a phone.
+
+## 6 Oct 2026: "Coworking" and "Cafe", one way, in candidates' names
+
+Jonathan, on the candidate "Espacio Bica Ruzafa COWORKING": where the
+word is in block capitals it should read "Coworking" by default, and
+"Co-working" with a dash should read "Coworking" too. Asked whether a
+name wholly in capitals should be put in ordinary capitals: "Only
+words like Coworking or Cafe".
+
+Built (`migration151_tidy_coworking_names.sql`, the function
+`tidy_space_name`), applied where a candidate is shown (the list,
+"Next up", the ones turned down) and where one is put in the queue, so
+the page that gets made carries the tidy name:
+
+- "COWORKING", "CoWorking", and "Co-working" with a dash in any
+  capitals, read "Coworking". A name typed all in small letters keeps
+  its small "coworking".
+- The other words for a kind of place are put right only when in
+  block capitals: Cowork, Coliving, Workspace, Space, Hub, Office,
+  Cafe (and Café), Coffee, Bakery, Roasters, Kitchen, Bar, Lounge,
+  Studio, Hostel, Hotel. The list is in the function; a word is added
+  there.
+- Nothing else in a name changes: "THE HIVE COWORKING SPACE" reads
+  "THE HIVE Coworking Space", "KNOCK COFFEE BAR" reads "KNOCK Coffee
+  Bar". A name may be meant to be in capitals.
+- Google's answer is kept as Google gave it. The map writes to that
+  table as well, and the matching of names against the listing sites
+  reads it, so the name is tidied on the way out instead.
+- Pages already on the site, and spaces already in the queue, keep
+  their names.
+
+Checked: on the test copy with the candidates of the earlier tests:
+ten names tidied, and nothing else in any row changed; a queued
+candidate's page, decision and reply carry the tidy name.
+
+## 6 Oct 2026: the coworking numbers go to the HQ once a day
+
+Jonathan's HQ (his private page of figures, outside this app) could
+not show the coworking counts by itself: they live in this database
+and nothing outside can read it. He agreed to the set-up proposed:
+"Yes build the daily coworking counts so the hq reads".
+
+Built (`migration152_hq_daily_counts.sql`):
+
+- `hq_counts()` counts what the control centre shows: candidates
+  waiting, not read yet, in London, turned down, queued; every step of
+  "The path" in Outreach (including "set up by us"); every number on
+  the Money card; closed places still to retire; pages live (coworking
+  and cafes) and spaces in the queue.
+- `hq_post_counts()` posts them to PostHog as one event,
+  `hq_coworking_counts`, every day at 05:15 UTC (pg_cron), and once
+  when the migration runs. The HQ's refresh reads the latest one.
+- Numbers only: no name, address or email leaves the database. If a
+  part cannot be counted the event carries a flag for it, not the
+  error's words. The PostHog key in the migration is the map's public,
+  write-only key, the one the app already carries in the browser.
+- The counts are the screens' own functions, so the HQ and the control
+  centre cannot disagree. Those functions answer admins only, so while
+  counting the job speaks as the first admin on record, and gives the
+  voice back. It reads; it writes nothing but the post.
+
+To stop it: `select cron.unschedule('hq-coworking-counts');`.
+
+Checked: on the test copies with the real admin check in place (the
+functions refuse when called as nobody, the job counts, and they
+refuse again afterwards); the post's shape. Not run against the real
+PostHog from here: the first event is looked for after the upload.

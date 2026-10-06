@@ -1777,6 +1777,55 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   /// below, until something is decided.
   bool _nextUpFolded = false;
 
+  /// On a small screen the "Next up" card and the To do line step
+  /// aside as soon as the list below is scrolled, and come back at
+  /// the top of the list or on "Show" (Jonathan, 6 Oct 2026, on his
+  /// phone: the card "prevents me from being able to do anything on
+  /// the bottom side").
+  bool _topAway = false;
+
+  /// The group the list was showing when it was last scrolled away: a
+  /// different group starts at its top, with the card back.
+  String? _topAwayKey;
+
+  /// A phone, or a window as narrow as one.
+  bool get _smallScreen => MediaQuery.sizeOf(context).width < 700;
+
+  /// True while the list is being moved by a finger (and through the
+  /// glide that follows). A mouse wheel never folds the card: it has
+  /// no way to pull it back down.
+  bool _fingerScroll = false;
+
+  bool _onListScroll(ScrollNotification n) {
+    // The list itself, not a row of chips inside it.
+    if (n.depth != 0 || n.metrics.axis != Axis.vertical || !_smallScreen) {
+      return false;
+    }
+    if (n is ScrollStartNotification) _fingerScroll = n.dragDetails != null;
+    if (!_topAway) {
+      // Scrolled down, for real: not the stretch past the end of a
+      // list too short to scroll.
+      if (n is ScrollUpdateNotification &&
+          _fingerScroll &&
+          (n.scrollDelta ?? 0) > 0 &&
+          n.metrics.pixels > 6 &&
+          !n.metrics.outOfRange) {
+        setState(() => _topAway = true);
+      }
+    } else if ((n is OverscrollNotification && n.overscroll < 0) ||
+        (n is ScrollUpdateNotification &&
+            (n.metrics.pixels < -24 ||
+                (n.dragDetails != null &&
+                    (n.scrollDelta ?? 0) < 0 &&
+                    n.metrics.pixels <= 0)))) {
+      // Dragged back to the top of the list, or pulled down past it:
+      // the card comes back. (A list that merely settles at its top,
+      // because it became short enough to fit, does not ask for it.)
+      setState(() => _topAway = false);
+    }
+    return false;
+  }
+
   /// The jobs that take turns once nobody is waiting on us, in the
   /// order of their turns, and whose turn it is.
   static const _turns = [
@@ -2079,7 +2128,37 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
             fontWeight: FontWeight.w800,
             letterSpacing: .6,
             color: Brand.accent));
+    // One line, out of the way of the list below, with the way back.
+    Widget oneLine(String text) => Container(
+          width: double.infinity,
+          margin: const EdgeInsets.fromLTRB(14, 10, 14, 2),
+          padding: const EdgeInsets.fromLTRB(14, 4, 6, 4),
+          decoration: BoxDecoration(
+            color: Brand.surface,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Brand.accent),
+          ),
+          child: Row(children: [
+            label,
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(text,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                      fontSize: 13.5, fontWeight: FontWeight.w700)),
+            ),
+            TextButton(
+                onPressed: () => setState(() {
+                      _nextUpFolded = false;
+                      _topAway = false;
+                    }),
+                child: const Text('Show')),
+          ]),
+        );
+    final away = _topAway && _smallScreen;
     if (!_nextUpRead) {
+      if (away) return oneLine('Finding the next thing...');
       return shell([
         label,
         const SizedBox(height: 6),
@@ -2088,6 +2167,11 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       ]);
     }
     if (jobs.isEmpty) {
+      if (away) {
+        return oneLine(all.isEmpty
+            ? 'Nothing is waiting. All clear.'
+            : 'You have skipped everything that is waiting.');
+      }
       return shell([
         label,
         const SizedBox(height: 6),
@@ -2105,33 +2189,12 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       ]);
     }
     final job = jobs.first;
-    if (_nextUpFolded) {
-      // You are in the job, in the list below: one line, out of the
-      // way. It opens again when something is decided, or on "Show".
-      return Container(
-        width: double.infinity,
-        margin: const EdgeInsets.fromLTRB(14, 10, 14, 2),
-        padding: const EdgeInsets.fromLTRB(14, 4, 6, 4),
-        decoration: BoxDecoration(
-          color: Brand.surface,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Brand.accent),
-        ),
-        child: Row(children: [
-          label,
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(job.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                    fontSize: 13.5, fontWeight: FontWeight.w700)),
-          ),
-          TextButton(
-              onPressed: () => setState(() => _nextUpFolded = false),
-              child: const Text('Show')),
-        ]),
-      );
+    if (_nextUpFolded || away) {
+      // You are in the job, in the list below: it opens again when
+      // something is decided, or on "Show". Or, on a phone, you have
+      // scrolled the list: it opens again at the top of the list, or
+      // on "Show".
+      return oneLine(job.title);
     }
     final after = jobs.skip(1).take(3).map((j) => j.title).toList();
     return shell([
@@ -2630,6 +2693,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
               city == null ? null : _regionFor({'city': city}),
           dismissReasons: dismissReasons,
           onQueued: _load,
+          onScroll: _onListScroll,
           onCount: (n) {
             if (mounted && n != _candidateCount) {
               setState(() {
@@ -2711,9 +2775,26 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     final shown = groups
         .where((x) => _sectionOf(x.key) == section)
         .toList();
+    // Another group starts at the top of its list, so the card and the
+    // To do line are back.
+    if (_topAwayKey != key) {
+      _topAwayKey = key;
+      _topAway = false;
+    }
+    final away = _topAway && _smallScreen;
     return Column(children: [
-      _nextUpCard(g),
-      _todayStrip(g),
+      SizedBox(
+        width: double.infinity,
+        child: AnimatedSize(
+          duration: const Duration(milliseconds: 160),
+          curve: Curves.easeOut,
+          alignment: Alignment.topCenter,
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            _nextUpCard(g),
+            if (!away) _todayStrip(g),
+          ]),
+        ),
+      ),
       _sectionSwitch(g, section),
       // The groups of the chosen section, side by side: a swipe on a
       // phone, arrows at either end on a laptop (a mouse cannot swipe),
@@ -2769,23 +2850,30 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         ]),
       ),
       Expanded(
-        child: whole ??
-            ListView(
-                padding: const EdgeInsets.fromLTRB(14, 4, 14, 30),
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(2, 0, 2, 10),
-                    child: Text(current.hint,
-                        style: const TextStyle(
-                            fontSize: 12, color: Brand.inkMuted, height: 1.4)),
-                  ),
-                  if (cards.isEmpty)
-                    _inboxCount == 0
-                        ? _inboxZero()
-                        : _groupEmpty(current.empty)
-                  else
-                    ...cards,
-                ]),
+        child: NotificationListener<ScrollNotification>(
+          onNotification: _onListScroll,
+          child: whole ??
+              ListView(
+                  // its own list per group: each starts at its top
+                  key: ValueKey('inbox-$key'),
+                  padding: const EdgeInsets.fromLTRB(14, 4, 14, 30),
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(2, 0, 2, 10),
+                      child: Text(current.hint,
+                          style: const TextStyle(
+                              fontSize: 12,
+                              color: Brand.inkMuted,
+                              height: 1.4)),
+                    ),
+                    if (cards.isEmpty)
+                      _inboxCount == 0
+                          ? _inboxZero()
+                          : _groupEmpty(current.empty)
+                    else
+                      ...cards,
+                  ]),
+        ),
       ),
     ]);
   }

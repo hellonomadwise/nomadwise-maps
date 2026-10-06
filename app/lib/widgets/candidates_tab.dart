@@ -50,6 +50,11 @@ class CandidatesTab extends StatefulWidget {
   /// always did, instead of the best bets one at a time.
   final bool startFull;
 
+  /// Told of every scroll of the list, so the page around it can make
+  /// room on a phone. (The list keeps its scroll notifications to
+  /// itself otherwise, so its pull-to-refresh stays its own.)
+  final bool Function(ScrollNotification n)? onScroll;
+
   const CandidatesTab({
     super.key,
     required this.supabase,
@@ -59,6 +64,7 @@ class CandidatesTab extends StatefulWidget {
     required this.onQueued,
     required this.onCount,
     this.startFull = false,
+    this.onScroll,
   });
 
   @override
@@ -546,7 +552,10 @@ class _CandidatesTabState extends State<CandidatesTab> {
     // Its own pull-to-refresh: the swipe reloads this list, and stops
     // there so the control centre around it does not reload as well.
     return NotificationListener<ScrollNotification>(
-      onNotification: (_) => true,
+      onNotification: (n) {
+        widget.onScroll?.call(n);
+        return true;
+      },
       child: RefreshIndicator(
         onRefresh: _reload,
         child: ListView(
