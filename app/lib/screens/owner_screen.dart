@@ -291,8 +291,12 @@ class _OwnerScreenState extends State<OwnerScreen> {
     }
   }
 
+  bool _seenSent = false;
+
   Future<void> _load() async {
     if (!_supabase.signedIn) {
+      // Signed out: the next owner to sign in here is a new opening.
+      _seenSent = false;
       if (mounted) setState(() => _loading = false);
       return;
     }
@@ -300,6 +304,12 @@ class _OwnerScreenState extends State<OwnerScreen> {
     try {
       final rows = await _supabase.ownerVenues();
       final pending = await _supabase.ownerPendingClaims();
+      // An owner opened their account: counted (once for this screen;
+      // the database also folds reloads within half an hour into one).
+      if (rows.isNotEmpty && !_seenSent) {
+        _seenSent = true;
+        _supabase.ownerSeen();
+      }
       if (!mounted) return;
       _watchPayments(pending);
       setState(() {

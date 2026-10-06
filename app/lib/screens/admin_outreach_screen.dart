@@ -33,6 +33,12 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
   String? _error;
   final Set<String> _expanded = {};
 
+  // The path (migration 148): its numbers, the step whose spaces the
+  // list is showing (null: the chips decide), and whether it is open.
+  Map<String, dynamic>? _path;
+  String? _step;
+  bool _pathOpen = true;
+
   static const _stages = <(String, String)>[
     ('new', 'New'),
     ('contacted', 'Contacted'),
@@ -75,18 +81,27 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
 
   Future<void> _load() async {
     final n = ++_req;
+    // Started first and read last: it never throws, and the list does
+    // not wait for it.
+    final pathF = _supabase.outreachPath();
     try {
       final rows = await _supabase.outreachList(
-          stage: _stage, query: _search.text.trim(), group: _group);
+          stage: _stage,
+          query: _search.text.trim(),
+          group: _group,
+          step: _step);
       final counts = await _supabase.outreachCounts(group: _group);
+      final path = await pathF;
       if (!mounted || n != _req) return;
       setState(() {
         _rows = rows;
         _counts = counts;
+        if (path != null) _path = path;
         _error = null;
       });
     } catch (e) {
-      if (mounted) setState(() => _error = '$e');
+      // An earlier request that failed says nothing about this one.
+      if (mounted && n == _req) setState(() => _error = '$e');
     }
   }
 
@@ -1215,6 +1230,401 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
     if (done == 'deleted') _snack('Template deleted.');
   }
 
+  // ------------------------------------------------------------ the path
+  // (migration 148, Jonathan 6 Oct 2026) Outreach as steps: where the
+  // spaces stand before they claim and after, and what can be done
+  // next on each step. Tapping a step shows its spaces below.
+
+  /// Reaching them: key, words, what to do next.
+  static const _reachSteps = <(String, String, String)>[
+    (
+      'no_email',
+      'No address yet',
+      'The nightly sync reads each space\'s own website for an address. '
+          'Until it finds one, the ways in are their Instagram or the '
+          'contact form on their site.'
+    ),
+    (
+      'ready',
+      'Ready to write to',
+      'We hold an address and have sent nothing. Next: the first email.'
+    ),
+    (
+      'waiting',
+      'Written to, waiting',
+      'We wrote and they have not answered. Next: a follow-up date on '
+          'the ones worth a second try.'
+    ),
+    (
+      'follow_up',
+      'Follow-up due',
+      'The date set for them has come. Next: write again, or mark Not now.'
+    ),
+    (
+      'replied',
+      'Replied',
+      'They answered. Next: reply, and point them to claiming their page.'
+    ),
+  ];
+
+  /// Once they have claimed: key, words, what to do next, then the
+  /// spaces stuck before the next step: key, words, what to do.
+  static const _ownerSteps = <(String, String, String, String, String, String)>[
+    (
+      'claimed',
+      'Claimed their page',
+      'Every space with an owner on record.',
+      'not_opened',
+      'not signed in yet',
+      'They claimed and never came back. Next: a short note that their '
+          'Owner account is there, and the one thing worth doing in it.'
+    ),
+    (
+      'opened',
+      'Signed in to their Owner account',
+      'They have been in at least once.',
+      'opened_only',
+      'changed nothing',
+      'They looked and left. Next: point them at one thing to fill in '
+          '(photos, prices or opening hours).'
+    ),
+    (
+      'used',
+      'Used it',
+      'They changed their page, answered a question or voted on an '
+          'idea. These are the likeliest to go Verified. Next: tell them '
+          'what Verified adds.',
+      '',
+      '',
+      ''
+    ),
+    (
+      'looked',
+      'Looked at Verified',
+      'They opened the payment step and did not finish. Next: ask what '
+          'held them back.',
+      '',
+      '',
+      ''
+    ),
+    (
+      'verified',
+      'On Verified',
+      'On the Verified plan. Next: keep them, and ask what they would '
+          'like added.',
+      '',
+      '',
+      ''
+    ),
+  ];
+
+  int _pathN(String band, String key) {
+    final b = _path?[band];
+    return b is Map ? ((b[key] as num?)?.toInt() ?? 0) : 0;
+  }
+
+  /// The words and the next step for the step now showing.
+  (String, String) _stepWords(String key) {
+    for (final s in _reachSteps) {
+      if (s.$1 == key) return (s.$2, s.$3);
+    }
+    for (final s in _ownerSteps) {
+      if (s.$1 == key) return (s.$2, s.$3);
+      if (s.$4 == key) return ('${s.$2}, ${s.$5}', s.$6);
+    }
+    if (key == 'stepped_off') {
+      return (
+        'Stepped off',
+        'Not now, Declined, Unsubscribed, or the address bounced. '
+            'Nothing to send; a Not now with a follow-up date comes back '
+            'by itself.'
+      );
+    }
+    return (key, '');
+  }
+
+  void _showStep(String? key) {
+    setState(() {
+      _step = key;
+      // A step is counted over everyone, so the group goes back to
+      // Everyone and the chips keep telling the truth.
+      if (key != null) _group = '';
+      _rows = null;
+    });
+    _load();
+  }
+
+  Widget _pathRow(String key, String words, int n, int most, Color colour,
+      {String stuckKey = '', String stuckWords = '', int stuckN = 0}) {
+    final on = _step == key;
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: () => _showStep(on ? null : key),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+        decoration: BoxDecoration(
+            color: on ? Brand.accentTint : null,
+            borderRadius: BorderRadius.circular(8)),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          SizedBox(
+            width: 46,
+            child: Text('$n',
+                textAlign: TextAlign.right,
+                style: TextStyle(
+                    fontSize: 18,
+                    height: 1.1,
+                    fontWeight: FontWeight.w800,
+                    color: n == 0 ? Brand.inkMuted : Brand.ink)),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(words,
+                      style: const TextStyle(
+                          fontSize: 13.5, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 5),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: most <= 0 ? 0 : (n / most).clamp(0.0, 1.0),
+                      minHeight: 7,
+                      backgroundColor: Brand.field,
+                      valueColor: AlwaysStoppedAnimation<Color>(colour),
+                    ),
+                  ),
+                  if (stuckKey.isNotEmpty && stuckN > 0)
+                    InkWell(
+                      onTap: () =>
+                          _showStep(_step == stuckKey ? null : stuckKey),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        child: Text('$stuckN $stuckWords',
+                            style: TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: _step == stuckKey
+                                    ? FontWeight.w800
+                                    : FontWeight.w500,
+                                color: Brand.accent,
+                                decoration: TextDecoration.underline)),
+                      ),
+                    ),
+                ]),
+          ),
+        ]),
+      ),
+    );
+  }
+
+  Widget _pathBand(String title, List<Widget> rows) => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 0, 8, 4),
+              child: Text(title.toUpperCase(),
+                  style: const TextStyle(
+                      fontSize: 11,
+                      letterSpacing: 0.6,
+                      fontWeight: FontWeight.w800,
+                      color: Brand.inkMuted)),
+            ),
+            ...rows,
+          ]);
+
+  Widget _pathCard() {
+    final p = _path;
+    if (p == null) return const SizedBox.shrink();
+    final reachMost = [
+      for (final s in _reachSteps) _pathN('reach', s.$1)
+    ].fold<int>(0, (a, b) => a > b ? a : b);
+    final claimed = _pathN('owners', 'claimed');
+    final off = _pathN('reach', 'stepped_off');
+    final paying = (p['paying'] as num?)?.toInt();
+    final since = _when(p['visits_since']);
+
+    final reach = _pathBand('Reaching them', [
+      for (final s in _reachSteps)
+        _pathRow(s.$1, s.$2, _pathN('reach', s.$1), reachMost, Brand.logoNavy),
+      if (off > 0)
+        Padding(
+          padding: const EdgeInsets.only(left: 66, right: 8),
+          child: InkWell(
+            onTap: () =>
+                _showStep(_step == 'stepped_off' ? null : 'stepped_off'),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Text('$off stepped off',
+                  style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: _step == 'stepped_off'
+                          ? FontWeight.w800
+                          : FontWeight.w500,
+                      color: Brand.inkSecondary,
+                      decoration: TextDecoration.underline)),
+            ),
+          ),
+        ),
+    ]);
+    final owners = _pathBand('Once they have claimed', [
+      for (final s in _ownerSteps)
+        _pathRow(s.$1, s.$2, _pathN('owners', s.$1), claimed, Brand.success,
+            stuckKey: s.$4,
+            stuckWords: s.$5,
+            stuckN: s.$4.isEmpty ? 0 : _pathN('owners', s.$4)),
+      if (paying != null)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(66, 4, 8, 0),
+          child: Text('$paying paying through Stripe (the Money card)',
+              style: const TextStyle(
+                  fontSize: 12.5, color: Brand.inkSecondary)),
+        ),
+    ]);
+
+    final step = _step;
+    final words = step == null ? null : _stepWords(step);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.fromLTRB(8, 10, 8, 12),
+      decoration: BoxDecoration(
+        color: Brand.surface,
+        border: Border.all(color: Brand.border),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const SizedBox(width: 8),
+          const Expanded(
+            child: Text('The path',
+                style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w800)),
+          ),
+          TextButton(
+              onPressed: () => setState(() => _pathOpen = !_pathOpen),
+              child: Text(_pathOpen ? 'Hide' : 'Show')),
+        ]),
+        if (_pathOpen) ...[
+          const Padding(
+            padding: EdgeInsets.fromLTRB(8, 0, 8, 10),
+            child: Text(
+                'Where the spaces stand, step by step. Tap a step to see '
+                'its spaces and what can be done next.',
+                style: TextStyle(
+                    fontSize: 12.5, height: 1.4, color: Brand.inkSecondary)),
+          ),
+          LayoutBuilder(
+            builder: (context, box) => box.maxWidth >= 620
+                ? Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                        Expanded(child: reach),
+                        const Padding(
+                          padding: EdgeInsets.fromLTRB(4, 26, 4, 0),
+                          child: Icon(Icons.arrow_forward_rounded,
+                              size: 18, color: Brand.inkMuted),
+                        ),
+                        Expanded(child: owners),
+                      ])
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                        reach,
+                        const Padding(
+                          padding: EdgeInsets.fromLTRB(8, 8, 8, 8),
+                          child: Icon(Icons.arrow_downward_rounded,
+                              size: 18, color: Brand.inkMuted),
+                        ),
+                        owners,
+                      ]),
+          ),
+          if (since.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 10, 8, 0),
+              child: Text(
+                  'Openings of the Owner account are counted from $since. '
+                  'Before that we only know whether an owner ever signed '
+                  'in, and what they changed.',
+                  style: const TextStyle(
+                      fontSize: 12, height: 1.4, color: Brand.inkMuted)),
+            ),
+        ],
+        if (step != null && words != null)
+          Container(
+            margin: const EdgeInsets.fromLTRB(8, 12, 8, 0),
+            padding: const EdgeInsets.fromLTRB(12, 10, 6, 2),
+            decoration: BoxDecoration(
+                color: Brand.logoTealTint,
+                borderRadius: BorderRadius.circular(10)),
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: Text.rich(
+                        TextSpan(children: [
+                          TextSpan(
+                              text: 'Showing: ${words.$1}. ',
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w800)),
+                          TextSpan(text: words.$2),
+                        ]),
+                        style: const TextStyle(fontSize: 12.5, height: 1.45)),
+                  ),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                        onPressed: () => _showStep(null),
+                        child: const Text('Back to the list')),
+                  ),
+                ]),
+          ),
+      ]),
+    );
+  }
+
+  /// What a claimed space's owner has done in their Owner account, in
+  /// one sentence (the "owner" part of a row, migration 148).
+  String _ownerLine(Map o) {
+    int n(String k) => (o[k] as num?)?.toInt() ?? 0;
+    String times(int x) => x == 1 ? 'once' : '$x times';
+    if (o['accessed'] != true) {
+      return 'Owner account: not signed in yet.';
+    }
+    final parts = <String>[];
+    final opens = n('opens');
+    if (opens > 0) {
+      final days = n('open_days');
+      parts.add('opened ${times(opens)}'
+          '${days > 1 ? ' over $days days' : ''}'
+          '${_when(o['last_open']).isEmpty ? '' : ', last on ${_when(o['last_open'])}'}');
+    } else if (_when(o['signed_in_at']).isNotEmpty) {
+      parts.add('last signed in ${_when(o['signed_in_at'])}');
+    } else {
+      parts.add('has been in');
+    }
+    if (n('did') == 0) {
+      parts.add('nothing changed yet');
+    } else {
+      final did = <String>[
+        if (n('submitted') > 0)
+          'sent changes ${times(n('submitted'))}'
+        else if (n('edits') > 0)
+          'started editing, nothing sent',
+        if (n('answers') > 0)
+          'answered ${n('answers')} ${n('answers') == 1 ? 'question' : 'questions'}',
+        if (n('ideas') > 0)
+          '${n('ideas')} ${n('ideas') == 1 ? 'idea' : 'ideas'} voted on or suggested',
+        if (n('billing') > 0) 'used billing ${times(n('billing'))}',
+      ];
+      parts.add(did.join(', '));
+    }
+    if (o['looked'] == true) {
+      parts.add(o['checkout'] == true
+          ? 'reached the payment page for Verified and did not finish'
+          : 'opened the Verified step and did not finish');
+    }
+    return 'Owner account: ${parts.join('; ')}.';
+  }
+
   /// "How it works": the whole of Outreach on one card, for whoever
   /// opens it next month and has forgotten (Jonathan, 4 Oct 2026).
   static const _help = <(IconData, String, String)>[
@@ -1228,7 +1638,8 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
     (
       Icons.groups_outlined,
       'Who is in it (the first row of chips)',
-      'Wrote to us: they emailed hello@ or filled in a form on the site.\n'
+      'Wrote to us: they emailed hello@, filled in a form on the site, '
+          'or claimed their page.\n'
           'Listed, unclaimed: they have a page on nomadwise.io that nobody '
           'has claimed.\n'
           'Prospects: spaces we found and would like to have.'
@@ -1239,10 +1650,24 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
       'New: not written to yet.\n'
           'Contacted: we wrote.\n'
           'Replied: they answered.\n'
-          'Claimed and Verified: they claimed their page, or they pay. '
-          'These two move by themselves.\n'
+          'Claimed and Verified: the space has an owner on record, or is '
+          'on the Verified plan. These two move by themselves, and a '
+          'space that claims is added here if it was not in the list.\n'
           'Not now, Declined, Unsubscribed: they stepped off, and we keep '
           'the reason so we do not ask again.'
+    ),
+    (
+      Icons.route_outlined,
+      'The path (the card at the top)',
+      'The same spaces as steps, with how many stand on each. First, '
+          'reaching them: no address yet, ready to write to, written '
+          'to, follow-up due, replied. Then, once they have claimed: '
+          'signed in to their Owner account, used it, looked at '
+          'Verified, on Verified.\n'
+          'Tap a step to see its spaces and what can be done next. The '
+          'red lines under a step are the spaces stuck there.\n'
+          'A claimed space\'s card says what its owner has done in the '
+          'Owner account, and how often.'
     ),
     (
       Icons.upload_file_outlined,
@@ -1389,6 +1814,7 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
       'email' => 'Emailed us',
       'prospect' => 'Prospect',
       'listing' => 'Listed',
+      'claim' => 'Claimed their page',
       _ => 'Added by hand',
     };
     final slug = '${c['webflow_slug'] ?? ''}';
@@ -1483,6 +1909,18 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
                   overflow: open ? null : TextOverflow.ellipsis,
                   style: const TextStyle(fontSize: 13, height: 1.4)),
             ),
+          ),
+        ],
+        if (c['owner'] is Map) ...[
+          const SizedBox(height: 10),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+                color: Brand.successTint,
+                borderRadius: BorderRadius.circular(8)),
+            child: Text(_ownerLine(c['owner'] as Map),
+                style: const TextStyle(fontSize: 12.5, height: 1.4)),
           ),
         ],
         if (notes.isNotEmpty || follow.isNotEmpty) ...[
@@ -1633,6 +2071,7 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
                               label: const Text('How it works')),
                         ]),
                         const SizedBox(height: 8),
+                        _pathCard(),
                         TextField(
                           controller: _search,
                           onChanged: (_) => setState(() {}),
@@ -1670,6 +2109,7 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
                               onSelected: (_) {
                                 setState(() {
                                   _group = g.$1;
+                                  _step = null;
                                   _rows = null;
                                 });
                                 _load();
@@ -1712,13 +2152,16 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
                               selectedColor: Brand.ink,
                               labelStyle: TextStyle(
                                   fontWeight: FontWeight.w700,
-                                  color: _stage == s.$1
+                                  color: _step == null && _stage == s.$1
                                       ? Colors.white
                                       : Brand.ink),
-                              selected: _stage == s.$1,
+                              // While a step of the path is showing,
+                              // no stage is the chosen one.
+                              selected: _step == null && _stage == s.$1,
                               onSelected: (_) {
                                 setState(() {
                                   _stage = s.$1;
+                                  _step = null;
                                   _rows = null;
                                 });
                                 _load();
@@ -1742,13 +2185,16 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
                         else ...[
                           for (final c in rows) _card(c),
                           if (rows.length >= 200)
-                            const Padding(
-                              padding: EdgeInsets.all(12),
+                            Padding(
+                              padding: const EdgeInsets.all(12),
                               child: Text(
-                                  'Showing the first 200. Search, or pick a '
-                                  'stage, to narrow the list.',
+                                  _step == null
+                                      ? 'Showing the first 200. Search, or '
+                                          'pick a stage, to narrow the list.'
+                                      : 'Showing the first 200 on this '
+                                          'step. Search to narrow the list.',
                                   textAlign: TextAlign.center,
-                                  style: TextStyle(
+                                  style: const TextStyle(
                                       fontSize: 12.5, color: Brand.inkMuted)),
                             ),
                         ],

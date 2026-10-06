@@ -170,6 +170,15 @@ class SupabaseService {
         .toList();
   }
 
+  /// The Owner account was opened (migration 148): counted once per
+  /// half hour for each space the owner runs. Never in the way: a
+  /// failure is swallowed.
+  Future<void> ownerSeen() async {
+    try {
+      await _db.rpc('owner_seen');
+    } catch (_) {}
+  }
+
   /// Admin only: any listing's Owner account data (same shape as
   /// ownerVenues), by venue id or page slug, for the preview.
   Future<Map<String, dynamic>?> adminOwnerView(String key) async {
@@ -1271,17 +1280,37 @@ class SupabaseService {
     };
   }
 
+  /// [step] (migration 148): one step of the path ('no_email',
+  /// 'not_opened', 'used' and so on); the stage and the group are
+  /// then left aside by the database.
   Future<List<Map<String, dynamic>>> outreachList(
-      {String? stage, String? query, String group = '', int limit = 200}) async {
+      {String? stage,
+      String? query,
+      String group = '',
+      int limit = 200,
+      String? step}) async {
     final r = await _db.rpc('admin_outreach_list', params: {
       'p_stage': stage ?? '',
       'p_q': query ?? '',
       'p_limit': limit,
       'p_group': group,
+      if (step != null && step.isNotEmpty) 'p_step': step,
     });
     return [
       for (final x in (r as List? ?? const [])) Map<String, dynamic>.from(x as Map)
     ];
+  }
+
+  /// The path through Outreach (migration 148): how many spaces stand
+  /// on each step, before and after they claim. Null when it cannot
+  /// be read; the rest of the screen works without it.
+  Future<Map<String, dynamic>?> outreachPath() async {
+    try {
+      final r = await _db.rpc('admin_outreach_path');
+      return r is Map ? Map<String, dynamic>.from(r) : null;
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<List<Map<String, dynamic>>> outreachMessages(String contactId) async {

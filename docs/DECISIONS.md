@@ -2616,3 +2616,82 @@ Checked: the database function on the test copy (counts right, applies
 twice); one independent review of the Dart, its findings fixed (the
 menu is safe after sign-out, the outreach count no longer includes
 follow-ups already sent). Not compiled here, and not seen on a screen.
+
+## 6 Oct 2026: Outreach shows the spaces that have claimed
+
+Jonathan: Outreach said "Claimed 0" while three spaces had claimed
+(Westerwelle Startup Haus Arusha, Place Coworking Phuket, Kopi Club).
+
+Why it was wrong: a contact only moved to Claimed when a claim arrived
+after Outreach was built, and only when the claim's address was
+already a contact's address. Spaces that claimed earlier, or with an
+address we did not hold, were never in the list.
+
+Built (`migration147_outreach_claimed.sql`): the space itself now
+decides, the same way the Money card counts.
+
+- A space with an owner on record is Claimed; on the Verified plan it
+  is Verified. Its line is the one with the owner's address, or the
+  one for that space; when there is none, one is made ("Claimed their
+  page"). Every space that already has an owner is brought in when the
+  migration runs.
+- It moves when the owner is put on the space (a claim approved), not
+  when a claim is merely started. A claim started and dropped no
+  longer shows as Claimed.
+- An owner taken off a space: the line goes to Not now with a dated
+  note, so nobody is written to by accident. One owner replaced by
+  another: the old owner's line does the same and lets go of the space.
+- The Claimed and Verified tabs count spaces, so a space with two
+  lines (its own and a person who wrote to us) is one.
+- The bookkeeping never stops a claim or a payment from being saved:
+  if it fails it warns and steps aside.
+
+A Verified space shows under Verified, not Claimed. The two tabs
+together are the Money card's "claimed".
+
+## 6 Oct 2026: the path through Outreach
+
+Jonathan: "I'm wanting to visualise the steps we're taking or can take
+within this outreach section, to visualise next possible steps", with
+spaces that have no address, spaces that claimed and went into their
+account, how often they used it, and the steps to Verified.
+
+Built (`migration148_outreach_path.sql`, `admin_outreach_screen.dart`,
+`owner_screen.dart`, `supabase_service.dart`): a card at the top of
+Outreach, "The path", in two halves, each step with how many spaces
+stand on it and a bar.
+
+- Reaching them: No address yet, Ready to write to, Written to and
+  waiting, Follow-up due, Replied (and "N stepped off").
+- Once they have claimed: Claimed their page, Signed in to their Owner
+  account, Used it, Looked at Verified, On Verified (and "N paying",
+  the Money card's number).
+- Tapping a step lists its spaces below and says what can be done
+  next. Under a step, a red line names the spaces stuck there
+  ("2 not signed in yet", "1 changed nothing"); tapping it lists them.
+- A claimed space's card says what its owner did in the Owner
+  account: opened how many times, changes sent, questions answered,
+  ideas, billing, and whether they opened the Verified payment step.
+
+What was not recorded until now: an owner opening their Owner account.
+From this upload every opening is counted (`owner_visits`; a reload
+within half an hour is the same opening; founders are not counted).
+Before it, "signed in" means a sign-in with the owner's address since
+their claim, and "used it" means something they saved or sent.
+
+Meanings, so the numbers can be trusted: "Used it" is a round of
+changes, a question answered, an idea voted on or suggested, or a
+billing action. "Looked at Verified" is a Verified claim started for a
+space they already own and not paid. The steps are not a strict
+funnel: a follow-up due can also be Written to, and a space can look
+at Verified without having changed anything.
+
+Nothing here sends anything. The "next" lines are suggestions for us.
+
+Checked: both migrations on the test copy (each case of claiming,
+leaving and replacing an owner; visit counting; every step's list;
+applied twice), one independent review of the SQL (its findings fixed:
+the trigger cannot block a claim or payment, replaced owners, counting
+spaces not lines, sign-ins counted from the claim on) and one of the
+Dart (no compile errors found; wording and tap-size findings fixed).
+Not compiled here, and not seen on a screen.
