@@ -53,7 +53,12 @@ class WebsiteScreen extends StatefulWidget {
   /// from the map's menu: then the title bar also carries the other
   /// team tools and the way to the map.
   final bool standalone;
-  const WebsiteScreen({super.key, this.standalone = false});
+
+  /// A team tool to open on top as soon as the control centre is up
+  /// ("upgrades", "prices", "analytics"...), for the links that go
+  /// straight to one (nomadmaps.io/?admin=upgrades).
+  final String? openTool;
+  const WebsiteScreen({super.key, this.standalone = false, this.openTool});
   @override
   State<WebsiteScreen> createState() => _WebsiteScreenState();
 }
@@ -195,6 +200,11 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     _load();
     _loadCandidateCount();
     _loadNextUp();
+    if (widget.openTool != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _showTool(widget.openTool);
+      });
+    }
   }
 
   @override
@@ -982,6 +992,205 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // A laptop has the room for a menu down the left, as in most
+    // members' areas (Jonathan, 6 Oct 2026): the tools that sat behind
+    // the two buttons at the top right are always in sight, the ones
+    // seldom used at the bottom. A phone keeps the two buttons.
+    final wide = MediaQuery.sizeOf(context).width >= _menuFrom;
+    // Keyed, so that widening or narrowing the window moves the
+    // control centre beside the menu (or back) as it is, without
+    // starting it afresh.
+    final centre = KeyedSubtree(key: _centreKey, child: _centre(wide));
+    return wide ? _besideMenu(null, centre) : centre;
+  }
+
+  final _centreKey = GlobalKey();
+
+  /// The menu down the left is shown from this width.
+  static const double _menuFrom = 1000;
+
+  /// A screen with the menu down its left; [current] is the tool shown
+  /// (null: the control centre), so the menu can mark where you are.
+  Widget _besideMenu(String? current, Widget screen) => Material(
+        color: Brand.surface,
+        child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          _sideMenu(current),
+          Expanded(child: screen),
+        ]),
+      );
+
+  /// The tools of the team menu, by their key.
+  Widget _toolScreen(String k) => switch (k) {
+        'analytics' => const AdminAnalyticsScreen(),
+        'users' => const AdminUsersScreen(),
+        'pricing' => const AdminPricingScreen(),
+        'outreach' => const AdminOutreachScreen(),
+        'upgrades' => const AdminUpgradesScreen(),
+        'prices' => const AdminPricesScreen(),
+        'review' => const AdminScreen(),
+        _ => const FeedbackInboxScreen(),
+      };
+
+  /// From the menu down the left: the control centre (null) or a
+  /// tool. Whatever tool was open is closed first, so the menu always
+  /// swaps one screen for another and Back leads to the control
+  /// centre. The tool keeps the menu beside it; the pages a tool
+  /// opens itself (one page's review, one space's prices) take the
+  /// whole screen as before.
+  void _showTool(String? k) {
+    // The control centre has gone (signed out in another tab, say)
+    // while a tool's menu was still on screen.
+    if (!mounted) return;
+    final nav = Navigator.of(context);
+    final home = ModalRoute.of(context);
+    if (home != null) nav.popUntil((r) => r == home || r.isFirst);
+    if (k == null) {
+      _loadNextUp();
+      return;
+    }
+    // Keyed, so the tool is not started afresh when the window is
+    // widened or narrowed past the width where the menu appears.
+    final toolKey = GlobalKey();
+    nav
+        .push(PageRouteBuilder<void>(
+          // no slide: the screen beside the menu just changes
+          transitionDuration: Duration.zero,
+          reverseTransitionDuration: Duration.zero,
+          pageBuilder: (ctx, _, __) {
+            final tool = KeyedSubtree(key: toolKey, child: _toolScreen(k));
+            return MediaQuery.sizeOf(ctx).width >= _menuFrom
+                ? _besideMenu(k, tool)
+                : tool;
+          },
+        ))
+        // back at the control centre: a Go given in a tool changes
+        // what is next
+        .then((_) {
+      if (mounted) _loadNextUp();
+    });
+  }
+
+  /// The menu down the left on a wide screen: the control centre and
+  /// the tools used every day on top, what makes new pages on
+  /// nomadwise.io in the middle, the tools seldom used at the bottom.
+  Widget _sideMenu(String? current) {
+    Widget heading(String text) => Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 12, 4),
+          child: Text(text,
+              style: const TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: .6,
+                  color: Brand.inkMuted)),
+        );
+    Widget item(IconData icon, String label, VoidCallback onTap,
+        {bool on = false, bool quiet = false}) {
+      final color = on
+          ? Brand.accent
+          : quiet
+              ? Brand.inkMuted
+              : Brand.ink;
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+        child: Material(
+          color: on ? Brand.accentTint : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: onTap,
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                  horizontal: 10, vertical: quiet ? 7 : 9),
+              child: Row(children: [
+                Icon(icon, size: quiet ? 17 : 19, color: color),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          fontSize: quiet ? 13 : 14,
+                          fontWeight: on ? FontWeight.w800 : FontWeight.w600,
+                          color: color)),
+                ),
+              ]),
+            ),
+          ),
+        ),
+      );
+    }
+
+    Widget tool(String key, IconData icon, String label,
+            {bool quiet = false}) =>
+        item(icon, label, () {
+          if (current != key) _showTool(key);
+        }, on: current == key, quiet: quiet);
+
+    final top = <Widget>[
+      const Padding(
+        padding: EdgeInsets.fromLTRB(16, 18, 12, 10),
+        child: Text('Nomadwise',
+            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+      ),
+      item(Icons.dashboard_outlined, 'Control centre', () => _showTool(null),
+          on: current == null),
+      tool('upgrades', Icons.auto_fix_high_outlined, 'Page upgrades'),
+      tool('prices', Icons.sell_outlined, 'Price check'),
+      tool('outreach', Icons.mail_outline, 'Outreach'),
+      heading('CREATE ON NOMADWISE.IO'),
+      item(Icons.public, 'Country page', () {
+        if (mounted) _newCountry();
+      }),
+      item(Icons.location_city_outlined, 'City page', () {
+        if (mounted) _newRegion();
+      }),
+      item(Icons.place_outlined, 'Area page', () {
+        if (mounted) _newLocation();
+      }),
+      item(Icons.refresh, 'Refresh from Webflow', () {
+        if (mounted) _refreshFromWebflow();
+      }),
+    ];
+    // Seldom used (Jonathan, 6 Oct 2026): at the bottom, smaller.
+    final bottom = <Widget>[
+      heading('LESS USED'),
+      tool('analytics', Icons.insights_outlined, 'Analytics', quiet: true),
+      tool('users', Icons.people_outline, 'Users', quiet: true),
+      tool('pricing', Icons.payments_outlined, 'Pricing', quiet: true),
+      tool('review', Icons.rate_review_outlined, 'Review submissions',
+          quiet: true),
+      tool('feedback', Icons.feedback_outlined, 'Feedback inbox',
+          quiet: true),
+      if (widget.standalone)
+        item(Icons.map_outlined, 'Open the map', () => _openTool('map'),
+            quiet: true),
+      const SizedBox(height: 10),
+    ];
+    return Container(
+      width: 232,
+      decoration: const BoxDecoration(
+          color: Brand.surface,
+          border: Border(right: BorderSide(color: Brand.border))),
+      child: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, box) => box.maxHeight < 640
+              // A short window: one list, so nothing is cut off.
+              ? ListView(children: [...top, ...bottom])
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                      Expanded(child: ListView(children: top)),
+                      const Divider(height: 1, color: Brand.border),
+                      ...bottom,
+                    ]),
+        ),
+      ),
+    );
+  }
+
+  /// The control centre itself. [wide]: the menu down the left carries
+  /// the tools, so the two menu buttons at the top right are left out.
+  Widget _centre(bool wide) {
     final inbox = _inbox;
     return Scaffold(
       appBar: AppBar(
@@ -999,21 +1208,26 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
           // Outreach and Page upgrades have no other door (Jonathan,
           // 5 Oct 2026). From the map, the back arrow leads to the
           // map, so "Open the map" is only offered on the team link.
+          // On a wide screen these are in the menu down the left.
+          if (!wide)
           PopupMenuButton<String>(
             tooltip: 'Team tools',
             icon: const Icon(Icons.apps),
             onSelected: _openTool,
+            // The ones used every day first, the seldom used below
+            // the line (Jonathan, 6 Oct 2026).
             itemBuilder: (_) => <PopupMenuEntry<String>>[
-              const PopupMenuItem(
-                  value: 'analytics', child: Text('Analytics')),
-              const PopupMenuItem(value: 'users', child: Text('Users')),
-              const PopupMenuItem(value: 'pricing', child: Text('Pricing')),
-              const PopupMenuItem(
-                  value: 'outreach', child: Text('Outreach')),
               const PopupMenuItem(
                   value: 'upgrades', child: Text('Page upgrades')),
               const PopupMenuItem(
                   value: 'prices', child: Text('Price check')),
+              const PopupMenuItem(
+                  value: 'outreach', child: Text('Outreach')),
+              const PopupMenuDivider(),
+              const PopupMenuItem(
+                  value: 'analytics', child: Text('Analytics')),
+              const PopupMenuItem(value: 'users', child: Text('Users')),
+              const PopupMenuItem(value: 'pricing', child: Text('Pricing')),
               const PopupMenuItem(
                   value: 'review', child: Text('Review submissions')),
               const PopupMenuItem(
@@ -1027,6 +1241,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
           // The site's taxonomy, made from here: a Region (city page) or
           // a Location (neighbourhood page), built and published by the
           // sync within a minute or two, then in every picker.
+          if (!wide)
           PopupMenuButton<String>(
             tooltip: 'Create on nomadwise.io',
             icon: const Icon(Icons.add_location_alt_outlined),
@@ -1339,17 +1554,8 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       launchUrl(Uri.parse('/'), webOnlyWindowName: '_self');
       return;
     }
-    final Widget screen = switch (k) {
-      'analytics' => const AdminAnalyticsScreen(),
-      'users' => const AdminUsersScreen(),
-      'pricing' => const AdminPricingScreen(),
-      'outreach' => const AdminOutreachScreen(),
-      'upgrades' => const AdminUpgradesScreen(),
-      'prices' => const AdminPricesScreen(),
-      'review' => const AdminScreen(),
-      _ => const FeedbackInboxScreen(),
-    };
-    Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
+    Navigator.push(
+        context, MaterialPageRoute(builder: (_) => _toolScreen(k)));
   }
 
   /// Phone: full width. Laptop: a comfortable reading column.

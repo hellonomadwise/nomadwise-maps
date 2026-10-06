@@ -6,12 +6,6 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../services/supabase_service.dart';
 import '../theme.dart';
-import 'admin_analytics_screen.dart';
-import 'admin_prices_screen.dart';
-import 'admin_pricing_screen.dart';
-import 'admin_outreach_screen.dart';
-import 'admin_upgrades_screen.dart';
-import 'admin_users_screen.dart';
 import 'website_screen.dart';
 
 /// The team's own door: nomadmaps.io/admin opens the control centre
@@ -32,7 +26,6 @@ class _AdminGateState extends State<AdminGate> {
   StreamSubscription<AuthState>? _sub;
   bool? _admin; // null while checking
   bool _signingIn = false;
-  bool _openedSection = false;
 
   @override
   void initState() {
@@ -90,33 +83,15 @@ class _AdminGateState extends State<AdminGate> {
     }
     if (_admin == true) {
       // ?admin=analytics or ?admin=users: that screen opens on top of
-      // the control centre, so its back arrow leads there.
+      // the control centre, so its back arrow leads there. The
+      // control centre opens it itself, so that on a laptop it comes
+      // with the menu down the left like any other tool.
       final s = widget.section;
-      if (!_openedSection &&
-          (s == 'analytics' ||
-              s == 'users' ||
-              s == 'pricing' ||
-              s == 'outreach' ||
-              s == 'upgrades' ||
-              s == 'prices')) {
-        _openedSection = true;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted) return;
-          Navigator.of(context).push(MaterialPageRoute(
-              builder: (_) => s == 'analytics'
-                  ? const AdminAnalyticsScreen()
-                  : s == 'pricing'
-                      ? const AdminPricingScreen()
-                      : s == 'outreach'
-                          ? const AdminOutreachScreen()
-                          : s == 'upgrades'
-                              ? const AdminUpgradesScreen()
-                              : s == 'prices'
-                                  ? const AdminPricesScreen()
-                                  : const AdminUsersScreen()));
-        });
-      }
-      return const WebsiteScreen(standalone: true);
+      const tools = {
+        'analytics', 'users', 'pricing', 'outreach', 'upgrades', 'prices',
+      };
+      return WebsiteScreen(
+          standalone: true, openTool: tools.contains(s) ? s : null);
     }
     final signedIn = _supabase.signedIn;
     return Scaffold(

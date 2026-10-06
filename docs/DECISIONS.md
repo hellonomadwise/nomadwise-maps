@@ -2545,3 +2545,40 @@ cast; one independent review of the Dart, whose findings were fixed
 what was skipped, moves on when a candidate is turned down). Not
 compiled here.
 
+## 6 Oct 2026: on a laptop the menu runs down the left
+
+Jonathan: "If possible, on desktop can we make the top right menu
+items go down the left, like how you see in Supabase and GSC and a
+typical members area. Also, the items like analytics and users, I
+don't use as much, also pricing, review submissions, feedback inbox...
+so to have them at the bottom."
+
+Built (`website_screen.dart`, `admin_gate.dart`): from 1,000 px wide
+the control centre has a menu down its left and the two menu buttons
+at the top right are gone. Top: Control centre, Page upgrades, Price
+check, Outreach. Middle, "Create on nomadwise.io": Country page, City
+page, Area page, Refresh from Webflow. Bottom, "Less used", smaller:
+Analytics, Users, Pricing, Review submissions, Feedback inbox, and
+Open the map on the team link.
+
+- A tool opened from the menu shows beside it with the menu still
+  there, the tool marked. Its back arrow, and the browser's Back, lead
+  to the control centre. The pages a tool opens itself (one page's
+  review, one space's prices) take the whole screen as before.
+- The links that go straight to a tool (`?admin=upgrades` and the
+  like) now open it the same way, so the menu is there too.
+- Below 1,000 px (a phone, a narrow window) nothing changed except the
+  order in the "Team tools" menu: the three used every day first, the
+  five seldom used below a line.
+
+Why tools are pushed as ordinary screens and not kept in a pane with
+its own navigator: the tool screens close their dialogs with the
+screen's own navigator in places, and a pane navigator would have
+closed the tool instead of the dialog.
+
+Checked: one independent review of the Dart (no compile errors found;
+its four findings fixed: state kept when the window crosses the width,
+the tool already showing is not restarted, linked tools get the menu,
+the menu is safe after sign-out). Not compiled here, and not seen on a
+screen: the widths, spacing and icons are a first cut.
+
