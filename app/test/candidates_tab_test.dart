@@ -240,7 +240,8 @@ Future<Harness> open(WidgetTester tester, List<Map<String, dynamic>> places,
     Map<String, Map<String, dynamic>> areaFacts = const {},
     String? searchDay,
     Map<String, dynamic>? mentionSummary,
-    Map<String, dynamic>? evidencePlan}) async {
+    Map<String, dynamic>? evidencePlan,
+    bool full = true}) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.reset);
@@ -266,6 +267,8 @@ Future<Harness> open(WidgetTester tester, List<Map<String, dynamic>> places,
           h.reloads++;
         },
         onCount: h.counts.add,
+        // Most tests are about the full list, as the tab always was.
+        startFull: full,
       ),
     ),
   ));
@@ -291,6 +294,21 @@ void main() {
     place('p3', 'Pai Laptop Cafe', 'No city page nearby',
         wifi: 1, laptop: 2, score: 13, page: false),
   ];
+
+  testWidgets('opens on the strongest, one at a time', (tester) async {
+    final h = await open(tester, chiangMai, full: false);
+    expect(find.text('2 strong candidates'), findsOneWidget);
+    expect(find.text('HappyBlue Coffee'), findsOneWidget);
+    // no city page: not a strong candidate
+    expect(find.text('Pai Laptop Cafe'), findsNothing);
+    expect(find.text('Next: One Workspace'), findsOneWidget);
+    await tapText(tester, find.text('Later'));
+    expect(find.text('Next: HappyBlue Coffee'), findsOneWidget);
+    await tapText(tester, find.text('Yes, queue it'));
+    expect(h.db.queued.keys, ['p2']);
+    expect(find.textContaining('1 decided so far'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('shows the candidates, why each is there, and the totals',
       (tester) async {

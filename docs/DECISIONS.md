@@ -2695,3 +2695,54 @@ the trigger cannot block a claim or payment, replaced owners, counting
 spaces not lines, sign-ins counted from the claim on) and one of the
 Dart (no compile errors found; wording and tap-size findings fixed).
 Not compiled here, and not seen on a screen.
+
+## 6 Oct 2026: Candidates, the strongest one at a time
+
+Jonathan, looking at the Candidates tab on his phone (two screens of
+status text, then 587 places): "How do I improve this workflow?" and
+then: "If I can be given one really strong potential, based off all of
+the information and the key bits of information, so I can assess
+whether to say yes to it or no. Key bits of information are if it's
+listed on a bunch of different listing sites, when the reviews mention
+a lot of laptop use, if it's possible to work there from a laptop, and
+coworking."
+
+Built (`candidates_tab.dart`, `candidate.dart`; no database change):
+
+- The tab opens on "Strongest, one at a time": one place in front,
+  its three key facts in the same order every time (coworking space or
+  cafe; how many other sites list it, and which; how many of Google's
+  five reviews mention working there), then No (with the reasons),
+  Later, and "Yes, queue it". After a decision the next one is there.
+  "Later" puts a place at the back for this sitting only.
+- A strong candidate (`Candidate.shortlisted`): it has a city page, is
+  not a hotel or the like, is not one of a chain (three or more of the
+  name around), and shows signs people work there. A cafe needs strong
+  signs (two reviews, two sites, both of Google's phrases, or two
+  kinds agreeing). A coworking space needs one review or one other
+  site, or a rating of 4.3 or more from 20 or more people.
+- Order (`Candidate.strength`): other sites count most, then reviews
+  about working there, then coworking, then Google's own search.
+- The lines about where the list comes from (sweeps, search numbers,
+  other sites, Google lookups) are behind "Details". "The full list"
+  is the tab as it was, with its two orders.
+- Nothing new is asked of Google: review quotes are still read only
+  when "What reviews say" is pressed.
+
+How it is picked: the database already orders the list; the app reads
+up to 200 at a time and keeps the strong ones, reading on until it
+has 20 in hand. The card in front never changes while more arrive.
+
+Closed places are left as they are, by his wish: each one is retired
+by hand, with its redirect and its line in the sitemap done by him
+(the card's own ticks and copy buttons). No "all at once" button.
+
+Not built from the same list of ideas, to ask about later: opening on
+one city (London first) with a target, and one decision for a whole
+chain.
+
+Checked: one independent review of the Dart (no compile errors found;
+its findings fixed: the list can no longer ask the database for ever,
+the Yes button fits a phone, the card in front stays put, a failed
+read says so). Tests added for the rule and the new view. Not
+compiled here, and not seen on a screen.

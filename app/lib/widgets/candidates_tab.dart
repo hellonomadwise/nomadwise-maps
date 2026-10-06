@@ -46,6 +46,10 @@ class CandidatesTab extends StatefulWidget {
   /// Reports how many candidates wait, for the number on the tab.
   final void Function(int total) onCount;
 
+  /// Opens on the full list with its details showing, as the tab
+  /// always did, instead of the best bets one at a time.
+  final bool startFull;
+
   const CandidatesTab({
     super.key,
     required this.supabase,
@@ -54,6 +58,7 @@ class CandidatesTab extends StatefulWidget {
     required this.dismissReasons,
     required this.onQueued,
     required this.onCount,
+    this.startFull = false,
   });
 
   @override
@@ -61,7 +66,40 @@ class CandidatesTab extends StatefulWidget {
 }
 
 class _CandidatesTabState extends State<CandidatesTab> {
-  static const _pageSize = 60;
+  /// How many places one request brings: a screenful for the full
+  /// list; for the short list as many as the database gives at once,
+  /// since the strong ones are picked out of them here.
+  int get _pageSize => _full ? 60 : 200;
+
+  /// The short list, one place at a time (the way it opens), or the
+  /// full list as it always was.
+  late bool _full = widget.startFull;
+
+  /// The lines about where the list comes from, folded away unless
+  /// asked for.
+  late bool _details = widget.startFull;
+
+  /// How many strong candidates the short list likes to have in hand.
+  static const _shortSize = 20;
+
+  /// Places put off with "Later", for this sitting only.
+  final List<String> _later = [];
+
+  /// Decided since the tab was opened.
+  int _decided = 0;
+
+  /// The last request for more failed, or brought nothing new: not
+  /// asked again until the list is reloaded.
+  bool _moreFailed = false;
+
+  /// Counts the reloads, so a page asked for before a reload is not
+  /// added to the list that came after it.
+  int _listVersion = 0;
+
+  /// The place in front in the one-at-a-time view. It stays in front
+  /// while more of the list arrives, so the card never changes under a
+  /// finger on its way to Yes.
+  String? _front;
 
   bool _loading = true;
   bool _loadingMore = false;
@@ -120,7 +158,10 @@ class _CandidatesTabState extends State<CandidatesTab> {
       final r = await widget.supabase.adminCandidates(
           area: area, limit: _pageSize, offset: 0, sort: sort);
       if (!mounted || area != _area || sort != _sort) return;
+      _moreFailed = false;
+      _listVersion++;
       _apply(r, append: false);
+      _topUp();
     } catch (e) {
       if (!mounted || area != _area || sort != _sort) return;
       setState(() {
@@ -135,16 +176,30 @@ class _CandidatesTabState extends State<CandidatesTab> {
     setState(() => _loadingMore = true);
     final area = _area;
     final sort = _sort;
+    final version = _listVersion;
     try {
       final r = await widget.supabase.adminCandidates(
           area: area, limit: _pageSize, offset: _rows.length, sort: sort);
-      if (!mounted || area != _area || sort != _sort) return;
+      if (!mounted ||
+          area != _area ||
+          sort != _sort ||
+          version != _listVersion) {
+        return;
+      }
+      final had = {for (final c in _rows) c.placeId};
       _apply(r, append: true);
+      // Nothing new although more were promised (the list moved under
+      // us): stop here, or the short list would ask for ever.
+      if (!_rows.any((c) => !had.contains(c.placeId))) _moreFailed = true;
     } catch (e) {
       if (!mounted) return;
+      _moreFailed = true;
       _snack('More could not be loaded: $e', bad: true);
     } finally {
-      if (mounted) setState(() => _loadingMore = false);
+      if (mounted) {
+        setState(() => _loadingMore = false);
+        _topUp();
+      }
     }
   }
 
@@ -226,6 +281,7 @@ class _CandidatesTabState extends State<CandidatesTab> {
     if (area == _area) return;
     setState(() {
       _area = area;
+      _front = null;
       _loading = true;
       _rows = [];
     });
@@ -256,10 +312,14 @@ class _CandidatesTabState extends State<CandidatesTab> {
             a.withCount(a.count - 1),
       ];
       _quotes.remove(c.placeId);
+      _later.remove(c.placeId);
+      if (_front == c.placeId) _front = null;
+      _decided++;
     });
     widget.onCount(_total);
     // The page ran dry but more wait behind it: fetch the next ones.
-    if (_rows.length < 10 && _rows.length < _shownTotal) _loadMore();
+    if (_full && _rows.length < 10 && _rows.length < _shownTotal) _loadMore();
+    _topUp();
     // The area emptied: go back to everything.
     if (_area != null && _shownTotal == 0) _pickArea(null);
   }
@@ -495,8 +555,14 @@ class _CandidatesTabState extends State<CandidatesTab> {
             children: [
               _intro(),
               if (_areas.length > 1) _areaRow(),
-              if (_total > 0) _orderRow(),
-              if (_loading && _rows.isEmpty)
+              if (_total > 0) _modeRow(),
+              if (!_full)
+                ..._oneAtATime()
+              else if (_total > 0)
+                _orderRow(),
+              if (!_full)
+                const SizedBox.shrink()
+              else if (_loading && _rows.isEmpty)
                 const Padding(
                   padding: EdgeInsets.only(top: 40),
                   child: Center(
@@ -569,21 +635,22 @@ class _CandidatesTabState extends State<CandidatesTab> {
         searchLine = '$searchLine $since found since then $verb none yet.';
       }
     }
+    final small = TextButton.styleFrom(
+        foregroundColor: Brand.inkSecondary,
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        minimumSize: const Size(0, 28),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        textStyle: const TextStyle(
+            fontFamily: 'Roboto', fontSize: 12.5, fontWeight: FontWeight.w600));
     return Padding(
       padding: const EdgeInsets.fromLTRB(2, 0, 2, 10),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text(
-            'Found by the nightly job, not on the site yet. Queue the ones '
-            'worth a page. Nothing reaches Webflow until you approve its '
-            'proposal.',
-            style: TextStyle(fontSize: 12, color: Brand.inkMuted, height: 1.4)),
-        const SizedBox(height: 8),
         Wrap(
             spacing: 8,
             runSpacing: 2,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              Text(facts.join('  ·  '),
+              Text(facts.first,
                   style: const TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w600,
@@ -591,36 +658,59 @@ class _CandidatesTabState extends State<CandidatesTab> {
               if (_dismissed > 0)
                 TextButton(
                     onPressed: _openDismissed,
-                    style: TextButton.styleFrom(
-                        foregroundColor: Brand.inkSecondary,
-                        padding: const EdgeInsets.symmetric(horizontal: 6),
-                        minimumSize: const Size(0, 28),
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        textStyle: const TextStyle(
-                            fontFamily: 'Roboto',
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w600)),
+                    style: small,
                     child: Text('$_dismissed turned down')),
+              // Where the list comes from, on request: it used to fill
+              // two screens before the first place.
+              TextButton(
+                  onPressed: () => setState(() => _details = !_details),
+                  style: small,
+                  child: Text(_details ? 'Hide details' : 'Details')),
             ]),
-        if (_sweepLine != null) ...[
+        if (_details) ...[
+          const SizedBox(height: 6),
+          const Text(
+              'Found by the nightly job, not on the site yet. Queue the '
+              'ones worth a page. Nothing reaches Webflow until you '
+              'approve its proposal.',
+              style:
+                  TextStyle(fontSize: 12, color: Brand.inkMuted, height: 1.4)),
+          const SizedBox(height: 4),
+          const Text(
+              'A strong candidate has a city page, is not a hotel or one '
+              'of a chain, and shows signs people work there. A cafe '
+              'needs two signs: reviews about working there, other sites '
+              'listing it, or Google\'s own search returning it. A '
+              'coworking space needs one review or one other site, or a '
+              'good rating from enough people.',
+              style:
+                  TextStyle(fontSize: 12, color: Brand.inkMuted, height: 1.4)),
+          if (facts.length > 1) ...[
+            const SizedBox(height: 4),
+            Text(facts.skip(1).join('  ·  '),
+                style: const TextStyle(
+                    fontSize: 12, color: Brand.inkMuted, height: 1.4)),
+          ],
+        ],
+        if (_details && _sweepLine != null) ...[
           const SizedBox(height: 4),
           Text(_sweepLine!,
               style: const TextStyle(
                   fontSize: 12, color: Brand.inkMuted, height: 1.4)),
         ],
-        if (searchLine != null) ...[
+        if (_details && searchLine != null) ...[
           const SizedBox(height: 4),
           Text(searchLine,
               style: const TextStyle(
                   fontSize: 12, color: Brand.inkMuted, height: 1.4)),
         ],
-        if (_mentionLine() != null) ...[
+        if (_details && _mentionLine() != null) ...[
           const SizedBox(height: 4),
           Text(_mentionLine()!,
               style: const TextStyle(
                   fontSize: 12, color: Brand.inkMuted, height: 1.4)),
         ],
-        if (_planLine() != null) ...[
+        if (_details && _planLine() != null) ...[
           const SizedBox(height: 4),
           Text(_planLine()!,
               style: const TextStyle(
@@ -746,6 +836,7 @@ class _CandidatesTabState extends State<CandidatesTab> {
           pick('best', 'Best bets first'),
           pick('searches', 'Most searched first'),
         ]),
+        if (_details) ...[
         const SizedBox(height: 6),
         Text(
             _sort == 'best'
@@ -766,6 +857,7 @@ class _CandidatesTabState extends State<CandidatesTab> {
             'to work. Look at a thin one before you queue it.',
             style:
                 TextStyle(fontSize: 12, color: Brand.inkMuted, height: 1.4)),
+        ],
       ]),
     );
   }
@@ -858,7 +950,278 @@ class _CandidatesTabState extends State<CandidatesTab> {
         ]),
       );
 
-  Widget _card(Candidate c) {
+  // ------------------------------------------------- one at a time
+  // (Jonathan, 6 Oct 2026) "If I can be given one really strong
+  // potential, based off the key bits of information, so I can assess
+  // whether to say yes to it or no." The key bits: other sites list
+  // it, its reviews mention working there from a laptop, coworking.
+
+  /// The strong candidates among those loaded, strongest first. The
+  /// ones put off with "Later" go to the back, in the order they were
+  /// put off.
+  List<Candidate> get _short {
+    final strong = [
+      for (final c in _rows)
+        if (c.shortlisted) c,
+    ];
+    final at = {
+      for (var i = 0; i < strong.length; i++) strong[i].placeId: i,
+    };
+    strong.sort((a, b) {
+      final la = _later.indexOf(a.placeId);
+      final lb = _later.indexOf(b.placeId);
+      if (la != lb) {
+        if (la < 0) return -1;
+        if (lb < 0) return 1;
+        return la - lb;
+      }
+      final s = b.strength - a.strength;
+      return s != 0 ? s : at[a.placeId]! - at[b.placeId]!;
+    });
+    // The one being looked at keeps its place at the front.
+    final i = strong.indexWhere((c) => c.placeId == _front);
+    if (i > 0) strong.insert(0, strong.removeAt(i));
+    return strong;
+  }
+
+  /// The short list wants a few strong candidates in hand: while
+  /// fewer are loaded and more places wait, the next page is read.
+  void _topUp() {
+    if (_full || _loading || _loadingMore || _moreFailed) return;
+    if (_rows.length >= _shownTotal) return;
+    if (_rows.where((c) => c.shortlisted).length >= _shortSize) return;
+    _loadMore();
+  }
+
+  void _setFull(bool full) {
+    if (full == _full) return;
+    setState(() => _full = full);
+    _topUp();
+  }
+
+  void _sayLater(Candidate c) => setState(() {
+        _later.remove(c.placeId);
+        _later.add(c.placeId);
+        _front = null;
+      });
+
+  /// The two ways to work the list.
+  Widget _modeRow() {
+    Widget pick(bool full, String label) {
+      final on = _full == full;
+      return ChoiceChip(
+        selected: on,
+        showCheckmark: false,
+        onSelected: (_) => _setFull(full),
+        selectedColor: Brand.ink,
+        backgroundColor: Brand.surface,
+        side: BorderSide(color: on ? Brand.ink : Brand.border),
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        visualDensity: VisualDensity.compact,
+        labelStyle: TextStyle(
+            fontFamily: 'Roboto',
+            fontSize: 12.5,
+            fontWeight: FontWeight.w700,
+            color: on ? Colors.white : Brand.inkSecondary),
+        label: Text(label),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(2, 0, 2, 10),
+      child: Wrap(spacing: 6, runSpacing: 6, children: [
+        pick(false, 'Strongest, one at a time'),
+        pick(true, 'The full list'),
+      ]),
+    );
+  }
+
+  /// One of the key facts on the one-at-a-time card: true speaks for
+  /// the place, false against, null is neither (not known yet).
+  Widget _fact(bool? good, String text, {IconData? icon}) => Padding(
+        padding: const EdgeInsets.only(bottom: 7),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 1),
+            child: Icon(
+                icon ??
+                    (good == true
+                        ? Icons.check_circle
+                        : good == false
+                            ? Icons.remove_circle_outline
+                            : Icons.help_outline),
+                size: 18,
+                color: good == true ? Brand.success : Brand.inkMuted),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(text,
+                style: TextStyle(
+                    fontSize: 13.5,
+                    height: 1.35,
+                    fontWeight:
+                        good == true ? FontWeight.w600 : FontWeight.w400,
+                    color: good == true ? Brand.ink : Brand.inkSecondary)),
+          ),
+        ]),
+      );
+
+  /// True when other sites were read for the candidate's city, so
+  /// "no other site names it" means something.
+  bool _sitesReadFor(Candidate c) {
+    final cities = _evidencePlan['cities'];
+    if (cities is! List) return false;
+    final area = c.area.trim().toLowerCase();
+    return cities.any((x) => '$x'.trim().toLowerCase() == area);
+  }
+
+  /// The key bits of information, the same three on every card and in
+  /// the same order.
+  List<Widget> _keyFacts(Candidate c) {
+    final names = c.mentionSources.take(3).join(', ');
+    final more = c.mentions - c.mentionSources.take(3).length;
+    final extras = <String>[
+      if (c.power > 0)
+        '${c.power} ${c.power == 1 ? 'mentions' : 'mention'} plugs',
+      if (c.wifi > 0) '${c.wifi} ${c.wifi == 1 ? 'mentions' : 'mention'} WiFi',
+    ];
+    final also = extras.isEmpty ? '' : ' (${extras.join(', ')})';
+    return [
+      _fact(
+          c.coworking ? true : null,
+          c.coworking
+              ? 'A coworking space'
+              : 'A cafe, not a coworking space',
+          icon: c.coworking ? null : Icons.local_cafe_outlined),
+      if (c.mentions > 0)
+        _fact(
+            true,
+            'Listed by ${c.mentions} other ${c.mentions == 1 ? 'site' : 'sites'}'
+            '${names.isEmpty ? '' : ': $names'}'
+            '${more > 0 ? ' and $more more' : ''}')
+      else if (_sitesReadFor(c))
+        // Not "no site lists it": a place named by one ordinary site
+        // is not matched yet.
+        _fact(false, "Not found on the other sites' lists so far")
+      else
+        _fact(null, 'Other sites have not been read for ${c.area} yet'),
+      if (!c.reviewsRead)
+        _fact(null, 'Its reviews have not been read yet')
+      else if (c.laptop > 0)
+        _fact(
+            true,
+            "${c.laptop} of Google's five reviews "
+            '${c.laptop == 1 ? 'mentions' : 'mention'} working there$also')
+      else
+        _fact(
+            false,
+            "None of Google's five reviews mention working there$also"),
+      if (c.workPhrases.isNotEmpty)
+        _fact(
+            true,
+            "Google's own search returns it for "
+            '${c.workPhrases.map((p) => '"$p"').join(' and ')}'),
+    ];
+  }
+
+  /// The short list as one place in front of you: the strongest left,
+  /// its key facts, and Yes, No or Later.
+  List<Widget> _oneAtATime() {
+    Widget waiting() => const Padding(
+          padding: EdgeInsets.only(top: 40),
+          child: Center(child: CircularProgressIndicator(color: Brand.red)),
+        );
+    if (_loading && _rows.isEmpty) return [waiting()];
+    if (_total == 0) return [_emptyView()];
+    final short = _short;
+    final moreToRead = _rows.length < _shownTotal && !_moreFailed;
+    if (short.isEmpty) {
+      if (_loadingMore || moreToRead) return [waiting()];
+      if (_moreFailed && _rows.length < _shownTotal) {
+        return [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 30, 16, 0),
+            child: Column(children: [
+              const Text('The rest of the list could not be read',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 12),
+              OutlinedButton(
+                  onPressed: () {
+                    setState(() {
+                      _loading = true;
+                      _rows = [];
+                    });
+                    _reload();
+                  },
+                  child: const Text('Try again')),
+            ]),
+          ),
+        ];
+      }
+      return [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 30, 16, 0),
+          child: Column(children: [
+            const Icon(Icons.task_alt_rounded, size: 34, color: Brand.success),
+            const SizedBox(height: 12),
+            Text(
+                'No strong candidates left'
+                '${_area == null ? '' : ' in $_area'}',
+                textAlign: TextAlign.center,
+                style:
+                    const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+            if (_shownTotal > 0) ...[
+              const SizedBox(height: 6),
+              Text(
+                  'The full list has $_shownTotal '
+                  '${_shownTotal == 1 ? 'place' : 'places'} with thinner '
+                  'signs.',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                      fontSize: 13, color: Brand.inkMuted, height: 1.5)),
+              const SizedBox(height: 12),
+              OutlinedButton(
+                  onPressed: () => _setFull(true),
+                  child: const Text('Open the full list')),
+            ],
+          ]),
+        ),
+      ];
+    }
+    final c = short.first;
+    _front = c.placeId;
+    final count = moreToRead
+        ? '${short.length} or more strong candidates'
+        : '${short.length} strong ${short.length == 1 ? 'candidate' : 'candidates'}';
+    return [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(2, 0, 2, 8),
+        child: Text(
+            '$count${_area == null ? '' : ' in $_area'}'
+            '${_decided > 0 ? '  ·  $_decided decided so far' : ''}',
+            style: const TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: Brand.inkSecondary)),
+      ),
+      _card(c, one: true),
+      if (short.length > 1)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 0, 4, 0),
+          child: Text(
+              'Next: ${short[1].name}'
+              '${short.length > 2 ? ', then ${short[2].name}' : ''}',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 12, color: Brand.inkMuted)),
+        ),
+    ];
+  }
+
+  /// A candidate's card. [one]: the card of the one-at-a-time view,
+  /// which leads with the key facts and ends in Yes, No or Later.
+  Widget _card(Candidate c, {bool one = false}) {
     final busy = _busy.contains(c.placeId);
     final rating = c.ratingLabel;
     final quotes = _quotes[c.placeId];
@@ -906,13 +1269,17 @@ class _CandidatesTabState extends State<CandidatesTab> {
                   ]),
             ),
           ]),
-          const SizedBox(height: 10),
+          if (one) ...[
+            const SizedBox(height: 12),
+            ..._keyFacts(c),
+          ],
+          SizedBox(height: one ? 3 : 10),
           Wrap(spacing: 6, runSpacing: 6, children: [
             if (rating != null)
               StatusChip('★ $rating', dotColor: Brand.gold),
             // A cafe: how sure the reviews make us it is a place to
             // open a laptop.
-            if (evidence != null)
+            if (evidence != null && !one)
               _why(
                   evidence,
                   switch (c.workEvidence) {
@@ -920,16 +1287,19 @@ class _CandidatesTabState extends State<CandidatesTab> {
                     'some' => Brand.gold,
                     _ => Brand.inkMuted,
                   }),
-            // Who else names it, and what Google's search says.
-            for (final r in c.outsideReasons) _why(r, Brand.success),
+            // Who else names it, and what Google's search says (the
+            // one-at-a-time card says both among its key facts).
+            if (!one)
+              for (final r in c.outsideReasons) _why(r, Brand.success),
             // What the search numbers say, then what the reviews say.
             for (final (text, good) in c.searchReasons)
               _why(text, good ? Brand.success : Brand.inkMuted),
-            for (final r in c.reasons)
-              StatusChip(r,
-                  dotColor: r == 'Reviews not read yet'
-                      ? Brand.inkMuted
-                      : Brand.violet),
+            if (!one)
+              for (final r in c.reasons)
+                StatusChip(r,
+                    dotColor: r == 'Reviews not read yet'
+                        ? Brand.inkMuted
+                        : Brand.violet),
             if (!c.hasCityPage)
               const StatusChip('No city page yet', dotColor: Brand.red),
           ]),
@@ -987,30 +1357,84 @@ class _CandidatesTabState extends State<CandidatesTab> {
                       label: Text(_quotesLoading.contains(c.placeId)
                           ? 'Reading…'
                           : 'What reviews say')),
-                PopupMenuButton<String>(
+                if (!one) ...[
+                  PopupMenuButton<String>(
+                    enabled: !busy,
+                    tooltip: 'Why it is not for the site',
+                    onSelected: (reason) => _dismiss(c, reason),
+                    itemBuilder: (_) => [
+                      for (final r in widget.dismissReasons)
+                        PopupMenuItem<String>(value: r, child: Text(r)),
+                    ],
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 10),
+                      child: Text('Not for the site',
+                          style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: busy
+                                  ? Brand.inkFaint
+                                  : Brand.inkSecondary)),
+                    ),
+                  ),
+                  ElevatedButton.icon(
+                      onPressed: busy ? null : () => _queue(c),
+                      icon: const Icon(Icons.add_to_queue_outlined, size: 18),
+                      label: Text(busy ? 'Saving…' : 'Queue for the site')),
+                ],
+              ]),
+          // One at a time: the decision, large, under everything else.
+          if (one) ...[
+            const SizedBox(height: 8),
+            Row(children: [
+              Expanded(
+                child: PopupMenuButton<String>(
                   enabled: !busy,
-                  tooltip: 'Why it is not for the site',
+                  tooltip: 'No: why it is not for the site',
                   onSelected: (reason) => _dismiss(c, reason),
                   itemBuilder: (_) => [
                     for (final r in widget.dismissReasons)
                       PopupMenuItem<String>(value: r, child: Text(r)),
                   ],
-                  child: Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    child: Text('Not for the site',
+                  child: Container(
+                    height: 46,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                        border: Border.all(color: Brand.border),
+                        borderRadius: BorderRadius.circular(12)),
+                    child: Text('No',
                         style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color:
-                                busy ? Brand.inkFaint : Brand.inkSecondary)),
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: busy ? Brand.inkFaint : Brand.ink)),
                   ),
                 ),
-                ElevatedButton.icon(
-                    onPressed: busy ? null : () => _queue(c),
-                    icon: const Icon(Icons.add_to_queue_outlined, size: 18),
-                    label: Text(busy ? 'Saving…' : 'Queue for the site')),
-              ]),
+              ),
+              const SizedBox(width: 6),
+              TextButton(
+                  onPressed:
+                      busy || _short.length < 2 ? null : () => _sayLater(c),
+                  style: TextButton.styleFrom(
+                      foregroundColor: Brand.inkSecondary,
+                      minimumSize: const Size(0, 46)),
+                  child: const Text('Later')),
+              const SizedBox(width: 6),
+              Expanded(
+                child: SizedBox(
+                  height: 46,
+                  child: ElevatedButton(
+                      onPressed: busy ? null : () => _queue(c),
+                      style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8)),
+                      child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(busy ? 'Saving…' : 'Yes, queue it',
+                              maxLines: 1, softWrap: false))),
+                ),
+              ),
+            ]),
+          ],
         ]),
       ),
     );

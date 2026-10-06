@@ -219,6 +219,35 @@ class Candidate {
     return _anySign ? 'thin' : 'unread';
   }
 
+  /// A strong candidate, worth putting in front of a founder one at a
+  /// time (Jonathan, 6 Oct 2026). The three things he decides on:
+  /// other sites list it, its reviews talk about working there from
+  /// a laptop, and whether it is a coworking space.
+  ///
+  /// It has a city page to sit under, is not a hotel or the like, and
+  /// is not one of a chain's branches. A cafe needs strong signs; a
+  /// coworking space needs another site naming it, a review about
+  /// working there, or a good rating from enough people.
+  bool get shortlisted {
+    if (!hasCityPage || otherType || sameName > 2) return false;
+    if (coworking) {
+      return mentions >= 1 ||
+          laptop >= 1 ||
+          ((rating ?? 0) >= 4.3 && (userRatingCount ?? 0) >= 20);
+    }
+    return workEvidence == 'strong';
+  }
+
+  /// How strongly those three things speak for it: the order of the
+  /// short list, strongest first.
+  int get strength =>
+      4 * (mentions > 5 ? 5 : mentions) +
+      3 * (laptop > 5 ? 5 : laptop) +
+      (coworking ? 4 : 0) +
+      2 * workPhrases.length +
+      (power > 0 ? 1 : 0) +
+      (wifi > 0 ? 1 : 0);
+
   /// What speaks for it from outside its own reviews, in plain words:
   /// who names it, and what Google's search returns it for.
   List<String> get outsideReasons {

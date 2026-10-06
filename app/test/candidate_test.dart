@@ -454,4 +454,55 @@ void main() {
           'About 350 searches a month for coworking in Chiang Mai.');
     });
   });
+
+  group('the short list (strong candidates, one at a time)', () {
+    test('a cafe needs strong signs', () {
+      // three reviews about working there: strong
+      expect(Candidate.fromJson(row({})).shortlisted, isTrue);
+      // WiFi alone: thin
+      expect(
+          Candidate.fromJson(row({'laptop': 0, 'power': 0, 'wifi': 1}))
+              .shortlisted,
+          isFalse);
+      // one review and one other site: two kinds agreeing
+      expect(
+          Candidate.fromJson(row({
+            'laptop': 1,
+            'mentions': 1,
+            'mention_sources': ['Laptop Friendly Cafe'],
+          })).shortlisted,
+          isTrue);
+    });
+
+    test('a coworking space needs one sign, or a good rating', () {
+      final quiet = row({
+        'coworking': true,
+        'laptop': 0,
+        'power': 0,
+        'wifi': 0,
+        'rating': 4.0,
+        'user_rating_count': 12,
+      });
+      expect(Candidate.fromJson(quiet).shortlisted, isFalse);
+      expect(Candidate.fromJson({...quiet, 'mentions': 1}).shortlisted, isTrue);
+      expect(
+          Candidate.fromJson(
+              {...quiet, 'rating': 4.6, 'user_rating_count': 40}).shortlisted,
+          isTrue);
+    });
+
+    test('no city page, a hotel or a chain keeps it off', () {
+      expect(Candidate.fromJson(row({'region_id': null})).shortlisted, isFalse);
+      expect(Candidate.fromJson(row({'other_type': true})).shortlisted, isFalse);
+      expect(Candidate.fromJson(row({'same_name': 4})).shortlisted, isFalse);
+    });
+
+    test('the strongest comes first', () {
+      final listed = Candidate.fromJson(row({'mentions': 3}));
+      final plain = Candidate.fromJson(row({}));
+      final cowork = Candidate.fromJson(row({'coworking': true}));
+      expect(listed.strength, greaterThan(cowork.strength));
+      expect(cowork.strength, greaterThan(plain.strength));
+    });
+  });
 }
