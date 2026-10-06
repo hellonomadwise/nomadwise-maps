@@ -409,6 +409,27 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
     }
   }
 
+  /// Marks a line as a test, or takes the mark off (migration 149):
+  /// one of us trying things out, left out of every count. For a
+  /// claimed space the owner's address is what is marked, so the other
+  /// spaces claimed with it follow.
+  Future<void> _setTest(Map<String, dynamic> c) async {
+    final on = c['is_test'] != true;
+    try {
+      final n = await _supabase.outreachSetTest('${c['id']}', on);
+      if (!mounted) return;
+      final name = '${c['space_name'] ?? c['email'] ?? 'This line'}';
+      final more = n > 1 ? ' (and ${n - 1} more of the same owner)' : '';
+      _snack(on
+          ? '$name is marked as a test and left out of the counts$more. '
+              'It is under Tests.'
+          : '$name is no longer a test$more.');
+      await _load();
+    } catch (e) {
+      if (mounted) _snack(_plain(e), bad: true);
+    }
+  }
+
   /// Rows copied from a spreadsheet (or typed as lines) into contacts.
   /// With a header row the columns are read by name; without one each
   /// cell is recognised by what it looks like: an address, a link, an
@@ -1343,6 +1364,17 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
     return (key, '');
   }
 
+  /// The lines marked as tests, and nothing else.
+  void _showTests() {
+    setState(() {
+      _stage = 'tests';
+      _group = '';
+      _step = null;
+      _rows = null;
+    });
+    _load();
+  }
+
   void _showStep(String? key) {
     setState(() {
       _step = key;
@@ -1441,6 +1473,7 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
     final claimed = _pathN('owners', 'claimed');
     final off = _pathN('reach', 'stepped_off');
     final paying = (p['paying'] as num?)?.toInt();
+    final tests = (p['tests'] as num?)?.toInt() ?? 0;
     final since = _when(p['visits_since']);
 
     final reach = _pathBand('Reaching them', [
@@ -1536,6 +1569,24 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
                         owners,
                       ]),
           ),
+          if (tests > 0)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 10, 8, 0),
+              child: InkWell(
+                onTap: _showTests,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 3),
+                  child: Text(
+                      '$tests ${tests == 1 ? 'line' : 'lines'} marked as '
+                      '${tests == 1 ? 'a test' : 'tests'} (one of us), left '
+                      'out of these numbers',
+                      style: const TextStyle(
+                          fontSize: 12.5,
+                          color: Brand.goldTextDark,
+                          decoration: TextDecoration.underline)),
+                ),
+              ),
+            ),
           if (since.isNotEmpty)
             Padding(
               padding: const EdgeInsets.fromLTRB(8, 10, 8, 0),
@@ -1668,6 +1719,23 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
           'red lines under a step are the spaces stuck there.\n'
           'A claimed space\'s card says what its owner has done in the '
           'Owner account, and how often.'
+    ),
+    (
+      Icons.science_outlined,
+      'Tests (one of us trying things out)',
+      'A claim or a form we filled in ourselves is not a real space '
+          'talking to us. Mark it from the card\'s menu, "Mark as a '
+          'test". It then shows under the Tests chip only, and is left '
+          'out of every number here, of the path, of the number beside '
+          'Outreach in the menu, and of the Money card\'s claimed and '
+          'Verified.\n'
+          'Marking a claimed space marks the owner\'s address, so '
+          'everything else claimed with it follows. Addresses at '
+          'nomadwise.io, our own sign-in addresses and people named '
+          'just "Test" are marked by themselves, as they arrive or '
+          'claim. "Not a test" in the same menu takes a mark off, and '
+          'it stays off. When a space gets a new owner, the space is '
+          'no longer a test.'
     ),
     (
       Icons.upload_file_outlined,
@@ -1837,6 +1905,8 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
                         fontWeight: FontWeight.w800, fontSize: 15.5)),
                 if ('${c['kind'] ?? ''}'.isNotEmpty) _chip('${c['kind']}'),
                 _stageChip('${c['stage']}'),
+                if (c['is_test'] == true)
+                  _chip('TEST', bg: Brand.goldTint, fg: Brand.goldTextDark),
               ]),
               const SizedBox(height: 3),
               Text(
@@ -1877,6 +1947,7 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
               'edit' => _editContact(c),
               'note' => _editNote(c),
               'in' => _logReply(c),
+              'test' => _setTest(c),
               'delete' => _delete(c),
               _ => _setStage(c, k),
             },
@@ -1889,6 +1960,11 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
                 if (s.$1.isNotEmpty && s.$1 != c['stage'] && s.$1 != 'verified')
                   PopupMenuItem(value: s.$1, child: Text('Mark ${s.$2}')),
               const PopupMenuDivider(),
+              PopupMenuItem(
+                  value: 'test',
+                  child: Text(c['is_test'] == true
+                      ? 'Not a test'
+                      : 'Mark as a test')),
               const PopupMenuItem(value: 'delete', child: Text('Remove')),
             ],
           ),
@@ -2166,6 +2242,21 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
                                 });
                                 _load();
                               },
+                            ),
+                          // Lines marked as tests (one of us): here and
+                          // in no other tab or number.
+                          if ((_counts['_tests'] ?? 0) > 0 || _stage == 'tests')
+                            ChoiceChip(
+                              label: Text('Tests ${_counts['_tests'] ?? 0}'),
+                              showCheckmark: false,
+                              selectedColor: Brand.goldTextDark,
+                              labelStyle: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  color: _step == null && _stage == 'tests'
+                                      ? Colors.white
+                                      : Brand.goldTextDark),
+                              selected: _step == null && _stage == 'tests',
+                              onSelected: (_) => _showTests(),
                             ),
                         ]),
                         const SizedBox(height: 14),

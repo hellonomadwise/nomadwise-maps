@@ -442,7 +442,10 @@ class _MoneyCardState extends State<MoneyCard> {
       final yearly = _n(m['paying_yearly']);
       final ending = _n(m['ending']);
       final retrying = _n(m['retrying']);
-      final byUs = verified - paying;
+      // A test space that really pays is money, but is not one of the
+      // Verified counted here (migration 149).
+      final payingReal = paying - _n(m['paying_tests']);
+      final byUs = verified - payingReal;
       final exact = m['exact'] != false;
       final mrrOther = _others(m['mrr_other']);
       final collectedOther = _others(m['collected_other']);
@@ -478,7 +481,9 @@ class _MoneyCardState extends State<MoneyCard> {
                 ? ''
                 : paying == 0
                     ? 'none of the Verified yet'
-                    : '${_share(paying, verified)} of the Verified'),
+                    : payingReal <= 0
+                        ? 'none of the Verified yet'
+                        : '${_share(payingReal, verified)} of the Verified'),
         stat(
             _cash(_amount(m['mrr_eur']), 'EUR'),
             'a month (MRR)',
@@ -496,6 +501,14 @@ class _MoneyCardState extends State<MoneyCard> {
             ].join(', ')),
       ]);
 
+      final tests = _n(m['tests']);
+      if (tests > 0) {
+        lines.add(tests == 1
+            ? '1 test page (one of us, marked in Outreach) is left out of '
+                'claimed and Verified.'
+            : '$tests test pages (one of us, marked in Outreach) are left '
+                'out of claimed and Verified.');
+      }
       if (byUs > 0) {
         lines.add(byUs == 1
             ? '1 Verified listing pays nothing (made Verified by us, or on '

@@ -1411,6 +1411,16 @@ class SupabaseService {
   Future<void> outreachDelete(String id) =>
       _db.rpc('admin_outreach_delete', params: {'p_id': id});
 
+  /// Marks a line as a test, or takes the mark off (migration 149).
+  /// For a claimed space the owner's address is what is marked, so
+  /// every space claimed with it follows. Returns how many lines
+  /// changed sides.
+  Future<int> outreachSetTest(String id, bool on) async {
+    final r = await _db
+        .rpc('admin_outreach_set_test', params: {'p_id': id, 'p_on': on});
+    return r is num ? r.toInt() : 0;
+  }
+
   /// The unsubscribe link in outreach emails (?unsubscribe=<token>).
   Future<Map<String, dynamic>> outreachUnsubscribe(String token) async {
     try {

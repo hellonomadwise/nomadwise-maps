@@ -2746,3 +2746,81 @@ its findings fixed: the list can no longer ask the database for ever,
 the Yes button fits a phone, the card in front stays put, a failed
 read says so). Tests added for the rule and the new view. Not
 compiled here, and not seen on a screen.
+
+## 6 Oct 2026: test accounts are marked and left out of the counts
+
+Jonathan, on "The path" saying 12 claimed: "the number of claimed
+isn't correct, as a bunch of these are test accounts so were either
+me or Leonie. I need to be able to mark tests so they get excluded."
+
+Built (`migration149_outreach_tests.sql`, `admin_outreach_screen.dart`,
+`supabase_service.dart`, `control_extras.dart`):
+
+- A card's menu in Outreach has "Mark as a test" (and "Not a test" to
+  undo). A test wears a TEST chip and shows under a new "Tests" chip
+  and in no other tab.
+- Marking a claimed space marks the owner's address: every line of
+  that space and every other space claimed with the same address
+  follow. Marking a line that has not claimed marks that line only.
+- Tests are left out of: the chips' numbers, "The path", the number
+  beside Outreach in the menu, and the Money card's "claimed" and
+  "Verified". The path says how many lines were left out, and the
+  Money card how many pages. Money that was really paid still counts.
+- Marked by themselves, when the migration runs and from then on as a
+  line arrives or an owner is put on a space: an address at
+  nomadwise.io, a founder's or team member's own sign-in address (with
+  or without a +tag), and a person named just "Test" or "Test Test".
+- A choice made by hand is never changed back by the automatic rules.
+- The mark is about the owner. When a space's owner changes or is
+  taken off, the space's own lines stop being tests, so a real claim
+  on a page we once tested counts.
+
+Not done: Analytics' "owners" view and the count of Owner account
+openings do not look at the mark (a test space is left out of the path
+anyway).
+
+Checked: the migration on the test copy (applied twice; hand marks,
+automatic marks, a real owner following a test owner, our own form
+entries), one independent review (no compile errors or failing SQL
+found; its findings fixed: a mark that outlived its owner, the first
+pass made quick, a hand choice holding for the whole space, the menu's
+number, the Money card's shares). Not compiled here, and not seen on a
+screen.
+
+## 6 Oct 2026: the app's icon is the Nomadwise logo
+
+Jonathan, with the red loading screen and its pin-and-laptop icon:
+"I'd like to update Nomad Maps with the logo of Nomadwise." A first
+version also turned the loading screen white and put the logo beside
+the name in several headers. He answered: "I liked how things were
+before, but just the icon to change." So only the pictures changed;
+no page and no screen was touched.
+
+The logo is the round mark from the navigation of nomadwise.io
+(`nomadwise-io-logo-red.svg` in the site's Webflow assets: red sky,
+two palms, clouds, waves), cut out of that vector file so every size
+is sharp. The mark is a red circle, so the icon is the mark on a white
+rounded tile: on the red loading screen it sits where the old icon
+sat.
+
+Pictures replaced, same names and sizes as before:
+
+- `app/web/icons/Icon-192.png`, `Icon-512.png` (loading screen,
+  iPhone home screen), `Icon-maskable-*.png` (Android home screen),
+  `app/web/favicon.png` (browser tab).
+- `app/web/icons/og_square.png` (shown when a link is shared): the
+  icon in the middle of the red, as before.
+- `app/assets/brand/app_icon.png` (in the app: welcome box, sign-in,
+  install sheet, share card) and `logo_mark.png`.
+- The phone apps' icon sets (`app/ios`, `app/android`), which are not
+  published today, so they do not fall behind.
+
+Not changed: the red loading screen and its words, every header, the
+pins on the map. The name stays "Nomad Maps".
+
+A home-screen icon already added to a phone keeps the old picture
+until it is removed and added again; a browser tab may keep the old
+one for a while.
+
+Checked: every picture looked at after it was made, and the loading
+screen drawn in a browser here with the new icon.
