@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chats</title>
+<meta name="robots" content="noindex">
+<meta name="apple-mobile-web-app-title" content="NW Chats">
+<link rel="apple-touch-icon" href="/icons/Icon-192.png">
+<link rel="icon" href="/favicon.png">
+<!-- nomadmaps.io/chats is the team's link to the chats with owners
+     (the app itself reads ?admin=chats). It forwards there at once.
+
+     To put it on a phone's home screen, open nomadmaps.io/chats/?add
+     instead: that shows this page without forwarding, and quietly
+     takes "?add" off the address, so what the phone saves is the plain
+     /chats/ link, which forwards every time it is tapped. This page
+     has no app manifest on purpose: the icon then opens in the phone's
+     own browser, where the founder is already signed in. -->
+<script>
+  var adding = /[?&]add\b/.test(location.search);
+  if (adding) {
+    try { history.replaceState(null, '', '/chats/'); } catch (e) {}
+  } else {
+    location.replace('/?admin=chats' + location.hash);
+  }
+</script>
+<style>
+  body{margin:0;background:#F7F7F7;color:#142032;font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  .card{max-width:440px;margin:40px auto;padding:24px;background:#fff;border:1px solid rgba(20,32,50,.10);border-radius:12px}
+  h1{font-size:22px;margin:0 0 8px}
+  ol{padding-left:20px}
+  li{margin:6px 0}
+  a.btn{display:inline-block;margin-top:14px;background:#FF444F;color:#fff;font-weight:700;padding:11px 16px;border-radius:9px;text-decoration:none}
+  .muted{color:#5C6773;font-size:14px}
+</style>
+</head>
+<body>
+<div class="card" id="how" style="display:none">
+  <h1>Chats on your home screen</h1>
+  <p>Do this once, with this page open:</p>
+  <ol>
+    <li><b>iPhone:</b> tap the Share button, then "Add to Home Screen".</li>
+    <li><b>Android:</b> open the browser's menu, then "Add to Home screen".</li>
+  </ol>
+  <p class="muted">The icon opens your chats with owners. If it asks you to sign in, sign in once and it stays.</p>
+  <a class="btn" href="/?admin=chats">Open the chats now</a>
+</div>
+<p id="go" style="padding:24px">Opening the chats…</p>
+<script>
+  if (adding) {
+    document.getElementById('how').style.display = 'block';
+    document.getElementById('go').style.display = 'none';
+  }
+</script>
+</body>
+</html>

@@ -30,12 +30,25 @@ class SupabaseService {
             : AppConfig.authRedirect,
       );
 
+  /// "?chat=<space>" when the Owner account was opened from the email
+  /// that says we wrote (migration 161), so signing in first still
+  /// lands on that chat. Empty otherwise.
+  static String get ownerReturnChat {
+    try {
+      final c = (Uri.base.queryParameters['chat'] ?? '').trim();
+      if (!Uri.base.queryParameters.containsKey('chat')) return '';
+      return RegExp(r'^[0-9a-fA-F-]{36}$').hasMatch(c) ? '?chat=$c' : '?chat';
+    } catch (_) {
+      return '';
+    }
+  }
+
   /// Owner account sign-in: a link by email, no password. The link
   /// brings them back to the page they asked from (the Owner account).
   Future<void> sendSignInLink(String email) => _db.auth.signInWithOtp(
         email: email.trim().toLowerCase(),
         emailRedirectTo: kIsWeb
-            ? '${Uri.base.origin}/owner'
+            ? '${Uri.base.origin}/owner$ownerReturnChat'
             : AppConfig.authRedirect,
         shouldCreateUser: true,
       );
@@ -1399,6 +1412,76 @@ class SupabaseService {
         'p_channel': channel,
         if (at != null) 'p_at': at.toUtc().toIso8601String(),
       });
+
+  // ---------- chat between a space's owner and Nomadwise (migration 161)
+
+  static List<Map<String, dynamic>> _chatRows(dynamic r) => [
+        if (r is Map && r['messages'] is List)
+          for (final m in r['messages'] as List)
+            if (m is Map) Map<String, dynamic>.from(m)
+      ];
+
+  /// The owner's side: the conversation about one of their spaces.
+  /// Opening it marks what Nomadwise wrote as seen.
+  Future<List<Map<String, dynamic>>> ownerChat(String venueId) async =>
+      _chatRows(await _db.rpc('owner_chat', params: {'p_venue': venueId}));
+
+  Future<List<Map<String, dynamic>>> ownerChatSend(
+          String venueId, String body) async =>
+      _chatRows(await _db.rpc('owner_chat_send',
+          params: {'p_venue': venueId, 'p_body': body}));
+
+  /// Per space id: how many messages from Nomadwise are unread. Empty
+  /// before migration 161, or when nothing is unread.
+  Future<Map<String, int>> ownerChatUnread() async {
+    try {
+      final r = await _db.rpc('owner_chat_unread');
+      return {
+        if (r is Map)
+          for (final e in r.entries)
+            '${e.key}': (e.value as num?)?.toInt() ?? 0
+      };
+    } catch (_) {
+      return const {};
+    }
+  }
+
+  /// The founders' side: every space with an owner, the chats waiting
+  /// for an answer first.
+  Future<List<Map<String, dynamic>>> adminChats() async {
+    final r = await _db.rpc('admin_chats');
+    return [
+      if (r is List)
+        for (final x in r)
+          if (x is Map) Map<String, dynamic>.from(x)
+    ];
+  }
+
+  /// One chat, with who the owner is. Opening it marks theirs as seen.
+  Future<Map<String, dynamic>> adminChat(String venueId) async {
+    final r = await _db.rpc('admin_chat', params: {'p_venue': venueId});
+    return r is Map ? Map<String, dynamic>.from(r) : <String, dynamic>{};
+  }
+
+  Future<Map<String, dynamic>> adminChatSend(
+      String venueId, String body) async {
+    final r = await _db.rpc('admin_chat_send',
+        params: {'p_venue': venueId, 'p_body': body});
+    return r is Map ? Map<String, dynamic>.from(r) : <String, dynamic>{};
+  }
+
+  /// The number beside "Chats": messages from owners nobody has opened.
+  Future<int> adminChatsUnread() async {
+    try {
+      final r = await _db.rpc('admin_chats_unread');
+      return (r as num?)?.toInt() ?? 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  static List<Map<String, dynamic>> chatRowsOf(Map<String, dynamic> chat) =>
+      _chatRows(chat);
 
   Future<List<Map<String, dynamic>>> outreachMessages(String contactId) async {
     final r = await _db.rpc('admin_outreach_messages', params: {'p_contact': contactId});

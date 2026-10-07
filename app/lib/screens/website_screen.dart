@@ -20,6 +20,7 @@ import '../widgets/phone_field.dart';
 import '../widgets/resubmit_changes.dart';
 import '../widgets/ui.dart';
 import 'admin_analytics_screen.dart';
+import 'admin_chats_screen.dart';
 import 'admin_prices_screen.dart';
 import 'admin_pricing_screen.dart';
 import 'admin_outreach_screen.dart';
@@ -1123,6 +1124,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         'users' => const AdminUsersScreen(),
         'pricing' => const AdminPricingScreen(),
         'outreach' => const AdminOutreachScreen(),
+        'chats' => const AdminChatsScreen(),
         'upgrades' => const AdminUpgradesScreen(),
         'prices' => const AdminPricesScreen(),
         'review' => const AdminScreen(),
@@ -1172,6 +1174,10 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   /// menu beside an open tool is drawn by the tool's own screen, which
   /// does not redraw when the control centre does: it listens here.
   final ValueNotifier<int> _menuBell = ValueNotifier<int>(0);
+
+  /// Messages from owners nobody has opened (migration 161): the
+  /// number beside Chats. Read whenever "Next up" is.
+  int _chatsUnread = 0;
   void _ringMenu() => _menuBell.value++;
 
   /// When the tools' numbers were last read because the pointer came
@@ -1235,6 +1241,10 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
           'submissions and photos waiting to be checked'
         ),
       'feedback' => (part('menu', 'feedback'), 'messages not marked done'),
+      'chats' => (
+          _chatsUnread,
+          'messages from owners that nobody has opened yet'
+        ),
       _ => (0, ''),
     };
   }
@@ -1348,6 +1358,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       tool('upgrades', Icons.auto_fix_high_outlined, 'Page upgrades'),
       tool('prices', Icons.sell_outlined, 'Price check'),
       tool('outreach', Icons.mail_outline, 'Outreach'),
+      tool('chats', Icons.forum_outlined, 'Chats'),
       heading('CREATE ON NOMADWISE.IO'),
       item(Icons.public, 'Country page', () {
         if (mounted) _newCountry();
@@ -1434,6 +1445,11 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                   value: 'prices', child: Text('Price check')),
               const PopupMenuItem(
                   value: 'outreach', child: Text('Outreach')),
+              PopupMenuItem(
+                  value: 'chats',
+                  child: Text(_chatsUnread > 0
+                      ? 'Chats ($_chatsUnread)'
+                      : 'Chats')),
               const PopupMenuDivider(),
               const PopupMenuItem(
                   value: 'analytics', child: Text('Analytics')),
@@ -1766,7 +1782,11 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       return;
     }
     Navigator.push(
-        context, MaterialPageRoute(builder: (_) => _toolScreen(k)));
+            context, MaterialPageRoute(builder: (_) => _toolScreen(k)))
+        // back from a tool: what is waiting may have changed
+        .then((_) {
+      if (mounted) _loadNextUp();
+    });
   }
 
   /// With this much room beside the menu (the list's 760, a gap and
@@ -1965,6 +1985,11 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
 
   Future<void> _loadNextUp() async {
     final n = ++_nextUpReq;
+    _supabase.adminChatsUnread().then((c) {
+      if (!mounted || c == _chatsUnread) return;
+      setState(() => _chatsUnread = c);
+      _ringMenu();
+    });
     final r = await _supabase.adminNextUp();
     // a later reading is on its way: this one is out of date
     if (!mounted || n != _nextUpReq) return;

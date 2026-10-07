@@ -13,6 +13,7 @@ import '../services/analytics_service.dart';
 import '../services/supabase_service.dart';
 import '../theme.dart';
 import '../widgets/billing_panel.dart';
+import '../widgets/chat_thread.dart';
 import '../widgets/currencies.dart';
 import '../widgets/dial_codes.dart';
 import '../widgets/ideas_board.dart';
@@ -40,7 +41,7 @@ class OwnerScreen extends StatefulWidget {
 
 const double _wideAt = 960;
 
-enum _Tab { listing, message, membership, ideas }
+enum _Tab { listing, message, membership, ideas, chat }
 
 class _OwnerScreenState extends State<OwnerScreen> {
   final _supabase = SupabaseService();
@@ -58,9 +59,20 @@ class _OwnerScreenState extends State<OwnerScreen> {
   String _previewAs = 'free';
   int _current = 0;
   // Back from Stripe's billing page (?owner&billing): open Plan & billing.
+  // (?owner&chat, from the email that says we wrote: Inbox & support.)
   _Tab _tab = Uri.base.queryParameters.containsKey('billing')
       ? _Tab.membership
-      : _Tab.listing;
+      : Uri.base.queryParameters.containsKey('chat')
+          ? _Tab.chat
+          : _Tab.listing;
+
+  // Inbox & support (migration 161): per space, how many messages
+  // from Nomadwise have not been opened; looked up now and then, so
+  // the number appears while the account is open on another tab.
+  Map<String, int> _chatUnread = const {};
+  Timer? _chatTimer;
+  // The space the email's button names (?chat=<space>), opened once.
+  String? _chatSpace = Uri.base.queryParameters['chat'];
 
   // Sign-in form
   final _email = TextEditingController();
@@ -262,10 +274,24 @@ class _OwnerScreenState extends State<OwnerScreen> {
     await launchUrl(Uri.parse(url), webOnlyWindowName: '_self');
   }
 
+  Future<void> _loadChatUnread() async {
+    if (_isPreview || !_supabase.signedIn) return;
+    final m = await _supabase.ownerChatUnread();
+    if (!mounted) return;
+    if ('$m' != '$_chatUnread') setState(() => _chatUnread = m);
+  }
+
+  /// Unread messages from Nomadwise for the space on screen.
+  int get _chatWaiting => _chatUnread['${_venue?['id']}'] ?? 0;
+
+  /// The same for all their spaces together: the number in the menu.
+  int get _chatWaitingAll => _chatUnread.values.fold(0, (a, b) => a + b);
+
   @override
   void dispose() {
     _auth?.cancel();
     _poll?.cancel();
+    _chatTimer?.cancel();
     _autoTimer?.cancel();
     for (final (h, b) in _sections) {
       h.dispose();
@@ -319,8 +345,20 @@ class _OwnerScreenState extends State<OwnerScreen> {
         _loading = false;
         _error = null;
         if (_current >= rows.length) _current = 0;
+        // the space the email's button named, the first time through
+        final want = (_chatSpace ?? '').trim();
+        _chatSpace = null;
+        if (want.isNotEmpty) {
+          final i = rows.indexWhere((r) => '${r['id']}' == want);
+          if (i >= 0) _current = i;
+        }
       });
       _fillEditor();
+      if (rows.isNotEmpty) {
+        _loadChatUnread();
+        _chatTimer ??= Timer.periodic(
+            const Duration(seconds: 45), (_) => _loadChatUnread());
+      }
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -1013,7 +1051,8 @@ class _OwnerScreenState extends State<OwnerScreen> {
                         const SizedBox(height: 10),
                         OutlinedButton.icon(
                           onPressed: () => _supabase.signInWithGoogleTo(
-                              AppConfig.ownerAccountUrl,
+                              AppConfig.ownerAccountUrl +
+                                  SupabaseService.ownerReturnChat,
                               loginHint: _email.text.trim()),
                           style: OutlinedButton.styleFrom(
                               minimumSize: const Size.fromHeight(46)),
@@ -1354,6 +1393,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
           key: ValueKey('ideas-${v['id']}'),
           venueId: '${v['id']}',
           preview: _isPreview),
+      _Tab.chat => _chatTab(wide),
     };
     final preview = _tab == _Tab.message && _verified
         ? _messagePreview()
@@ -1374,8 +1414,9 @@ class _OwnerScreenState extends State<OwnerScreen> {
           if (_tab == _Tab.listing || (_tab == _Tab.message && _verified))
             _actionBar(wide),
           _statusBanner(),
-          // Build next is a board of its own, full width.
-          if (_tab == _Tab.ideas)
+          // Build next is a board of its own, full width; so is the
+          // inbox.
+          if (_tab == _Tab.ideas || _tab == _Tab.chat)
             main
           else if (wide)
             Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -1488,7 +1529,27 @@ class _OwnerScreenState extends State<OwnerScreen> {
       (_Tab.message, Icons.campaign_outlined, 'Your message'),
       (_Tab.membership, Icons.workspace_premium_outlined, 'Plan & billing'),
       (_Tab.ideas, Icons.lightbulb_outline, 'Build next'),
+      (_Tab.chat, Icons.forum_outlined, 'Inbox & support'),
     ];
+    // The number beside Inbox & support: messages from Nomadwise not
+    // opened yet. Nothing when there are none.
+    Widget badge(_Tab t) {
+      // (not while the inbox itself is open: opening it is reading)
+      final n = t == _Tab.chat && _tab != _Tab.chat ? _chatWaitingAll : 0;
+      if (n <= 0) return const SizedBox.shrink();
+      return Container(
+        margin: const EdgeInsets.only(left: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+        decoration: BoxDecoration(
+            color: Brand.red, borderRadius: BorderRadius.circular(9)),
+        child: Text('$n',
+            style: const TextStyle(
+                color: Colors.white,
+                fontSize: 11,
+                fontWeight: FontWeight.w800)),
+      );
+    }
+
     Widget tile((_Tab, IconData, String) it) {
       final on = _tab == it.$1;
       return InkWell(
@@ -1502,11 +1563,15 @@ class _OwnerScreenState extends State<OwnerScreen> {
           child: Row(mainAxisSize: MainAxisSize.min, children: [
             Icon(it.$2, size: 19, color: on ? Brand.red : Brand.inkSecondary),
             const SizedBox(width: 10),
-            Text(it.$3,
-                style: TextStyle(
-                    fontWeight: on ? FontWeight.w800 : FontWeight.w600,
-                    color: on ? Brand.red : Brand.ink,
-                    fontSize: 14)),
+            Flexible(
+              child: Text(it.$3,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      fontWeight: on ? FontWeight.w800 : FontWeight.w600,
+                      color: on ? Brand.red : Brand.ink,
+                      fontSize: 14)),
+            ),
+            badge(it.$1),
           ]),
         ),
       );
@@ -1546,6 +1611,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
                             fontSize: 13.5,
                             fontWeight: FontWeight.w600,
                             color: _tab == it.$1 ? Brand.ink : Brand.inkSecondary)),
+                    badge(it.$1),
                   ]),
                 ),
               ),
@@ -2990,6 +3056,83 @@ class _OwnerScreenState extends State<OwnerScreen> {
       );
 
   // --------------------------------------------------------------- message
+
+  /// Inbox & support (migration 161): the owner's chat with Nomadwise
+  /// about this space. Opening it marks our messages as seen, which
+  /// is what turns the number off and gives us the two ticks.
+  Widget _chatTab(bool wide) {
+    final v = _venue!;
+    final id = '${v['id']}';
+    final name = '${v['name'] ?? 'your space'}';
+    final h = MediaQuery.sizeOf(context).height;
+    return _panel(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        const Text('Inbox & support',
+            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+        const SizedBox(height: 4),
+        Text(
+            'Questions, changes you cannot make yourself, anything about '
+            '$name on Nomadwise: write to us here.',
+            style: const TextStyle(
+                fontSize: 13.5, height: 1.45, color: Brand.inkSecondary)),
+        const SizedBox(height: 10),
+        // An owner of several spaces: a message about another one
+        // would otherwise wait unseen behind the space on screen.
+        for (var i = 0; i < _venues.length; i++)
+          if (i != _current && (_chatUnread['${_venues[i]['id']}'] ?? 0) > 0)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 8,
+                  children: [
+                    Text(
+                        'You also have an unread message about '
+                        '${_venues[i]['name'] ?? 'another space'}.',
+                        style: const TextStyle(
+                            fontSize: 13.5, fontWeight: FontWeight.w600)),
+                    TextButton(
+                      onPressed: () {
+                        setState(() => _current = i);
+                        _fillEditor();
+                      },
+                      child: const Text('Open that chat'),
+                    ),
+                  ]),
+            ),
+        if (_isPreview)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 24),
+            child: Text(
+                'Preview: the owner writes to us here. Their messages '
+                'and your answers are under Chats in the team tools.',
+                style: TextStyle(fontSize: 13.5, color: Brand.inkMuted)),
+          )
+        else
+          SizedBox(
+            // room to read a few messages, without the box leaving
+            // the screen on a phone
+            height: (h - (wide ? 330 : 300)).clamp(340.0, 640.0).toDouble(),
+            child: ChatThread(
+              key: ValueKey('chat-$id'),
+              team: false,
+              load: () => _supabase.ownerChat(id),
+              send: (body) => _supabase.ownerChatSend(id, body),
+              onLoaded: (_) {
+                // seen now: the number goes
+                if (_chatWaiting > 0) _loadChatUnread();
+              },
+              note: 'Your message goes straight to the Nomadwise team. '
+                  'Our reply appears here and is also emailed to you, so '
+                  'you will not miss it.',
+              emptyTitle: 'Write to Nomadwise',
+              emptyText: 'Ask us anything about $name or its page. '
+                  'Everything said here stays in this inbox.',
+            ),
+          ),
+      ]),
+    );
+  }
 
   Widget _messageTab(bool wide) {
     if (!_verified) {

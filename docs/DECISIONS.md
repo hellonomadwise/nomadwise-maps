@@ -3602,3 +3602,70 @@ The claim link in the copied words is marked `from=instagram` or
 our Instagram message" (or Facebook), judged like the WhatsApp and
 email links: most likely the person we wrote to, unless it came from
 a data centre, which is how these services check links.
+
+## 7 Oct 2026: a chat between an owner and Nomadwise (migration 161)
+
+Jonathan, with a tour operator's chat in another app as the picture:
+an open channel inside the Owner account, a list of the chats for him
+on his phone from a link he can keep on his home screen, a notice when
+somebody writes, and a record of what was said. "A great way of having
+communication with cafes and coworking spaces, and eventually coliving
+spaces, where there are ones that do not use WhatsApp", and in the
+Owner account's menu "your inbox / support" with a number beside it
+when something is unread.
+
+One chat per space (`space_chat_messages`). His three choices:
+
+- The owner is emailed what we write. Not at once: a job every two
+  minutes sends what we wrote and they have not seen, a minute after
+  the last of it, so several messages in a row make one email, and
+  none goes when they are reading along in the chat. It goes through
+  the same sender as the other owner emails, so hello@ gets its copy.
+  An answer sent by email reaches hello@, not the chat (taking email
+  answers into the chat needs an inbound address set up at Postmark:
+  possible, not built).
+- Our messages are signed with the founder's first name, from their
+  profile ("Jonathan from Nomadwise"); "Nomadwise" when there is none.
+- Either side can start. The founders' list shows every space with an
+  owner, the chats waiting for an answer first.
+
+The owner's side is a new tab in the Owner account, "Inbox & support",
+with the number of unread messages beside it (looked up every 45
+seconds, and as the chat is opened). The founders' side is the Chats
+screen: in the team menus with its own number, and by itself at
+nomadmaps.io/chats, which opens only the chats so it is quick on a
+phone. Both sides use one widget (`widgets/chat_thread.dart`): theirs
+on the left, yours on the right, "Today at 17:43" under each, one tick
+for sent and two once the other side has opened the chat, a short
+note above the box. It looks again every eight seconds while open;
+nothing is pushed.
+
+The founders' phones are told when an owner writes (`chat_notify`),
+and tapping the notice opens the chats. The notice says who wrote and
+for which space, never what they wrote: it travels through a public
+notice service, and an owner's words stay in our own database. The
+home-screen icon is made
+from nomadmaps.io/chats/?add: that page has no app manifest on
+purpose, so on an iPhone the icon opens in Safari, where the founder
+is already signed in (an installed web app keeps its own sign-in).
+
+A chat belongs to the owner it was had with, not only to the space.
+Each message keeps the owner's address it was written to or by
+(`owner_email`), and an owner sees only their own. So when a space
+changes hands the new owner opens an empty chat and is not emailed
+what we wrote to the one before; the founders still see the whole
+history for the space. Found in review before it shipped.
+
+Also settled in review: the email job marks and reads its messages in
+one step, so two runs cannot send the same email twice or mark one
+without sending it; an owner can send 40 messages an hour, counted
+under a lock; the chat does not ask the server again while its browser
+tab is hidden, so a message is not shown as read by a tab nobody is
+looking at; Enter sends on a computer and makes a new line on a phone.
+
+The email's button, and both ways of signing in to the Owner account
+(the emailed link and Google), carry `?chat=<space>`, so an owner who
+has to sign in first still lands in that chat.
+
+Not in this first version: photos in a chat, closing a chat, a chat
+button on the Outreach card, email answers arriving in the chat.

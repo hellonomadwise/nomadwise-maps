@@ -160,3 +160,19 @@ Postmark once its server token is in the Vault
 `owner_emails`, the sign-in link still arrives from Supabase's
 built-in sender (a handful an hour), and the owner learns a decision
 by looking in their account.
+
+## Inbox & support (7 Oct 2026, migration 161)
+
+A fifth tab: the owner's chat with Nomadwise about the space. They
+write, the founders' phones are told, and the answer appears there and
+is emailed to them. A number beside the tab says how many messages
+from us are unread; opening the tab clears it and shows us two ticks.
+The email's button leads to `nomadmaps.io/owner?chat=<space>`, which
+opens that space on this tab. The founders answer from Chats in the
+team tools, or from nomadmaps.io/chats on a phone.
+
+The note above the box reads "Your message goes straight to the
+Nomadwise team. Our reply appears here and is also emailed to you, so
+you will not miss it." Jonathan, 7 Oct: nothing in owner-facing copy
+says we are a small team; the voice is that of an established company.
+It also makes no promise about how fast we answer.

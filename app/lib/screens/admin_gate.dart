@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../services/supabase_service.dart';
 import '../theme.dart';
+import 'admin_chats_screen.dart';
 import 'website_screen.dart';
 
 /// The team's own door: nomadmaps.io/admin opens the control centre
@@ -90,6 +91,10 @@ class _AdminGateState extends State<AdminGate> {
       const tools = {
         'analytics', 'users', 'pricing', 'outreach', 'upgrades', 'prices',
       };
+      // ?admin=chats (nomadmaps.io/chats, the icon on a founder's
+      // phone): the chats and nothing else, so it opens at once
+      // without the control centre loading underneath.
+      if (s == 'chats') return const AdminChatsScreen(standalone: true);
       return WebsiteScreen(
           standalone: true, openTool: tools.contains(s) ? s : null);
     }
