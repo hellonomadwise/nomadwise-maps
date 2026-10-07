@@ -12,6 +12,7 @@ import '../models/venue.dart';
 import '../services/analytics_service.dart';
 import '../services/location_service.dart';
 import '../services/places_service.dart';
+import '../services/space_share.dart';
 import '../services/speed_test_service.dart';
 import '../services/story_card.dart';
 import '../services/supabase_service.dart';
@@ -248,50 +249,14 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
         _ => 'No page yet',
       };
 
-  /// Build the story card and hand it to the phone's share sheet
-  /// (Instagram Stories, WhatsApp, wherever they like).
   /// A link that opens this space on the map, not just the app.
-  String _shareLink() {
-    final pid = venue.googlePlaceId;
-    if (pid == null || pid.isEmpty) return 'https://nomadmaps.io/';
-    // Short on purpose: the app finds the space and flies there itself.
-    return 'https://nomadmaps.io/?p=${Uri.encodeComponent(pid)}';
-  }
+  String _shareLink() => SpaceShare.link(venue.googlePlaceId);
 
   /// The words that travel with the card in WhatsApp and friends.
-  /// The message that goes with a shared space: its name, and where it
-  /// is only when the name does not already say (region and country).
-  String _shareText() {
-    final name = venue.name.trim();
-    final region = (venue.city ?? '').trim();
-    final country = ('${venue.raw['country'] ?? venue.live?.country ?? ''}').trim();
-    final hood = (venue.neighbourhood ?? '').trim();
-    final plain = _plain(name);
-    final saysWhere = [hood, region, country]
-        .where((x) => x.length >= 3)
-        .any((x) => plain.contains(_plain(x)));
-    final where = saysWhere
-        ? ''
-        : [region, country].where((x) => x.isNotEmpty).join(', ');
-    final wifi = venue.wifiTested
-        ? ' WiFi ${venue.wifiSpeedLabel} Mbps.'
-        : '';
-    return '$name${where.isEmpty ? '' : ', $where'}.$wifi\n${_shareLink()}';
-  }
+  String _shareText() => SpaceShare.venueText(venue);
 
-  /// Lower case without accents, so "São Bento" matches "Sao Bento".
-  static String _plain(String s) {
-    const from = 'àáâãäåçèéêëìíîïñòóôõöùúûüýÿ';
-    const to = 'aaaaaaceeeeiiiinooooouuuuyy';
-    final lower = s.toLowerCase();
-    final b = StringBuffer();
-    for (final ch in lower.split('')) {
-      final i = from.indexOf(ch);
-      b.write(i >= 0 ? to[i] : ch);
-    }
-    return b.toString();
-  }
-
+  /// Build the story card and hand it to the phone's share sheet
+  /// (Instagram Stories, WhatsApp, wherever they like).
   Future<void> _share() async {
     setState(() => _sharing = true);
     try {

@@ -1742,18 +1742,23 @@ def sync_listing(v):
     email = (v.get('listing_enquiry_email') or '').strip() or DEFAULT_ENQUIRY_EMAIL
     item = wf(f'/v2/collections/{COLLECTION_ID}/items/{cms}') or {}
     fd = item.get('fieldData') or {}
-    # The old booking engine (a deposit through Stripe) still runs on
-    # a few pages and reads the same three fields under their old
-    # meaning: there "booking-model" holds its model ("Deposit"), not a
-    # rank, and the email is where its bookings go. Seen 7 Oct 2026
-    # with Workspace 6, the day its owner was sent the claim link: a
-    # free claim would have switched the engine off on the page and
-    # sent its bookings back to hello@. So a page that is not Verified
-    # and has the old engine on keeps those three fields as they are.
-    # (Verified takes them over, as before.)
-    old_model = str(fd.get('booking-model') or '').strip()
+    # The old booking engine (payment through Stripe) still runs on a
+    # few pages and reads the same three fields under their old
+    # meaning: there "booking-model" holds how the customer pays
+    # ("Deposit", or anything else for the full price), not a rank, and
+    # the email is where its bookings go. Seen 7 Oct 2026 with
+    # Workspace 6, the day its owner was sent the claim link: a free
+    # claim would have switched the engine off on the page and sent
+    # its bookings back to hello@. So a page that is not Verified
+    # keeps those three fields when the old engine is on. The sign of
+    # it: bookings on while the page's Verified switch is off, which
+    # this sync never writes (it sets the two together). What the
+    # model says does not count: Workspace 6 was set to "1" by hand
+    # that day, for full payment. (Verified takes the fields over, as
+    # before; a page leaving Verified still has its switch on when
+    # this runs, so it is reset as before.)
     old_engine = (not verified and bool(fd.get('booking-engine'))
-                  and old_model not in ('', '0', '1'))
+                  and not bool(fd.get('premium-member')))
     fields = {'premium-member': verified}
     if old_engine:
         report.setdefault('old_booking_engine_kept', []).append(

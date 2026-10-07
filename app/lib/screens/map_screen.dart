@@ -18,6 +18,7 @@ import '../services/analytics_service.dart';
 import '../services/location_service.dart';
 import '../services/google_meter.dart';
 import '../services/places_service.dart';
+import '../services/space_share.dart';
 import '../services/supabase_service.dart';
 import '../services/coins_gate.dart';
 import '../theme.dart';
@@ -4038,7 +4039,14 @@ class _DiscoveredCardState extends State<_DiscoveredCard> {
             ]),
             const SizedBox(height: 10),
             _hoursLine(),
-            const StatusChip('Not screened by nomads yet'),
+            _chipAndShare(
+              const StatusChip('Not screened by nomads yet'),
+              () => SpaceShare.send(context,
+                  name: place.name,
+                  text: SpaceShare.placeText(place.name, place.placeId),
+                  link: SpaceShare.link(place.placeId),
+                  screened: false),
+            ),
             const SizedBox(height: 10),
             _signalsRow(),
             _excerptsBlock(),
@@ -4086,6 +4094,50 @@ class _DiscoveredCardState extends State<_DiscoveredCard> {
     );
   }
 }
+
+// ============================================================
+// Share button on a map card
+// ============================================================
+
+/// The status chip on the left, a Share button on the right. On both
+/// cards, so a space can be passed on before anyone has screened it.
+/// The chip shrinks a little on very narrow phones rather than spill.
+Widget _chipAndShare(Widget chip, VoidCallback onShare) =>
+    Row(children: [
+      Expanded(
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: chip),
+        ),
+      ),
+      const SizedBox(width: 8),
+      Tooltip(
+        message: 'Share this space',
+        child: Material(
+          color: Brand.field,
+          shape: const StadiumBorder(),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onShare,
+            child: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.ios_share, size: 15, color: Brand.ink),
+                SizedBox(width: 5),
+                Text('Share',
+                    style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                        color: Brand.ink)),
+              ]),
+            ),
+          ),
+        ),
+      ),
+    ]);
 
 // ============================================================
 // Compact card shown when a pin is tapped (map mode)
@@ -4266,7 +4318,14 @@ class _VenueCard extends StatelessWidget {
                   ],
                 ]),
                 const SizedBox(height: 10),
-                StatusChip(statusText, dotColor: statusDot),
+                _chipAndShare(
+                  StatusChip(statusText, dotColor: statusDot),
+                  () => SpaceShare.send(context,
+                      name: venue.name,
+                      text: SpaceShare.venueText(venue),
+                      link: SpaceShare.link(venue.googlePlaceId),
+                      screened: true),
+                ),
                 const SizedBox(height: 8),
                 Text(
                   [

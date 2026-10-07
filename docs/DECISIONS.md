@@ -3319,9 +3319,15 @@ the engine off there and sent its bookings back to hello@, and the
 owner of Workspace 6 had just been sent the claim link.
 
 Now `sync_listing` keeps the three fields as they are on a page that
-is not Verified and has the old engine on (the model is something
-other than 1 or 0). Verified takes them over as before. The run's
-report lists the pages it left (`old_booking_engine_kept`).
+is not Verified and has the old engine on. The sign of the old engine
+(changed later the same day): bookings are on while the page's
+Verified switch is off, a pair this sync never writes. The first
+version went by the model being something other than 1 or 0, and that
+afternoon Jonathan set Workspace 6's model to "1" by hand, on purpose,
+so customers pay the full price to Nomadwise (the page's script
+charges a deposit for "Deposit" and the full price for anything
+else). Verified takes the fields over as before. The run's report
+lists the pages it left (`old_booking_engine_kept`).
 
 Still open, and Jonathan's to decide: whether the old engine is back
 in play at all, and what a page with it should do when it goes
@@ -3333,3 +3339,82 @@ passed-on enquiries as a visible one). The old engine's booking emails
 do not: they go to the listing's address only, sent through the hello@
 Gmail account, so a copy sits in its Sent folder and nowhere else.
 
+## 7 Oct 2026: a claim page opened after our own message (migration 156)
+
+The first follow-up sent from "Looked at the claim page" worked the
+same day. Lisbon-Cowork's claim page had been opened on 4 Oct (from
+Lisbon). Jonathan sent the WhatsApp from Outreach at 13:11, to the
+number Google lists for the place (a French mobile). At 14:12 the
+claim page was opened again, at 14:15 the page was claimed for free,
+and he confirmed the owner.
+
+The notice at 14:12 had it backwards: "Claim page opened, from
+abroad... Looking from France, another country: less likely to be the
+owner. The device's clock is on United Kingdom time." It was the
+owner. Where a visitor is says little next to the fact that we had
+just sent them the link.
+
+- The claim link in anything sent from Outreach now says where it was
+  sent (`from=whatsapp`, `from=email`), so a visit through it is known
+  as an answer.
+- A visit with no such mark that comes straight to the claim page
+  within a week of our writing to the space is taken as "after our
+  message" (this covers links already sent).
+- For both, the notice's title says so ("from our WhatsApp", "from
+  our email", "after our message"), the words say "most likely the
+  person we wrote to", and the place is given as a plain fact. The
+  look's card in Outreach says the same and comes first in the list.
+- "Another country" is said more gently everywhere: "a weaker sign,
+  though owners are often abroad", no longer "less likely to be the
+  owner".
+- A visit from one of our own devices says so in the notice (a device
+  that has been signed in as a founder, or one marked internal).
+
+The WhatsApp box (same day, his ask: "prefilled with their likely
+WhatsApp number, or a Google link where I can then find it myself"):
+when the line has no number, Google's number for the place is looked
+up by itself as the box opens and kept on the line, so Google is asked
+once per space; a number already on the line is never replaced by a
+lookup. Under the number are links to the place's page on Google Maps,
+a search for its WhatsApp, and its website and Instagram when we have
+them.
+
+Checked: migration 156 on the test copy (today's case, a link sent by
+WhatsApp, by email with no place known, our own devices, an ordinary
+visit, the links, the order of the list, the visits already kept), and
+all the earlier tests again. The WhatsApp box was read by a reviewer
+("No compile errors found"). Not compiled here.
+
+Also on 7 Oct, from the same owner the same hour: his Owner account
+would not take a one-sentence change, "The description is a little
+long: 3,000 characters at most". The form opens with the page's own
+text, and his page's text is longer than that. The limit is now 8,000,
+in the form and in `owner_save_draft` (which had been cutting a saved
+draft at 3,000 without saying so), and the form refuses a longer text
+on Save draft too, so nothing is cut silently. His sentence was
+changed on the page by hand that afternoon, with Jonathan's Go. A
+"Claimed: how to get into their Owner account" template was added and
+is the one Reply picks for a space that has claimed (it had offered
+the "ready to claim" email). And Outreach now lists the line with the
+latest activity first (his ask: "can you make most recent activity on
+top"); before, lines with an address came first.
+
+
+## 7 Oct 2026: a Share button on the map cards, before a space is screened
+
+Miguel asked on WhatsApp: "is there no way to share a space from
+Nomadmaps?" There was one, but only on the full page of a screened
+space (behind "More"), so the card people actually see on the map had
+none, and a space nobody has screened had none at all. Jonathan: "I
+think there should be a share button before it's screened."
+
+Both map cards (screened and not screened) now carry a small "Share"
+button beside the status chip. It shares the name and a link,
+`nomadmaps.io/?p=<Google place id>`, which already opens that exact
+place for anyone, screened or not (`_openDeepLinkPlace`). On a phone
+it opens the share sheet; on a computer it copies the link and says
+so, because the browser's own share dialog there is unreliable. The
+picture card stays on the full page only. The words and the link now
+come from one place, `services/space_share.dart`, used by the cards
+and by the full page. Counted as `space_shared` with `from: card` and
+`screened: true/false`.

@@ -81,6 +81,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
 
   // Editor state (one draft per space, rebuilt when the space changes)
   final _description = TextEditingController();
+  static const _descriptionMax = 8000;
   final _priceDay = TextEditingController();
   final _priceWeek = TextEditingController();
   final _priceMonth = TextEditingController();
@@ -735,9 +736,13 @@ class _OwnerScreenState extends State<OwnerScreen> {
           '@yourspace.');
       return;
     }
-    if (submit && _description.text.length > 3000) {
+    // Room for the page's own text, which the form opens with and
+    // which can be longer than the 3,000 this allowed until 7 Oct 2026
+    // (an owner could not send in a one-sentence change). The same
+    // number is in owner_save_draft (migration 156).
+    if (_description.text.length > _descriptionMax) {
       setState(() => _savedNote = 'The description is a little long: '
-          '3,000 characters at most.');
+          '8,000 characters at most.');
       return;
     }
     final url = _mentionUrl.text.trim();
@@ -1834,10 +1839,10 @@ class _OwnerScreenState extends State<OwnerScreen> {
       // keeps the full width on a phone.
       Align(
         alignment: Alignment.centerRight,
-        child: Text('$total of 3,000 characters',
+        child: Text('$total of 8,000 characters',
             style: TextStyle(
                 fontSize: 12,
-                color: total > 3000 ? Brand.red : Brand.inkMuted)),
+                color: total > _descriptionMax ? Brand.red : Brand.inkMuted)),
       ),
       const SizedBox(height: 10),
       Align(

@@ -743,7 +743,12 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
     final onSite = c['on_site'] == true;
     // Somebody looked at their claim page: the follow-up comes first.
     // (each in turn, down to the plain reply, if one is not there)
+    // A space that has claimed gets the way into its Owner account,
+    // not an invitation to claim (seen 7 Oct 2026 with Lisbon-Cowork).
+    final theirOwn = (c['stage'] == 'claimed' || c['stage'] == 'verified') &&
+        !(c['owner'] is Map && (c['owner'] as Map)['mine'] == false);
     String key = <String>[
+      if (theirOwn) 'owner_account_how',
       if (c['signup'] is Map) 'signed_up',
       if (c['claim_look'] is Map) 'claim_looked',
       onSite ? 'reply_already_listed' : 'reply_listing',
@@ -2594,6 +2599,7 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
       _ => 'looked and left',
     };
     final from = '${l['from'] ?? ''}'.trim();
+    final sentVia = from.toLowerCase();
     final ref = '${l['referrer'] ?? ''}'.trim();
     final host = (Uri.tryParse(ref)?.host ?? '').replaceFirst('www.', '');
     final device = '${l['device'] ?? ''}'.trim();
@@ -2602,7 +2608,12 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
           '${at == null ? '' : ' ${_ago(at)}'}'
           '${opens > 1 ? ' ($opens times${visitors > 1 ? ', $visitors visitors' : ''})' : ''}',
       '$far${secs >= 5 ? ' after ${_lasted(secs)}' : ''}',
-      if (from.isNotEmpty)
+      // (a claim link we sent says so: from=whatsapp, from=email)
+      if (sentVia == 'whatsapp')
+        'through our WhatsApp message'
+      else if (sentVia == 'email')
+        'through our email'
+      else if (from.startsWith('/'))
         'from nomadwise.io$from'
       else if (host.isNotEmpty)
         'from $host',
@@ -2623,12 +2634,17 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
     final geo = l['geo'];
     final where = geo is Map ? '${geo['words'] ?? ''}'.trim() : '';
     final near = geo is Map ? '${geo['near'] ?? ''}' : '';
-    final (IconData whereIcon, Color whereColor) = switch (near) {
-      'near' => (Icons.place, Brand.success),
-      'country' => (Icons.public, Brand.goldTextDark),
-      'far' => (Icons.flight_takeoff, Brand.inkSecondary),
-      _ => (Icons.place_outlined, Brand.inkSecondary),
-    };
+    // It followed our own message (migration 156): that says more
+    // than where the visitor was.
+    final answered = geo is Map && '${geo['via'] ?? ''}'.isNotEmpty;
+    final (IconData whereIcon, Color whereColor) = answered
+        ? (Icons.mark_chat_read_outlined, Brand.success)
+        : switch (near) {
+            'near' => (Icons.place, Brand.success),
+            'country' => (Icons.public, Brand.goldTextDark),
+            'far' => (Icons.flight_takeoff, Brand.inkSecondary),
+            _ => (Icons.place_outlined, Brand.inkSecondary),
+          };
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(10, 8, 6, 2),
@@ -2776,6 +2792,95 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
     bool started = false;
     bool open = true;
     String? problem;
+    // The number the line holds (so a new one is saved once), and
+    // whether the one in the box came from Google just now.
+    String held = '${c['phone'] ?? ''}'.trim();
+    bool fromGoogle = false;
+    String googled = '';
+    bool changed = false;
+    // When WhatsApp was opened with the message: that is when it was
+    // sent, not when "I sent it" is pressed afterwards.
+    DateTime? openedAt;
+
+    // Where to find a number by hand: the place on Google Maps (its
+    // page shows the phone, and often a WhatsApp or website link), a
+    // search, and the space's own website and Instagram when we have
+    // them. Jonathan, 7 Oct 2026: "prefilled with their likely
+    // WhatsApp number, or a Google link where I can then find it".
+    final spaceName =
+        '${c['space_name'] ?? c['venue_name'] ?? ''}'.trim();
+    final spaceCity = '${c['city'] ?? c['venue_city'] ?? ''}'.trim();
+    final mapsUri = Uri.https('www.google.com', '/maps/search/', {
+      'api': '1',
+      'query': '$spaceName $spaceCity'.trim(),
+      if (placeId.isNotEmpty) 'query_place_id': placeId,
+    });
+    final searchUri = Uri.https('www.google.com', '/search',
+        {'q': '$spaceName $spaceCity WhatsApp'.trim()});
+    Uri? webUri(String raw) {
+      final t = raw.trim();
+      if (t.isEmpty) return null;
+      final u = Uri.tryParse(t.contains('://') ? t : 'https://$t');
+      return u != null && u.host.contains('.') ? u : null;
+    }
+
+    final siteUri = webUri('${c['website'] ?? ''}');
+    final instaRaw = '${c['instagram'] ?? ''}'.trim();
+    final instaUri = instaRaw.isEmpty
+        ? null
+        : instaRaw.contains('instagram.com')
+            ? webUri(instaRaw)
+            : instaRaw.contains('/')
+                ? null
+                : Uri.tryParse('https://www.instagram.com/'
+                    '${Uri.encodeComponent(instaRaw.replaceAll('@', ''))}');
+    void openLink(Uri u) {
+      launchUrl(u, mode: LaunchMode.externalApplication)
+          .catchError((_) => false);
+    }
+
+    // Google's number for the place. Asked by itself the first time
+    // the box opens with no number, then kept on the line, so Google
+    // is asked once per space and not again.
+    Future<void> lookUp(void Function(void Function()) setD,
+        {bool byHand = false}) async {
+      if (placeId.isEmpty) {
+        if (open) setD(() => busy = false);
+        return;
+      }
+      if (open) {
+        setD(() {
+          busy = true;
+          if (byHand) problem = null;
+        });
+      }
+      final live = await _places.details(placeId);
+      final ph = (live?.phone ?? '').trim();
+      if (!open) return;
+      setD(() {
+        busy = false;
+        if (ph.isNotEmpty) {
+          number.text = ph;
+          fromGoogle = true;
+          googled = ph;
+          problem = null;
+        } else if (byHand) {
+          problem = live == null
+              ? 'Google could not be reached just now. Try again.'
+              : 'Google has no phone number for this place. Try their '
+                  'page on Google Maps or their website.';
+        }
+      });
+      // Kept for next time only when the line has no number yet: a
+      // number already there is not replaced by a lookup.
+      if (ph.isNotEmpty && held.isEmpty) {
+        try {
+          await _supabase.outreachUpdate(id, {'phone': ph});
+          held = ph;
+          changed = true;
+        } catch (_) {}
+      }
+    }
 
     Future<void> fill(void Function(void Function()) setD) async {
       try {
@@ -2786,7 +2891,12 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
             'the claim page for ${c['space_name'] ?? 'your space'} on our '
             'site recently. If that was you, did you have any questions?';
       }
-      if (open) setD(() => busy = false);
+      if (!open) return;
+      if (number.text.trim().isEmpty && placeId.isNotEmpty) {
+        await lookUp(setD);
+      } else {
+        setD(() => busy = false);
+      }
     }
 
     Uri? link() {
@@ -2821,35 +2931,48 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
                         labelText: 'Their number, with the country code',
                         hintText: '+62 812 3456 7890',
                         border: OutlineInputBorder())),
-                if (placeId.isNotEmpty && !opened)
+                if (fromGoogle && !opened && number.text.trim() == googled)
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Padding(
+                      padding: EdgeInsets.only(top: 6, left: 2),
+                      child: Text(
+                          'Filled in from Google. Check it on their page '
+                          'if you are not sure.',
+                          style: TextStyle(
+                              fontSize: 12,
+                              height: 1.4,
+                              color: Brand.inkMuted)),
+                    ),
+                  ),
+                if (!opened)
                   Align(
                     alignment: Alignment.centerLeft,
-                    child: TextButton(
-                        onPressed: busy
-                            ? null
-                            : () async {
-                                setD(() {
-                                  busy = true;
-                                  problem = null;
-                                });
-                                final live =
-                                    await _places.details(placeId);
-                                final ph = (live?.phone ?? '').trim();
-                                if (!open) return;
-                                setD(() {
-                                  busy = false;
-                                  if (live == null) {
-                                    problem = 'Google could not be reached '
-                                        'just now. Try again.';
-                                  } else if (ph.isEmpty) {
-                                    problem = 'Google has no phone number '
-                                        'for this place.';
-                                  } else {
-                                    number.text = ph;
-                                  }
-                                });
-                              },
-                        child: const Text('Look the number up on Google')),
+                    child: Wrap(spacing: 2, children: [
+                      if (placeId.isNotEmpty && !fromGoogle)
+                        TextButton(
+                            onPressed: busy
+                                ? null
+                                : () => lookUp(setD, byHand: true),
+                            child:
+                                const Text('Look the number up on Google')),
+                      TextButton.icon(
+                          onPressed: () => openLink(mapsUri),
+                          icon: const Icon(Icons.map_outlined, size: 16),
+                          label: const Text('Their page on Google Maps')),
+                      TextButton.icon(
+                          onPressed: () => openLink(searchUri),
+                          icon: const Icon(Icons.search, size: 16),
+                          label: const Text('Search for their WhatsApp')),
+                      if (siteUri != null)
+                        TextButton(
+                            onPressed: () => openLink(siteUri),
+                            child: const Text('Their website')),
+                      if (instaUri != null)
+                        TextButton(
+                            onPressed: () => openLink(instaUri),
+                            child: const Text('Their Instagram')),
+                    ]),
                   ),
                 const SizedBox(height: 10),
                 TextField(
@@ -2908,7 +3031,8 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
                           });
                           try {
                             await _supabase.outreachLogWhatsApp(
-                                id, text.text.trim());
+                                id, text.text.trim(),
+                                at: openedAt);
                             if (open && ctx.mounted) Navigator.pop(ctx, true);
                           } catch (e) {
                             if (!open) return;
@@ -2936,16 +3060,19 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
                           // after a wait.
                           launchUrl(u, mode: LaunchMode.externalApplication)
                               .catchError((_) => false);
+                          openedAt ??= DateTime.now();
                           setD(() {
                             opened = true;
                             problem = null;
                           });
                           // The number is kept on the line for next time.
-                          if (number.text.trim() !=
-                              '${c['phone'] ?? ''}'.trim()) {
+                          final used = number.text.trim();
+                          if (used != held) {
                             try {
-                              await _supabase.outreachUpdate(
-                                  id, {'phone': number.text.trim()});
+                              await _supabase
+                                  .outreachUpdate(id, {'phone': used});
+                              held = used;
+                              changed = true;
                             } catch (_) {}
                           }
                         },
@@ -2960,7 +3087,7 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
     if (sent == true) {
       _snack('Recorded as sent on WhatsApp.');
       await _load();
-    } else if (opened || number.text.trim() != '${c['phone'] ?? ''}'.trim()) {
+    } else if (opened || changed) {
       // the number may have been saved: show it on the card
       await _load();
     }

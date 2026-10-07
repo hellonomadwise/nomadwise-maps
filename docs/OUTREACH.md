@@ -172,3 +172,17 @@ VPN. Looks from nearer the space come first in the list.
 It is a hint, never proof. Someone from the space can be travelling,
 and a visitor in the same town can be a customer.
 
+## A look that follows our own message (7 Oct 2026, migration 156)
+
+When a space opens its claim page through the link in a WhatsApp or
+email we sent, or straight after we wrote to it, the notice and the
+look's card say so ("most likely the person we wrote to") and the look
+comes first in the list. That counts for more than where the visitor
+is: the first one was an owner with a French number and a space in
+Lisbon.
+
+The WhatsApp box fills in Google's number for the place by itself when
+the line has none (asked once per space), and has links to the place
+on Google Maps, a search, and the space's website and Instagram, for
+finding another number by hand.
+

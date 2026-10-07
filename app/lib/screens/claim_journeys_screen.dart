@@ -329,7 +329,12 @@ class _ClaimJourneysScreenState extends State<ClaimJourneysScreen> {
     final ref = '${o['referrer'] ?? ''}';
     final device = '${o['device'] ?? ''}';
     final seed = '${o['seed'] ?? ''}';
-    final whence = from.isNotEmpty
+    // (a claim link we sent says so: from=whatsapp, from=email)
+    final whence = from.toLowerCase() == 'whatsapp'
+        ? 'through our WhatsApp message'
+        : from.toLowerCase() == 'email'
+            ? 'through our email'
+            : from.startsWith('/')
         ? 'from nomadwise.io$from'
         : ref.isNotEmpty
             ? 'from ${ref.replaceFirst(RegExp(r'^https?://(www\.)?'), '').split('/').first}'

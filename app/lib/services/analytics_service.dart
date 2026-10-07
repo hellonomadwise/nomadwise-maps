@@ -103,7 +103,10 @@ class Analytics {
           onTimeout: _clock));
     } catch (_) {}
     try {
-      if (!await _isInternal()) {
+      if (await _isInternal()) {
+        // so the notice can say it was one of our own devices
+        out['internal'] = true;
+      } else {
         out['visit'] = visit;
         out['anon'] = await _id();
       }

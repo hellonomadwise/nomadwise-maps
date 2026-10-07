@@ -1348,10 +1348,29 @@ class SupabaseService {
   Future<void> outreachSignupDone(String id) =>
       _db.rpc('admin_outreach_signup_done', params: {'p_id': id});
 
-  /// Records a WhatsApp message the founder sent by hand.
-  Future<void> outreachLogWhatsApp(String id, String body) =>
-      _db.rpc('admin_outreach_log_whatsapp',
-          params: {'p_id': id, 'p_body': body});
+  /// Records a WhatsApp message the founder sent by hand. [at] is when
+  /// WhatsApp was opened with it (migration 156): the owner can open
+  /// the link in it before "I sent it" is pressed.
+  Future<void> outreachLogWhatsApp(String id, String body,
+      {DateTime? at}) async {
+    final params = <String, dynamic>{'p_id': id, 'p_body': body};
+    if (at == null) {
+      await _db.rpc('admin_outreach_log_whatsapp', params: params);
+      return;
+    }
+    try {
+      await _db.rpc('admin_outreach_log_whatsapp',
+          params: {...params, 'p_at': at.toUtc().toIso8601String()});
+    } on PostgrestException catch (e) {
+      // A database from before migration 156 does not know p_at (the
+      // function is "not found" with it): record it the old way. Any
+      // other refusal is the database's own answer and is passed on.
+      final unknown = e.code == 'PGRST202' ||
+          e.message.contains('Could not find the function');
+      if (!unknown) rethrow;
+      await _db.rpc('admin_outreach_log_whatsapp', params: params);
+    }
+  }
 
   Future<List<Map<String, dynamic>>> outreachMessages(String contactId) async {
     final r = await _db.rpc('admin_outreach_messages', params: {'p_contact': contactId});
