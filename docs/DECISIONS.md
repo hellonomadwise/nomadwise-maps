@@ -3482,3 +3482,32 @@ endings": a full stop after "Tagus River", and the last sentence ends
 neighborhoods." Done on the page by hand that afternoon, and in the
 stored copies by the migration so his Owner account opens with it.
 
+
+## 7 Oct 2026: the shared link's picture and wording, second pass (migration 158)
+
+First look at the live links, the same afternoon. They work
+(`nomadmaps.io/s/<id>` is served by GitHub Pages without the `.html`),
+1,017 screened spaces and 5,206 other places got a page, and Jonathan
+asked for two things.
+
+"From Nomad Maps", not "a spot on Nomad Maps": the message now reads
+"Hey, I want to share X with you, a coworking space from Nomad Maps."
+("a cafe from", or just "from Nomad Maps" when what the place is is
+not known). A place with "cowork" in its name counts as a coworking
+space whatever Google calls it.
+
+"Can the image be an image of the listing": 216 screened spaces had no
+picture, Lisbon-Cowork among them, because the generator only looked
+at photos chosen in the app. It now takes the first photo on the
+space's nomadwise.io page first (`venue_page_facts`, as the nightly
+sync last saw it). A place nobody has screened has no photo stored
+anywhere; asking Google for one per place at build time would cost a
+billed photo request each. Instead the app keeps the plain link it
+already makes when somebody opens such a place's card
+(`discovered_places.photo_url`, set through `discovered_photo()`, only
+Google image addresses, replaced after three weeks), and the next
+build puts it on the place's page. So an unscreened place gets its
+picture from the first build after somebody has looked at it; until
+then the app icon. Pages are only rebuilt by an upload: a nightly
+rebuild is possible (the database can start the build) but was not
+added without asking, since it is a ten minute build every night.

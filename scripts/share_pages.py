@@ -74,9 +74,14 @@ def _clean(text, limit):
     return t if len(t) <= limit else t[:limit - 1].rstrip() + '…'
 
 
-def venue_image(v):
-    """The picture the app shows first: the page's chosen photo when
-    there is one, else the first of Google's with a plain link."""
+def venue_image(v, page_photos=None):
+    """A picture of the space: the first photo on its nomadwise.io
+    page, else one chosen for the page, else the first of Google's
+    with a plain link."""
+    for u in (page_photos or []):
+        u = str(u or '').strip()
+        if u.startswith('http'):
+            return _sized(u)
     photos = [str(u).strip() for u in (v.get('website_photos') or [])
               if str(u).strip().startswith('http')]
     on_site = v.get('website_status') in ('released', 'published_hidden')
@@ -100,7 +105,7 @@ def _title(name, place):
     return name
 
 
-def venue_card(v):
+def venue_card(v, page_photos=None):
     kind = 'Coworking space' if v.get('type') == 'coworking' else 'Cafe'
     city = _clean(v.get('city'), 40)
     country = _clean(v.get('country'), 40)
@@ -113,21 +118,34 @@ def venue_card(v):
     if wifi > 0:
         parts.append(f'WiFi tested at {wifi:.1f} Mbps.')
     parts.append(TAIL)
-    return _title(v.get('name'), city), ' '.join(parts), venue_image(v)
+    return (_title(v.get('name'), city), ' '.join(parts),
+            venue_image(v, page_photos))
 
 
 def found_card(d):
     ptype = str(d.get('primary_type') or '')
-    if 'coworking' in ptype:
+    name = _clean(d.get('name'), 80)
+    if 'coworking' in ptype or 'cowork' in name.lower():
         kind = 'Coworking space'
     elif ptype in ('cafe', 'coffee_shop'):
         kind = 'Cafe'
     else:
-        kind = 'Place'
+        kind = ''
     address = _clean(d.get('address'), 90)
-    first = f'{kind} at {address}.' if address else f'{kind}.'
-    desc = f'{first} Not screened for remote work yet. {TAIL}'
-    return _clean(d.get('name'), 80), desc, ''
+    if kind and address:
+        first = f'{kind} at {address}.'
+    elif kind or address:
+        first = f'{kind or address}.'
+    else:
+        first = ''
+    desc = ' '.join(x for x in (
+        first, 'Not screened for remote work yet.', TAIL) if x)
+    # The photo the app showed on the place's card, when it kept one
+    # (migration 158). Only Google's own image addresses are used.
+    photo = str(d.get('photo_url') or '').strip()
+    if not re.match(r'^https://[a-z0-9-]+\.googleusercontent\.com/', photo):
+        photo = ''
+    return name, desc, _sized(photo) if photo else ''
 
 
 def page(place_id, title, desc, image):
@@ -194,7 +212,7 @@ def build(supabase_url, key, out_dir=OUT_DIR, fetch=None):
                 report['with_picture'] += 1
             return True
 
-        cols = ('name,type,city,country,google_place_id,wifi_speed_mbps,'
+        cols = ('id,name,type,city,country,google_place_id,wifi_speed_mbps,'
                 'website_photos,website_photos_auto,website_status,'
                 'google_photo_urls')
         try:
@@ -214,22 +232,38 @@ def build(supabase_url, key, out_dir=OUT_DIR, fetch=None):
             # Still make the pages for the places nobody has screened.
             report['venues_error'] = str(e)[:200]
             venues = []
+        # The photos on each space's nomadwise.io page, as the nightly
+        # sync last saw them (venue_page_facts, migration 127).
+        page_photos = {}
+        try:
+            for f in rows('venue_page_facts?select=venue_id,'
+                          'photo_urls:facts->photo_urls'
+                          '&order=venue_id.asc', 20000):
+                if isinstance(f.get('photo_urls'), list):
+                    page_photos[f.get('venue_id')] = f['photo_urls']
+        except Exception as e:  # noqa: BLE001
+            report['page_photos_note'] = str(e)[:200]
         for v in venues:
-            if write(str(v.get('google_place_id') or ''), venue_card(v)):
+            if write(str(v.get('google_place_id') or ''),
+                     venue_card(v, page_photos.get(v.get('id')))):
                 report['venues'] += 1
 
         try:
-            try:
-                found = rows('discovered_places?select=google_place_id,name,'
-                             'primary_type,address'
-                             '&order=user_rating_count.desc.nullslast,'
-                             'google_place_id.asc', MAX_FOUND)
-            except Exception as e:  # noqa: BLE001
-                report['found_note'] = str(e)[:200]
-                found = rows('discovered_places?select=google_place_id,name,'
-                             'primary_type'
-                             '&order=user_rating_count.desc.nullslast,'
-                             'google_place_id.asc', MAX_FOUND)
+            found, order = None, ('&order=user_rating_count.desc.nullslast,'
+                                  'google_place_id.asc')
+            # Newer columns first; a column that is not there yet (HTTP
+            # 400) drops back to the ones that always were.
+            for cols_ in ('google_place_id,name,primary_type,address,photo_url',
+                          'google_place_id,name,primary_type,address',
+                          'google_place_id,name,primary_type'):
+                try:
+                    found = rows(f'discovered_places?select={cols_}{order}',
+                                 MAX_FOUND)
+                    break
+                except Exception as e:  # noqa: BLE001
+                    report['found_note'] = str(e)[:200]
+            if found is None:
+                raise RuntimeError(report.get('found_note') or 'no rows')
             for d in found:
                 if write(str(d.get('google_place_id') or ''), found_card(d)):
                     report['found'] += 1

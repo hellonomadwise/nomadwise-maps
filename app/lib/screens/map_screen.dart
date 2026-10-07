@@ -3933,8 +3933,19 @@ class _DiscoveredCardState extends State<_DiscoveredCard> {
   }
 
   Future<void> _loadPhotos() async {
-    final p = await widget.places.photoNames(place.placeId);
+    final id = place.placeId;
+    final p = await widget.places.photoNames(id);
     if (mounted) setState(() => _photos = p);
+    // The card shows the first photo, which makes its plain link (the
+    // same single request is shared). Keep that link with the place,
+    // so its shared link can show a picture of it.
+    if (p.isEmpty) return;
+    try {
+      final link = await PlacesService.linkFor(p.first);
+      if (link != null && link.contains('googleusercontent.com')) {
+        SupabaseService().saveDiscoveredPhoto(id, link);
+      }
+    } catch (_) {}
   }
 
   Widget _signalsRow() {

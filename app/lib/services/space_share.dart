@@ -11,7 +11,7 @@ import 'analytics_service.dart';
 /// Works for any place Google knows, screened or not: the link carries
 /// the place's Google id and the app finds it and flies there.
 /// The message is Miguel's wording (7 Oct 2026): "Hey, I want to share
-/// [name] with you, a coworking space on Nomad Maps".
+/// [name] with you, a coworking space from Nomad Maps".
 class SpaceShare {
   static final _idOk = RegExp(r'^[A-Za-z0-9_-]{10,200}$');
 
@@ -25,10 +25,13 @@ class SpaceShare {
     return 'https://nomadmaps.io/?p=${Uri.encodeComponent(placeId)}';
   }
 
-  static String _message(String name, String kind, String link,
+  /// "Hey, I want to share X with you, a coworking space from Nomad
+  /// Maps." Without a kind (Google calls the place something else):
+  /// "... with you, from Nomad Maps."
+  static String _message(String name, String? kind, String link,
           {String extra = ''}) =>
-      'Hey, I want to share ${name.trim()} with you, $kind on '
-      'Nomad Maps.$extra\n$link';
+      'Hey, I want to share ${name.trim()} with you, '
+      '${kind == null ? '' : '$kind '}from Nomad Maps.$extra\n$link';
 
   /// The message that goes with a shared space. Where it is, and its
   /// picture, come with the link's own preview.
@@ -41,15 +44,17 @@ class SpaceShare {
             : '',
       );
 
-  /// A place nobody has screened yet: its name and what Google calls it.
+  /// A place nobody has screened yet: its name and, when Google's type
+  /// or the name itself says so, what it is.
   static String placeText(String name, String placeId,
       {String? primaryType}) {
     final t = primaryType ?? '';
-    final kind = t.contains('coworking')
-        ? 'a coworking space'
-        : (t == 'cafe' || t == 'coffee_shop')
-            ? 'a cafe'
-            : 'a spot';
+    final String? kind =
+        (t.contains('coworking') || name.toLowerCase().contains('cowork'))
+            ? 'a coworking space'
+            : (t == 'cafe' || t == 'coffee_shop')
+                ? 'a cafe'
+                : null;
     return _message(name, kind, link(placeId));
   }
 

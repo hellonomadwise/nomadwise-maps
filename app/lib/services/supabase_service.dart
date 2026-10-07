@@ -1761,6 +1761,17 @@ class SupabaseService {
     } catch (_) {}
   }
 
+  /// Keeps the plain link of a not yet screened place's first photo,
+  /// which the app has just made to show the place's card, so the
+  /// place's shared link can carry a picture (migration 158). Costs
+  /// nothing more; quietly does nothing before the migration.
+  Future<void> saveDiscoveredPhoto(String placeId, String url) async {
+    try {
+      await _db.rpc('discovered_photo',
+          params: {'p_place': placeId, 'p_url': url});
+    } catch (_) {}
+  }
+
   /// What the founder kept and skipped among the suggested photos,
   /// recorded at Approve so the nightly run can learn their taste.
   Future<void> recordPhotoPicks(List<Map<String, dynamic>> rows) =>
