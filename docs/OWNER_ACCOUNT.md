@@ -72,7 +72,31 @@ minutes of approval:
 | Message (Verified) | `discount-available-2` ("Nomadwise Offers"), one JSON string the site snippet renders |
 
 No new Webflow fields: the collection is at the 60-field limit, so
-the message rides in the unused "Nomadwise Offers" text field.
+the message rides in the "Nomadwise Offers" text field. That field
+once held the label of a discount button; on 7 Oct 2026 five pages
+still had the words "Nomadwise Offers" in it (SOKKOOL, DEOS, Setter
+Ubud, Working on Air, AT 06), shown nowhere on the page.
+
+## "Managed by its owner" (7 Oct 2026, migration 157)
+
+A page whose space has an owner should not go on saying "Own or manage
+this space? Claim this listing for free". The same field carries the
+mark: `{"claimed": true}`, alone or inside the owner's message. So the
+field is set exactly when the space has an owner, and the template
+needs no code, only conditional visibility:
+
+1. The block with "Own or manage this space?" and the claim link
+   (`div-block-842`): visible when **Nomadwise Offers is not set**.
+2. A new text block beside it, "Managed by its owner": visible when
+   **Nomadwise Offers is set**.
+
+Which pages are marked is decided in the database
+(`listing_has_owner`: an owner's address on the space, our own test
+claims left out) and written by the website sync (`owner_marks()` in
+`webflow_sync.py`), which touches only that field. A new claim is
+marked within about ten minutes of its approval; a claim later marked
+as a test is unmarked the same way. A listing sync rewrites the
+owner's message and leaves the mark as it found it.
 
 ## Designer work (Jonathan, once)
 

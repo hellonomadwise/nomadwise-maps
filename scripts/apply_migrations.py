@@ -74,6 +74,28 @@ report = {
     'error': error,
 }
 os.makedirs('ci-debug', exist_ok=True)
-with open('ci-debug/migrations_report.json', 'w') as fh:
-    json.dump(report, fh, indent=2)
+
+
+def write_report():
+    with open('ci-debug/migrations_report.json', 'w') as fh:
+        json.dump(report, fh, indent=2)
+
+
+# Written at once, so the migrations' result is on record even if the
+# run is cancelled during the next step.
+write_report()
+
+# Pages that give a shared space its own link preview (its name, where
+# it is, a picture): see share_pages.py. They are written into
+# app/web/s here because this step runs before the web build copies
+# app/web, and it has the database at hand. It must never stop the
+# build or hide the migrations' result, so every error is kept as a
+# line in the report.
+try:
+    import share_pages
+    report['share_pages'] = share_pages.build(SUPABASE_URL, SERVICE_KEY)
+except Exception as e:  # noqa: BLE001
+    report['share_pages'] = {'error': str(e)[:300]}
+
+write_report()
 print(json.dumps(report, indent=2))

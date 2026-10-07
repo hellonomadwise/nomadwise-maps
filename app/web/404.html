@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nomad Maps</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="/favicon.png">
+<!-- A shared space has a small page of its own at /s/<Google place id>
+     (made by scripts/share_pages.py at each build). A place found
+     since the last build has none yet, so its link lands here: it
+     still opens the map at that place, only without its own preview. -->
+<script>
+  var m = location.pathname.match(/^\/s\/([A-Za-z0-9_-]+)(\.html)?\/?$/);
+  if (m) location.replace('/?p=' + encodeURIComponent(m[1]));
+</script>
+</head>
+<body style="font-family:system-ui,sans-serif;padding:24px;color:#142032">
+<p>That page is not here.</p>
+<p><a href="/">Open Nomad Maps</a></p>
+</body>
+</html>

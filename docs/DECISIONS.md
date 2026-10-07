@@ -3418,3 +3418,67 @@ picture card stays on the full page only. The words and the link now
 come from one place, `services/space_share.dart`, used by the cards
 and by the full page. Counted as `space_shared` with `from: card` and
 `screened: true/false`.
+
+## 7 Oct 2026: a shared space shows its own name and picture
+
+Miguel's feedback on the Share button, the same afternoon: the link
+showed "Nomadwise Maps" and the app icon whatever was shared. "Add
+rich data to the links. Name of place. Some copy: 'Hey, I want to
+share [name] with you, a coworking location from Nomadmaps'."
+
+WhatsApp and friends read a link's tags without running the app, so
+every link to the app itself previews the same. Each space now has a
+tiny page of its own, `nomadmaps.io/s/<Google place id>`, with its
+name, where it is, its WiFi if tested, and a picture (the page's first
+photo, else the first of Google's with a plain link, else the icon),
+which sends a person straight on to the map at that place. They are
+made at each build by `scripts/share_pages.py`: every screened space,
+and the 25,000 most reviewed places nobody has screened yet. It is
+called from `apply_migrations.py`, because that step has the database
+at hand and runs before the web build copies `app/web`, and the
+workflow file itself cannot be changed by upload. Its counts are in
+`ci-debug/migrations_report.json` under `share_pages`. A place found
+since the last build has no page yet: `app/web/404.html` sends
+`/s/<id>` on to the map, so the link still opens, only with the plain
+preview. Old `?p=` links keep working.
+
+The message is Miguel's: "Hey, I want to share X with you, a coworking
+space on Nomad Maps." ("a cafe", or "a spot" when Google calls an
+unscreened place something else), with the WiFi speed when tested. On
+a computer the whole message is copied, not only the link.
+
+Not checked: how large the pictures are. WhatsApp leaves out a picture
+that is too heavy, and then shows the name and line alone.
+
+## 7 Oct 2026: "Managed by its owner" on a claimed page (migration 157)
+
+A friend of Jonathan's saw "Claim this listing for free" on
+Lisbon-Cowork an hour after its owner had claimed it. Jonathan: it
+should say that it is claimed, without an owner sign-in link ("this
+isn't useful or relevant to anyone viewing"), and done in the template
+with conditional visibility, not with code.
+
+The collection has no field to spare, so the mark rides in "Nomadwise
+Offers" beside the owner's message (docs/OWNER_ACCOUNT.md has the two
+Designer settings). The database says which pages
+(`listing_has_owner`, test claims left out) and the sync writes only
+that one field (`owner_marks()`), from the ten-minute run as well. A
+full listing sync of every owned page was not used for the first
+fill, because it also rewrites the booking fields and some of those
+pages were set by hand.
+
+Found while checking: that field was not empty everywhere. Five pages
+still carried the old discount button's label, "Nomadwise Offers",
+shown nowhere, and the template would have called them managed. The
+migration notes the five as marked, so the sync empties the field on
+those without an owner. A mark that cannot be written is tried again
+six hours later, not every ten minutes.
+
+Same migration: the end of Lisbon-Cowork's text. Its owner had saved
+while the limit was still 3,000 characters, trimmed words to fit, and
+the save cut the rest mid-word. Jonathan chose "only tidy the
+endings": a full stop after "Tagus River", and the last sentence ends
+"offers a well-balanced setup in one of Lisbon's most charming
+neighborhoods." Done on the page by hand that afternoon, and in the
+stored copies by the migration so his Owner account opens with it.
+

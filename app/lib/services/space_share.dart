@@ -10,49 +10,47 @@ import 'analytics_service.dart';
 /// Sharing a space as a link that opens that exact place on the map.
 /// Works for any place Google knows, screened or not: the link carries
 /// the place's Google id and the app finds it and flies there.
+/// The message is Miguel's wording (7 Oct 2026): "Hey, I want to share
+/// [name] with you, a coworking space on Nomad Maps".
 class SpaceShare {
+  static final _idOk = RegExp(r'^[A-Za-z0-9_-]{10,200}$');
+
+  /// nomadmaps.io/s/<Google place id>: a small page of the space's own
+  /// (made at each build by scripts/share_pages.py) so the link shows
+  /// the space's name, place and picture in WhatsApp and friends, and
+  /// then opens the map there. A place with no page yet still opens.
   static String link(String? placeId) {
     if (placeId == null || placeId.isEmpty) return 'https://nomadmaps.io/';
-    // Short on purpose: the app finds the space and flies there itself.
+    if (_idOk.hasMatch(placeId)) return 'https://nomadmaps.io/s/$placeId';
     return 'https://nomadmaps.io/?p=${Uri.encodeComponent(placeId)}';
   }
 
-  /// The message that goes with a shared space: its name, and where it
-  /// is only when the name does not already say (region and country).
-  static String venueText(Venue venue) {
-    final name = venue.name.trim();
-    final region = (venue.city ?? '').trim();
-    final country =
-        ('${venue.raw['country'] ?? venue.live?.country ?? ''}').trim();
-    final hood = (venue.neighbourhood ?? '').trim();
-    final plainName = plain(name);
-    final saysWhere = [hood, region, country]
-        .where((x) => x.length >= 3)
-        .any((x) => plainName.contains(plain(x)));
-    final where = saysWhere
-        ? ''
-        : [region, country].where((x) => x.isNotEmpty).join(', ');
-    final wifi =
-        venue.wifiTested ? ' WiFi ${venue.wifiSpeedLabel} Mbps.' : '';
-    return '$name${where.isEmpty ? '' : ', $where'}.$wifi\n'
-        '${link(venue.googlePlaceId)}';
-  }
+  static String _message(String name, String kind, String link,
+          {String extra = ''}) =>
+      'Hey, I want to share ${name.trim()} with you, $kind on '
+      'Nomad Maps.$extra\n$link';
 
-  /// A place nobody has screened yet: we only know its name.
-  static String placeText(String name, String placeId) =>
-      '${name.trim()}\n${link(placeId)}';
+  /// The message that goes with a shared space. Where it is, and its
+  /// picture, come with the link's own preview.
+  static String venueText(Venue venue) => _message(
+        venue.name,
+        venue.type == 'coworking' ? 'a coworking space' : 'a cafe',
+        link(venue.googlePlaceId),
+        extra: venue.wifiTested
+            ? ' WiFi tested at ${venue.wifiSpeedLabel} Mbps.'
+            : '',
+      );
 
-  /// Lower case without accents, so "São Bento" matches "Sao Bento".
-  static String plain(String s) {
-    const from = 'àáâãäåçèéêëìíîïñòóôõöùúûüýÿ';
-    const to = 'aaaaaaceeeeiiiinooooouuuuyy';
-    final lower = s.toLowerCase();
-    final b = StringBuffer();
-    for (final ch in lower.split('')) {
-      final i = from.indexOf(ch);
-      b.write(i >= 0 ? to[i] : ch);
-    }
-    return b.toString();
+  /// A place nobody has screened yet: its name and what Google calls it.
+  static String placeText(String name, String placeId,
+      {String? primaryType}) {
+    final t = primaryType ?? '';
+    final kind = t.contains('coworking')
+        ? 'a coworking space'
+        : (t == 'cafe' || t == 'coffee_shop')
+            ? 'a cafe'
+            : 'a spot';
+    return _message(name, kind, link(placeId));
   }
 
   /// Phones have a share sheet (WhatsApp, Messages and so on). On a
@@ -81,9 +79,9 @@ class SpaceShare {
       }
     }
     try {
-      await Clipboard.setData(ClipboardData(text: link));
+      await Clipboard.setData(ClipboardData(text: text));
       messenger?.showSnackBar(const SnackBar(
-          content: Text('Link copied. Paste it wherever you like.')));
+          content: Text('Copied. Paste it wherever you like.')));
     } catch (_) {
       messenger?.showSnackBar(SnackBar(content: Text(link)));
     }

@@ -1210,8 +1210,19 @@ except Exception as e:  # noqa: BLE001
     upgrades_ = []
 report['upgrade_writes'] = len(upgrades_)
 
+# Pages whose "has an owner" mark is not what it should be (migration
+# 157): a space was claimed, or a claim turned out to be a test.
+try:
+    marks_ = sb('rpc/listing_owner_marks', method='POST', body={}) or []
+except Exception as e:  # noqa: BLE001
+    # A warning, not an error: the first run after the upload can land
+    # before the build has applied migration 157.
+    report.setdefault('warnings', []).append(
+        f'owner marks read: {str(e)[:160]}')
+    marks_ = []
+
 if PUSH_ONLY and not queued and not requests_ and not retire_ and not listing_ \
-        and not snap_ and not upgrades_:
+        and not snap_ and not upgrades_ and not marks_:
     finish(0)   # nothing to do: the common case, a second of runtime
 
 if PUSH_ONLY:
@@ -1645,6 +1656,33 @@ def owner_fields(v, item=None):
     return out
 
 
+def owner_mark_of(raw):
+    """Does the page's "Nomadwise Offers" field say the space has an
+    owner? (See owner_marks below.)"""
+    try:
+        d = json.loads(raw) if str(raw or '').strip().startswith('{') else {}
+    except ValueError:
+        return False
+    return isinstance(d, dict) and bool(d.get('claimed'))
+
+
+def with_owner_mark(raw, marked):
+    """The field's text with the owner mark set or taken away, and the
+    owner's message (if there is one) kept as it is. Empty when there
+    is neither, so the Designer's "is set" test stays true to it."""
+    try:
+        d = json.loads(raw) if str(raw or '').strip().startswith('{') else {}
+    except ValueError:
+        d = {}
+    if not isinstance(d, dict):
+        d = {}
+    if marked:
+        d['claimed'] = True
+    else:
+        d.pop('claimed', None)
+    return json.dumps(d, ensure_ascii=False) if d else ''
+
+
 def plain_text(html):
     """A page's rich text as plain paragraphs, for the Owner account's
     description box (the same shape rich() turns back into HTML)."""
@@ -1771,6 +1809,13 @@ def sync_listing(v):
                                         else DEFAULT_ENQUIRY_EMAIL),
         })
     fields.update(owner_fields(v, item))
+    # The owner's message and the owner mark share one field: a listing
+    # sync rewrites the message and leaves the mark as the page has it
+    # (owner_marks, below, is the only thing that sets or clears it).
+    if 'discount-available-2' in fields:
+        fields['discount-available-2'] = with_owner_mark(
+            fields['discount-available-2'],
+            owner_mark_of(fd.get('discount-available-2')))
     fields = shape_fields(fields)
     wf_write(f'/v2/collections/{COLLECTION_ID}/items/{cms}', 'PATCH',
              {'fieldData': fields})
@@ -1828,6 +1873,81 @@ for v in listing_:
                prefer='return=minimal')
         except Exception:  # noqa: BLE001
             pass
+
+# -------------------------------------------------------- owner mark
+# A page whose space has an owner should not go on saying "Own or
+# manage this space? Claim this listing for free" (a friend of
+# Jonathan's saw it on Lisbon-Cowork an hour after it was claimed,
+# 7 Oct 2026). The collection has no field to spare, so the mark rides
+# in "Nomadwise Offers" beside the owner's message, as {"claimed":
+# true}: the field is then set, and the template shows "Managed by its
+# owner" where it is set and the claim line where it is not
+# (conditional visibility, docs/OWNER_ACCOUNT.md). Only that one field
+# is touched here. Which pages: listing_owner_marks() in the database
+# (an owner's address on the space, test claims left out), and only
+# those whose mark is not yet what it should be.
+def owner_marks():
+    if not marks_:
+        return
+    done = []
+    for r in marks_[:60]:
+        cms, want = r.get('cms_id'), bool(r.get('has_owner'))
+        try:
+            # Read fresh: a listing sync earlier in this run may have
+            # just rewritten the same field (the owner's message).
+            try:
+                item = wf(f'/v2/collections/{COLLECTION_ID}/items/{cms}')
+            except urllib.error.HTTPError as e:
+                if e.code != 404:
+                    raise
+                item = None
+            if item:
+                fd = item.get('fieldData') or {}
+                cur = fd.get('discount-available-2') or ''
+                # Something that looks like a message but cannot be
+                # read is left for a person: never written over.
+                if str(cur).strip().startswith('{'):
+                    try:
+                        json.loads(cur)
+                    except ValueError:
+                        raise RuntimeError(
+                            'Nomadwise Offers holds text that cannot be '
+                            'read; left as it is') from None
+                new = with_owner_mark(cur, want)
+                if new != cur:
+                    wf_write(f'/v2/collections/{COLLECTION_ID}/items/{cms}',
+                             'PATCH',
+                             {'fieldData': {'discount-available-2': new}})
+                    time.sleep(0.6)
+                # Published also when the text was already there: an
+                # earlier run may have stopped between the two calls.
+                if not item.get('isDraft') and not item.get('isArchived') \
+                        and item.get('lastPublished'):
+                    wf_write(f'/v2/collections/{COLLECTION_ID}/items/publish',
+                             'POST', {'itemIds': [cms]})
+                    time.sleep(0.6)
+            # A page that is no longer in the collection has nothing to
+            # mark: note it as done so it is not asked for again.
+            sb(f"venues?id=eq.{r['venue_id']}", method='PATCH',
+               body={'page_owner_mark': want}, prefer='return=minimal')
+            done.append({'name': r.get('name'), 'has_owner': want,
+                         'page': bool(item)})
+        except Exception as e:  # noqa: BLE001
+            report.setdefault('warnings', []).append(
+                f"owner mark {r.get('name')}: {str(e)[:160]}")
+            # Asked for again in six hours, not every ten minutes: a
+            # waiting mark makes the small run read the whole site.
+            try:
+                sb(f"venues?id=eq.{r['venue_id']}", method='PATCH',
+                   body={'page_owner_mark_tried_at': now},
+                   prefer='return=minimal')
+            except Exception:  # noqa: BLE001
+                pass
+    if done:
+        report['owner_marks'] = done
+
+
+owner_marks()
 
 # ----------------------------------------------------- page upgrades
 # One approved change (migration 125) is one field on one page: the
