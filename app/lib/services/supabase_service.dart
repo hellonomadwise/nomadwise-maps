@@ -1214,15 +1214,29 @@ class SupabaseService {
     String? from,
     String? referrer,
     String? userAgent,
+    Map<String, dynamic>? geo,
   }) async {
+    final params = <String, dynamic>{
+      'p_seed': seed ?? '',
+      'p_from': from ?? '',
+      'p_referrer': referrer ?? '',
+      'p_user_agent': userAgent ?? '',
+    };
+    final withGeo = geo != null && geo.isNotEmpty;
     try {
       await _db.rpc('claim_opened', params: {
-        'p_seed': seed ?? '',
-        'p_from': from ?? '',
-        'p_referrer': referrer ?? '',
-        'p_user_agent': userAgent ?? '',
+        ...params,
+        // where the visitor is, roughly (migration 154)
+        if (withGeo) 'p_geo': geo,
       });
-    } catch (_) {}
+    } catch (_) {
+      // A database from before migration 154 does not know p_geo: the
+      // notice still has to go out, without the place.
+      if (!withGeo) return;
+      try {
+        await _db.rpc('claim_opened', params: params);
+      } catch (_) {}
+    }
   }
 
   /// Records a claim before the owner goes to Stripe and returns
@@ -1312,6 +1326,32 @@ class SupabaseService {
       return null;
     }
   }
+
+  /// The whole picture (migration 153): every place we know of,
+  /// each counted once, top down. Null when it cannot be read; the
+  /// rest of the screen works without it.
+  Future<Map<String, dynamic>?> outreachWhole() async {
+    try {
+      final r = await _db.rpc('admin_outreach_whole');
+      return r is Map ? Map<String, dynamic>.from(r) : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// "Done for now" on a look at the claim page: the space leaves the
+  /// step until its claim page is opened again.
+  Future<void> outreachLookDone(String id) =>
+      _db.rpc('admin_outreach_look_done', params: {'p_id': id});
+
+  /// "Done for now" on an account that matches a space (migration 154).
+  Future<void> outreachSignupDone(String id) =>
+      _db.rpc('admin_outreach_signup_done', params: {'p_id': id});
+
+  /// Records a WhatsApp message the founder sent by hand.
+  Future<void> outreachLogWhatsApp(String id, String body) =>
+      _db.rpc('admin_outreach_log_whatsapp',
+          params: {'p_id': id, 'p_body': body});
 
   Future<List<Map<String, dynamic>>> outreachMessages(String contactId) async {
     final r = await _db.rpc('admin_outreach_messages', params: {'p_contact': contactId});
@@ -2174,6 +2214,27 @@ class SupabaseService {
         ...row,
         'requested_by': currentUser?.id,
       });
+
+  /// Review card: which Location a space belongs to and how sure,
+  /// with the listed places around it for the map (migration 155).
+  /// [regionId] and [areaNames] are what the app itself shows for a
+  /// space the sync has not prepared yet; a prepared space has its
+  /// own.
+  Future<Map<String, dynamic>> locationHelp(String venueId,
+      {String? regionId, List<String> areaNames = const []}) async {
+    final r = await _db.rpc('admin_location_help', params: {
+      'p_venue': venueId,
+      if ((regionId ?? '').isNotEmpty) 'p_region': regionId,
+      if (areaNames.isNotEmpty) 'p_names': areaNames,
+    });
+    return Map<String, dynamic>.from(r as Map);
+  }
+
+  /// What kind of Region this is ('city', 'island' or 'rural'): it
+  /// sets how far the nearest listed places are compared.
+  Future<void> setRegionKind(String regionId, String kind) => _db.rpc(
+      'admin_set_region_kind',
+      params: {'p_region': regionId, 'p_kind': kind});
 
   Future<List<Map<String, dynamic>>> webflowLocations() async {
     try {

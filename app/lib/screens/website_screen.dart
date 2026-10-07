@@ -30,6 +30,7 @@ import 'claim_journeys_screen.dart';
 import 'email_log_screen.dart';
 import 'feedback_inbox_screen.dart';
 import 'listing_updates_screen.dart';
+import 'nearby_spaces_screen.dart';
 import 'owner_insights_screen.dart';
 import 'owner_screen.dart';
 import 'space_trail_screen.dart';
@@ -748,11 +749,20 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                     '${p['region'] ?? 'the Region'}. Only pick one you are '
                     'sure of; the Region alone is fine.'));
     if (picked == null) return;
+    await _applyLocation(v, picked);
+  }
+
+  /// The founder's Location for a space ({id, name}; id 'none' for
+  /// the Region page only): kept as their choice, and shown at once.
+  Future<void> _applyLocation(
+      Map<String, dynamic> v, Map<String, dynamic> picked) async {
+    final p = _prepared(v);
     final none = picked['id'] == 'none';
     final next = Map<String, dynamic>.from(p)
       ..['location'] = none ? null : picked['name']
       ..['location_id'] = none ? null : picked['id']
-      ..['location_chosen'] = true;
+      ..['location_chosen'] = true
+      ..remove('location_note');
     await _update(
         v,
         {
@@ -760,6 +770,92 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
           if (p.isNotEmpty) 'website_prepared': next,
         },
         none ? 'No Location: Region page only.' : '${picked['name']} chosen.');
+  }
+
+  /// The listed places around a space on a map, coloured by Location,
+  /// with the verdict on which one it belongs to (migration 155). A
+  /// Location chosen there is kept like one chosen from the list.
+  Future<void> _openNearby(Map<String, dynamic> v) async {
+    final choice = await Navigator.of(context).push<NearbyChoice>(
+        MaterialPageRoute(
+            builder: (_) => NearbySpacesScreen(
+                venueId: '${v['id']}',
+                venueName: '${v['name'] ?? ''}',
+                regionId: _regionFor(v)?['id'] as String?,
+                areaNames: _googleAreas(v))));
+    if (choice == null || !mounted) return;
+    if (choice.id == 'other') {
+      await _pickLocation(v);
+      return;
+    }
+    await _applyLocation(v, {'id': choice.id, 'name': choice.name});
+  }
+
+  /// Under the Location line of a space in review: which Location is
+  /// suggested and why, or why it was given the one it has, and the
+  /// way to the map (migration 155).
+  List<Widget> _locationHint(Map<String, dynamic> v, Map<String, dynamic> p) {
+    final note = p['location_note'];
+    final verdict = note is Map ? '${note['verdict'] ?? ''}' : '';
+    final why = note is Map ? '${note['why'] ?? ''}'.trim() : '';
+    final name = note is Map ? '${note['location'] ?? ''}'.trim() : '';
+    final id = note is Map ? '${note['location_id'] ?? ''}'.trim() : '';
+    final chosen = p['location_chosen'] == true;
+    final suggested = !chosen &&
+        p['location'] == null &&
+        verdict == 'suggest' &&
+        id.isNotEmpty &&
+        name.isNotEmpty;
+    final mapButton = TextButton.icon(
+        onPressed: () => _openNearby(v),
+        icon: const Icon(Icons.map_outlined, size: 16),
+        label: const Text('Nearby spaces on a map'));
+    if (!suggested) {
+      return [
+        if (!chosen && why.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(left: 26, bottom: 2),
+            child: Text(why,
+                style: const TextStyle(
+                    fontSize: 12, height: 1.4, color: Brand.inkMuted)),
+          ),
+        Padding(
+          padding: const EdgeInsets.only(left: 14, bottom: 4),
+          child: Align(alignment: Alignment.centerLeft, child: mapButton),
+        ),
+      ];
+    }
+    return [
+      Container(
+        width: double.infinity,
+        margin: const EdgeInsets.only(top: 2, bottom: 6),
+        padding: const EdgeInsets.fromLTRB(10, 8, 6, 2),
+        decoration: BoxDecoration(
+            color: Brand.goldTint, borderRadius: BorderRadius.circular(8)),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Suggested Location: $name',
+              style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color: Brand.goldTextDark)),
+          if (why.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(why,
+                  style: const TextStyle(
+                      fontSize: 12.5,
+                      height: 1.4,
+                      color: Brand.goldTextDark)),
+            ),
+          Wrap(spacing: 2, children: [
+            TextButton(
+                onPressed: () => _applyLocation(v, {'id': id, 'name': name}),
+                child: Text('Use $name')),
+            mapButton,
+          ]),
+        ]),
+      ),
+    ];
   }
 
   Future<void> _copy(String text, String toast) async {
@@ -1130,8 +1226,9 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         ),
       'outreach' => (
           part('menu', 'outreach'),
-          'spaces that replied, or follow-ups that have come due and '
-              'have not been sent'
+          'spaces that replied, follow-ups that have come due and have '
+              'not been sent, spaces that looked at claiming, or accounts '
+              'on the map that match a space'
         ),
       'review' => (
           part('menu', 'review'),
@@ -1199,6 +1296,9 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                           color: color)),
                 ),
                 // How many are open behind it; nothing when none are.
+                // Green, not the red of the item you are on: a number
+                // is work waiting, not something wrong (Jonathan,
+                // 7 Oct 2026: "these should be green", "the numbers").
                 if (count > 0)
                   Tooltip(
                     message: '$count $meaning',
@@ -1208,10 +1308,10 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                           horizontal: 7, vertical: 1.5),
                       decoration: BoxDecoration(
                           color: on
-                              ? Brand.accent
+                              ? Brand.success
                               : quiet
                                   ? Brand.field
-                                  : Brand.accentTint,
+                                  : Brand.successTint,
                           borderRadius: BorderRadius.circular(10)),
                       child: Text(count > 999 ? '999+' : '$count',
                           style: TextStyle(
@@ -1221,7 +1321,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                                   ? Colors.white
                                   : quiet
                                       ? Brand.inkSecondary
-                                      : Brand.accent)),
+                                      : Brand.success)),
                     ),
                   ),
               ]),
@@ -1383,7 +1483,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
           ? const Center(child: CircularProgressIndicator(color: Brand.red))
           : _error != null
               ? _errorView()
-              : SelectionArea(child: _wrap(_pipeline())),
+              : SelectionArea(child: _wrap()),
     );
   }
 
@@ -1669,15 +1769,39 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         context, MaterialPageRoute(builder: (_) => _toolScreen(k)));
   }
 
-  /// Phone: full width. Laptop: a comfortable reading column.
-  Widget _wrap(Widget child) => RefreshIndicator(
+  /// With this much room beside the menu (the list's 760, a gap and
+  /// the card's 300), the "Next up" card stands to the right of the
+  /// list and the list starts at the top (Jonathan, 7 Oct 2026,
+  /// pointing at the empty space on the right).
+  static const double _nextUpBesideFrom = 1066;
+
+  /// Phone: full width. Laptop: a comfortable reading column, and on a
+  /// wide screen the "Next up" card beside it. One shape of tree for
+  /// both, so widening the window does not start the list afresh.
+  Widget _wrap() => RefreshIndicator(
         onRefresh: _load,
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 760),
-            child: child,
-          ),
-        ),
+        child: LayoutBuilder(builder: (context, c) {
+          final beside = c.maxWidth >= _nextUpBesideFrom;
+          return Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: beside ? 1066 : 760),
+              child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: _pipeline(nextUpBeside: beside)),
+                    if (beside) ...[
+                      const SizedBox(width: 6),
+                      SizedBox(
+                        width: 300,
+                        child: SingleChildScrollView(
+                            primary: false,
+                            child: _nextUpCard(_groups(), beside: true)),
+                      ),
+                    ],
+                  ]),
+            ),
+          );
+        }),
       );
 
   Widget _errorView() => ListView(padding: const EdgeInsets.all(24), children: [
@@ -1904,6 +2028,11 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     final candidate = part('candidate');
     final photos = part('photos');
     final page = part('page');
+    final look = part('claim_look');
+    // Roughly where the visitor was, against the space (migration 154).
+    final lookWhere = '${look['where'] ?? ''}'.trim();
+    final lookLocal = count(look, 'local');
+    final signup = part('signup');
     final webflow = _drafts.length + _approvedTonight.length;
 
     final first = <_NextJob>[
@@ -1932,6 +2061,31 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                 'and we could not tell which space it is for.',
             'Open payments',
             () => _nextUpHere('payments', 'paid')),
+      // A space whose claim page was opened and that did not claim
+      // (migration 153): somebody there is interested now.
+      if (count(look) > 0)
+        _NextJob(
+            'claimlook',
+            'Follow up: ${name(look)} looked at claiming',
+            '${count(look) == 1 ? 'Someone opened the claim page for this space' : 'Someone opened the claim page for ${count(look)} spaces'} '
+                'in the last two weeks and did not claim.'
+                '${lookWhere.isEmpty ? '' : count(look) == 1 ? ' $lookWhere' : ' ${name(look)}: $lookWhere'}'
+                '${count(look) > 1 && lookLocal > 0 ? ' $lookLocal of the ${count(look)} ${lookLocal == 1 ? 'was' : 'were'} seen from the space\'s own area or country.' : ''}'
+                ' Ask whether they had a question, by email or WhatsApp.',
+            'Open in Outreach',
+            () => _nextUpOpen('claimlook',
+                const AdminOutreachScreen(initialStep: 'claim_looked'))),
+      // An account made on the map that is plainly a listed space's
+      // (migration 154).
+      if (count(signup) > 0)
+        _NextJob(
+            'signup',
+            'Follow up: ${name(signup)} made an account',
+            '${count(signup) == 1 ? 'An account was made on the map that matches this space' : 'Accounts were made on the map that match ${count(signup)} spaces'}, '
+                'without claiming. Tell them the page is theirs to claim.',
+            'Open in Outreach',
+            () => _nextUpOpen('signup',
+                const AdminOutreachScreen(initialStep: 'signed_up'))),
       if (_updates.isNotEmpty)
         _NextJob(
             'updates',
@@ -2101,7 +2255,8 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         List<Map<String, dynamic>> needsRegion,
         List<Map<String, dynamic>> preparing,
         List<Map<String, dynamic>> fresh
-      }) g) {
+      }) g,
+      {bool beside = false}) {
     // Typing (a search, a note): the list below needs the room.
     if (MediaQuery.viewInsetsOf(context).bottom > 0) {
       return const SizedBox.shrink();
@@ -2109,10 +2264,20 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     final all = _nextJobs(g);
     final jobs = all.where((j) => !_skipped.contains(j.kind)).toList();
     final hidden = all.length - jobs.length;
+    // [beside]: in its own column to the right of the list (a wide
+    // screen). On a phone the card is a smaller one: the same job and
+    // buttons, less around them (Jonathan, 7 Oct 2026).
+    final small = _smallScreen && !beside;
     Widget shell(List<Widget> children) => Container(
           width: double.infinity,
-          margin: const EdgeInsets.fromLTRB(14, 12, 14, 4),
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+          margin: beside
+              ? const EdgeInsets.fromLTRB(0, 12, 14, 4)
+              : small
+                  ? const EdgeInsets.fromLTRB(12, 8, 12, 2)
+                  : const EdgeInsets.fromLTRB(14, 12, 14, 4),
+          padding: small
+              ? const EdgeInsets.fromLTRB(12, 9, 10, 6)
+              : const EdgeInsets.fromLTRB(16, 14, 16, 12),
           decoration: BoxDecoration(
             color: Brand.surface,
             borderRadius: BorderRadius.circular(12),
@@ -2189,14 +2354,20 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       ]);
     }
     final job = jobs.first;
-    if (_nextUpFolded || away) {
+    if ((_nextUpFolded && !beside) || away) {
       // You are in the job, in the list below: it opens again when
       // something is decided, or on "Show". Or, on a phone, you have
       // scrolled the list: it opens again at the top of the list, or
-      // on "Show".
+      // on "Show". Beside the list it is in nobody's way and stays.
       return oneLine(job.title);
     }
     final after = jobs.skip(1).take(3).map((j) => j.title).toList();
+    // On a phone the buttons are a size smaller.
+    final tight = small
+        ? const ButtonStyle(
+            visualDensity: VisualDensity.compact,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap)
+        : null;
     return shell([
       Row(children: [
         label,
@@ -2205,30 +2376,60 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
           Text('${jobs.length - 1} more after this',
               style: const TextStyle(fontSize: 11.5, color: Brand.inkMuted)),
       ]),
-      const SizedBox(height: 6),
+      SizedBox(height: small ? 3 : 6),
       Text(job.title,
-          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
-      const SizedBox(height: 4),
+          style: TextStyle(
+              fontSize: small ? 15 : 17, fontWeight: FontWeight.w800)),
+      SizedBox(height: small ? 2 : 4),
       Text(job.detail,
-          style: const TextStyle(
-              fontSize: 13, height: 1.45, color: Brand.inkSecondary)),
-      const SizedBox(height: 10),
+          maxLines: small ? 2 : null,
+          overflow: small ? TextOverflow.ellipsis : null,
+          style: TextStyle(
+              fontSize: small ? 12.5 : 13,
+              height: small ? 1.35 : 1.45,
+              color: Brand.inkSecondary)),
+      SizedBox(height: small ? 6 : 10),
       Wrap(
           spacing: 8,
           runSpacing: 6,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            ElevatedButton(onPressed: job.open, child: Text(job.button)),
+            ElevatedButton(
+                onPressed: job.open, style: tight, child: Text(job.button)),
             if (job.second != null && job.onSecond != null)
               OutlinedButton(
-                  onPressed: job.onSecond, child: Text(job.second!)),
+                  onPressed: job.onSecond,
+                  style: tight,
+                  child: Text(job.second!)),
             TextButton(
                 onPressed: () => setState(() => _skipped.add(job.kind)),
                 style: TextButton.styleFrom(
-                    foregroundColor: Brand.inkSecondary),
-                child: const Text('Skip for now')),
+                    foregroundColor: Brand.inkSecondary,
+                    visualDensity: small ? VisualDensity.compact : null,
+                    tapTargetSize:
+                        small ? MaterialTapTargetSize.shrinkWrap : null),
+                child: Text(small ? 'Skip' : 'Skip for now')),
           ]),
-      if (after.isNotEmpty) ...[
+      // What comes after: a list beside the list, one line under the
+      // card on a laptop, left out on a phone.
+      if (after.isNotEmpty && beside) ...[
+        const SizedBox(height: 12),
+        const Text('THEN',
+            style: TextStyle(
+                fontSize: 10.5,
+                fontWeight: FontWeight.w800,
+                letterSpacing: .6,
+                color: Brand.inkMuted)),
+        for (final t in after)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(t,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                    fontSize: 12.5, height: 1.35, color: Brand.inkSecondary)),
+          ),
+      ] else if (after.isNotEmpty && !small) ...[
         const SizedBox(height: 8),
         Text('Then: ${after.join('  ·  ')}',
             maxLines: 2,
@@ -2438,7 +2639,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         child: SelectionContainer.disabled(child: child),
       );
 
-  Widget _pipeline() {
+  Widget _pipeline({bool nextUpBeside = false}) {
     final g = _groups();
     final groups = <({String key, String label, int count, Color color,
         String hint, String empty})>[
@@ -2790,7 +2991,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
           curve: Curves.easeOut,
           alignment: Alignment.topCenter,
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            _nextUpCard(g),
+            if (!nextUpBeside) _nextUpCard(g),
             if (!away) _todayStrip(g),
           ]),
         ),
@@ -5605,10 +5806,11 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                       '${p['location_chosen'] == true ? ', your choice' : ''}'
                       '  ·  tap to pick one'
                   : 'Location: ${p['location']}'
-                      '${p['location_chosen'] == true ? ' (your choice)' : ' (guessed, check it)'}'
+                      '${p['location_chosen'] == true ? ' (your choice)' : (p['location_note'] is Map && (p['location_note'] as Map)['verdict'] == 'assign') ? ' (its area\'s name and the places nearby agree)' : ' (guessed, check it)'}'
                       '  ·  tap to change',
               muted: p['location'] == null && p['location_chosen'] != true),
         ),
+        ..._locationHint(v, p),
         _kv(Icons.title, p['h1'] ?? ''),
         if (hours.isNotEmpty)
           _kv(Icons.schedule_outlined, _hoursSummary(hours))
@@ -5736,7 +5938,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     }
 
     Widget cell(String label, String value, Color color,
-            {VoidCallback? onTap}) =>
+            {VoidCallback? onTap, IconData icon = Icons.expand_more}) =>
         InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(8),
@@ -5761,7 +5963,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                         fontSize: 12.5, fontWeight: FontWeight.w600, color: color)),
                 if (onTap != null) ...[
                   const SizedBox(width: 4),
-                  const Icon(Icons.expand_more, size: 14, color: Brand.inkMuted),
+                  Icon(icon, size: 14, color: Brand.inkMuted),
                 ],
               ]),
             ]),
@@ -5782,6 +5984,10 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
           onTap: () => _pickRegion(v)),
       cell('LOCATION', locText, locColor,
           onTap: region == null ? null : () => _pickLocation(v)),
+      // The listed places around it, coloured by Location (migration
+      // 155): the quickest way to see where it belongs.
+      cell('NEARBY', 'On a map', Brand.logoNavy,
+          onTap: () => _openNearby(v), icon: Icons.map_outlined),
     ]);
   }
 

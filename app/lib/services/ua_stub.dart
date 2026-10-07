@@ -3,6 +3,7 @@ String userAgent() => '';
 bool isWebdriver() => false;
 String referrer() => '';
 String deviceKind() => 'app';
+String timeZone() => '';
 void setPageHideHandler(void Function()? cb) {}
 bool sendBeacon(String url, String body, [Map<String, String>? headers]) =>
     false;

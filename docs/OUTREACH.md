@@ -45,14 +45,18 @@ There are two ways to send from that box:
 
 - **Send from here** goes out at once from hello@nomadwise.io through
   Postmark. For answering someone who wrote to us.
-- **Open in mail app** opens the same email as a draft in the
-  computer's mail app (Spark), to send by hand from whichever inbox
-  you choose. For invitations to spaces that have not written to us:
-  an ordinary email from our own mailbox, one at a time. The full text
-  is also put on the clipboard in case the draft is cut short. After
-  sending, press "I sent it" so the card moves on (migration 122).
-  Spark must be the default email app on the computer for the draft
-  to open there.
+- **From my own inbox** (it was called "Open in mail app") gets the
+  same email ready to send by hand from whichever inbox you choose.
+  For invitations to spaces that have not written to us: an ordinary
+  email from our own mailbox, one at a time. After sending, press
+  "I sent it" so the card moves on (migration 122).
+  - On Windows, Spark cannot be handed an email from a web page
+    (Readdle's own help page: Spark cannot be set as the default email
+    app on Windows). So the box offers three buttons, Copy the
+    address, Copy the subject, Copy the email, to paste into a new
+    email in Spark. The text is also put on the clipboard.
+  - On a Mac with Spark as the default email app (Spark, Settings,
+    General, "Make default") the draft opens in Spark by itself.
 
 Templates are managed from the page icon at the top: tap one to
 change its name, subject or words, or press New template (migration
@@ -111,3 +115,60 @@ from a space, add it by hand or use "Log what they wrote" on its card.
   whether they are invited at all is Leonie's decision.
 - "Add to outreach" from a space in the control centre or on the map.
 - Reading replies from the inbox by itself.
+
+## Who looked at claiming (7 Oct 2026, migration 153)
+
+When someone opens the claim page for a space and leaves without
+claiming, the space shows under "Looked at the claim page" on the path
+(the last 60 days; our own devices are left out) and, for looks of the
+last two weeks, as a job in "Next up". Its card says when, how often,
+how far they got and from where. From the card: Reply (the follow-up
+template is picked), WhatsApp (type the number or look it up on
+Google; WhatsApp opens with the message written; "I sent it" records
+it), or "Done for now". Writing to the space, or "Done for now", takes
+it off the step until its claim page is opened again.
+
+The visitor is not known to be the owner, so both templates say "if
+that was you". Nothing is sent by itself.
+
+## The whole picture (7 Oct 2026, migration 153)
+
+The card above the path counts every place we know of once, top down:
+found and not checked, candidates, on the map only, in the queue,
+live; the live ones closed or open; the open ones claimed, set up by
+us, tests, not claimed; the unclaimed by how far Outreach has got with
+them. Three columns: all, coworking, cafes. Each indented group adds
+up to the line above it. "The path" counts lines in Outreach instead
+(a space can have two, and people with no page are in it), so the two
+do not match one for one.
+
+## Signs of interest (7 Oct 2026, migration 154)
+
+The first of three cards at the top of Outreach (the others: The
+path, The whole picture). Each way a space shows interest is a row
+with how many spaces stand there now, what we know, and the one thing
+to do: they wrote back, began the claim form and stopped, made an
+account on the map without claiming, looked at the claim page, a
+follow-up has come due; and after claiming: never been in, changed
+nothing, looked at Verified, set up by us. Tap a row for its spaces.
+
+An account on the map counts as a space's when its address is the one
+on the space's website or at the website's own domain, or its name or
+its address's domain is the space's name. A public mail domain alone
+never counts. The template "Follow-up: they made an account on the
+map" is picked when replying from such a card. The phone hears of a
+new match within the half hour.
+
+## Where a claim page visitor was (7 Oct 2026, migration 154)
+
+The "Claim page opened" notice, and the look's card here, say roughly
+where the visitor was against the space: its own area, its country,
+or another country. Two things are read: where the internet connection
+is, and which time zone the device's clock is set to. A VPN moves the
+first and not the second, so "the connection shows Singapore, but the
+device's clock is on Indonesia time" means: probably there, through a
+VPN. Looks from nearer the space come first in the list.
+
+It is a hint, never proof. Someone from the space can be travelling,
+and a visitor in the same town can be a customer.
+

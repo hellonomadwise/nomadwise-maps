@@ -457,13 +457,19 @@ class _ClaimScreenState extends State<ClaimScreen> {
       _watchField(f.key, f.value);
     }
     ua.setPageHideHandler(_onLeave);
-    // Ring the phone, unless the visitor is a crawler.
+    // Ring the phone, unless the visitor is a crawler. The notice
+    // says roughly where the visitor is (migration 154), so it waits
+    // a moment for that.
     if (!Analytics.isBot) {
-      _supabase.claimOpened(
+      final from = widget.from;
+      final referrer = ua.referrer();
+      final agent = ua.userAgent();
+      Analytics.claimGeo(_visit).then((geo) => _supabase.claimOpened(
           seed: seed,
-          from: widget.from,
-          referrer: ua.referrer(),
-          userAgent: ua.userAgent());
+          from: from,
+          referrer: referrer,
+          userAgent: agent,
+          geo: geo));
     }
   }
 

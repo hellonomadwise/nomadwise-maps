@@ -1,5 +1,7 @@
 // ignore: deprecated_member_use
 import 'dart:html' as html;
+// ignore: deprecated_member_use
+import 'dart:js_util' as js_util;
 
 /// Web: the browser's user agent string.
 String userAgent() => html.window.navigator.userAgent;
@@ -11,6 +13,25 @@ bool isWebdriver() => html.window.navigator.webdriver == true;
 /// Web: the page the visitor came from, as the browser reports it
 /// (often only the origin for cross-site links).
 String referrer() => html.document.referrer;
+
+/// Web: the time zone the device's clock is set to, as the browser
+/// names it ("Asia/Bangkok"); empty when it cannot be read. A VPN
+/// moves where a connection seems to be, not this.
+String timeZone() {
+  try {
+    final intl = js_util.getProperty<Object?>(html.window, 'Intl');
+    if (intl == null) return '';
+    final format = js_util.callMethod<Object?>(intl, 'DateTimeFormat', []);
+    if (format == null) return '';
+    final options =
+        js_util.callMethod<Object?>(format, 'resolvedOptions', []);
+    if (options == null) return '';
+    final zone = js_util.getProperty<Object?>(options, 'timeZone');
+    return zone is String ? zone : '';
+  } catch (_) {
+    return '';
+  }
+}
 
 /// Web: "phone" or "desktop", from the browser identity.
 String deviceKind() {

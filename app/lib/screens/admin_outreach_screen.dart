@@ -1,11 +1,14 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
 import 'package:url_launcher/url_launcher.dart';
 
+import '../services/places_service.dart';
 import '../services/supabase_service.dart';
 import '../theme.dart';
 
@@ -15,13 +18,20 @@ import '../theme.dart';
 /// templates with their details, sends it from hello@nomadwise.io and
 /// logs it. Founders only.
 class AdminOutreachScreen extends StatefulWidget {
-  const AdminOutreachScreen({super.key});
+  const AdminOutreachScreen({super.key, this.initialStep});
+
+  /// Opens on one step of the path (from "Next up": the spaces that
+  /// looked at claiming).
+  final String? initialStep;
   @override
   State<AdminOutreachScreen> createState() => _AdminOutreachScreenState();
 }
 
 class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
   final _supabase = SupabaseService();
+  // One for the screen, so a phone number looked up on Google is kept
+  // and not paid for again on the next press.
+  final _places = PlacesService();
   final _search = TextEditingController();
   List<Map<String, dynamic>>? _rows;
   Map<String, int> _counts = {};
@@ -38,6 +48,17 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
   Map<String, dynamic>? _path;
   String? _step;
   bool _pathOpen = true;
+  // The numbers were asked for at least once (so an empty card can
+  // say they did not come, and not just be missing).
+  bool _numbersAsked = false;
+
+  // The whole picture (migration 153): every place counted once.
+  Map<String, dynamic>? _whole;
+  bool _wholeOpen = true;
+
+  // Which of the three cards is showing above the list: the signs of
+  // interest (migration 154), the path, or the whole picture.
+  String _view = 'signs';
 
   static const _stages = <(String, String)>[
     ('new', 'New'),
@@ -63,6 +84,7 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
   @override
   void initState() {
     super.initState();
+    _step = widget.initialStep;
     _load();
     _supabase.outreachTemplates().then((t) {
       if (mounted) setState(() => _templates = t);
@@ -84,6 +106,7 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
     // Started first and read last: it never throws, and the list does
     // not wait for it.
     final pathF = _supabase.outreachPath();
+    final wholeF = _supabase.outreachWhole();
     try {
       final rows = await _supabase.outreachList(
           stage: _stage,
@@ -92,11 +115,14 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
           step: _step);
       final counts = await _supabase.outreachCounts(group: _group);
       final path = await pathF;
+      final whole = await wholeF;
       if (!mounted || n != _req) return;
       setState(() {
         _rows = rows;
         _counts = counts;
         if (path != null) _path = path;
+        if (whole != null) _whole = whole;
+        _numbersAsked = true;
         _error = null;
       });
     } catch (e) {
@@ -715,16 +741,36 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
     if (!mounted) return;
     // The likeliest template first: already on the site, or not.
     final onSite = c['on_site'] == true;
-    String key = onSite ? 'reply_already_listed' : 'reply_listing';
-    if (!_templates.any((t) => t['key'] == key)) key = '${_templates.first['key']}';
+    // Somebody looked at their claim page: the follow-up comes first.
+    // (each in turn, down to the plain reply, if one is not there)
+    String key = <String>[
+      if (c['signup'] is Map) 'signed_up',
+      if (c['claim_look'] is Map) 'claim_looked',
+      onSite ? 'reply_already_listed' : 'reply_listing',
+    ].firstWhere((k) => _templates.any((t) => t['key'] == k),
+        orElse: () => '');
+    if (key.isEmpty) {
+      key = '${_templates.firstWhere((t) => !'${t['key']}'.endsWith('_wa'), orElse: () => _templates.first)['key']}';
+    }
     final subject = TextEditingController();
     final body = TextEditingController();
     bool force = false;
     bool loading = true;
     bool started = false;
-    // True once the draft has been opened in the mail app: the dialog
-    // then asks whether it was sent.
+    // True once the email is ready to send from our own inbox (handed
+    // to the mail app, or its parts offered to copy): the dialog then
+    // asks whether it was sent.
     bool drafted = false;
+    // The link that hands the draft to the mail app, and the part
+    // last put on the clipboard.
+    Uri? draftUri;
+    String? copied;
+    // Spark on Windows cannot take an email link (Readdle: "you cannot
+    // currently set Spark as your default email client"), so there the
+    // parts are copied over by hand and no link is fired at whatever
+    // other mail app Windows has (Jonathan, 7 Oct 2026: "this open in
+    // mail app didn't do anything").
+    final onWindows = defaultTargetPlatform == TargetPlatform.windows;
     String unsubLink = '';
     String? problem;
     final lastOut = DateTime.tryParse('${c['last_out_at'] ?? ''}');
@@ -759,9 +805,11 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
       return '$b\n\nIf you would rather not hear from us again: $unsubLink';
     }
 
-    // Opens the email as a draft in the computer's mail app (Spark),
-    // to be sent from our own mailbox by hand. The full text also goes
-    // on the clipboard, because some mail apps cut a long draft short.
+    // Gets the email ready to be sent from our own mailbox by hand.
+    // Where the computer's mail app can take a link (a Mac with Spark
+    // as its default), the draft opens there; on Windows the address,
+    // subject and text are offered to copy into Spark. The full text
+    // also goes on the clipboard.
     Future<void> openDraft(void Function(void Function()) setD) async {
       setD(() {
         loading = true;
@@ -799,16 +847,28 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
           return;
         }
         final text = ownInboxBody();
-        // A browser may refuse the clipboard; the draft still opens.
+        // A browser may refuse the clipboard; the draft still opens,
+        // and the copy buttons are there.
         try {
           await Clipboard.setData(ClipboardData(text: text));
+          copied = 'email';
         } catch (_) {}
-        final uri = Uri.parse('mailto:${c['email']}'
-            '?subject=${Uri.encodeComponent(subject.text.trim())}'
-            '&body=${Uri.encodeComponent(text.replaceAll('\r\n', '\n').replaceAll('\n', '\r\n'))}');
-        if (!await launchUrl(uri)) {
-          throw 'The mail app did not open. The text is on your clipboard, '
-              'so you can paste it into a new email by hand.';
+        // Windows drops a link much over 2,000 characters without a
+        // word, so there a long email goes over with its address and
+        // subject only (for the "try this computer's mail app" button).
+        final head = 'mailto:${c['email']}'
+            '?subject=${Uri.encodeComponent(subject.text.trim())}';
+        final full = '$head&body='
+            '${Uri.encodeComponent(text.replaceAll('\r\n', '\n').replaceAll('\n', '\r\n'))}';
+        final uri =
+            Uri.tryParse(onWindows && full.length > 1800 ? head : full);
+        draftUri = uri;
+        if (!onWindows && uri != null) {
+          // The page cannot tell whether a mail app took the link, so
+          // the next step also says what to do when nothing opened.
+          try {
+            await launchUrl(uri);
+          } catch (_) {}
         }
         if (open) {
           setD(() {
@@ -857,9 +917,12 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
                     decoration: const InputDecoration(
                         labelText: 'Template', border: OutlineInputBorder()),
                     items: [
+                      // (the WhatsApp words are not an email)
                       for (final t in _templates)
-                        DropdownMenuItem(
-                            value: '${t['key']}', child: Text('${t['name']}')),
+                        if (!'${t['key']}'.endsWith('_wa'))
+                          DropdownMenuItem(
+                              value: '${t['key']}',
+                              child: Text('${t['name']}')),
                     ],
                     // Once the draft is open the words are fixed, so
                     // what is recorded is what was sent.
@@ -909,22 +972,94 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
                       decoration: BoxDecoration(
                           color: Brand.goldTint,
                           borderRadius: BorderRadius.circular(8)),
-                      child: const Text(
-                          'The draft is open in your mail app. Choose the '
-                          'inbox to send from, read it, and send it there. '
-                          'If the draft looks cut short, paste: the full '
-                          'text is on your clipboard. Then come back and '
-                          'press "I sent it" so the card moves on.',
-                          style: TextStyle(
-                              fontSize: 13,
-                              height: 1.4,
-                              color: Brand.goldTextDark)),
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                                onWindows
+                                    ? 'Spark on Windows cannot be handed an '
+                                        'email from a web page, so copy it '
+                                        'over: start a new email in Spark, '
+                                        'then use the three buttons below '
+                                        'and paste each part. Send it '
+                                        'there, then come back and press '
+                                        '"I sent it" so the card moves on.'
+                                    : 'Your mail app should now be open '
+                                        'with the draft. Choose the inbox '
+                                        'to send from, read it, and send '
+                                        'it there. Then come back and '
+                                        'press "I sent it" so the card '
+                                        'moves on.',
+                                style: const TextStyle(
+                                    fontSize: 13,
+                                    height: 1.4,
+                                    color: Brand.goldTextDark)),
+                            const SizedBox(height: 6),
+                            Wrap(spacing: 4, children: [
+                              for (final part in <(String, String)>[
+                                ('address', '${c['email']}'),
+                                ('subject', subject.text.trim()),
+                                ('email', ownInboxBody()),
+                              ])
+                                TextButton.icon(
+                                    onPressed: () async {
+                                      try {
+                                        await Clipboard.setData(
+                                            ClipboardData(text: part.$2));
+                                        if (open) {
+                                          setD(() {
+                                            copied = part.$1;
+                                            problem = null;
+                                          });
+                                        }
+                                      } catch (_) {
+                                        if (open) {
+                                          setD(() => problem =
+                                              'The browser did not allow '
+                                              'the copy. Select the text '
+                                              'above and copy it by hand.');
+                                        }
+                                      }
+                                    },
+                                    icon: Icon(
+                                        copied == part.$1
+                                            ? Icons.check
+                                            : Icons.copy,
+                                        size: 16),
+                                    label: Text(copied == part.$1
+                                        ? 'Copied the ${part.$1}'
+                                        : 'Copy the ${part.$1}')),
+                              if (draftUri != null)
+                                TextButton(
+                                    onPressed: () {
+                                      final u = draftUri;
+                                      if (u != null) {
+                                        launchUrl(u)
+                                            .catchError((_) => false);
+                                      }
+                                    },
+                                    child: Text(onWindows
+                                        ? 'Try this computer\'s mail app'
+                                        : 'Nothing opened? Try again')),
+                            ]),
+                            if (!onWindows)
+                              const Text(
+                                  'If nothing opens, this computer has no '
+                                  'mail app set for email links. On a Mac: '
+                                  'Spark, Settings, General, "Make '
+                                  'default". Until then, copy the three '
+                                  'parts into a new email.',
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      height: 1.4,
+                                      color: Brand.goldTextDark)),
+                          ]),
                     )
                   else
                     const Text(
-                        'Two ways to send. "Open in mail app" makes a draft '
-                        'in Spark, to send by hand from your own inbox: use '
-                        'it for invitations to spaces that have not written '
+                        'Two ways to send. "From my own inbox" gets the '
+                        'email ready to send by hand from Spark: use it '
+                        'for invitations to spaces that have not written '
                         'to us. "Send from here" goes out at once from '
                         'hello@nomadwise.io: use it to answer someone who '
                         'wrote. Either way an unsubscribe line is added if '
@@ -968,7 +1103,7 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
                   child: const Text('Cancel')),
               OutlinedButton(
                   onPressed: loading ? null : () => openDraft(setD),
-                  child: const Text('Open in mail app')),
+                  child: const Text('From my own inbox')),
               FilledButton(
                 onPressed: loading
                     ? null
@@ -1286,6 +1421,14 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
       'Replied',
       'They answered. Next: reply, and point them to claiming their page.'
     ),
+    (
+      'claim_looked',
+      'Looked at the claim page',
+      'Someone opened the claim page for the space in the last 60 days, '
+          'it is still unclaimed, and we have not written since. Next: ask '
+          'whether they had a question, by email or WhatsApp. We do not '
+          'know the visitor was the owner, so the words do not say so.'
+    ),
   ];
 
   /// Once they have claimed: key, words, what to do next, then the
@@ -1362,6 +1505,25 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
             'way. Nobody there has claimed the page or been in the Owner '
             'account. Next: write to say their Owner account is ready, and '
             'how to get in.'
+      );
+    }
+    if (key == 'form_begun') {
+      return (
+        'Began the claim form and stopped',
+        'Someone began claiming the space, typed an address, and left '
+            'before the end. They got one reminder by itself the next '
+            'morning. Next: a personal note. "Use that address" on the '
+            'card puts the address they typed on the line.'
+      );
+    }
+    if (key == 'signed_up') {
+      return (
+        'Made an account on the map, did not claim',
+        'An account was made on Nomad Maps whose name or address '
+            'matches the space. It can be the owner or someone who works '
+            'there. Next: tell them the space has a page and that '
+            'claiming it is free. "Use that address" puts the account\'s '
+            'address on the line.'
       );
     }
     if (key == 'stepped_off') {
@@ -1477,7 +1639,7 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
 
   Widget _pathCard() {
     final p = _path;
-    if (p == null) return const SizedBox.shrink();
+    if (p == null) return _noNumbers();
     final reachMost = [
       for (final s in _reachSteps) _pathN('reach', s.$1)
     ].fold<int>(0, (a, b) => a > b ? a : b);
@@ -1546,8 +1708,6 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
         ),
     ]);
 
-    final step = _step;
-    final words = step == null ? null : _stepWords(step);
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.fromLTRB(8, 10, 8, 12),
@@ -1630,36 +1790,269 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
                       fontSize: 12, height: 1.4, color: Brand.inkMuted)),
             ),
         ],
-        if (step != null && words != null)
-          Container(
-            margin: const EdgeInsets.fromLTRB(8, 12, 8, 0),
-            padding: const EdgeInsets.fromLTRB(12, 10, 6, 2),
-            decoration: BoxDecoration(
-                color: Brand.logoTealTint,
-                borderRadius: BorderRadius.circular(10)),
-            child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(right: 6),
-                    child: Text.rich(
+      ]),
+    );
+  }
+
+  /// Which step's spaces the list is showing, what to do with them,
+  /// and the way back. Under whichever card is open.
+  Widget _showingBox() {
+    final step = _step;
+    if (step == null) return const SizedBox.shrink();
+    final words = _stepWords(step);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.fromLTRB(12, 10, 6, 2),
+      decoration: BoxDecoration(
+          color: Brand.logoTealTint, borderRadius: BorderRadius.circular(10)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Padding(
+          padding: const EdgeInsets.only(right: 6),
+          child: Text.rich(
+              TextSpan(children: [
+                TextSpan(
+                    text: 'Showing: ${words.$1}. ',
+                    style: const TextStyle(fontWeight: FontWeight.w800)),
+                TextSpan(text: words.$2),
+              ]),
+              style: const TextStyle(fontSize: 12.5, height: 1.45)),
+        ),
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton(
+              onPressed: () => _showStep(null),
+              child: const Text('Back to the list')),
+        ),
+      ]),
+    );
+  }
+
+  /// The three cards above the list, one at a time.
+  Widget _viewSwitch() {
+    Widget tab(String key, String label) {
+      final on = _view == key;
+      return Padding(
+        padding: const EdgeInsets.only(right: 6, bottom: 8),
+        child: ChoiceChip(
+          selected: on,
+          showCheckmark: false,
+          onSelected: (_) => setState(() => _view = key),
+          selectedColor: Brand.logoNavy,
+          backgroundColor: Brand.surface,
+          side: BorderSide(color: on ? Brand.logoNavy : Brand.border),
+          labelStyle: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: on ? Colors.white : Brand.inkSecondary),
+          label: Text(label),
+        ),
+      );
+    }
+
+    return Wrap(children: [
+      tab('signs', 'Signs of interest'),
+      tab('path', 'The path'),
+      tab('whole', 'The whole picture'),
+    ]);
+  }
+
+  /// Every way a space shows interest, as a row: what happened, how
+  /// many spaces stand there now, what we know, and the one thing to
+  /// do (Jonathan, 7 Oct 2026: "in a super clear way, look at these
+  /// scenarios and go, right, how do we address this?").
+  static const _signs = <(String, String, IconData, String, String, String)>[
+    // band, step, icon, what happened, what we know, what to do
+    (
+      'reach', 'replied', Icons.mark_email_unread_outlined,
+      'They wrote back',
+      'Their address, and what they said.',
+      'Reply, and point them to claiming their page.'
+    ),
+    (
+      'reach', 'form_begun', Icons.edit_note_outlined,
+      'Began the claim form and stopped',
+      'The address they typed. One reminder goes by itself the next '
+          'morning.',
+      'A personal note after that: did something on the form not work?'
+    ),
+    (
+      'reach', 'signed_up', Icons.person_add_alt_1_outlined,
+      'Made an account on the map, did not claim',
+      'The account\'s name and address, which match the space (its '
+          'website, its own address, or its name). It can be an owner, '
+          'or someone who works there.',
+      'Tell them the space has a page, and that claiming it is free.'
+    ),
+    (
+      'reach', 'claim_looked', Icons.visibility_outlined,
+      'Looked at the claim page',
+      'Which space, when, how far they got, and roughly where the '
+          'visitor was. Not who: it can be anyone.',
+      'Ask whether they had a question, by email or WhatsApp.'
+    ),
+    (
+      'reach', 'follow_up', Icons.event_available_outlined,
+      'A follow-up date has come',
+      'We wrote before and set a date to try again.',
+      'Write again, or mark Not now.'
+    ),
+    (
+      'owners', 'not_opened', Icons.lock_clock_outlined,
+      'Claimed, never been in their Owner account',
+      'Their address. The page is theirs and nothing has been done '
+          'with it.',
+      'Remind them how to get in. (A reminder that goes by itself is '
+          'on the list to build.)'
+    ),
+    (
+      'owners', 'opened_only', Icons.hourglass_empty_outlined,
+      'Been in their Owner account, changed nothing',
+      'Their address, and how often they came.',
+      'Ask what they were looking for.'
+    ),
+    (
+      'owners', 'looked', Icons.sell_outlined,
+      'Looked at Verified, did not pay',
+      'Their address, and that they opened the payment step.',
+      'Ask what held them back.'
+    ),
+    (
+      'owners', 'ours', Icons.storefront_outlined,
+      'Set up by us, not claimed yet',
+      'Partners and spaces listed the old way, on Verified without an '
+          'account of their own.',
+      'Tell them their Owner account is ready.'
+    ),
+  ];
+
+  /// In place of a card whose numbers did not come.
+  Widget _noNumbers() => !_numbersAsked
+      ? const SizedBox.shrink()
+      : const Padding(
+          padding: EdgeInsets.fromLTRB(8, 4, 8, 14),
+          child: Text(
+              'The numbers could not be read just now. The list below '
+              'still works. Open Outreach again to try once more.',
+              style: TextStyle(
+                  fontSize: 12.5, height: 1.4, color: Brand.inkSecondary)),
+        );
+
+  Widget _signsCard() {
+    final p = _path;
+    if (p == null) return _noNumbers();
+    // Of the looks at a claim page, the ones seen from the space's own
+    // area or country (migration 154).
+    final local = _pathN('reach', 'claim_looked_local');
+    Widget band(String title) => Padding(
+          padding: const EdgeInsets.fromLTRB(8, 10, 8, 2),
+          child: Text(title.toUpperCase(),
+              style: const TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: .6,
+                  color: Brand.inkMuted)),
+        );
+    Widget row((String, String, IconData, String, String, String) s) {
+      final n = _pathN(s.$1, s.$2);
+      final on = _step == s.$2;
+      final some = n > 0;
+      final know = s.$2 == 'claim_looked' && local > 0
+          ? '${s.$5} $local of them '
+              '${local == 1 ? 'was' : 'were'} seen from the space\'s own '
+              'area or country.'
+          : s.$5;
+      return Material(
+          type: MaterialType.transparency,
+          child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: some || on ? () => _showStep(on ? null : s.$2) : null,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+          decoration: BoxDecoration(
+              color: on ? Brand.logoTealTint : null,
+              borderRadius: BorderRadius.circular(8)),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            SizedBox(
+              width: 44,
+              child: Text('$n',
+                  textAlign: TextAlign.right,
+                  maxLines: 1,
+                  softWrap: false,
+                  style: TextStyle(
+                      fontSize: 19,
+                      height: 1.1,
+                      fontWeight: FontWeight.w800,
+                      color: some ? Brand.ink : Brand.inkMuted)),
+            ),
+            const SizedBox(width: 10),
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Icon(s.$3,
+                  size: 18, color: some ? Brand.logoNavy : Brand.inkMuted),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(s.$4,
+                        style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                            color: some ? Brand.ink : Brand.inkSecondary)),
+                    const SizedBox(height: 2),
+                    Text.rich(
                         TextSpan(children: [
-                          TextSpan(
-                              text: 'Showing: ${words.$1}. ',
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.w800)),
-                          TextSpan(text: words.$2),
+                          const TextSpan(
+                              text: 'We know: ',
+                              style: TextStyle(fontWeight: FontWeight.w700)),
+                          TextSpan(text: '$know '),
+                          const TextSpan(
+                              text: 'Next: ',
+                              style: TextStyle(fontWeight: FontWeight.w700)),
+                          TextSpan(text: s.$6),
                         ]),
-                        style: const TextStyle(fontSize: 12.5, height: 1.45)),
-                  ),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                        onPressed: () => _showStep(null),
-                        child: const Text('Back to the list')),
-                  ),
-                ]),
-          ),
+                        style: const TextStyle(
+                            fontSize: 12.5,
+                            height: 1.4,
+                            color: Brand.inkSecondary)),
+                  ]),
+            ),
+            if (some)
+              const Padding(
+                padding: EdgeInsets.only(left: 4, top: 2),
+                child: Icon(Icons.chevron_right,
+                    size: 20, color: Brand.inkMuted),
+              ),
+          ]),
+        ),
+      ));
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.fromLTRB(8, 12, 8, 10),
+      decoration: BoxDecoration(
+        color: Brand.surface,
+        border: Border.all(color: Brand.border),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Padding(
+          padding: EdgeInsets.fromLTRB(8, 0, 8, 2),
+          child: Text(
+              'Every way a space shows interest, the warmest first. The '
+              'number is how many spaces stand there now and still wait '
+              'for us. Tap a row to see them. Nothing is sent by itself.',
+              style: TextStyle(
+                  fontSize: 12.5, height: 1.4, color: Brand.inkSecondary)),
+        ),
+        band('Before they claim'),
+        for (final s in _signs)
+          if (s.$1 == 'reach') row(s),
+        band('After they claim'),
+        for (final s in _signs)
+          if (s.$1 == 'owners') row(s),
       ]),
     );
   }
@@ -1747,7 +2140,7 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
     ),
     (
       Icons.route_outlined,
-      'The path (the card at the top)',
+      'The path (the second card at the top)',
       'The same spaces as steps, with how many stand on each. First, '
           'reaching them: no address yet, ready to write to, written '
           'to, follow-up due, replied. Then, once they have claimed: '
@@ -1757,6 +2150,51 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
           'red lines under a step are the spaces stuck there.\n'
           'A claimed space\'s card says what its owner has done in the '
           'Owner account, and how often.'
+    ),
+    (
+      Icons.bolt_outlined,
+      'Signs of interest',
+      'The first of the three cards at the top. Every way a space shows '
+          'interest is a row: they wrote back, began the claim form, made '
+          'an account on the map, looked at the claim page, and, after '
+          'claiming, never came in, changed nothing, or looked at '
+          'Verified. Each row says how many spaces stand there now, what '
+          'we know about them, and the one thing to do. Tap a row to see '
+          'its spaces.\n'
+          'A space leaves a row when we write to it, or when "Done for '
+          'now" is pressed on its card.'
+    ),
+    (
+      Icons.table_rows_outlined,
+      'The whole picture',
+      'Every place we know of, counted once, from the top down: found '
+          'and not checked, candidates, in the queue, and live on the '
+          'site. The live ones are split into claimed, set up by us and '
+          'not claimed, and the unclaimed by how far we have got with '
+          'them. Each indented group adds up to the line above it, for '
+          'all places, coworking spaces and cafes.\n'
+          '"The path" counts lines in Outreach instead, and a space can '
+          'have two, so the two do not match one for one.'
+    ),
+    (
+      Icons.visibility_outlined,
+      'Looked at the claim page',
+      'When someone opens the claim page for a space and leaves without '
+          'claiming, the space shows under this step (and in "Next up"), '
+          'with when, how often and how far they got. Our own devices '
+          'are left out.\n'
+          'From its card: Reply (the follow-up template is picked for '
+          'you), WhatsApp (the number is yours to type, or looked up on '
+          'Google), or Done for now. Writing to them, or Done for now, '
+          'takes it off the step until the claim page is opened again.\n'
+          'We do not know the visitor was the owner, so the words ask '
+          '"if that was you".\n'
+          'The card also says roughly where the visitor was: the '
+          'space\'s own area, its country, or another country. That '
+          'comes from their internet connection and from the time zone '
+          'their device\'s clock is set to (a VPN moves the first, not '
+          'the second). It is a hint, never proof. The nearer looks '
+          'come first in the list.'
     ),
     (
       Icons.storefront_outlined,
@@ -1806,8 +2244,10 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
           'claim link and price fill in. Read it and change anything.\n'
           '"Send from here" goes at once from hello@nomadwise.io. Use it to '
           'answer someone who wrote to us.\n'
-          '"Open in mail app" makes a draft in Spark to send from your own '
-          'inbox. Use it for invitations, then press "I sent it".'
+          '"From my own inbox" gets the email ready to send by hand from '
+          'Spark: on a Mac the draft opens there; on Windows, where Spark '
+          'cannot be handed an email, you copy the address, subject and '
+          'text across. Use it for invitations, then press "I sent it".'
     ),
     (
       Icons.mark_email_read_outlined,
@@ -2061,6 +2501,14 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
                 style: const TextStyle(fontSize: 12.5, height: 1.4)),
           ),
         ],
+        if (c['claim_look'] is Map) ...[
+          const SizedBox(height: 10),
+          _lookBox(c, c['claim_look'] as Map),
+        ],
+        if (c['signup'] is Map) ...[
+          const SizedBox(height: 10),
+          _signupBox(c, c['signup'] as Map),
+        ],
         if (notes.isNotEmpty || follow.isNotEmpty) ...[
           const SizedBox(height: 8),
           Text(
@@ -2112,6 +2560,615 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
               },
               child: Text('History (${c['message_count'] ?? 0})')),
         ]),
+      ]),
+    );
+  }
+
+  // ------------------------------------------- looked at the claim page
+
+  static String _ago(DateTime at) {
+    final d = DateTime.now().difference(at);
+    if (d.inMinutes < 2) return 'just now';
+    if (d.inMinutes < 60) return '${d.inMinutes} minutes ago';
+    if (d.inHours < 24) return d.inHours == 1 ? 'an hour ago' : '${d.inHours} hours ago';
+    if (d.inDays == 1) return 'yesterday';
+    if (d.inDays < 14) return '${d.inDays} days ago';
+    return 'on ${DateFormat('d MMM').format(at)}';
+  }
+
+  static String _lasted(int secs) => secs < 90
+      ? '$secs seconds'
+      : '${(secs / 60).round()} minutes';
+
+  /// A visit to the claim page that came to nothing, in a sentence.
+  String _lookLine(Map l) {
+    int n(String k) => (l[k] as num?)?.toInt() ?? 0;
+    final at = DateTime.tryParse('${l['last_at'] ?? ''}')?.toLocal();
+    final opens = n('opens');
+    final visitors = n('visitors');
+    final secs = n('secs');
+    final far = switch (n('furthest')) {
+      3 => 'got as far as choosing a plan',
+      2 => 'began filling in their details',
+      1 => 'began adding a space',
+      _ => 'looked and left',
+    };
+    final from = '${l['from'] ?? ''}'.trim();
+    final ref = '${l['referrer'] ?? ''}'.trim();
+    final host = (Uri.tryParse(ref)?.host ?? '').replaceFirst('www.', '');
+    final device = '${l['device'] ?? ''}'.trim();
+    final parts = <String>[
+      'Someone opened the claim page'
+          '${at == null ? '' : ' ${_ago(at)}'}'
+          '${opens > 1 ? ' ($opens times${visitors > 1 ? ', $visitors visitors' : ''})' : ''}',
+      '$far${secs >= 5 ? ' after ${_lasted(secs)}' : ''}',
+      if (from.isNotEmpty)
+        'from nomadwise.io$from'
+      else if (host.isNotEmpty)
+        'from $host',
+      if (device == 'app')
+        'in the app'
+      else if (device.isNotEmpty)
+        'on a $device',
+    ];
+    return '${parts.join(', ')}. Still unclaimed.';
+  }
+
+  Widget _lookBox(Map<String, dynamic> c, Map l) {
+    final email = '${c['email'] ?? ''}'.trim().toLowerCase();
+    final formEmail = '${l['form_email'] ?? ''}'.trim().toLowerCase();
+    final formName = '${l['form_name'] ?? ''}'.trim();
+    // Roughly where the visitor was, against the space (migration
+    // 154): a hint at whether it was someone from the space.
+    final geo = l['geo'];
+    final where = geo is Map ? '${geo['words'] ?? ''}'.trim() : '';
+    final near = geo is Map ? '${geo['near'] ?? ''}' : '';
+    final (IconData whereIcon, Color whereColor) = switch (near) {
+      'near' => (Icons.place, Brand.success),
+      'country' => (Icons.public, Brand.goldTextDark),
+      'far' => (Icons.flight_takeoff, Brand.inkSecondary),
+      _ => (Icons.place_outlined, Brand.inkSecondary),
+    };
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(10, 8, 6, 2),
+      decoration: BoxDecoration(
+          color: Brand.goldTint, borderRadius: BorderRadius.circular(8)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(_lookLine(l),
+            style: const TextStyle(
+                fontSize: 12.5, height: 1.4, color: Brand.goldTextDark)),
+        if (where.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 4, right: 4),
+            child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(top: 1, right: 6),
+                    child: Icon(whereIcon, size: 16, color: whereColor),
+                  ),
+                  Expanded(
+                    child: Text(where,
+                        style: TextStyle(
+                            fontSize: 12.5,
+                            height: 1.4,
+                            fontWeight: FontWeight.w700,
+                            color: whereColor)),
+                  ),
+                ]),
+          ),
+        if (formEmail.isNotEmpty && formEmail != email)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+                'They began the claim form as '
+                '${formName.isEmpty ? '' : '$formName, '}$formEmail.',
+                style: const TextStyle(
+                    fontSize: 12.5, height: 1.4, color: Brand.goldTextDark)),
+          ),
+        Wrap(spacing: 2, children: [
+          TextButton.icon(
+              onPressed: () => _whatsApp(c),
+              icon: const Icon(Icons.chat_outlined, size: 16),
+              label: const Text('WhatsApp')),
+          if (formEmail.isNotEmpty && email.isEmpty)
+            TextButton(
+                onPressed: () async {
+                  try {
+                    await _supabase
+                        .outreachUpdate('${c['id']}', {'email': formEmail});
+                    if (!mounted) return;
+                    _snack('Address saved. Press Reply to write to them.');
+                    await _load();
+                  } catch (e) {
+                    if (mounted) _snack(_plain(e), bad: true);
+                  }
+                },
+                child: const Text('Use that address')),
+          TextButton(
+              onPressed: () async {
+                try {
+                  await _supabase.outreachLookDone('${c['id']}');
+                  if (!mounted) return;
+                  _snack('Left until their claim page is opened again.');
+                  await _load();
+                } catch (e) {
+                  if (mounted) _snack(_plain(e), bad: true);
+                }
+              },
+              child: const Text('Done for now')),
+        ]),
+      ]),
+    );
+  }
+
+  /// An account on the map that is plainly this space's (migration 154).
+  Widget _signupBox(Map<String, dynamic> c, Map u) {
+    final email = '${c['email'] ?? ''}'.trim().toLowerCase();
+    final theirs = '${u['email'] ?? ''}'.trim().toLowerCase();
+    final name = '${u['name'] ?? ''}'.trim();
+    final at = DateTime.tryParse('${u['at'] ?? ''}')?.toLocal();
+    final how = switch ('${u['how']}') {
+      'address' => 'It is the address on the space\'s own website.',
+      'website' => 'The address is at the space\'s own website.',
+      'domain' => 'The address\'s domain is the space\'s name.',
+      _ => 'The account carries the space\'s name.',
+    };
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(10, 8, 6, 2),
+      decoration: BoxDecoration(
+          color: Brand.logoTealTint, borderRadius: BorderRadius.circular(8)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(
+            'An account was made on Nomad Maps'
+            '${at == null ? '' : ' ${_ago(at)}'}'
+            '${name.isEmpty ? '' : ' as "$name"'}'
+            '${theirs.isEmpty ? '' : ' ($theirs)'}. $how '
+            'They have not claimed the page.',
+            style: const TextStyle(fontSize: 12.5, height: 1.4)),
+        Wrap(spacing: 2, children: [
+          if (theirs.isNotEmpty && theirs != email)
+            TextButton(
+                onPressed: () async {
+                  try {
+                    await _supabase
+                        .outreachUpdate('${c['id']}', {'email': theirs});
+                    if (!mounted) return;
+                    _snack('Address saved. Press Reply to write to them.');
+                    await _load();
+                  } catch (e) {
+                    if (mounted) _snack(_plain(e), bad: true);
+                  }
+                },
+                child: Text(email.isEmpty
+                    ? 'Use that address'
+                    : 'Use that address instead')),
+          TextButton(
+              onPressed: () async {
+                try {
+                  await _supabase.outreachSignupDone('${c['id']}');
+                  if (!mounted) return;
+                  _snack('Left until another such account is made.');
+                  await _load();
+                } catch (e) {
+                  if (mounted) _snack(_plain(e), bad: true);
+                }
+              },
+              child: const Text('Done for now')),
+        ]),
+      ]),
+    );
+  }
+
+  /// A WhatsApp message to the space: the number (ours, or Google's
+  /// for the place), the words from the template, WhatsApp opened with
+  /// both, and "I sent it" so the card moves on. Nothing is sent from
+  /// here.
+  Future<void> _whatsApp(Map<String, dynamic> c) async {
+    final id = '${c['id']}';
+    final placeId = '${c['place_id'] ?? ''}'.trim();
+    final number = TextEditingController(text: '${c['phone'] ?? ''}'.trim());
+    final text = TextEditingController();
+    bool busy = true;
+    bool opened = false;
+    bool started = false;
+    bool open = true;
+    String? problem;
+
+    Future<void> fill(void Function(void Function()) setD) async {
+      try {
+        final p = await _supabase.outreachPreview(id, 'claim_looked_wa');
+        text.text = '${p['body'] ?? ''}';
+      } catch (_) {
+        text.text = 'Hi, this is Jonathan from Nomadwise. Someone opened '
+            'the claim page for ${c['space_name'] ?? 'your space'} on our '
+            'site recently. If that was you, did you have any questions?';
+      }
+      if (open) setD(() => busy = false);
+    }
+
+    Uri? link() {
+      final raw = number.text.trim();
+      final digits = raw.replaceAll(RegExp(r'[^0-9]'), '');
+      // WhatsApp needs the country code, and only a "+" says it is
+      // there (Google's own numbers have it).
+      if (digits.length < 8 || !raw.startsWith('+')) return null;
+      return Uri.tryParse('https://wa.me/$digits'
+          '?text=${Uri.encodeComponent(text.text.trim())}');
+    }
+
+    final sent = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(builder: (ctx, setD) {
+        if (!started) {
+          started = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) => fill(setD));
+        }
+        return AlertDialog(
+          title: Text('WhatsApp to ${c['space_name'] ?? 'the space'}'),
+          content: SizedBox(
+            width: 520,
+            child: SingleChildScrollView(
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                TextField(
+                    controller: number,
+                    readOnly: opened,
+                    keyboardType: TextInputType.phone,
+                    decoration: const InputDecoration(
+                        labelText: 'Their number, with the country code',
+                        hintText: '+62 812 3456 7890',
+                        border: OutlineInputBorder())),
+                if (placeId.isNotEmpty && !opened)
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton(
+                        onPressed: busy
+                            ? null
+                            : () async {
+                                setD(() {
+                                  busy = true;
+                                  problem = null;
+                                });
+                                final live =
+                                    await _places.details(placeId);
+                                final ph = (live?.phone ?? '').trim();
+                                if (!open) return;
+                                setD(() {
+                                  busy = false;
+                                  if (live == null) {
+                                    problem = 'Google could not be reached '
+                                        'just now. Try again.';
+                                  } else if (ph.isEmpty) {
+                                    problem = 'Google has no phone number '
+                                        'for this place.';
+                                  } else {
+                                    number.text = ph;
+                                  }
+                                });
+                              },
+                        child: const Text('Look the number up on Google')),
+                  ),
+                const SizedBox(height: 10),
+                TextField(
+                    controller: text,
+                    readOnly: opened,
+                    minLines: 3,
+                    maxLines: 8,
+                    decoration: const InputDecoration(
+                        labelText: 'Message', border: OutlineInputBorder())),
+                if (problem != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(problem!,
+                        style:
+                            const TextStyle(color: Brand.red, fontSize: 13)),
+                  ),
+                const SizedBox(height: 8),
+                Text(
+                    opened
+                        ? 'WhatsApp should have opened with the message '
+                            'written. Send it there, then come back and '
+                            'press "I sent it" so the card moves on.'
+                        : 'This opens WhatsApp with the message written; '
+                            'nothing goes until you press send there. The '
+                            'number Google holds is the business line, '
+                            'which is often on WhatsApp but not always.',
+                    style: const TextStyle(
+                        fontSize: 12, height: 1.4, color: Brand.inkMuted)),
+              ]),
+            ),
+          ),
+          actions: [
+            TextButton(
+                onPressed: busy && opened
+                    ? null
+                    : () => Navigator.pop(ctx, false),
+                child: Text(opened ? 'Not sent' : 'Cancel')),
+            if (opened)
+              OutlinedButton(
+                  onPressed: () {
+                    final u = link();
+                    if (u != null) {
+                      launchUrl(u, mode: LaunchMode.externalApplication)
+                          .catchError((_) => false);
+                    }
+                  },
+                  child: const Text('Open WhatsApp again')),
+            FilledButton(
+              onPressed: busy
+                  ? null
+                  : opened
+                      ? () async {
+                          setD(() {
+                            busy = true;
+                            problem = null;
+                          });
+                          try {
+                            await _supabase.outreachLogWhatsApp(
+                                id, text.text.trim());
+                            if (open && ctx.mounted) Navigator.pop(ctx, true);
+                          } catch (e) {
+                            if (!open) return;
+                            setD(() {
+                              busy = false;
+                              problem = _plain(e);
+                            });
+                          }
+                        }
+                      : () async {
+                          final u = link();
+                          if (u == null) {
+                            setD(() => problem =
+                                'Start the number with + and the country '
+                                'code (+62 for Indonesia), with no 0 after '
+                                'it.');
+                            return;
+                          }
+                          if (text.text.trim().isEmpty) {
+                            setD(() => problem = 'The message is empty.');
+                            return;
+                          }
+                          // First, while the press still counts as
+                          // yours: a browser blocks a new tab opened
+                          // after a wait.
+                          launchUrl(u, mode: LaunchMode.externalApplication)
+                              .catchError((_) => false);
+                          setD(() {
+                            opened = true;
+                            problem = null;
+                          });
+                          // The number is kept on the line for next time.
+                          if (number.text.trim() !=
+                              '${c['phone'] ?? ''}'.trim()) {
+                            try {
+                              await _supabase.outreachUpdate(
+                                  id, {'phone': number.text.trim()});
+                            } catch (_) {}
+                          }
+                        },
+              child: Text(opened ? 'I sent it' : 'Open WhatsApp'),
+            ),
+          ],
+        );
+      }),
+    );
+    open = false;
+    if (!mounted) return;
+    if (sent == true) {
+      _snack('Recorded as sent on WhatsApp.');
+      await _load();
+    } else if (opened || number.text.trim() != '${c['phone'] ?? ''}'.trim()) {
+      // the number may have been saved: show it on the card
+      await _load();
+    }
+  }
+
+  // ---------------------------------------------------- the whole picture
+
+  static final _thousands = NumberFormat('#,##0', 'en_US');
+
+  /// Every place we know of, each counted once, top down (Jonathan,
+  /// 7 Oct 2026: "an overall top down reconciliation... a very clear
+  /// funnel or breakdown"). For all places, coworking spaces, and the
+  /// cafes and others.
+  Widget _wholeCard() {
+    final w = _whole;
+    if (w == null) return _noNumbers();
+    int? one(String k, String col) {
+      final m = w[k];
+      if (m is! Map) return col == 'all' ? 0 : null;
+      if (!m.containsKey(col)) return null;
+      return (m[col] as num?)?.toInt() ?? 0;
+    }
+
+    // The sum over several keys; null when one of them has no split.
+    int? sum(List<String> ks, String col) {
+      var t = 0;
+      for (final k in ks) {
+        final v = one(k, col);
+        if (v == null) {
+          // a key that is simply absent counts as nothing
+          if (w[k] is Map) return null;
+          continue;
+        }
+        t += v;
+      }
+      return t;
+    }
+
+    const unclaimed = [
+      'u_replied', 'u_waiting', 'u_ready', 'u_no_email', 'u_stepped', 'u_none',
+    ];
+    const openLive = ['claimed', 'ours', 'tests', ...unclaimed];
+    const live = ['live_closed', ...openLive];
+    const known = [
+      'found_unchecked', 'candidates', 'map_only', 'queue', ...live,
+    ];
+    final rows = <(int, String, List<String>, String?)>[
+      (0, 'Places we know of', known, null),
+      (1, 'Found by the nightly search, not checked yet',
+          ['found_unchecked'], null),
+      (1, 'Candidates waiting for your yes or no', ['candidates'], null),
+      (1, 'On the map only, no page', ['map_only'], null),
+      (1, 'Said yes to, page on its way', ['queue'], null),
+      (1, 'Live on nomadwise.io', live, null),
+      (2, 'Closed for good, page to retire', ['live_closed'], null),
+      (2, 'Open', openLive, null),
+      (3, 'Claimed by the owner', ['claimed'], 'claimed'),
+      (3, 'Set up by us, not claimed yet', ['ours'], 'ours'),
+      (3, 'Tests (one of us)', ['tests'], null),
+      (3, 'Not claimed', unclaimed, null),
+      (4, 'They replied', ['u_replied'], null),
+      (4, 'Written to, waiting', ['u_waiting'], null),
+      (4, 'Address known, not written to', ['u_ready'], null),
+      (4, 'No address yet', ['u_no_email'], null),
+      (4, 'Stepped off', ['u_stepped'], null),
+      (4, 'Not in Outreach yet', ['u_none'], null),
+      (0, 'Also in Outreach, not matched to a place yet',
+          ['off_wrote', 'off_prospect'], null),
+      (1, 'Wrote to us', ['off_wrote'], null),
+      (1, 'Prospects we found', ['off_prospect'], null),
+    ];
+    final look = one('look', 'all') ?? 0;
+    final retired = one('retired', 'all') ?? 0;
+
+    Widget cell(int? v, {bool strong = false}) => SizedBox(
+          width: 62,
+          child: Text(v == null ? '' : _thousands.format(v),
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: strong ? FontWeight.w800 : FontWeight.w500,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                  color: v == 0 ? Brand.inkMuted : Brand.ink)),
+        );
+    Widget head(String t) => SizedBox(
+          width: 62,
+          child: Text(t,
+              textAlign: TextAlign.right,
+              maxLines: 1,
+              softWrap: false,
+              overflow: TextOverflow.visible,
+              style: const TextStyle(
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: .3,
+                  color: Brand.inkMuted)),
+        );
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.fromLTRB(8, 10, 8, 12),
+      decoration: BoxDecoration(
+        color: Brand.surface,
+        border: Border.all(color: Brand.border),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const SizedBox(width: 8),
+          const Expanded(
+            child: Text('The whole picture',
+                style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w800)),
+          ),
+          TextButton(
+              onPressed: () => setState(() => _wholeOpen = !_wholeOpen),
+              child: Text(_wholeOpen ? 'Hide' : 'Show')),
+        ]),
+        if (_wholeOpen) ...[
+          const Padding(
+            padding: EdgeInsets.fromLTRB(8, 0, 8, 8),
+            child: Text(
+                'Every place we know of, each counted once, from the top '
+                'down. Each indented group adds up to the line above it.',
+                style: TextStyle(
+                    fontSize: 12.5, height: 1.4, color: Brand.inkSecondary)),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 0, 8, 2),
+            child: Row(children: [
+              const Expanded(child: SizedBox()),
+              head('ALL'),
+              head('COWORKING'),
+              head('CAFES'),
+            ]),
+          ),
+          for (final r in rows)
+            // a line of nothing says nothing, except the totals
+            if (r.$1 <= 2 || (sum(r.$3, 'all') ?? 0) > 0)
+              InkWell(
+                onTap: r.$4 == null
+                    ? null
+                    : () => _showStep(_step == r.$4 ? null : r.$4),
+                child: Container(
+                  margin: EdgeInsets.only(top: r.$1 == 0 ? 6 : 0),
+                  padding: EdgeInsets.fromLTRB(
+                      8.0 + 10 * r.$1, 4, 8, 4),
+                  decoration: r.$1 == 0
+                      ? const BoxDecoration(
+                          border: Border(
+                              top: BorderSide(color: Brand.border)))
+                      : null,
+                  child: Row(children: [
+                    Expanded(
+                      child: Text(r.$2,
+                          style: TextStyle(
+                              fontSize: 13,
+                              height: 1.3,
+                              fontWeight: r.$1 <= 1
+                                  ? FontWeight.w800
+                                  : r.$1 == 2 || r.$3.length > 1
+                                      ? FontWeight.w700
+                                      : FontWeight.w500,
+                              decoration: r.$4 == null
+                                  ? null
+                                  : TextDecoration.underline,
+                              color: r.$1 >= 4
+                                  ? Brand.inkSecondary
+                                  : Brand.ink)),
+                    ),
+                    cell(sum(r.$3, 'all'), strong: r.$1 <= 1),
+                    cell(sum(r.$3, 'cw'), strong: r.$1 <= 1),
+                    cell(sum(r.$3, 'cafe'), strong: r.$1 <= 1),
+                  ]),
+                ),
+              ),
+          if (look > 0)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 10, 8, 0),
+              child: InkWell(
+                onTap: () => _showStep(
+                    _step == 'claim_looked' ? null : 'claim_looked'),
+                child: Text(
+                    look == 1
+                        ? '1 unclaimed space had its claim page opened '
+                            'and is still to follow up'
+                        : '$look unclaimed spaces had their claim page '
+                            'opened and are still to follow up',
+                    style: const TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                        color: Brand.goldTextDark,
+                        decoration: TextDecoration.underline)),
+              ),
+            ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 10, 8, 0),
+            child: Text(
+                'Candidates and places not checked yet are not split by '
+                'kind, so the top line shows a total only. "The path" '
+                'counts lines in Outreach, not places: a space can '
+                'have two lines (its own, and a person who wrote to us), '
+                'and places with no live page are in it too, so its '
+                'numbers do not match these one for one.'
+                '${retired > 0 ? ' $retired retired ${retired == 1 ? 'page is' : 'pages are'} left out.' : ''}',
+                style: const TextStyle(
+                    fontSize: 12, height: 1.4, color: Brand.inkMuted)),
+          ),
+        ],
       ]),
     );
   }
@@ -2209,7 +3266,14 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
                               label: const Text('How it works')),
                         ]),
                         const SizedBox(height: 8),
-                        _pathCard(),
+                        _viewSwitch(),
+                        if (_view == 'signs')
+                          _signsCard()
+                        else if (_view == 'path')
+                          _pathCard()
+                        else
+                          _wholeCard(),
+                        _showingBox(),
                         TextField(
                           controller: _search,
                           onChanged: (_) => setState(() {}),

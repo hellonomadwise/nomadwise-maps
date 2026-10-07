@@ -192,6 +192,36 @@ def sb_all(path):
         offset += 1000
 
 
+def _has_location_columns():
+    """Migration 155 adds each listed place's Region and Location (as
+    Webflow ids) and Google's names for its area to the venue. A run
+    that starts before that migration is applied (an upload starts the
+    build and this script side by side) carries on without them."""
+    for attempt in range(2):
+        try:
+            sb('venues?select=webflow_region_id,webflow_location_id,g_area'
+               '&limit=1')
+            return True
+        except Exception as e:  # noqa: BLE001
+            # "column does not exist" is the answer; anything else
+            # (a hiccup) gets one more try.
+            if 'does not exist' in str(e) or '42703' in str(e):
+                return False
+            time.sleep(2)
+    return False
+
+
+HAS_LOCATION_COLUMNS = _has_location_columns()
+
+
+def _one_ref(x):
+    """A Webflow reference field as one id: it comes as a string, or
+    as a list for a multi-reference."""
+    if isinstance(x, list):
+        x = x[0] if x else None
+    return x if isinstance(x, str) and x else None
+
+
 # ---------------------------------------------------------- field maps
 def yes(v):
     """Webflow stores facts as words: 'Aircon' / 'Yes' mean true,
@@ -401,6 +431,11 @@ if not PUSH_ONLY:
                         'website_synced_at': now,
                         'webflow_verified': bool(f.get('premium-member'))})
             row.update(editorial_fields(f, venue['type']))
+            if HAS_LOCATION_COLUMNS:
+                # Where the site files it (migration 155): the map of
+                # nearby spaces and the Location verdict read these.
+                row['webflow_region_id'] = _one_ref(f.get('region-2'))
+                row['webflow_location_id'] = _one_ref(f.get('locations'))
             wifi = num(f.get('average-internet-speed'))
             if venue['id'] not in tested and wifi and wifi > 0:
                 row['wifi_speed_mbps'] = wifi
@@ -435,6 +470,9 @@ if not PUSH_ONLY:
             'source': SOURCE_TAG,
         })
         row.update(editorial_fields(f))
+        if HAS_LOCATION_COLUMNS:
+            row['webflow_region_id'] = _one_ref(f.get('region-2'))
+            row['webflow_location_id'] = _one_ref(f.get('locations'))
         wifi = num(f.get('average-internet-speed'))
         if wifi and wifi > 0:
             row['wifi_speed_mbps'] = wifi
@@ -925,7 +963,8 @@ try:
         'call_room,monitor,office_chairs,access_24h,'
         'website_approved_at,website_region_override,website_slug_override,'
         'website_location_override,website_prepared,country,website_photos,'
-        'website_new_region,website_new_location')
+        'website_new_region,website_new_location'
+        + (',g_area' if HAS_LOCATION_COLUMNS else ''))
 except Exception as e:  # noqa: BLE001
     report['errors'].append(f'queued read: {e}')
     queued = []
@@ -1702,12 +1741,30 @@ def sync_listing(v):
     verified = v.get('listing_tier') == 'verified'
     email = (v.get('listing_enquiry_email') or '').strip() or DEFAULT_ENQUIRY_EMAIL
     item = wf(f'/v2/collections/{COLLECTION_ID}/items/{cms}') or {}
-    fields = {
-        'premium-member': verified,
-        'booking-engine': verified and ENQUIRIES_LIVE,
-        'booking-model': '1' if verified else '0',
-        'coworking-space-email-3': email if verified else DEFAULT_ENQUIRY_EMAIL,
-    }
+    fd = item.get('fieldData') or {}
+    # The old booking engine (a deposit through Stripe) still runs on
+    # a few pages and reads the same three fields under their old
+    # meaning: there "booking-model" holds its model ("Deposit"), not a
+    # rank, and the email is where its bookings go. Seen 7 Oct 2026
+    # with Workspace 6, the day its owner was sent the claim link: a
+    # free claim would have switched the engine off on the page and
+    # sent its bookings back to hello@. So a page that is not Verified
+    # and has the old engine on keeps those three fields as they are.
+    # (Verified takes them over, as before.)
+    old_model = str(fd.get('booking-model') or '').strip()
+    old_engine = (not verified and bool(fd.get('booking-engine'))
+                  and old_model not in ('', '0', '1'))
+    fields = {'premium-member': verified}
+    if old_engine:
+        report.setdefault('old_booking_engine_kept', []).append(
+            v.get('name'))
+    else:
+        fields.update({
+            'booking-engine': verified and ENQUIRIES_LIVE,
+            'booking-model': '1' if verified else '0',
+            'coworking-space-email-3': (email if verified
+                                        else DEFAULT_ENQUIRY_EMAIL),
+        })
     fields.update(owner_fields(v, item))
     fields = shape_fields(fields)
     wf_write(f'/v2/collections/{COLLECTION_ID}/items/{cms}', 'PATCH',
@@ -1743,7 +1800,9 @@ def sync_listing(v):
         wf_write(f'/v2/collections/{COLLECTION_ID}/items/publish', 'POST',
                  {'itemIds': [cms]})
         time.sleep(0.6)
-    return {'verified': verified, 'email': fields['coworking-space-email-3'],
+    return {'verified': verified,
+            'email': (fields.get('coworking-space-email-3')
+                      or fd.get('coworking-space-email-3')),
             'republished': bool(live)}
 
 
@@ -2308,12 +2367,14 @@ if loc_rows:
         report['errors'].append(f'locations copy: {e}')
 
 if queued:
-    loc_by_label = {}
+    # Every Location of a name (Kuta is on Bali, and one day on Lombok
+    # too): which of them a space can be in is decided by its Region.
+    locs_by_label = {}
     for loc in locations:
         if loc.get('isArchived') or loc.get('isDraft'):
             continue
-        loc_by_label.setdefault(
-            _norm(loc['fieldData'].get('name-label')), loc)
+        locs_by_label.setdefault(
+            _norm(loc['fieldData'].get('name-label')), []).append(loc)
     region_by_id = {r['id']: r for r in regions}
     region_by_label = {}
     for r in regions:
@@ -2331,10 +2392,30 @@ if queued:
             embed_key = m.group(1)
             break
 
-    def google_names(pid):
-        """English place names for a venue, most specific first:
-        neighbourhood, district, town, county. Empty if no key."""
-        if not (PLACES_KEY and pid):
+    AREA_TYPES = ['neighborhood', 'sublocality_level_1', 'sublocality',
+                  'locality', 'postal_town',
+                  'administrative_area_level_4',
+                  'administrative_area_level_3',
+                  'administrative_area_level_2',
+                  'administrative_area_level_1']
+    area_seen = {}
+
+    def google_area(v):
+        """Google's English names for where a venue is, most exact
+        first: [{'t': kind of area, 'n': name}]. Asked once per space
+        and kept on the venue (g_area, migration 155): until then this
+        was asked again on every run, every ten minutes, for as long as
+        a space sat in the queue."""
+        pid = v.get('google_place_id')
+        if not pid:
+            return []
+        if pid in area_seen:
+            return area_seen[pid]
+        held = v.get('g_area')
+        if isinstance(held, list) and held:
+            area_seen[pid] = held
+            return held
+        if not PLACES_KEY:
             return []
         try:
             d = _call(f'https://places.googleapis.com/v1/places/{pid}'
@@ -2342,19 +2423,115 @@ if queued:
                       {'X-Goog-Api-Key': PLACES_KEY,
                        'X-Goog-FieldMask': 'addressComponents'})
         except Exception:  # noqa: BLE001
+            area_seen[pid] = []   # not again this run; next run asks anew
             return []
         comps = (d or {}).get('addressComponents') or []
-        order = ['neighborhood', 'sublocality_level_1', 'sublocality',
-                 'locality', 'postal_town', 'administrative_area_level_2',
-                 'administrative_area_level_1']
         out = []
-        for wanted in order:
+        for wanted in AREA_TYPES:
             for c in comps:
                 if wanted in (c.get('types') or []):
                     for name in (c.get('longText'), c.get('shortText')):
-                        if name and name not in out:
-                            out.append(name)
+                        if name and not any(x['n'] == name for x in out):
+                            out.append({'t': wanted, 'n': name})
+        area_seen[pid] = out
+        if out and HAS_LOCATION_COLUMNS:
+            try:
+                sb(f"venues?id=eq.{v['id']}", method='PATCH',
+                   body={'g_area': out}, prefer='return=minimal')
+            except Exception as e:  # noqa: BLE001
+                report.setdefault('area_save_errors', []).append(
+                    f"{v.get('name')}: {str(e)[:120]}")
         return out
+
+    def google_names(v):
+        """The same as plain names, most exact first: neighbourhood,
+        district, town, county. Empty if no key."""
+        return [x['n'] for x in google_area(v)
+                if isinstance(x, dict) and x.get('n')]
+
+    LOCATION_REGION_KM = 80
+    loc_notes = {}   # venue id -> the verdict on its Location, for the card
+
+    def region_of_loc(loc):
+        lf = loc.get('fieldData') or {}
+        return (region_by_id.get(lf.get('region-3')) or
+                region_by_id.get((lf.get('region-2') or [None])[0]))
+
+    def region_fits(v, region, names):
+        """Can the venue be in this Region? Its centre is within reach,
+        or one of the venue's own area names is the Region's name (a
+        long island, or a Region or venue with no coordinates). This is
+        what stops Kuta on Lombok being filed under Kuta on Bali."""
+        rf = region.get('fieldData') or {}
+        lat, lng = v.get('lat'), v.get('lng')
+        if (lat is not None and lng is not None and
+                rf.get('latitude') is not None and
+                rf.get('longitude') is not None and
+                _km(lat, lng, rf['latitude'],
+                    rf['longitude']) <= LOCATION_REGION_KM):
+            return True
+        return _norm(rf.get('name-label')) in {_norm(n) for n in names}
+
+    def decide_location(v, region, names, founder_region=False):
+        """The Location, only when it is almost certain (migration
+        155): one of the area's names is a Location of this Region AND
+        the nearest listed places agree. One sign alone is a suggestion
+        for the founder, kept for the card. The database decides, so
+        the app's map shows the same reasoning."""
+        # Only Locations the site still has (not archived, not a draft).
+        live = {loc['id']: loc for loc in locations
+                if not loc.get('isArchived') and not loc.get('isDraft')}
+        old = v.get('website_prepared') or {}
+        shown = (old.get('region_id') == region['id'] and
+                 old.get('error') in (None, '', 'needs_photos',
+                                      'create_failed'))
+        kept = live.get(old.get('location_id')) if shown else None
+        if kept is not None and region_of_loc(kept) is not region:
+            kept = None
+        # What an approved space was shown is what is made: the same
+        # Location, or none.
+        if v.get('website_approved_at') and shown:
+            return kept
+        if not HAS_LOCATION_COLUMNS:
+            # The database is from before migration 155 (this run began
+            # before the build applied it). As before: none under a
+            # Region the founder picked; otherwise the first name that
+            # is a Location, now only a Location of this Region.
+            if founder_region:
+                return None
+            for cand in names:
+                for loc in locs_by_label.get(_norm(cand), []):
+                    if region_of_loc(loc) is region:
+                        return loc
+            return None
+        # Most exact first: the venue's own neighbourhood, Google's
+        # names, then the town.
+        ordered = [n for n in ([v.get('neighbourhood')] + google_names(v) +
+                               [v.get('city')]) if n]
+        got = None
+        try:
+            got = sb('rpc/location_verdict', method='POST',
+                     body={'p_venue': v['id'], 'p_region': region['id'],
+                           'p_names': ordered})
+        except Exception as e:  # noqa: BLE001
+            report.setdefault('location_verdict_errors', []).append(
+                f"{v.get('name')}: {str(e)[:120]}")
+        if not isinstance(got, dict) or not got.get('verdict'):
+            # The database did not answer this time: never a guess.
+            # The card keeps the Location it showed, if it showed one.
+            return kept
+        if got.get('location_id') and got['location_id'] not in live:
+            # It names a Location the site no longer has: say nothing.
+            return None
+        loc_notes[v['id']] = got
+        if got.get('verdict') == 'assign' and got.get('location_id') in live:
+            report.setdefault('location_assigned', []).append(
+                f"{v.get('name')}: {got.get('location')}")
+            return live[got['location_id']]
+        if got.get('verdict') == 'suggest':
+            report.setdefault('location_suggested', []).append(
+                f"{v.get('name')}: {got.get('location')}")
+        return None
 
     def resolve_place(v):
         """(region, location or None) for a venue. A Location is a
@@ -2411,29 +2588,35 @@ if queued:
                 region_by_id.get((lf.get('region-2') or [None])[0])
             if region:
                 return region, loc
-        if chosen:
-            region = (region_by_id.get(chosen) or
-                      region_by_label.get(_norm(chosen)))
-            if region:
-                return region, None
         no_location = chosen_loc == 'none'
         # The app's own names first, then Google's English names
         # (the app may hold a local-language city like Kobenhavn).
         names = [v.get('neighbourhood'), v.get('city')]
-        names += google_names(v.get('google_place_id'))
+        names += google_names(v)
         names = [n for n in names if n]
+        if chosen:
+            region = (region_by_id.get(chosen) or
+                      region_by_label.get(_norm(chosen)))
+            if region:
+                # The founder's Region. A Location inside it is still
+                # added when it is almost certain (never a guess).
+                return region, (None if no_location
+                                else decide_location(v, region, names,
+                                                     founder_region=True))
+        # A Location's name points to its Region, as before, but only
+        # when the venue can be in that Region; of several Locations
+        # of one name, the first that fits. The Location itself is
+        # decided afterwards, and only when it is almost certain.
         for cand in ([] if no_location else names):
-            loc = loc_by_label.get(_norm(cand))
-            if loc:
-                lf = loc['fieldData']
-                region = (region_by_id.get(lf.get('region-3')) or
-                          region_by_id.get((lf.get('region-2') or [None])[0]))
-                if region:
-                    return region, loc
+            for loc in locs_by_label.get(_norm(cand), []):
+                region = region_of_loc(loc)
+                if region and region_fits(v, region, names):
+                    return region, decide_location(v, region, names)
         for cand in names:
             region = region_by_label.get(_norm(cand))
             if region:
-                return region, None
+                return region, (None if no_location
+                                else decide_location(v, region, names))
         # Names failed (a local spelling, say): the nearest Region on
         # the map wins, if it is close enough to be the same city.
         lat, lng = v.get('lat'), v.get('lng')
@@ -2449,7 +2632,8 @@ if queued:
                 if best is None or d < best_km:
                     best, best_km = r, d
             if best is not None and best_km <= NEAREST_REGION_KM:
-                return best, None
+                return best, (None if no_location
+                              else decide_location(v, best, names))
         return None, None
 
     def country_of(v, country):
@@ -2530,10 +2714,13 @@ if queued:
             wf_write(f'/v2/collections/{COLLECTION_ID}/items/{new_id}',
                      'PATCH', {'fieldData': {'image-reference': img_id}})
 
-        sb(f"venues?id=eq.{v['id']}", method='PATCH',
-           body={'webflow_cms_id': new_id, 'webflow_slug': slug_,
-                 'website_status': 'published_hidden',
-                 'website_synced_at': now},
+        made_row = {'webflow_cms_id': new_id, 'webflow_slug': slug_,
+                    'website_status': 'published_hidden',
+                    'website_synced_at': now}
+        if HAS_LOCATION_COLUMNS:
+            made_row['webflow_region_id'] = _one_ref(fields.get('region-2'))
+            made_row['webflow_location_id'] = _one_ref(fields.get('locations'))
+        sb(f"venues?id=eq.{v['id']}", method='PATCH', body=made_row,
            prefer='return=minimal')
         report['created_on_site'].append(
             {'name': v['name'], 'slug': slug_, 'photos': len(photos),
@@ -2563,7 +2750,7 @@ if queued:
                 {'name': v['name'], 'why': f'awaiting {what}'})
             continue
         if not region:
-            names = google_names(v.get('google_place_id'))
+            names = google_names(v)
             save_prepared(v, {'error': 'needs_region',
                               'city': v.get('city'),
                               'neighbourhood': v.get('neighbourhood'),
@@ -2609,6 +2796,13 @@ if queued:
         prepared = preview_of(v, fields, region, loc, country_name, kind,
                               len(photos))
         prepared['photo_urls'] = photos
+        # Why this Location, or which one is suggested (migration 155).
+        note = loc_notes.get(v['id'])
+        if note and not v.get('website_location_override'):
+            prepared['location_note'] = {
+                k: note.get(k) for k in ('verdict', 'location_id',
+                                         'location', 'why', 'alt')
+                if note.get(k) is not None}
 
         if v.get('website_approved_at'):
             # Approved in the app: what the founder saw is what is

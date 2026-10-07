@@ -2965,3 +2965,371 @@ Checked: on the test copies with the real admin check in place (the
 functions refuse when called as nobody, the job counts, and they
 refuse again afterwards); the post's shape. Not run against the real
 PostHog from here: the first event is looked for after the upload.
+
+## 7 Oct 2026: sending from our own inbox works with Spark on Windows
+
+Jonathan, on the Reply box in Outreach: "this open in mail app didn't
+do anything. we as a business use Spark to manage our emails". His
+computer runs Windows.
+
+Why: the button fired an email link (mailto) and trusted the
+computer's default mail app to be Spark. Readdle's help page says
+Spark cannot be set as the default email app on Windows, so nothing
+could take the link. The box then said the draft was open when it was
+not.
+
+Changed (`admin_outreach_screen.dart`, no database change): the button
+is now "From my own inbox". On Windows no link is fired: the box
+offers Copy the address, Copy the subject and Copy the email, to paste
+into a new email in Spark, and still asks "I sent it" afterwards. On
+other computers the draft opens in the mail app as before, with the
+same three copy buttons and a "try again" for when nothing opened.
+
+Not done: a one-press draft on Windows. That would need the mailboxes'
+own web page (a Gmail compose link, if the mailboxes are Google's) or
+sending through the mail service itself.
+
+Checked: one independent review acting as the compiler (no compile
+errors found; its findings applied). Not compiled here, and not seen
+on a screen.
+
+## 7 Oct 2026: "Next up" stands beside the list on a wide screen, and is smaller on a phone
+
+Jonathan, with a screenshot of the control centre on his laptop and a
+green ring around the empty space to the right of the list: "can this
+be moved on desktop and made smaller on mobile... if it can be moved
+to the side, where the green mark is, and then for the central things
+to move up".
+
+Changed (`website_screen.dart`, no database change):
+
+- Wide screen (1,066 or more beside the menu): the card has its own
+  column, 300 wide, to the right of the list. The To do line, the
+  three sections and the list start at the top. What comes after the
+  job is a short list under "THEN". Beside the list the card does not
+  fold to one line when a job is opened: it is in nobody's way.
+- In between (a narrower laptop window): as before, the card above
+  the list.
+- Phone: the same card, smaller. Less space around it, a smaller
+  title, the explanation cut to two lines, smaller buttons ("Skip"
+  for "Skip for now"), and no "Then" line. It still folds to one line
+  when the list is scrolled.
+
+Checked: one independent review acting as the compiler and reading
+the layout (no errors found; its findings applied: one shape of tree
+for both widths, so widening the window does not start the list
+afresh). Not compiled here, and not seen on a screen: expect a round
+of tweaks to sizes.
+
+## 7 Oct 2026: the numbers beside the menu are green
+
+Jonathan, on the left menu: "these should be green", then "the
+numbers". The count badges were the red of the item you are on, which
+reads as something wrong. They are green now (`website_screen.dart`);
+the item you are on stays red.
+
+## 7 Oct 2026: who looked at claiming, to follow up
+
+Jonathan, with the phone notice "Claim page opened: Biliq Seminyak":
+"a bit like a checkout cart where they got to that point, but they
+didn't do anything. And then I would like to be able to reach out...
+send them a message to their WhatsApp or send them an email saying,
+hey, I saw that you checked out the claim page. Did you have any
+questions?"
+
+Built (`migration153_claim_lookers_and_whole_picture.sql`,
+`admin_outreach_screen.dart`, `website_screen.dart`,
+`supabase_service.dart`):
+
+- The claim page already records every visit (the `claim_*` events in
+  `app_events`; our own devices are left out). `claim_lookers()` reads
+  them per space for the last 60 days: when last, how often, by how
+  many visitors, how far they got, for how long, from where.
+- A space is "to follow up" when it is unclaimed, no claim of its is
+  through or waiting for us, and its claim page was opened after we
+  last wrote to it and after any "Done for now".
+- In Outreach: a step on the path, "Looked at the claim page"; a gold
+  line on the space's card saying what happened; Reply picks the new
+  follow-up template; a WhatsApp button; "Done for now". In the
+  control centre: a job in "Next up" for looks of the last two weeks,
+  counted in the number beside Outreach.
+- A space gets its line in Outreach the moment its claim page is
+  opened (the ping makes it), and the spaces of the last 60 days got
+  theirs when the migration ran.
+- An address typed into a claim form left unfinished is shown on the
+  card, with "Use that address" when we hold none.
+- WhatsApp: the box takes the number (kept on the line; "Look the
+  number up on Google" asks Google once for that place), opens
+  WhatsApp with the message written, and "I sent it" records it and
+  moves the card to Contacted. Nothing is sent from here.
+- Two templates, an email and a WhatsApp message. The visitor is not
+  known to be the owner (it can be a customer or anyone), so the words
+  say "if that was you". First drafts: they are changed under
+  Templates.
+
+Nothing is sent by itself, and whether these go out at all is
+Jonathan's and Leonie's call, as for every outreach email.
+
+For later (his idea the same day, with an example from another site):
+an email in a sequence to owners who claimed and were approved but
+have not signed in, after 7 days or a month. Not built.
+
+Checked: the migration on the test copy, applied twice, with made-up
+visits (a look and nothing more, a form begun, our own device, a
+space claimed since, a claim waiting for us, written to since, "Done
+for now" and a new look after it, a WhatsApp recorded, a space with
+two lines, a space picked on the bare claim page, a name that is not
+on the site). Two independent reviews, of the database change and of
+the screens (no compile errors and nothing that would fail found;
+their findings applied: one card per space, two spaces with one name,
+a line only for a space on the site, the visits read quickly, the
+table fitting a phone, the WhatsApp words kept out of the email
+templates). Not compiled here, and not seen on a screen.
+
+## 7 Oct 2026: the whole picture, top down, in Outreach
+
+Jonathan: "I don't know what the 875 places with no address yet, and
+87 ready to write to relate to. Is this out of how many total
+spaces... I would like to see an overall top down reconciliation... a
+very clear funnel or breakdown relative to the TAM kind of thing".
+
+Why the numbers were hard to place: "The path" counts lines in
+Outreach. A line is made for every unclaimed live page, and for
+everyone who wrote to us, so a space can have two, and people with no
+page are in it too.
+
+Built (`admin_outreach_whole()` in the same migration, and a card
+above the path): every place we know of, each counted once, top down,
+in three columns (all, coworking, cafes). Found by the nightly search
+and not checked; candidates; on the map only; in the queue; live. The
+live ones: closed for good, or open. The open ones: claimed, set up by
+us, tests, not claimed. The unclaimed by how far Outreach has got with
+the space (its furthest line): replied, written to, address known, no
+address, stepped off, not in Outreach yet. Then, apart, the lines for
+places with no live page. Each indented group adds up to the line
+above it.
+
+Not the market: "places we know of" is what our own searches have
+found in the cities we cover, not every coworking space and cafe
+there is. Candidates and unchecked places are not split by kind.
+
+Checked: on the test copy the rows add up to the number of places, and
+the columns to the total.
+
+## 7 Oct 2026: signs of interest, in one place
+
+Jonathan, looking at the notices on his phone (a claim page opened
+from a listing; "Circles House just created an account", a business
+making an ordinary account on the map, which is not a claim): "I'm
+just thinking about these different routes... and how we can create a
+system that either captures or engages with them... within the admin
+area, in a super clear way, look at these scenarios and go, right, how
+do we address this?"
+
+Built (`migration154_signs_of_interest.sql`,
+`admin_outreach_screen.dart`, `website_screen.dart`,
+`supabase_service.dart`):
+
+- Outreach has three cards at the top, one showing at a time: "Signs
+  of interest" (first), "The path", "The whole picture". Whatever
+  step the list is showing is said in a box under them.
+- "Signs of interest" is every such scenario as a row, the warmest
+  first, with how many spaces stand there now, what we know, and the
+  one thing to do. Before they claim: they wrote back; began the claim
+  form and stopped; made an account on the map and did not claim;
+  looked at the claim page; a follow-up date has come. After they
+  claim: never been in their Owner account; been in and changed
+  nothing; looked at Verified and did not pay; set up by us. A row
+  with nobody on it stays, greyed, so the scenario is still in view.
+- New: accounts on the map that are plainly a listed, unclaimed
+  space's (`signup_space_matches()`, the last 120 days). It matches on
+  the address on the space's own website, an address at the website's
+  own domain, the space's name as the account's name (two words or
+  more, so "Charlie" the person is not Charlie's the cafe), or the
+  space's name as the address's domain. A public mail domain alone
+  never matches. Our own accounts and people who have claimed anything
+  are left out. The card says how it matched and offers "Use that
+  address"; Reply picks a new template; "Done for now" sets it aside.
+  A website or a name shared by more than three spaces (a chain) does
+  not match, nor does a university's or a government's website.
+- When a new account matches a space the phone hears of it in a notice
+  of its own within the half hour (`signup_match_sync()`, which also
+  makes the space's line in Outreach). The notice for the account
+  itself (migration 25) is left exactly as it was, on purpose: making
+  an account must never wait on the matching, and a first version that
+  put the hint into that notice could have slowed a sign-up down.
+- New: "began the claim form and stopped" as its own row (the spaces
+  among those who looked at the claim page whose form has an address
+  typed into it). They already get one reminder by itself the next
+  morning (`nudge_started_claims`, since migration 81).
+- "Next up" has a job for such accounts of the last two weeks, and
+  they count in the number beside Outreach.
+
+Nothing is sent by itself. Writing to an address someone gave to make
+an account, about their own space's page, is Jonathan's and Leonie's
+call each time.
+
+Not built: the reminder that goes by itself to owners who claimed and
+never came in (his idea of the same day).
+
+Checked: the migration on the test copy with made-up accounts (the
+space's name on a public mail address, a one-word name that is also a
+person's, the website's own domain, the address on the website, a
+claimed space, a space with a claim waiting, an account older than the
+window, a "website" that is a social profile, a university's website,
+a chain of four, our own test address, a new account bringing its
+notice once and not twice), and with a thousand spaces and two
+thousand accounts (the matching takes well under a tenth of a second).
+Not compiled here, and not seen on a screen.
+
+## 7 Oct 2026: where a claim page visitor was (migration 154)
+
+Jonathan, on the "Claim page opened" notices: "if they are in Chiang
+Mai and looking in Chiang Mai, it's most likely... the actual owner.
+Whereas if someone in Canada is looking at Yellow Coworking, then it's
+less likely. It doesn't always be the case... I would like the
+information to take account of that." And: "it's also plausible that
+the user could be using a VPN, so it's never totally accurate."
+
+- The claim page tells `claim_opened()` roughly where the visitor is:
+  the country and town of the internet connection (the same lookup the
+  app already makes once per visit to tell data centres apart), and
+  the time zone the device's clock is set to. A VPN moves the first
+  and not the second, so the two together say more than either. No
+  address, and no position beyond the nearest tenth of a degree, which
+  is used to measure the distance and then dropped.
+- It is judged against the space (`claim_geo_judge`): "near" (the
+  connection is within 60 km, or in a town the space's address names),
+  "country" (the connection, or failing that the clock, is in the
+  space's country), "far" (another country), or not known.
+- The phone notice says it, in its title too ("Claim page opened, from
+  nearby", "same country", "from abroad"), and says when the
+  connection is a VPN or a data centre, and when the clock tells
+  another story than the connection.
+- It is kept per visit (`claim_visit_geo`: country, town, distance,
+  clock's country; our own devices are left out when read, and a
+  device marked internal keeps nothing). The look's card in Outreach
+  shows the nearest of the visits of the two weeks up to the latest
+  one, and the nearer looks come first in the list. "Next up" names
+  the nearest one first. "Signs of interest" says how many of the
+  looks were from the space's own area or country.
+- The visits since 28 Sep were filled in from the analytics
+  (connection only), so the looks already listed say where they were
+  from. The ones from Denmark, which are ours, were left out.
+- An app from before this (four things sent, not five) still works,
+  and the server falls back to the country it saw itself.
+
+It is a hint, never proof, and every sentence it writes says "likely"
+or "less likely". Singapore in particular stands for a lot of South
+East Asian traffic.
+
+Also in this migration, from the checks of the Signs of interest
+screen: the number beside Outreach counts a space once when it both
+looked and made an account; the matching was rewritten so it does not
+compare every account with every space; a template that is missing
+falls back in turn (account, look, plain reply).
+
+Not built: a place for a visit that began without a space (the claim
+page opened from "List my space", the space picked on the page). The
+notice says where the visitor was; the look's card does not.
+
+Checked: on the test copy with made-up visits (near by distance, near
+by town name, a VPN in Singapore with the clock on Bali time, another
+country, same country with the clock elsewhere, only the clock known,
+a data centre, no place at all, an old app, rubbish sent in, our own
+device). Not compiled here, and not seen on a screen. Not checked: that
+Supabase passes the country it saw (`cf-ipcountry`); if it does not,
+the only loss is the fallback for old apps.
+
+## 7 Oct 2026: a Location only when it is almost certain, and the map (migration 155)
+
+Jonathan, on the review card of a space (Terra Cafe, Munich): "I want
+to make a system on how to assign a location... it should consider
+the existing locations within nomadwise, and go about a systematic
+way of assigning a new one, but only if it's almost certain. It
+should be something that most people would consider it to be. It also
+varies depending on whether it's a city, or island, or rural
+location." His words for the levels: Country, Region, Location ("the
+City word isn't exactly accurate... Bali is a region and Uluwatu is a
+Location"). And: "I would like to see potential other spaces nearby on
+a map, because if a previous space has been assigned a location, it
+makes it easier to decide... (but not always)."
+
+- Before: the website sync gave a space the first Location whose name
+  matched any of its area names, anywhere in the world, and the card
+  called it "guessed, check it". Kuta on Lombok could be filed under
+  Kuta on Bali.
+- Now two signs are read: the area's name is a Location of the
+  space's own Region; and the nearest listed places of that Region
+  agree on one (two or more, and two in three, of the six nearest
+  within reach). Both and the same: assigned. One, or two that
+  disagree: a suggestion with "Use it". Neither: none. `docs/LOCATIONS.md`
+  has the table.
+- Reach by kind of Region: city 1.5 km, island 4 km, rural or wide
+  area 8 km (`webflow_regions.kind`, seeded by name, changed from the
+  map).
+- A Location's name points to a Region only when the space can be in
+  it (within 80 km of the Region's centre, or the Region's name among
+  the space's area names).
+- The verdict is made in the database (`location_verdict`), called by
+  the sync and by the app's map, so both say the same.
+- The map (`NearbySpacesScreen`): listed places around the space as
+  dots coloured by Location, the verdict above, the Locations to tap
+  below. Opened from the card ("Nearby spaces on a map", and a NEARBY
+  cell beside Country, Region, Location).
+- The sync now keeps each listed place's Region and Location ids on
+  the venue, and Google's names for a queued space's area (`g_area`),
+  asked once per space where it was asked on every ten-minute run.
+- A space already approved keeps the Location it was approved with.
+- If the sync runs before the migration is applied (an upload starts
+  both), it carries on as before, only with the Region check.
+
+A stricter rule means fewer Locations given by themselves and more
+suggestions for him to take with one tap. That is the point: "only if
+it's almost certain".
+
+Not built: proposing a new Location at five places sharing an area
+name (his answer: 5 places); the area names of live pages without a
+Location are not collected yet, and collecting them asks Google once
+per page, which is his call.
+
+Checked: the migration on the test copy (made-up places in Munich,
+Bali and Lombok: both signs, one, two that disagree, none, one
+neighbour only, island reach, a space with no Region, the kind
+changed, applied twice); the sync's new steps run by themselves
+against made-up Regions and Locations (Kuta on Lombok, a founder's
+choices, an approved space, the database not ready). The sync as a
+whole was not run here, the app was not compiled, and the map was not
+seen on a screen.
+
+## 7 Oct 2026: the old booking engine's fields are left alone on a free page
+
+Found while setting Workspace 6's booking email (now
+jon@twotoneams.nl, changed in Webflow by hand with Jonathan's Go after
+a real booking came through the old engine that morning).
+
+Three Webflow fields have two meanings. For the Verified system they
+are "Enquiries On" (`booking-engine`), "Listing Rank" (`booking-model`,
+1 or 0) and "Enquiry Email" (`coworking-space-email-3`), and the sync
+sets them whenever a listing's plan is saved or a claim goes through.
+The old booking engine, still on for 11 pages, reads the same fields:
+`booking-model` is its model ("Deposit") and the email is where its
+bookings go. So a free claim of one of those pages would have switched
+the engine off there and sent its bookings back to hello@, and the
+owner of Workspace 6 had just been sent the claim link.
+
+Now `sync_listing` keeps the three fields as they are on a page that
+is not Verified and has the old engine on (the model is something
+other than 1 or 0). Verified takes them over as before. The run's
+report lists the pages it left (`old_booking_engine_kept`).
+
+Still open, and Jonathan's to decide: whether the old engine is back
+in play at all, and what a page with it should do when it goes
+Verified.
+
+Who is copied on emails to spaces, as of today: everything Nomad Maps
+sends has hello@ on it (owner emails and Outreach as a hidden copy,
+passed-on enquiries as a visible one). The old engine's booking emails
+do not: they go to the listing's address only, sent through the hello@
+Gmail account, so a copy sits in its Sent folder and nowhere else.
+

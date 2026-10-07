@@ -40,19 +40,75 @@ class Analytics {
 
   static Future<bool> _isDatacenter() async {
     if (_dc != null) return _dc!;
+    await geo();
+    return _dc ?? false;
+  }
+
+  static Future<Map<String, dynamic>>? _geo;
+
+  /// Roughly where this visit comes from, as its internet connection
+  /// shows it: country and town (never an address, and the position
+  /// only to the nearest tenth of a degree), whether the connection
+  /// is a data centre or VPN, and the time zone the device's clock is
+  /// set to. Looked up once per session; whatever cannot be read is
+  /// left out. Never throws.
+  static Future<Map<String, dynamic>> geo() => _geo ??= _lookUpGeo();
+
+  static Map<String, dynamic> _clock() {
+    try {
+      final tz = ua.timeZone();
+      return {if (tz.isNotEmpty) 'tz': tz};
+    } catch (_) {
+      return {};
+    }
+  }
+
+  static Future<Map<String, dynamic>> _lookUpGeo() async {
+    final out = <String, dynamic>{..._clock()};
     try {
       final resp = await http
           .get(Uri.parse('https://get.geojs.io/v1/ip/geo.json'))
           .timeout(const Duration(seconds: 4));
       final j = jsonDecode(resp.body) as Map<String, dynamic>;
+      String s(String k) => '${j[k] ?? ''}'.trim();
+      if (s('country_code').isNotEmpty) out['cc'] = s('country_code');
+      if (s('country').isNotEmpty) out['country'] = s('country');
+      if (s('city').isNotEmpty) out['city'] = s('city');
+      final lat = double.tryParse(s('latitude'));
+      final lng = double.tryParse(s('longitude'));
+      if (lat != null && lng != null) {
+        out['lat'] = (lat * 10).round() / 10;
+        out['lng'] = (lng * 10).round() / 10;
+      }
       final org = ('${j['organization_name'] ?? ''} '
               '${j['organization'] ?? ''}')
           .toLowerCase()
           .replaceAll('-', ' ');
-      return _dc = _dcPattern.hasMatch(org);
+      _dc = _dcPattern.hasMatch(org);
+      if (_dc == true) out['dc'] = true;
     } catch (_) {
-      return _dc = false;
+      _dc ??= false;
     }
+    return out;
+  }
+
+  /// What the claim page tells the phone notice about where the
+  /// visitor is (migration 154): [geo], cut short so the notice is
+  /// not kept waiting, with the visit it belongs to. A device marked
+  /// internal sends no visit, so nothing is kept for it. Never throws.
+  static Future<Map<String, dynamic>> claimGeo(String visit) async {
+    final out = <String, dynamic>{};
+    try {
+      out.addAll(await geo().timeout(const Duration(milliseconds: 1500),
+          onTimeout: _clock));
+    } catch (_) {}
+    try {
+      if (!await _isInternal()) {
+        out['visit'] = visit;
+        out['anon'] = await _id();
+      }
+    } catch (_) {}
+    return out;
   }
 
   /// Traffic-source tags from the arrival URL (utm_source etc.),
