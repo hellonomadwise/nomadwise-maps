@@ -98,6 +98,16 @@ class _MapScreenState extends State<MapScreen> {
   BitmapDescriptor? _pinPromising;
   bool _hasRealLocation = false;
 
+  /// True once the map has a rough idea of where the person is from
+  /// their connection (a city, no permission asked).
+  bool _hasRoughLocation = false;
+
+  /// Is the "position" the person's own, or only where the map (or a
+  /// shared link) happens to point? A distance is shown on a card
+  /// only in the first case: a link straight to a space used to say
+  /// "2,477.6 km", measured from the middle of the world map.
+  bool get _knowsWhere => _hasRealLocation || _hasRoughLocation;
+
   String? _displayName;
   String? _avatarUrl;
 
@@ -348,6 +358,7 @@ class _MapScreenState extends State<MapScreen> {
       LocationService.ipLocate().then((ip) {
         if (deepLinked) return; // the link decides where we look
         if (ip != null && !_hasRealLocation && mounted) {
+          _hasRoughLocation = true;
           _userLat = ip.$1;
           _userLng = ip.$2;
           _computeDistances();
@@ -367,12 +378,37 @@ class _MapScreenState extends State<MapScreen> {
       setState(() => _loading = false);
     }
 
-    final results = await Future.wait([
-      LocationService.current(),
-      _supabase.fetchVenues(),
-    ]);
-    final pos = results[0] as dynamic;
-    _venues = results[1] as List<Venue>;
+    // A shared link shows its space now: from the spaces remembered
+    // on this device, or one quick look in our own database. Before
+    // this it waited for everything below, the person's own position
+    // included, which is a permission question that can sit there for
+    // ten seconds while the world map showed (Jonathan, 7 Oct 2026).
+    final pid = _deepLinkPlaceId;
+    final early = pid == null ? null : _openDeepLinkEarly(pid);
+
+    // The person's position and the fresh spaces are asked for
+    // together, but the spaces no longer wait for the position.
+    final posFuture = LocationService.current();
+    _venues = await _supabase.fetchVenues();
+    _computeDistances();
+    if (mounted) setState(() => _loading = false);
+
+    if (pid != null) {
+      // Let the quick look finish first (a moment at most), so Google
+      // is not asked about a place our own database already knows.
+      if (early != null) await early;
+      if (!_deepLinkOpened) {
+        _openDeepLinkPlace(pid);
+      } else if (_selected != null && _selected!.googlePlaceId == pid) {
+        // Already showing: swap in the fresh copy of the space and
+        // leave the map where the person has it by now.
+        final fresh =
+            _venues.where((v) => v.googlePlaceId == pid).firstOrNull;
+        if (fresh != null && mounted) setState(() => _selected = fresh);
+      }
+    }
+
+    final pos = await posFuture;
     if (pos != null) {
       _userLat = pos.latitude;
       _userLng = pos.longitude;
@@ -384,11 +420,9 @@ class _MapScreenState extends State<MapScreen> {
         _map?.animateCamera(CameraUpdate.newLatLngZoom(
             LatLng(pos.latitude, pos.longitude), 14));
       }
+      _computeDistances();
+      if (mounted) setState(() {});
     }
-    _computeDistances();
-    if (mounted) setState(() => _loading = false);
-
-    if (_deepLinkPlaceId != null) _openDeepLinkPlace(_deepLinkPlaceId!);
 
     _maybeOnboard();
 
@@ -541,10 +575,53 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
+  /// True once a shared link's space is on screen.
+  bool _deepLinkOpened = false;
+
+  /// The quick way to a shared link's space, tried the moment the app
+  /// starts: the spaces remembered on this device, then one row from
+  /// our own database (a screened space, else a place found before).
+  /// If none of that knows the place, _openDeepLinkPlace asks Google
+  /// once everything has loaded, as before.
+  Future<void> _openDeepLinkEarly(String pid) async {
+    try {
+      Venue? v = _venues.where((x) => x.googlePlaceId == pid).firstOrNull;
+      v ??= await _supabase.venueByPlaceId(pid);
+      if (!mounted || _deepLinkOpened) return;
+      if (v != null && v.lat != null && v.lng != null) {
+        final venue = v;
+        final at = LatLng(v.lat!, v.lng!);
+        _deepLinkOpened = true;
+        setState(() {
+          _showList = false;
+          _selected = venue;
+          _selectedDiscovered = null;
+        });
+        _goTo(at, 16);
+        return;
+      }
+      final d = await _supabase.discoveredByPlaceId(pid);
+      if (!mounted || _deepLinkOpened || d == null) return;
+      _deepLinkOpened = true;
+      _mergeDiscovered([d]);
+      setState(() {
+        _showList = false;
+        _selectedDiscovered = d;
+        _selected = null;
+        // Make sure the pin they were linked to is actually visible.
+        if (!d.promising) _showUnscreened = true;
+      });
+      _goTo(LatLng(d.lat, d.lng), 16);
+    } catch (_) {
+      // No harm: the usual way opens it once the spaces have loaded.
+    }
+  }
+
   Future<void> _openDeepLinkPlace(String pid) async {
     final v =
         _venues.where((v) => v.googlePlaceId == pid).firstOrNull;
     if (v != null && v.lat != null) {
+      _deepLinkOpened = true;
       setState(() {
         _showList = false;
         _selected = v;
@@ -554,7 +631,8 @@ class _MapScreenState extends State<MapScreen> {
       return;
     }
     final live = await _places.details(pid);
-    if (live?.lat == null || !mounted) return;
+    if (live?.lat == null || !mounted || _deepLinkOpened) return;
+    _deepLinkOpened = true;
     final d = DiscoveredPlace(
       placeId: pid,
       name: live?.displayName ?? 'Space',
@@ -2669,6 +2747,7 @@ class _MapScreenState extends State<MapScreen> {
                         child: Stack(children: [
                       _VenueCard(
                           venue: _selected!,
+                          showDistance: _knowsWhere,
                           onDetails: () => _openDetail(_selected!)),
                       Positioned(
                           top: 8,
@@ -2689,8 +2768,9 @@ class _MapScreenState extends State<MapScreen> {
                       _DiscoveredCard(
                           place: _selectedDiscovered!,
                           places: _places,
-                          distanceM:
-                              _discoveredDistance(_selectedDiscovered!),
+                          distanceM: _knowsWhere
+                              ? _discoveredDistance(_selectedDiscovered!)
+                              : null,
                           onSignals: (c) => _applyLiveSignals(
                               _selectedDiscovered!, c),
                           onScreen: () =>
@@ -2833,12 +2913,14 @@ class _MapScreenState extends State<MapScreen> {
               child: _selected != null
                   ? _VenueCard(
                       venue: _selected!,
+                      showDistance: _knowsWhere,
                       onDetails: () => _openDetail(_selected!))
                   : _DiscoveredCard(
                       place: _selectedDiscovered!,
                       places: _places,
-                      distanceM:
-                          _discoveredDistance(_selectedDiscovered!),
+                      distanceM: _knowsWhere
+                          ? _discoveredDistance(_selectedDiscovered!)
+                          : null,
                       onSignals: (c) => _applyLiveSignals(
                           _selectedDiscovered!, c),
                       onScreen: () =>
@@ -4268,7 +4350,14 @@ class _CardPhotoPagerState extends State<_CardPhotoPager> {
 class _VenueCard extends StatelessWidget {
   final Venue venue;
   final VoidCallback onDetails;
-  const _VenueCard({required this.venue, required this.onDetails});
+
+  /// False while the map does not know where the person is: the
+  /// distance would be from wherever the map points.
+  final bool showDistance;
+  const _VenueCard(
+      {required this.venue,
+      required this.onDetails,
+      this.showDistance = true});
 
   @override
   Widget build(BuildContext context) {
@@ -4341,7 +4430,8 @@ class _VenueCard extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text(
                   [
-                    venue.distanceLabel(),
+                    if (showDistance && venue.distanceLabel().isNotEmpty)
+                      venue.distanceLabel(),
                     if (closing != null) closing,
                   ].join(' · '),
                   style: const TextStyle(

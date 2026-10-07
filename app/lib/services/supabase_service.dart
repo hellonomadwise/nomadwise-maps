@@ -419,6 +419,22 @@ class SupabaseService {
     return Venue.fromJson(Map<String, dynamic>.from(rows.first));
   }
 
+  /// One place nobody has screened yet, by its Google id: what a
+  /// shared link needs to show it at once. Null when we do not have it.
+  Future<DiscoveredPlace?> discoveredByPlaceId(String placeId) async {
+    try {
+      final rows = await _db
+          .from('discovered_places')
+          .select()
+          .eq('google_place_id', placeId)
+          .limit(1);
+      if ((rows as List).isEmpty) return null;
+      return DiscoveredPlace.fromRow(Map<String, dynamic>.from(rows.first));
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Insert a brand-new (pending) venue; returns its id.
   Future<String> addPendingVenue(Map<String, dynamic> fields) async {
     fields['status'] = 'pending';

@@ -3546,3 +3546,36 @@ on 7 Oct).
 Not checked before the upload: that Supabase passes the redirect
 through as written, and that WhatsApp follows it. Both are looked at
 on the live site straight after.
+
+## 7 Oct 2026: a shared link opens its space at once
+
+Jonathan opened a shared link (Haws Lisboa Coworking): the world map
+showed for about ten seconds, then the space. "I think this is too
+long."
+
+The app opened a link's space only after two things had both come
+back: the fresh list of spaces and the person's own position. The
+position is a permission question in the browser, and until it is
+answered or gives up nothing moved. Three changes:
+
+- The space is looked for the moment the app starts
+  (`_openDeepLinkEarly`): among the spaces remembered on the device,
+  then one row from our own database (a screened space, else a place
+  found before). Google is only asked, as before, when none of those
+  knows the place.
+- The fresh list of spaces no longer waits for the position either,
+  for anyone: pins appear when the list arrives, and the position is
+  applied when it comes.
+- A place's share page now passes where the place is (`&at=lat,lng`),
+  so the map opens there from its first frame instead of on the whole
+  world. Links made before this still open, by the first change.
+
+With no position yet, a card used to show a distance measured from
+wherever the map pointed ("2,477.6 km" from the middle of the world
+map; it would have read "0 m" with the change above). A card now
+shows a distance only once the map knows where the person is, from
+their device or roughly from their connection.
+
+Checked on the live site the same hour: the picture of an unscreened
+place is looked up when the link is shown (migration 159) and comes
+back as a real photo for IDEA Spaces and Haws Lisboa.

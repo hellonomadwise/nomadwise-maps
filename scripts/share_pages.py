@@ -230,13 +230,28 @@ def found_card(d, live_photo=''):
     return name, desc, live_photo or (_sized(photo) if photo else '')
 
 
-def page(place_id, title, desc, image):
+def where_at(row):
+    """"lat,lng,zoom" for the map's first frame, or '' when unknown."""
+    try:
+        lat, lng = float(row.get('lat')), float(row.get('lng'))
+    except (TypeError, ValueError):
+        return ''
+    if not (-90 <= lat <= 90 and -180 <= lng <= 180) or (lat == 0 and lng == 0):
+        return ''
+    return f'{lat:.5f},{lng:.5f},16'
+
+
+def page(place_id, title, desc, image, at=''):
     t = html.escape(title or 'A space', quote=True)
     d = html.escape(desc, quote=True)
     img = html.escape(image or DEFAULT_IMAGE, quote=True)
     card = 'summary_large_image' if image else 'summary'
     pid_js = json.dumps(place_id)
     pid_q = urllib.parse.quote(place_id, safe='')
+    # Where the place is, so the map opens there from its first frame
+    # instead of on the whole world while the app finds the place.
+    at_js = json.dumps(f'&at={at}' if at else '')
+    at_q = f'&amp;at={at}' if at else ''
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -256,11 +271,11 @@ def page(place_id, title, desc, image):
 <meta name="twitter:description" content="{d}">
 <meta name="twitter:image" content="{img}">
 <link rel="icon" href="/favicon.png">
-<script>location.replace('/?p=' + encodeURIComponent({pid_js}));</script>
+<script>location.replace('/?p=' + encodeURIComponent({pid_js}) + {at_js});</script>
 </head>
 <body style="font-family:system-ui,sans-serif;padding:24px;color:#142032">
 <p>Opening {t} on Nomad Maps…</p>
-<p><a href="/?p={pid_q}">Open the map</a></p>
+<p><a href="/?p={pid_q}{at_q}">Open the map</a></p>
 </body>
 </html>
 """
@@ -277,7 +292,7 @@ def build(supabase_url, key, out_dir=OUT_DIR, fetch=None, lookup=None):
         os.makedirs(out_dir, exist_ok=True)
         written = set()
 
-        def write(place_id, card):
+        def write(place_id, card, at=''):
             if not place_id or not ID_OK.fullmatch(place_id) \
                     or place_id in written:
                 report['skipped'] += 1
@@ -288,13 +303,14 @@ def build(supabase_url, key, out_dir=OUT_DIR, fetch=None, lookup=None):
                 return False
             with open(os.path.join(out_dir, place_id + '.html'), 'w',
                       encoding='utf-8') as fh:
-                fh.write(page(place_id, title, desc, image))
+                fh.write(page(place_id, title, desc, image, at))
             written.add(place_id)
             if image:
                 report['with_picture'] += 1
             return True
 
-        cols = ('id,name,type,city,country,google_place_id,wifi_speed_mbps,'
+        cols = ('id,name,type,city,country,google_place_id,lat,lng,'
+                'wifi_speed_mbps,'
                 'website_photos,website_photos_auto,website_status,'
                 'google_photo_urls')
         try:
@@ -307,8 +323,8 @@ def build(supabase_url, key, out_dir=OUT_DIR, fetch=None, lookup=None):
                 # plain facts are enough for a title and a line.
                 report['venues_note'] = str(e)[:200]
                 venues = rows('venues?google_place_id=not.is.null'
-                              '&select=name,type,city,google_place_id,'
-                              'wifi_speed_mbps&order=google_place_id.asc',
+                              '&select=name,type,city,google_place_id,lat,'
+                              'lng,wifi_speed_mbps&order=google_place_id.asc',
                               20000)
         except Exception as e:  # noqa: BLE001
             # Still make the pages for the places nobody has screened.
@@ -327,7 +343,8 @@ def build(supabase_url, key, out_dir=OUT_DIR, fetch=None, lookup=None):
             report['page_photos_note'] = str(e)[:200]
         for v in venues:
             if write(str(v.get('google_place_id') or ''),
-                     venue_card(v, page_photos.get(v.get('id')))):
+                     venue_card(v, page_photos.get(v.get('id'))),
+                     where_at(v)):
                 report['venues'] += 1
 
         try:
@@ -335,9 +352,10 @@ def build(supabase_url, key, out_dir=OUT_DIR, fetch=None, lookup=None):
                                   'google_place_id.asc')
             # Newer columns first; a column that is not there yet (HTTP
             # 400) drops back to the ones that always were.
-            for cols_ in ('google_place_id,name,primary_type,address,photo_url',
-                          'google_place_id,name,primary_type,address',
-                          'google_place_id,name,primary_type'):
+            for cols_ in ('google_place_id,name,lat,lng,primary_type,address,'
+                          'photo_url',
+                          'google_place_id,name,lat,lng,primary_type,address',
+                          'google_place_id,name,lat,lng,primary_type'):
                 try:
                     found = rows(f'discovered_places?select={cols_}{order}',
                                  MAX_FOUND)
@@ -364,7 +382,7 @@ def build(supabase_url, key, out_dir=OUT_DIR, fetch=None, lookup=None):
                 pid = str(d.get('google_place_id') or '')
                 address = photo_address(base, pub, pid) \
                     if live and ID_OK.fullmatch(pid) else ''
-                if write(pid, found_card(d, address)):
+                if write(pid, found_card(d, address), where_at(d)):
                     report['found'] += 1
         except Exception as e:  # noqa: BLE001
             report['found_error'] = str(e)[:200]
