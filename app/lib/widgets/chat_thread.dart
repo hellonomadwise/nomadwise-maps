@@ -20,7 +20,8 @@ import '../theme.dart';
 /// so an answer appears without reloading.
 class ChatThread extends StatefulWidget {
   /// The messages, oldest first. Each: id, team (true when it is from
-  /// Nomadwise), author, body, at, read.
+  /// Nomadwise), author, body, at, read, email (true when it arrived
+  /// as an answer by email, migration 162).
   final Future<List<Map<String, dynamic>>> Function() load;
 
   /// Sends one message and returns the conversation after it.
@@ -231,6 +232,7 @@ class _ChatThreadState extends State<ChatThread> {
     final mine = _mine(m);
     final at = DateTime.tryParse('${m['at'] ?? ''}')?.toLocal();
     final read = m['read'] == true;
+    final byEmail = m['email'] == true;
     final author = '${m['author'] ?? ''}'.trim();
     // Whose words these are, above the other side's messages.
     final from = mine
@@ -282,7 +284,10 @@ class _ChatThreadState extends State<ChatThread> {
             Padding(
               padding: const EdgeInsets.only(top: 4, left: 4, right: 2),
               child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Text(at == null ? '' : when(at),
+                Text(
+                    at == null
+                        ? ''
+                        : when(at) + (byEmail ? ', by email' : ''),
                     style: const TextStyle(
                         fontSize: 11.5, color: Brand.inkMuted)),
                 if (mine) ...[

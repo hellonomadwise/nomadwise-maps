@@ -176,3 +176,10 @@ Nomadwise team. Our reply appears here and is also emailed to you, so
 you will not miss it." Jonathan, 7 Oct: nothing in owner-facing copy
 says we are a small team; the voice is that of an established company.
 It also makes no promise about how fast we answer.
+
+Since migration 162 the owner can also answer by replying to the
+email that says we wrote: the answer arrives in this chat, marked "by
+email". The email then ends "To answer, reply to this email, or open
+the chat in your Owner account, under Inbox & support." This needs
+the inbound address set up at Postmark (docs/DECISIONS.md, 7 Oct
+2026); until then the email keeps its earlier ending.

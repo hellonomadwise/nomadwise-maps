@@ -3669,3 +3669,96 @@ has to sign in first still lands in that chat.
 
 Not in this first version: photos in a chat, closing a chat, a chat
 button on the Outreach card, email answers arriving in the chat.
+
+## 7 Oct 2026: an owner's answer by email arrives in the chat (migration 162)
+
+Jonathan, the same evening as the chat: "Can we setup an inbound in
+postmark". Until now an owner who answered the email that says we
+wrote reached hello@ and the chat stayed silent.
+
+How it works. Postmark gives the mail server an inbound address and
+hands every email that arrives there to a web address of ours (its
+"inbound webhook"). Each chat, a space and its owner, has a key of its
+own (`chat_reply_tokens`). The email that says we wrote carries
+Reply-To: `<inbound address>+<key>@...`, so the answer itself says
+which chat it belongs to. `chat_inbound` takes the new words out of
+the email, puts them in the chat as the owner's message (marked "by
+email" under the bubble), marks what we emailed as seen, and tells the
+founders' phones.
+
+Switched on by two things Jonathan does by hand, and nothing changes
+until both are done (emails keep their old ending and answers keep
+reaching hello@):
+
+1. In Postmark, on the server that sends our email: the inbound
+   stream's webhook is set to
+   `https://<project>.supabase.co/rest/v1/rpc/chat_inbound?apikey=<the app's public key>`.
+   The key in that address is the public one the app itself ships
+   with, not a secret. If that key is ever changed in Supabase, this
+   address has to be changed with it.
+2. In Supabase Vault: a secret named `chat_inbound_address` holding
+   the inbound address Postmark shows. To use an address of our own
+   later (for example at reply.nomadmaps.io, by a mail record that
+   points to Postmark), only this value changes.
+
+No function in between: PostgREST passes the whole of Postmark's JSON
+to a database function with one unnamed jsonb parameter. Checked on
+the live project before building: a call with the key only in the
+address is accepted, and the server looks for exactly that kind of
+function.
+
+What the key is for. Anybody can call the webhook (the public key is
+public), so the key in the address is the only proof, and an email
+without one we gave out never becomes a chat message, whoever it says
+it is from. Such emails are logged in `chat_inbound_log` (30 an hour
+kept, 7 days), and counted apart from owners' answers so a flood of
+them cannot stand in the way. The phones hear about one only when the
+sender is a known owner, once a day for each sender and five times a
+day in all, without any words the sender chose.
+
+Kept out of the chat, each with its line in the log: automatic
+answers (out of office, bounces), one of us answering the copy hello@
+gets, an email for a space that has changed hands (the phones are
+told), an email with nothing new in it, more than 40 messages an hour
+for one space (the same count as in the Owner account), and a second
+delivery of the same email. Whatever goes wrong, the webhook answers
+"ok": an error would only make Postmark deliver the email again.
+
+Finding the new words (`chat_reply_text`): Postmark's own cut when it
+has one, then a cut at the first sign of a quoted message ("On 7 Oct
+2026 ... wrote:" and its French, Spanish, Portuguese, German, Italian
+and Dutch forms, the header block other mail programs use, lines that
+start with ">", the line that names hello@, our own email quoted
+without marks, a signature mark). A line like "On Google a guest
+wrote:" in the owner's own words is not a quote header: those have a
+date in them. Answers written under or between the quoted lines are
+kept. Files are not carried over: the message says how many came, and
+they can be seen in Postmark under the inbound stream (a small picture
+inside a signature is not counted). Long emails are cut at 3,700
+characters with a line that says so.
+
+Two doors found open while this was checked, closed in the same
+migration. Every function in the public schema can be called through
+the API by anybody with the app's public key unless that is taken
+away. For `send_owner_email` (migration 101) and `notify_phone`
+(migration 25) it never was: anybody could have sent an email from
+hello@ to any address with any words, or a notice to the founders'
+phones. Confirmed on the live project for `send_owner_email` (a call
+with an empty address, which stops at its first line, was accepted);
+`notify_phone` was not tried, since trying it rings the phones. Both
+are now for the database's own functions and the service key only;
+every function that calls them runs with the owner's rights, and
+`stripe_sync.py` uses the service key, so nothing that works today
+stops working. Still to be read one by one, because the same default
+applies to them and each needs a look at who calls it (the website's
+own pages call some of these, so none was closed blind):
+`nudge_github`, `nudge_started_claims`, `send_enquiry`,
+`check_api_alerts`, `api_alert_once`, `summarize_quiet_visitors`,
+`mark_owner_email`, `outreach_match_venue`, `report_stale_photos`.
+
+Checked: the migration applied twice on the test copy; some fifty
+emails of different shapes sent through a local copy of the API
+server; a second reader's attack cases (slow patterns, floods, forged
+senders), all fixed before shipping. Not seen with a real email yet:
+that is the first thing to try after the two steps above.
+
