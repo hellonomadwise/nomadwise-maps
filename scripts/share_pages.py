@@ -17,11 +17,13 @@ MAX_FOUND. A place without a page still opens: app/web/404.html sends
 Never allowed to stop the build: build() returns a small report and
 swallows its own errors.
 """
+import base64
 import html
 import json
 import os
 import re
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 
@@ -74,6 +76,84 @@ def _clean(text, limit):
     return t if len(t) <= limit else t[:limit - 1].rstrip() + '…'
 
 
+# ---------------------------------------------------------------
+# A picture looked up when the link is shown (migration 159).
+#
+# A place nobody has screened gets its photo only when somebody opens
+# its card in the app, which can be minutes before they share it and
+# long after this build. So its page does not carry a fixed picture:
+# it points at the database function place_photo, which answers with
+# the photo kept for the place at that moment (or the app icon).
+#
+# That address needs the project's public key, the one the app itself
+# ships to every visitor. This step of the build is not given it, so
+# it is read from the environment when present and otherwise from the
+# app as it is live on the site. Before any page uses the address the
+# function is tried once; if anything is off, pages fall back to the
+# picture known at build time.
+JWT = re.compile(r'eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}')
+
+
+def _is_public_key(token, base):
+    """True for the project's own public ("anon") key, nothing else."""
+    try:
+        part = token.split('.')[1]
+        claims = json.loads(base64.urlsafe_b64decode(
+            part + '=' * (-len(part) % 4)).decode())
+    except Exception:  # noqa: BLE001
+        return False
+    ref = str(claims.get('ref') or '')
+    return claims.get('role') == 'anon' and bool(ref) and f'//{ref}.' in base
+
+
+def public_key(base, site=SITE):
+    env = (os.environ.get('SUPABASE_ANON_KEY') or '').strip()
+    if env and _is_public_key(env, base):
+        return env
+    try:
+        with urllib.request.urlopen(f'{site}/main.dart.js', timeout=40) as r:
+            js = r.read().decode('utf-8', 'replace')
+    except Exception:  # noqa: BLE001
+        return ''
+    for token in dict.fromkeys(JWT.findall(js)):
+        if _is_public_key(token, base):
+            return token
+    return ''
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, *args, **kwargs):  # noqa: D401
+        return None
+
+
+def photo_address(base, pub, place_id):
+    return (f'{base}/rest/v1/rpc/place_photo'
+            f'?p={urllib.parse.quote(place_id, safe="")}&apikey={pub}')
+
+
+def lookup_works(base, pub, tries=6):
+    """Does place_photo answer with a redirect to a picture? Tried a
+    few times: the function may have been made seconds ago."""
+    opener = urllib.request.build_opener(_NoRedirect)
+    why = 'not tried'
+    for n in range(tries):
+        try:
+            with opener.open(photo_address(base, pub, 'build-check'),
+                             timeout=20) as r:
+                why = f'answered {r.status}, no redirect'
+        except urllib.error.HTTPError as e:
+            where = e.headers.get('Location') or ''
+            if e.code in (301, 302, 303, 307, 308) \
+                    and where.startswith('https://'):
+                return True, ''
+            why = f'answered {e.code}'
+        except Exception as e:  # noqa: BLE001
+            why = str(e)[:120]
+        if n < tries - 1:
+            time.sleep(2)
+    return False, why
+
+
 def venue_image(v, page_photos=None):
     """A picture of the space: the first photo on its nomadwise.io
     page, else one chosen for the page, else the first of Google's
@@ -122,7 +202,7 @@ def venue_card(v, page_photos=None):
             venue_image(v, page_photos))
 
 
-def found_card(d):
+def found_card(d, live_photo=''):
     ptype = str(d.get('primary_type') or '')
     name = _clean(d.get('name'), 80)
     if 'coworking' in ptype or 'cowork' in name.lower():
@@ -145,7 +225,9 @@ def found_card(d):
     photo = str(d.get('photo_url') or '').strip()
     if not re.match(r'^https://[a-z0-9-]+\.googleusercontent\.com/', photo):
         photo = ''
-    return name, desc, _sized(photo) if photo else ''
+    # Better still: the address that looks the photo up when the link
+    # is shown, so a photo kept after this build still appears.
+    return name, desc, live_photo or (_sized(photo) if photo else '')
 
 
 def page(place_id, title, desc, image):
@@ -184,7 +266,7 @@ def page(place_id, title, desc, image):
 """
 
 
-def build(supabase_url, key, out_dir=OUT_DIR, fetch=None):
+def build(supabase_url, key, out_dir=OUT_DIR, fetch=None, lookup=None):
     """Write the pages; return {'venues': n, 'found': n, ...}."""
     report = {'venues': 0, 'found': 0, 'with_picture': 0, 'skipped': 0}
     started = time.time()
@@ -264,8 +346,25 @@ def build(supabase_url, key, out_dir=OUT_DIR, fetch=None):
                     report['found_note'] = str(e)[:200]
             if found is None:
                 raise RuntimeError(report.get('found_note') or 'no rows')
+            pub, live = '', False
+            if fetch is None or lookup is not None:
+                try:
+                    pub = (lookup or {}).get('key') or public_key(base)
+                    if not pub:
+                        report['live_picture_note'] = 'public key not found'
+                    else:
+                        live, why = ((lookup or {}).get('works', None)
+                                     or lookup_works)(base, pub)
+                        if not live:
+                            report['live_picture_note'] = why
+                except Exception as e:  # noqa: BLE001
+                    report['live_picture_note'] = str(e)[:160]
+            report['live_picture'] = bool(live)
             for d in found:
-                if write(str(d.get('google_place_id') or ''), found_card(d)):
+                pid = str(d.get('google_place_id') or '')
+                address = photo_address(base, pub, pid) \
+                    if live and ID_OK.fullmatch(pid) else ''
+                if write(pid, found_card(d, address)):
                     report['found'] += 1
         except Exception as e:  # noqa: BLE001
             report['found_error'] = str(e)[:200]

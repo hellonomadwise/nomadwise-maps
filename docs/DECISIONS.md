@@ -3511,3 +3511,38 @@ picture from the first build after somebody has looked at it; until
 then the app icon. Pages are only rebuilt by an upload: a nightly
 rebuild is possible (the database can start the build) but was not
 added without asking, since it is a ten minute build every night.
+
+## 7 Oct 2026: a shared place's photo from the first share (migration 159)
+
+Jonathan shared IDEA Spaces (a place nobody has screened) minutes
+after opening it and asked whether the thumbnail could be one of its
+photos. The app had kept the photo link (migration 158 worked), but
+the place's page had been made before that, so it still showed the
+icon until the next upload.
+
+The page of an unscreened place now points its picture at a database
+function, `place_photo(p)`, instead of at a fixed link. Asked for a
+place, the function answers with a redirect to the photo kept for it
+at that moment, sized for a preview, or to the app icon when there is
+none. Whoever shares a place has its card open, and opening the card
+is what keeps the photo, so the photo is there by the time the link
+is sent. Nothing more is asked of Google.
+
+The function's address needs the project's public key (the one the
+app ships to every visitor; never the service key). The build step
+that makes the pages is not given it and the workflow file cannot be
+changed by upload, so `share_pages.py` reads it from the environment
+when present and otherwise from the app as it is live on the site,
+accepting only a key that says it is this project's public one.
+Before using the address it tries the function once
+(`lookup_works`); if anything is off, pages keep the picture known at
+build time. The build's report says which under `share_pages`:
+`live_picture`, and `live_picture_note` with the reason when not.
+
+Screened spaces are unchanged: their picture is the first photo on
+their nomadwise.io page, fixed at build time (1,016 of 1,017 had one
+on 7 Oct).
+
+Not checked before the upload: that Supabase passes the redirect
+through as written, and that WhatsApp follows it. Both are looked at
+on the live site straight after.
