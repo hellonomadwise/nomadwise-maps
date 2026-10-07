@@ -3579,3 +3579,26 @@ their device or roughly from their connection.
 Checked on the live site the same hour: the picture of an unscreened
 place is looked up when the link is shown (migration 159) and comes
 back as a real photo for IDEA Spaces and Haws Lisboa.
+
+## 7 Oct 2026: Instagram or Facebook when there is no WhatsApp (migration 160)
+
+Jonathan, looking at "Looked at the claim page" for two cafes: "if
+WhatsApp isn't available, maybe their Facebook page, or Instagram as
+an option." Google's number for a cafe is often a landline, and many
+have no address on record.
+
+The box on the card now has Instagram and Facebook beside WhatsApp.
+Neither lets a message be written from outside, so the dialog shows
+the words (the same template as WhatsApp), and one press copies them
+and opens the space's Instagram page when we hold it, or a search for
+its Instagram or Facebook page when we do not (we keep no Facebook
+addresses). The founder presses Message there, pastes and sends, and
+comes back to "I sent it", which records it on the line as sent on
+that channel (`admin_outreach_log_message`) and moves the card on.
+Nothing is sent from here.
+
+The claim link in the copied words is marked `from=instagram` or
+`from=facebook`, and the notice for a visit through it now says "from
+our Instagram message" (or Facebook), judged like the WhatsApp and
+email links: most likely the person we wrote to, unless it came from
+a data centre, which is how these services check links.

@@ -396,7 +396,10 @@ class _MapScreenState extends State<MapScreen> {
     if (pid != null) {
       // Let the quick look finish first (a moment at most), so Google
       // is not asked about a place our own database already knows.
-      if (early != null) await early;
+      // (Not for ever: a stalled look must not hold up the rest.)
+      if (early != null) {
+        await early.timeout(const Duration(seconds: 4), onTimeout: () {});
+      }
       if (!_deepLinkOpened) {
         _openDeepLinkPlace(pid);
       } else if (_selected != null && _selected!.googlePlaceId == pid) {
@@ -404,7 +407,17 @@ class _MapScreenState extends State<MapScreen> {
         // leave the map where the person has it by now.
         final fresh =
             _venues.where((v) => v.googlePlaceId == pid).firstOrNull;
-        if (fresh != null && mounted) setState(() => _selected = fresh);
+        if (!mounted) {
+          // the screen is gone
+        } else if (fresh != null) {
+          setState(() => _selected = fresh);
+        } else {
+          // Remembered on this device but no longer on the map: drop
+          // the old card and open it the usual way.
+          setState(() => _selected = null);
+          _deepLinkOpened = false;
+          _openDeepLinkPlace(pid);
+        }
       }
     }
 
@@ -588,6 +601,13 @@ class _MapScreenState extends State<MapScreen> {
       Venue? v = _venues.where((x) => x.googlePlaceId == pid).firstOrNull;
       v ??= await _supabase.venueByPlaceId(pid);
       if (!mounted || _deepLinkOpened) return;
+      // A space Google reports closed for good is off the map (unless
+      // a founder said it is still open): left to the usual way.
+      if (v != null &&
+          v.raw['business_status'] == 'CLOSED_PERMANENTLY' &&
+          v.raw['closed_dismissed_at'] == null) {
+        return;
+      }
       if (v != null && v.lat != null && v.lng != null) {
         final venue = v;
         final at = LatLng(v.lat!, v.lng!);

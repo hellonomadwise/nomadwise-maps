@@ -186,3 +186,12 @@ the line has none (asked once per space), and has links to the place
 on Google Maps, a search, and the space's website and Instagram, for
 finding another number by hand.
 
+## Instagram or Facebook (7 Oct 2026, migration 160)
+
+When a space that looked at its claim page has no WhatsApp number, the
+box on its card also offers Instagram and Facebook. One press copies
+the message and opens their Instagram page (or a search for their
+page); you paste and send it there, then press "I sent it". It is
+recorded on the line like a WhatsApp message, and a visit through the
+link in it is recognised as an answer to it.
+

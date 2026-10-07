@@ -2613,6 +2613,10 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
         'through our WhatsApp message'
       else if (sentVia == 'email')
         'through our email'
+      else if (sentVia == 'instagram')
+        'through our Instagram message'
+      else if (sentVia == 'facebook')
+        'through our Facebook message'
       else if (from.startsWith('/'))
         'from nomadwise.io$from'
       else if (host.isNotEmpty)
@@ -2688,6 +2692,16 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
               onPressed: () => _whatsApp(c),
               icon: const Icon(Icons.chat_outlined, size: 16),
               label: const Text('WhatsApp')),
+          // No number, or a landline: their Instagram or Facebook page
+          // is the next best way to reach a cafe (Jonathan, 7 Oct 2026).
+          TextButton.icon(
+              onPressed: () => _social(c, 'instagram'),
+              icon: const Icon(Icons.photo_camera_outlined, size: 16),
+              label: const Text('Instagram')),
+          TextButton.icon(
+              onPressed: () => _social(c, 'facebook'),
+              icon: const Icon(Icons.thumb_up_alt_outlined, size: 16),
+              label: const Text('Facebook')),
           if (formEmail.isNotEmpty && email.isEmpty)
             TextButton(
                 onPressed: () async {
@@ -2776,6 +2790,214 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
         ]),
       ]),
     );
+  }
+
+  /// A message to the space on Instagram or Facebook, for when there
+  /// is no WhatsApp number. Neither lets a message be written from
+  /// outside, so this copies the words and opens their page (or a
+  /// search for it); the founder pastes and sends there, then presses
+  /// "I sent it" so the card moves on. Nothing is sent from here.
+  Future<void> _social(Map<String, dynamic> c, String channel) async {
+    final id = '${c['id']}';
+    final insta = channel == 'instagram';
+    final label = insta ? 'Instagram' : 'Facebook';
+    final text = TextEditingController();
+    bool busy = true;
+    bool opened = false;
+    bool started = false;
+    bool open = true;
+    String? problem;
+    DateTime? openedAt;
+
+    final spaceName =
+        '${c['space_name'] ?? c['venue_name'] ?? ''}'.trim();
+    final spaceCity = '${c['city'] ?? c['venue_city'] ?? ''}'.trim();
+    Uri? webUri(String raw) {
+      final t = raw.trim();
+      if (t.isEmpty) return null;
+      final u = Uri.tryParse(t.contains('://') ? t : 'https://$t');
+      return u != null && u.host.contains('.') ? u : null;
+    }
+
+    // Their own page when we hold it, else a search that finds it.
+    // We keep Instagram names; a Facebook page is only known when the
+    // space gave it as its website, which small cafes often do.
+    final siteUri = webUri('${c['website'] ?? ''}');
+    final siteHost = (siteUri?.host ?? '').toLowerCase();
+    final instaRaw = '${c['instagram'] ?? ''}'.trim();
+    final Uri? instaPage = instaRaw.isEmpty
+        ? (siteHost.endsWith('instagram.com') ? siteUri : null)
+        : instaRaw.contains('instagram.com')
+            ? webUri(instaRaw)
+            : instaRaw.contains('/')
+                ? null
+                : Uri.tryParse('https://www.instagram.com/'
+                    '${Uri.encodeComponent(instaRaw.replaceAll('@', ''))}');
+    final Uri? facebookPage =
+        (siteHost.endsWith('facebook.com') || siteHost.endsWith('fb.com'))
+            ? siteUri
+            : null;
+    final Uri? ownPage = insta ? instaPage : facebookPage;
+    final searchUri = Uri.https('www.google.com', '/search',
+        {'q': '$spaceName $spaceCity $label'.trim()});
+
+    Future<void> fill(void Function(void Function()) setD) async {
+      String body;
+      try {
+        final p = await _supabase.outreachPreview(id, 'claim_looked_wa');
+        body = '${p['body'] ?? ''}';
+      } catch (_) {
+        body = 'Hi, this is Jonathan from Nomadwise. Someone opened the '
+            'claim page for ${c['space_name'] ?? 'your space'} on our site '
+            'recently. If that was you, did you have any questions?';
+      }
+      // The claim link says where it was sent, so a visit through it
+      // is known as an answer to this message.
+      text.text = body.replaceAll('from=whatsapp', 'from=$channel');
+      if (open) setD(() => busy = false);
+    }
+
+    Future<void> copyAndOpen(
+        Uri where, void Function(void Function()) setD) async {
+      if (text.text.trim().isEmpty) {
+        setD(() => problem = 'The message is empty.');
+        return;
+      }
+      // First, while the press still counts as yours: a browser
+      // blocks a new tab opened after a wait.
+      // The copy is asked for first: a page that has lost the focus
+      // to the new tab may be refused it.
+      final copy = Clipboard.setData(ClipboardData(text: text.text.trim()));
+      launchUrl(where, mode: LaunchMode.externalApplication)
+          .catchError((_) => false);
+      openedAt ??= DateTime.now();
+      try {
+        await copy;
+        if (open) {
+          setD(() {
+            opened = true;
+            problem = null;
+          });
+        }
+      } catch (_) {
+        if (open) {
+          setD(() {
+            opened = true;
+            problem = 'The message could not be copied by itself: select '
+                'it above and copy it by hand.';
+          });
+        }
+      }
+    }
+
+    final sent = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(builder: (ctx, setD) {
+        if (!started) {
+          started = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) => fill(setD));
+        }
+        return AlertDialog(
+          title: Text('$label message to ${c['space_name'] ?? 'the space'}'),
+          content: SizedBox(
+            width: 520,
+            child: SingleChildScrollView(
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                TextField(
+                    controller: text,
+                    readOnly: opened,
+                    minLines: 3,
+                    maxLines: 8,
+                    decoration: const InputDecoration(
+                        labelText: 'Message', border: OutlineInputBorder())),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Wrap(spacing: 2, children: [
+                    if (ownPage != null)
+                      TextButton.icon(
+                          onPressed: busy
+                              ? null
+                              : () => copyAndOpen(ownPage, setD),
+                          icon: const Icon(Icons.open_in_new, size: 16),
+                          label: Text('Copy, and open their $label')),
+                    TextButton.icon(
+                        onPressed:
+                            busy ? null : () => copyAndOpen(searchUri, setD),
+                        icon: const Icon(Icons.search, size: 16),
+                        label: Text(ownPage != null
+                            ? 'Copy, and search for it instead'
+                            : 'Copy, and find their $label')),
+                    if (siteUri != null)
+                      TextButton(
+                          onPressed: () => launchUrl(siteUri,
+                                  mode: LaunchMode.externalApplication)
+                              .catchError((_) => false),
+                          child: const Text('Their website')),
+                  ]),
+                ),
+                if (problem != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(problem!,
+                        style:
+                            const TextStyle(color: Brand.red, fontSize: 13)),
+                  ),
+                const SizedBox(height: 8),
+                Text(
+                    opened
+                        ? 'The message is copied. On their $label page '
+                            'press Message, paste it and send. Then come '
+                            'back and press "I sent it" so the card moves '
+                            'on.'
+                        : '$label does not let a message be written from '
+                            'here, so this copies the words and opens '
+                            '${ownPage != null ? 'their page' : 'a search for their page'}'
+                            '. You paste and send it there; nothing goes '
+                            'by itself.',
+                    style: const TextStyle(
+                        fontSize: 12, height: 1.4, color: Brand.inkMuted)),
+              ]),
+            ),
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: Text(opened ? 'Not sent' : 'Cancel')),
+            if (opened)
+              FilledButton(
+                onPressed: busy
+                    ? null
+                    : () async {
+                        setD(() {
+                          busy = true;
+                          problem = null;
+                        });
+                        try {
+                          await _supabase.outreachLogMessage(
+                              id, text.text.trim(), channel,
+                              at: openedAt);
+                          if (open && ctx.mounted) Navigator.pop(ctx, true);
+                        } catch (e) {
+                          if (!open) return;
+                          setD(() {
+                            busy = false;
+                            problem = _plain(e);
+                          });
+                        }
+                      },
+                child: const Text('I sent it'),
+              ),
+          ],
+        );
+      }),
+    );
+    open = false;
+    if (!mounted) return;
+    if (sent == true) {
+      _snack('Recorded as sent on $label.');
+      await _load();
+    }
   }
 
   /// A WhatsApp message to the space: the number (ours, or Google's
@@ -2868,7 +3090,8 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
           problem = live == null
               ? 'Google could not be reached just now. Try again.'
               : 'Google has no phone number for this place. Try their '
-                  'page on Google Maps or their website.';
+                  'page on Google Maps or their website, or close this '
+                  'and use Instagram or Facebook on the card.';
         }
       });
       // Kept for next time only when the line has no number yet: a

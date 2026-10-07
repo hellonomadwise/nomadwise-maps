@@ -1388,6 +1388,18 @@ class SupabaseService {
     }
   }
 
+  /// Records a message the founder sent by hand on Instagram or
+  /// Facebook (migration 160), like the WhatsApp one. [channel] is
+  /// 'instagram' or 'facebook'; [at] is when their page was opened.
+  Future<void> outreachLogMessage(String id, String body, String channel,
+      {DateTime? at}) =>
+      _db.rpc('admin_outreach_log_message', params: {
+        'p_id': id,
+        'p_body': body,
+        'p_channel': channel,
+        if (at != null) 'p_at': at.toUtc().toIso8601String(),
+      });
+
   Future<List<Map<String, dynamic>>> outreachMessages(String contactId) async {
     final r = await _db.rpc('admin_outreach_messages', params: {'p_contact': contactId});
     return [
