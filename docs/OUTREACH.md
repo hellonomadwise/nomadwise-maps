@@ -223,3 +223,12 @@ After a claim is approved, two reminders go by themselves to owners
 who have not signed in: day 7 and day 21. See Control centre >
 Sequences for who is in it, the route, and the switches. Details in
 DECISIONS.md.
+
+## One card per space, and what it was about (8 Oct 2026, migration 171)
+
+Each card carries what the conversation was about (Listing, Booking,
+Partnership, Other business, Removed or not a fit, User
+recommendation); change it with the three dots, "What it was about".
+Other business and Removed or not a fit sit under "Not for outreach".
+Lines Outreach made by itself for a space are folded into that
+space's other card every night. Details in DECISIONS.md.

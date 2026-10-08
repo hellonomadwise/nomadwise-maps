@@ -3946,3 +3946,56 @@ and the space waits for it.
 
 Also: a Region with no Locations now says so on the map, instead of
 "Nothing points to a Location".
+
+## 8 Oct 2026: clearer "When" on Sequences (migration 170)
+
+Jonathan asked what "with a copy to hello@" meant. It now says: sent
+from hello@nomadwise.io, with a hidden copy of each email in that
+inbox so there is a record of what went.
+
+## 8 Oct 2026: Outreach, one card per space, and what it was about (migration 171)
+
+Jonathan: "why are there 2 boxes here for the same space?" (Lisbon
+Cowork) and, on Sierra Cartel's GST thread, that some imported trails
+are not relevant to outreach. He chose all of the following.
+
+- One card per space. A line Outreach made by itself for a space
+  (source listing or claim, nothing ever received on it) is folded
+  into the space's other card, every night (cron `outreach-fold`).
+  Seven pairs written to from two addresses were joined by hand:
+  Lisbon Cowork, KAPTAR, The Work Loft, Ofis Voyvoda, Nomio, Monday,
+  ViOS. Avila (two locations) and Selina (several teams and places)
+  were left as they are. A second address goes into the notes.
+- A topic on each card, set for the 85 from the inbox and forms by
+  reading each trail: Listing, Booking, Partnership, Other business,
+  Removed or not a fit, User recommendation. Changeable from the card
+  menu ("What it was about").
+- Other business and Removed or not a fit are set aside under the
+  chip "Not for outreach", out of the list and the numbers, still
+  found by searching. A space that has claimed or pays is never set
+  aside.
+- New template `reply_we_know_you` for spaces known from a booking or
+  partnership, picked first for those when they are on the site.
+
+## 8 Oct 2026: our own new spaces go straight on; Candidates search (migration 172)
+
+"Life According to KAWA" (added by Jonathan on the spot in Dubrovnik)
+never reached the Pages tabs: its review was recorded as Rejected (the
+Reject button sits beside Approve), so the space stayed hidden. It was
+approved by hand the same morning with his Go. Now a new space added
+by a founder or a team member is approved as it is saved, and Reject
+in Review submissions asks first. Candidates has a search box that
+filters as you type (name, address or city; admin_candidates p_q).
+
+## 8 Oct 2026: live pages without a Location (migration 173)
+
+Jonathan asked for one place to work through every live page with no
+Location. Control centre > Clean-up > No Location lists them (40 on
+8 Oct) with the suggestion where there is one. For each: use the
+suggestion, choose on the map (with Ask Claude) or from the list,
+make a new Location, or mark that no Location is fine (kept as
+`website_location_override = 'none'`, with Undo). A chosen Location is
+set on the Webflow item and the item published again by the website
+sync (`website_location_apply`); a new one is linked once it exists
+(`website_new_location`). Every change to a live page starts from a
+founder's press that first says exactly what changes.

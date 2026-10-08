@@ -12,6 +12,7 @@ import '../services/places_service.dart';
 import '../services/supabase_service.dart';
 import '../theme.dart';
 import '../widgets/candidates_tab.dart';
+import '../widgets/no_location_tab.dart';
 import '../widgets/control_extras.dart';
 import '../widgets/pass_on.dart';
 import '../widgets/pricing_picker.dart';
@@ -184,6 +185,9 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   /// for the number on the tab; the tab keeps it right while open.
   int _candidateCount = 0;
 
+  /// Live pages with no Location still to decide (migration 173).
+  int _noLocationCount = 0;
+
   Future<void> _loadCandidateCount() async {
     try {
       final r = await _supabase.adminCandidates(limit: 1);
@@ -319,6 +323,18 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       _ringMenu();
       // The first reading was started with the page (initState).
       if (!firstLoad) _loadNextUp();
+      // Live pages without a Location (migration 173): their own
+      // reading, so the rest never waits for it or fails with it.
+      _supabase.liveWithoutLocation().then((r) {
+        final todo = (r['todo'] as List?) ?? const [];
+        final n = todo
+            .where((x) =>
+                x is Map && x['applying'] == null && x['waiting_for'] == null)
+            .length;
+        if (mounted && n != _noLocationCount) {
+          setState(() => _noLocationCount = n);
+        }
+      }).catchError((_) {});
     } catch (e) {
       if (mounted) setState(() => _error = '$e');
     }
@@ -1931,7 +1947,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     ('pages', 'Pages',
         ['fresh', 'preparing', 'region', 'ready', 'drafts', 'sitemap', 'released',
           'candidates']),
-    ('cleanup', 'Clean-up', ['closed', 'hidden']),
+    ('cleanup', 'Clean-up', ['closed', 'hidden', 'nolocation']),
   ];
 
   static String _sectionOf(String groupKey) => _sections
@@ -2875,6 +2891,14 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
             'about once a month; anything that closes lands here.'
       ),
       (
+        key: 'nolocation',
+        label: 'No Location',
+        count: _noLocationCount,
+        color: Brand.inkSecondary,
+        hint: '',
+        empty: ''
+      ),
+      (
         key: 'hidden',
         label: 'Not for the site',
         count: _hidden.length,
@@ -3014,6 +3038,29 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         ),
       'drafts' => _draftsTab(),
       'released' => _releasedTab(),
+      'nolocation' => NoLocationTab(
+          key: const ValueKey('no-location-tab'),
+          supabase: _supabase,
+          locations: _locations,
+          newLocation: (regionId, name, venueId) => Navigator.push<String>(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => _NewLocationPage(
+                      supabase: _supabase,
+                      regions: _regions,
+                      locations: _locations,
+                      initialRegionId: regionId,
+                      initialName: name,
+                      venueId: venueId))),
+          startRun: () async {
+            await _supabase.requestWebsitePush();
+          },
+          onCount: (n) {
+            if (mounted && n != _noLocationCount) {
+              setState(() => _noLocationCount = n);
+            }
+          },
+        ),
       'sitemap' => _SitemapTab(
           onChanged: _load,
           copy: _copy,

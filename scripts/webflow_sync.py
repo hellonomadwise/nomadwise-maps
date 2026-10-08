@@ -1221,8 +1221,25 @@ except Exception as e:  # noqa: BLE001
         f'owner marks read: {str(e)[:160]}')
     marks_ = []
 
+# Live pages given a Location in the control centre (migration 173):
+# an existing Location to put on, or a new one to wait for.
+try:
+    liveloc_ = sb('venues?webflow_cms_id=not.is.null'
+                  '&or=(website_location_apply.not.is.null,'
+                  'website_new_location.not.is.null)'
+                  '&website_status=in.(released,published_hidden)'
+                  '&select=id,name,webflow_cms_id,webflow_region_id,'
+                  'website_location_apply,website_new_location'
+                  '&limit=40') or []
+except Exception as e:  # noqa: BLE001
+    # A warning, not an error: the first run after the upload can land
+    # before the build has applied migration 173.
+    report.setdefault('warnings', []).append(
+        f'live Locations read: {str(e)[:160]}')
+    liveloc_ = []
+
 if PUSH_ONLY and not queued and not requests_ and not retire_ and not listing_ \
-        and not snap_ and not upgrades_ and not marks_:
+        and not snap_ and not upgrades_ and not marks_ and not liveloc_:
     finish(0)   # nothing to do: the common case, a second of runtime
 
 if PUSH_ONLY:
@@ -1476,6 +1493,66 @@ for req in requests_:
                prefer='return=minimal')
         except Exception:  # noqa: BLE001
             pass
+
+# ------------------------------------------------ Locations on live pages
+# A live page with no Location, given one in the control centre
+# (migration 173): its Location is set on the Webflow item and the
+# item published again. A new Location asked for by name is linked as
+# soon as it exists in the page's Region (made above, in this run or an
+# earlier one).
+def _loc_key(x):
+    return _norm(x or '')
+
+
+for v in liveloc_:
+    try:
+        loc = None
+        if v.get('website_location_apply'):
+            loc = next((l for l in locations
+                        if l['id'] == v['website_location_apply']), None)
+            if not loc:
+                raise RuntimeError('that Location is not in Webflow')
+        else:
+            want = _loc_key(v.get('website_new_location'))
+            loc = next((l for l in locations
+                        if not l.get('isArchived')
+                        and v.get('webflow_region_id') in (
+                            [(l.get('fieldData') or {}).get('region-3')]
+                            + list((l.get('fieldData') or {}).get('region-2')
+                                   or []))
+                        and _loc_key((l.get('fieldData') or {}).get('name-label')
+                                     or (l.get('fieldData') or {}).get('name'))
+                        == want), None)
+            if not loc:
+                continue   # not made yet: next run
+        lf = loc.get('fieldData') or {}
+        cms = v['webflow_cms_id']
+        wf_write(f'/v2/collections/{COLLECTION_ID}/items/{cms}', 'PATCH',
+                 {'fieldData': {'locations': loc['id'],
+                                'locations-label': lf.get('name-label')}})
+        time.sleep(1.1)
+        wf_write(f'/v2/collections/{COLLECTION_ID}/items/publish', 'POST',
+                 {'itemIds': [cms]})
+        time.sleep(1.1)
+        sb(f"venues?id=eq.{v['id']}", method='PATCH',
+           body={'webflow_location_id': loc['id'],
+                 'website_location_override': loc['id'],
+                 'website_location_apply': None,
+                 'website_new_location': None,
+                 'website_location_applied_at': now,
+                 'website_location_error': None},
+           prefer='return=minimal')
+        report.setdefault('locations_set_on_live_pages', []).append(
+            {'name': v['name'], 'location': lf.get('name-label')})
+    except Exception as e:  # noqa: BLE001
+        report['errors'].append(f"live Location {v.get('name')}: {e}")
+        try:
+            sb(f"venues?id=eq.{v['id']}", method='PATCH',
+               body={'website_location_error': str(e)[:300]},
+               prefer='return=minimal')
+        except Exception:  # noqa: BLE001
+            pass
+
 
 # ------------------------------------------------------------ retiring pages
 # A listing whose place has closed for good: both CMS items come off the

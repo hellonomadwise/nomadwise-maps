@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -75,11 +77,23 @@ class _CandidatesTabState extends State<CandidatesTab> {
   /// How many places one request brings: a screenful for the full
   /// list; for the short list as many as the database gives at once,
   /// since the strong ones are picked out of them here.
-  int get _pageSize => _full ? 60 : 200;
+  int get _pageSize => _listView ? 60 : 200;
 
   /// The short list, one place at a time (the way it opens), or the
   /// full list as it always was.
   late bool _full = widget.startFull;
+
+  /// What is typed in the search box (Jonathan, 8 Oct 2026: "i should
+  /// be able to search within the candidate list, and as im typing it
+  /// in real time filters down the potential list"). The database
+  /// keeps the places whose name, address or city has it; while
+  /// something is typed the matches show as a list.
+  final _search = TextEditingController();
+  String _q = '';
+  Timer? _typing;
+
+  /// The full list shows, or a search does.
+  bool get _listView => _full || _q.isNotEmpty;
 
   /// The lines about where the list comes from, folded away unless
   /// asked for.
@@ -155,21 +169,83 @@ class _CandidatesTabState extends State<CandidatesTab> {
     _loadSweepLine();
   }
 
+  @override
+  void dispose() {
+    _typing?.cancel();
+    _search.dispose();
+    super.dispose();
+  }
+
+  /// Each letter waits a moment for the next before the list is asked
+  /// for again, so a word is one request, not one per letter.
+  void _onTyped(String text) {
+    _typing?.cancel();
+    _typing = Timer(const Duration(milliseconds: 250), () {
+      final q = text.trim();
+      if (!mounted || q == _q) return;
+      setState(() {
+        _q = q;
+        _front = null;
+        _loading = true;
+        _rows = [];
+      });
+      _reload();
+    });
+  }
+
+  Widget _searchBox() => Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: TextField(
+          controller: _search,
+          onChanged: (t) {
+            setState(() {}); // the clear button
+            _onTyped(t);
+          },
+          textInputAction: TextInputAction.search,
+          decoration: InputDecoration(
+            isDense: true,
+            prefixIcon: const Icon(Icons.search, size: 20),
+            hintText: _area == null
+                ? 'Search the candidates by name, address or city'
+                : 'Search the candidates in $_area',
+            filled: true,
+            fillColor: Brand.surface,
+            suffixIcon: _search.text.isEmpty
+                ? null
+                : IconButton(
+                    tooltip: 'Clear',
+                    icon: const Icon(Icons.close, size: 18),
+                    onPressed: () {
+                      _search.clear();
+                      setState(() {});
+                      _onTyped('');
+                    }),
+            border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Brand.border)),
+            enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Brand.border)),
+          ),
+        ),
+      );
+
   Future<void> _reload() async {
     // An answer that arrives after the city or the order was changed
     // again is dropped; the later request brings the right list.
     final area = _area;
     final sort = _sort;
+    final q = _q;
     try {
       final r = await widget.supabase.adminCandidates(
-          area: area, limit: _pageSize, offset: 0, sort: sort);
-      if (!mounted || area != _area || sort != _sort) return;
+          area: area, limit: _pageSize, offset: 0, sort: sort, query: q);
+      if (!mounted || area != _area || sort != _sort || q != _q) return;
       _moreFailed = false;
       _listVersion++;
       _apply(r, append: false);
       _topUp();
     } catch (e) {
-      if (!mounted || area != _area || sort != _sort) return;
+      if (!mounted || area != _area || sort != _sort || q != _q) return;
       setState(() {
         _loading = false;
         _error = '$e';
@@ -182,13 +258,19 @@ class _CandidatesTabState extends State<CandidatesTab> {
     setState(() => _loadingMore = true);
     final area = _area;
     final sort = _sort;
+    final q = _q;
     final version = _listVersion;
     try {
       final r = await widget.supabase.adminCandidates(
-          area: area, limit: _pageSize, offset: _rows.length, sort: sort);
+          area: area,
+          limit: _pageSize,
+          offset: _rows.length,
+          sort: sort,
+          query: q);
       if (!mounted ||
           area != _area ||
           sort != _sort ||
+          q != _q ||
           version != _listVersion) {
         return;
       }
@@ -324,10 +406,10 @@ class _CandidatesTabState extends State<CandidatesTab> {
     });
     widget.onCount(_total);
     // The page ran dry but more wait behind it: fetch the next ones.
-    if (_full && _rows.length < 10 && _rows.length < _shownTotal) _loadMore();
+    if (_listView && _rows.length < 10 && _rows.length < _shownTotal) _loadMore();
     _topUp();
     // The area emptied: go back to everything.
-    if (_area != null && _shownTotal == 0) _pickArea(null);
+    if (_area != null && _shownTotal == 0 && _q.isEmpty) _pickArea(null);
   }
 
   // ------------------------------------------------------------ decisions
@@ -564,12 +646,24 @@ class _CandidatesTabState extends State<CandidatesTab> {
             children: [
               _intro(),
               if (_areas.length > 1) _areaRow(),
-              if (_total > 0) _modeRow(),
-              if (!_full)
+              if (_total > 0) _searchBox(),
+              if (_total > 0 && _q.isEmpty) _modeRow(),
+              if (!_listView)
                 ..._oneAtATime()
               else if (_total > 0)
                 _orderRow(),
-              if (!_full)
+              if (_q.isNotEmpty && !(_loading && _rows.isEmpty))
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(
+                      _shownTotal == 0
+                          ? 'Nothing matches "$_q"${_area == null ? '' : ' in $_area'}.'
+                          : '$_shownTotal ${_shownTotal == 1 ? 'match' : 'matches'} '
+                              'for "$_q"${_area == null ? '' : ' in $_area'}',
+                      style: const TextStyle(
+                          fontSize: 12.5, color: Brand.inkSecondary)),
+                ),
+              if (!_listView)
                 const SizedBox.shrink()
               else if (_loading && _rows.isEmpty)
                 const Padding(
@@ -578,7 +672,7 @@ class _CandidatesTabState extends State<CandidatesTab> {
                       child: CircularProgressIndicator(color: Brand.red)),
                 )
               else if (_rows.isEmpty)
-                _emptyView()
+                (_q.isEmpty ? _emptyView() : const SizedBox.shrink())
               else ...[
                 for (final c in _rows) _card(c),
                 if (_rows.length < _shownTotal)
@@ -996,7 +1090,7 @@ class _CandidatesTabState extends State<CandidatesTab> {
   /// The short list wants a few strong candidates in hand: while
   /// fewer are loaded and more places wait, the next page is read.
   void _topUp() {
-    if (_full || _loading || _loadingMore || _moreFailed) return;
+    if (_listView || _loading || _loadingMore || _moreFailed) return;
     if (_rows.length >= _shownTotal) return;
     if (_rows.where((c) => c.shortlisted).length >= _shortSize) return;
     _loadMore();

@@ -316,6 +316,31 @@ class _SubmissionCardState extends State<_SubmissionCard> {
   }
 
   Future<void> _decide(String status) async {
+    // Reject sits beside Approve, and a rejected space never reaches
+    // the map or the site (seen 8 Oct 2026 with Life According to
+    // KAWA): it asks first.
+    if (status == 'rejected') {
+      final payload = (s['payload'] as Map?) ?? const {};
+      final name = '${_venue?.name ?? payload['name'] ?? 'this space'}';
+      final sure = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+                title: Text('Reject $name?'),
+                content: const Text(
+                    'It will not appear on the map, and it will not go '
+                    'on to the Pages tabs for nomadwise.io.'),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text('Cancel')),
+                  TextButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      style: TextButton.styleFrom(foregroundColor: Brand.red),
+                      child: const Text('Reject')),
+                ],
+              ));
+      if (sure != true || !mounted) return;
+    }
     setState(() => _busy = true);
     try {
       await widget.supabase.setSubmissionStatus(s['id'], status);

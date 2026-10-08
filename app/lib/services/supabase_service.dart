@@ -948,7 +948,8 @@ class SupabaseService {
       {String? area,
       int limit = 60,
       int offset = 0,
-      String sort = 'best'}) async {
+      String sort = 'best',
+      String query = ''}) async {
     final params = <String, dynamic>{
       'p_area': area,
       'p_limit': limit,
@@ -956,8 +957,12 @@ class SupabaseService {
     };
     dynamic r;
     try {
-      r = await _db.rpc('admin_candidates',
-          params: <String, dynamic>{...params, 'p_sort': sort});
+      r = await _db.rpc('admin_candidates', params: <String, dynamic>{
+        ...params,
+        'p_sort': sort,
+        // what is typed in the search box (migration 172)
+        if (query.trim().isNotEmpty) 'p_q': query.trim(),
+      });
     } on PostgrestException catch (e) {
       // The database is one step behind the app (migration 137 not
       // applied), so it knows no function that takes an order: ask
@@ -970,6 +975,26 @@ class SupabaseService {
     }
     return r is Map ? Map<String, dynamic>.from(r) : <String, dynamic>{};
   }
+
+  /// Live pages on nomadwise.io with no Location (migration 173):
+  /// {todo: [...], settled: [...]}, settled being the ones marked
+  /// "No Location is fine".
+  Future<Map<String, dynamic>> liveWithoutLocation() async {
+    final r = await _db.rpc('admin_live_without_location');
+    return r is Map ? Map<String, dynamic>.from(r) : <String, dynamic>{};
+  }
+
+  /// A decision on a live page's Location: [kind] 'location' (an
+  /// existing one, [locationId]), 'new' ([name], once asked for),
+  /// 'none' (no Location, on purpose) or 'undo'.
+  Future<void> liveLocationSet(String venueId, String kind,
+          {String? locationId, String? name}) =>
+      _db.rpc('admin_live_location_set', params: {
+        'p_venue': venueId,
+        'p_kind': kind,
+        'p_location': locationId,
+        'p_name': name,
+      });
 
   /// Admin: a candidate becomes a space, already queued for the site.
   /// [google] carries what Google said just now (city, country,
@@ -1604,6 +1629,13 @@ class SupabaseService {
 
   Future<void> outreachDelete(String id) =>
       _db.rpc('admin_outreach_delete', params: {'p_id': id});
+
+  /// What the conversation with a space was about (migration 171):
+  /// 'listing', 'booking', 'partnership', 'other', 'not_a_fit',
+  /// 'recommendation', or null. 'other' and 'not_a_fit' set the card
+  /// aside under "Not for outreach".
+  Future<void> outreachSetTopic(String id, String? topic) => _db.rpc(
+      'admin_outreach_set_topic', params: {'p_id': id, 'p_topic': topic});
 
   /// Marks a line as a test, or takes the mark off (migration 149).
   /// For a claimed space the owner's address is what is marked, so

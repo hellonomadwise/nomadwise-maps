@@ -77,3 +77,10 @@ not always: a street can be the border.
   name. The area names have to be collected first.
 - Reading the area names of pages that are already live and have no
   Location (it would ask Google once per page).
+
+## Live pages without a Location (8 Oct 2026, migration 173)
+
+Control centre > Clean-up > No Location: every live page with no
+Location, to give one, make one, or mark that none is fine. The
+website sync sets a chosen Location on the live page within minutes.
+See DECISIONS.md.

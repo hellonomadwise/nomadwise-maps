@@ -437,6 +437,72 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
     }
   }
 
+  /// What a conversation was about (migration 171), as shown on the
+  /// card and offered in its menu.
+  static const _topics = <(String, String)>[
+    ('listing', 'Listing'),
+    ('booking', 'Booking'),
+    ('partnership', 'Partnership'),
+    ('other', 'Other business'),
+    ('not_a_fit', 'Removed or not a fit'),
+    ('recommendation', 'User recommendation'),
+  ];
+
+  static String? _topicLabel(Object? t) {
+    for (final x in _topics) {
+      if (x.$1 == t) return x.$2;
+    }
+    return null;
+  }
+
+  Future<void> _pickTopic(Map<String, dynamic> c) async {
+    final picked = await showDialog<String>(
+        context: context,
+        builder: (ctx) => SimpleDialog(
+              title: Text('What was it about with '
+                  '${c['space_name'] ?? 'this space'}?'),
+              children: [
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(24, 0, 24, 8),
+                  child: Text(
+                      'Other business and Removed or not a fit move the '
+                      'card to Not for outreach, unless the space has '
+                      'claimed or pays.',
+                      style: TextStyle(fontSize: 12.5, color: Brand.inkMuted)),
+                ),
+                for (final t in _topics)
+                  SimpleDialogOption(
+                    onPressed: () => Navigator.pop(ctx, t.$1),
+                    child: Row(children: [
+                      Icon(
+                          c['topic'] == t.$1
+                              ? Icons.radio_button_checked
+                              : Icons.radio_button_off,
+                          size: 18,
+                          color: Brand.inkMuted),
+                      const SizedBox(width: 10),
+                      Text(t.$2),
+                    ]),
+                  ),
+              ],
+            ));
+    if (picked == null || picked == c['topic']) return;
+    try {
+      await _supabase.outreachSetTopic('${c['id']}', picked);
+      if (!mounted) return;
+      final aside = (picked == 'other' || picked == 'not_a_fit') &&
+          c['stage'] != 'claimed' &&
+          c['stage'] != 'verified';
+      _snack(aside
+          ? '${c['space_name'] ?? 'It'}: ${_topicLabel(picked)}. Moved to Not '
+              'for outreach.'
+          : '${c['space_name'] ?? 'It'}: ${_topicLabel(picked)}.');
+      await _load();
+    } catch (e) {
+      if (mounted) _snack(_plain(e), bad: true);
+    }
+  }
+
   /// Marks a line as a test, or takes the mark off (migration 149):
   /// one of us trying things out, left out of every count. For a
   /// claimed space the owner's address is what is marked, so the other
@@ -749,8 +815,12 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
     // not an invitation to claim (seen 7 Oct 2026 with Lisbon-Cowork).
     final theirOwn = (c['stage'] == 'claimed' || c['stage'] == 'verified') &&
         !(c['owner'] is Map && (c['owner'] as Map)['mine'] == false);
+    // A space we know from a booking or a partnership talk is not
+    // thanked for asking to be listed (migration 171).
+    final known = c['topic'] == 'booking' || c['topic'] == 'partnership';
     String key = <String>[
       if (theirOwn) 'owner_account_how',
+      if (known && onSite) 'reply_we_know_you',
       if (c['signup'] is Map) 'signed_up',
       if (c['claim_look'] is Map) 'claim_looked',
       onSite ? 'reply_already_listed' : 'reply_listing',
@@ -2416,6 +2486,10 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
                   _stageChip('${c['stage']}'),
                 if (c['is_test'] == true)
                   _chip('TEST', bg: Brand.goldTint, fg: Brand.goldTextDark),
+                if (_topicLabel(c['topic']) != null)
+                  _chip(_topicLabel(c['topic'])!.toUpperCase(),
+                      bg: c['aside'] == true ? Brand.accentTint : Brand.field,
+                      fg: c['aside'] == true ? Brand.red : Brand.inkSecondary),
               ]),
               const SizedBox(height: 3),
               Text(
@@ -2457,6 +2531,7 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
               'note' => _editNote(c),
               'in' => _logReply(c),
               'test' => _setTest(c),
+              'topic' => _pickTopic(c),
               'delete' => _delete(c),
               _ => _setStage(c, k),
             },
@@ -2464,6 +2539,7 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
               const PopupMenuItem(value: 'edit', child: Text('Edit details')),
               const PopupMenuItem(value: 'note', child: Text('Note and follow-up date')),
               const PopupMenuItem(value: 'in', child: Text('Log what they wrote')),
+              const PopupMenuItem(value: 'topic', child: Text('What it was about')),
               const PopupMenuDivider(),
               for (final s in _stages)
                 if (s.$1.isNotEmpty && s.$1 != c['stage'] && s.$1 != 'verified')
@@ -3758,6 +3834,30 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
                                       : Brand.goldTextDark),
                               selected: _step == null && _stage == 'tests',
                               onSelected: (_) => _showTests(),
+                            ),
+                          // Other business, and spaces that asked to be
+                          // removed or are not a fit: out of the list,
+                          // here, and found by searching (migration 171).
+                          if ((_counts['_aside'] ?? 0) > 0 || _stage == 'aside')
+                            ChoiceChip(
+                              label: Text(
+                                  'Not for outreach ${_counts['_aside'] ?? 0}'),
+                              showCheckmark: false,
+                              selectedColor: Brand.inkSecondary,
+                              labelStyle: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  color: _step == null && _stage == 'aside'
+                                      ? Colors.white
+                                      : Brand.inkSecondary),
+                              selected: _step == null && _stage == 'aside',
+                              onSelected: (_) {
+                                setState(() {
+                                  _stage = 'aside';
+                                  _step = null;
+                                  _rows = null;
+                                });
+                                _load();
+                              },
                             ),
                         ]),
                         const SizedBox(height: 14),
