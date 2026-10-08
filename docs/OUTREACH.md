@@ -195,3 +195,14 @@ page); you paste and send it there, then press "I sent it". It is
 recorded on the line like a WhatsApp message, and a visit through the
 link in it is recognised as an answer to it.
 
+## The look of an Outreach email (7 Oct 2026, migration 163)
+
+An email sent from Outreach through Postmark to a space that has
+claimed (stage claimed or verified) goes out in the same card as our
+other emails to spaces ("nomadwise FOR SPACES"), with the plain text
+alongside; the unsubscribe address sits behind "unsubscribe here" at
+the foot of the card. To everybody else it goes as plain text, as it
+always has: a designed email to a space that does not know us is more
+likely to be filed under Promotions. The template's words are the
+same either way, and the box in Outreach still shows and edits the
+plain words. An email sent from your own inbox is not affected.

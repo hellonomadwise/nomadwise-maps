@@ -3762,3 +3762,92 @@ server; a second reader's attack cases (slow patterns, floods, forged
 senders), all fixed before shipping. Not seen with a real email yet:
 that is the first thing to try after the two steps above.
 
+## 7 Oct 2026: Outreach emails to claimed spaces in the same look as the others (migration 163)
+
+Jonathan, with the chat email (in its card under "nomadwise FOR
+SPACES") and an Outreach email ("Your Owner account for ...", bare
+text) next to each other in his inbox: "I want it to be the same as
+how the nomadwise for spaces email is styled."
+
+Outreach emails sent through Postmark went out as text only since
+migration 121, on purpose: a plain email reads as one person writing
+to another. Told that a designed email to a space that does not know
+us is more likely to be filed under Promotions, he drew the line:
+"lets not do the branded look for first contact emails".
+
+So the rule is by where the contact stands:
+
+- **Claimed or verified** (they have an Owner account): the email
+  carries the designed version, made by the same function as every
+  other email to a space (`owner_email_html`), so a change to the
+  look changes all of them at once. The plain text still travels with
+  it. The unsubscribe line reads "If you would rather not hear from
+  us again, unsubscribe here." with the address behind the last two
+  words, as the small grey line at the foot of the card.
+- **Everybody else** (a first email, a follow-up to somebody who has
+  not answered, an answer to somebody who wrote to us): plain text,
+  exactly as before.
+
+The words are the template's in both cases. Not changed: emails sent
+from the founder's own inbox (the other Outreach route), which are
+written in that mail program.
+
+Also seen that evening, the first real run of the chat by email: the
+owner's answer by email arrived in the chat within seconds with the
+quoted email taken off, and our two messages got their two ticks.
+The first chat email had been refused by Postmark (the server token
+in the Vault was being replaced at that moment); an email Postmark
+refuses is not sent again by itself, which is still open.
+
+## 8 Oct 2026: a crawler's networks are blocked (migration 164)
+
+Early on 8 Oct the founders' phones said "Claim page opened" 17 times
+between 05:17 and 06:45 London time, each time "from
+nomadwise.io/blog/...", "Looking from Singapore. The device's clock is
+on China time." PostHog showed what it was: a crawler on Tencent's
+cloud servers in Singapore (43.172.x.x and 43.173.x.x, AS132203),
+following the claim links on one nomadwise.io page after another. No
+referrer, a desktop browser on China time, a new visitor id each
+visit, and a new address every few seconds: one visit's three steps
+came from three addresses within two seconds. Nothing from that
+network in the three weeks before. Among them, two real visits: a
+phone in Tallinn from the Workland Fahle page, and an Android phone
+on the nomadwise.io home page.
+
+Jonathan: "I want both" (no notices or counts for such visits, and
+PostHog told it is a bot), and "Is it also possible to block this
+activity as soon as it's identified".
+
+- **PostHog** (done by hand the same morning, with his go): a custom
+  bot rule "Tencent Cloud crawler (Singapore)", $ip in 43.172.0.0/15,
+  category headless_browser. Its 25 events of that morning then read
+  as Automation.
+- **Blocked networks** (`blocked_networks`), seeded with
+  43.172.0.0/15. A claim visit or an app event from a blocked network
+  is not stored and tells nobody; the app asks once per visit
+  (`visit_blocked`) and then sends nothing, PostHog included.
+- **As soon as one gives itself away:** one visitor whose requests
+  come from three different /24 networks within two minutes is a
+  machine with a pool of addresses (a phone moving between wifi and
+  mobile data makes two). Its /16 networks are blocked for 90 days and
+  the phones say "A bot was blocked" once. The addresses this needs
+  are kept ten to twenty minutes and then deleted.
+- **Only Cloudflare's address is believed** (`cf-connecting-ip`): the
+  other address headers can be written by the caller, who could then
+  get somebody else's network blocked. If the database cannot read the
+  address, nothing is checked and nothing is blocked;
+  `admin_bot_guard()` says which, and lists the networks.
+- **What blocking cannot do:** the claim page is a static page on
+  GitHub Pages and is served to anybody; refusing the visit at the
+  door would need a service like Cloudflare in front of nomadmaps.io.
+  Claiming is never blocked: an owner on such a network can still
+  claim, and that is still announced.
+- **That morning's rows** were moved out of claim_visits, app_events
+  and claim_visit_geo into `blocked_rows` (kept, not thrown away).
+  Three had become signs of interest in Outreach: Tribal Bali,
+  Hellocapitano Lifestyle Cafe, Indigo Specialty Coffee & Bakery.
+
+If "A bot was blocked" ever names a network that looks like real
+people (a mobile network, a relay such as iCloud Private Relay), the
+block is lifted by deleting its line from `blocked_networks`.
+

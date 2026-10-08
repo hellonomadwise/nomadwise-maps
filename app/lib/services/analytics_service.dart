@@ -163,9 +163,36 @@ class Analytics {
     }
   }
 
+  /// Is this visit on a network the database has blocked (migration
+  /// 164: a crawler's cloud servers)? Then it sends nothing, like one
+  /// of our own devices. Asked once per page load; when no answer
+  /// comes in time, the visit counts as an ordinary one.
+  static Future<bool> _blockedNetwork() async {
+    try {
+      final r = await Future.any<dynamic>([
+        () async {
+          return await Supabase.instance.client.rpc('visit_blocked');
+        }(),
+        Future<dynamic>.delayed(
+            const Duration(milliseconds: 1500), () => false),
+      ]);
+      return r == true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<bool>? _internalCheck;
+
   static Future<bool> _isInternal() async {
     if (_internal != null) return _internal!;
+    // (one check at a time: the first events of a visit come together)
+    return _internalCheck ??= _checkInternal();
+  }
+
+  static Future<bool> _checkInternal() async {
     if (_isBot) return _internal = true;
+    if (await _blockedNetwork()) return _internal = true;
     var flag = false;
     try {
       final prefs = await SharedPreferences.getInstance();
