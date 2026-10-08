@@ -3851,3 +3851,12 @@ If "A bot was blocked" ever names a network that looks like real
 people (a mobile network, a relay such as iCloud Private Relay), the
 block is lifted by deleting its line from `blocked_networks`.
 
+Checked live the same morning: the database reads the visitor's
+address (`address_readable` true), and the crawler came back after the
+upload: 13 requests from 43.172.0.0/15 between 07:16 and 07:54 London
+time were turned away (no notices, nothing stored). Its first events
+still reached PostHog (marked as a bot there by the rule): the app gave
+up waiting for the "blocked" answer after 1.5 seconds. It now waits up
+to five seconds, and a later answer still silences the rest of the
+visit.
+

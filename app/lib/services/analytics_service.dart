@@ -165,18 +165,24 @@ class Analytics {
 
   /// Is this visit on a network the database has blocked (migration
   /// 164: a crawler's cloud servers)? Then it sends nothing, like one
-  /// of our own devices. Asked once per page load; when no answer
-  /// comes in time, the visit counts as an ordinary one.
+  /// of our own devices. Asked once per page load. The first events
+  /// wait up to five seconds for the answer (a crawler far away is
+  /// slow to get it: on 8 Oct its first events went out before the
+  /// answer did); an answer that comes later still silences the rest
+  /// of the visit. With no answer at all, the visit counts as an
+  /// ordinary one.
   static Future<bool> _blockedNetwork() async {
     try {
-      final r = await Future.any<dynamic>([
-        () async {
-          return await Supabase.instance.client.rpc('visit_blocked');
-        }(),
-        Future<dynamic>.delayed(
-            const Duration(milliseconds: 1500), () => false),
+      final ask = () async {
+        final r = await Supabase.instance.client.rpc('visit_blocked');
+        final yes = r == true;
+        if (yes) _internal = true;
+        return yes;
+      }();
+      return await Future.any<bool>([
+        ask.catchError((_) => false),
+        Future<bool>.delayed(const Duration(seconds: 5), () => false),
       ]);
-      return r == true;
     } catch (_) {
       return false;
     }
@@ -206,6 +212,8 @@ class Analytics {
         await prefs.setBool('internal_device', false);
       }
     } catch (_) {}
+    // (a late "blocked" may already have arrived meanwhile)
+    if (_internal == true) return true;
     return _internal = flag;
   }
 
