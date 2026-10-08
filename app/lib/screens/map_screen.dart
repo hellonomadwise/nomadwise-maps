@@ -970,7 +970,7 @@ class _MapScreenState extends State<MapScreen> {
     // Their new pending venue should appear for them right away,
     // WITH photos and hours: brand-new venues have no nightly Google
     // snapshot yet, so fetch their live details before showing.
-    _venues = await _supabase.fetchVenues();
+    _venues = await _supabase.fetchVenues(force: true);
     await _places.enrich(_venues);
     _computeDistances();
     if (mounted) {
@@ -4285,12 +4285,37 @@ class _CardPhotoPagerState extends State<_CardPhotoPager> {
   bool _healing = false;
 
   @override
+  void initState() {
+    super.initState();
+    _fillIn();
+  }
+
+  @override
   void didUpdateWidget(covariant _CardPhotoPager old) {
     super.didUpdateWidget(old);
     if (old.venue?.id != widget.venue?.id) {
       _fresh = null;
       _healing = false;
+      _fillIn();
     }
+  }
+
+  /// The map holds a light copy of each space with one photo
+  /// (migration 175): an opened card asks for its space in full, so
+  /// all its photos can be swiped through as before.
+  void _fillIn() {
+    final v = widget.venue;
+    if (v == null || !v.isSlim) return;
+    final id = v.id;
+    Future.microtask(() async {
+      final full = await SupabaseService().fullVenue(id);
+      if (!mounted || full == null || widget.venue?.id != id) return;
+      if (full.live != null) v.live = full.live;
+      final names = full.visiblePhotoNames.take(_maxPhotos).toList();
+      if (names.length > (_fresh ?? widget.names).length) {
+        setState(() => _fresh = names);
+      }
+    });
   }
 
   /// Google photo names stop working about four weeks after they were

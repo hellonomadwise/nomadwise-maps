@@ -4009,3 +4009,19 @@ logo, card, pictures or buttons), with the last line in small grey
 type: "If you would rather not hear from us again, unsubscribe here."
 The address sits behind "unsubscribe here". Claimed spaces keep the
 designed card (migration 163).
+
+## 8 Oct 2026: a lighter map, to stay inside the data allowance (migration 175)
+
+Supabase: 6.65 GB sent of the free plan's 5 GB this cycle (grace
+period until 7 Nov 2026). Measured: each map open read every column
+of every space, about 15 MB (3.7 MB compressed), mostly Google's full
+answer per place, links to all its photos and the nightly photo
+notes. About 75 opens a day made the total.
+
+Now the map asks map_venues(): the columns it reads, Google's answer
+cut to what the app shows, and one photo per space (no 1,000-row cut
+either: 22 spaces had been missing from the map). A card or a space's
+page asks for that one space in full when opened, so photos are as
+before. A copy fetched in the last 20 minutes on the same device is
+used as it is. Measured on the live data: about a quarter of the
+compressed size, and repeat opens within 20 minutes send nothing.

@@ -116,6 +116,16 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
     // Google's listing photos first (curated), community photos after.
     // If this screen opened before the map fetched the live details,
     // fetch them ourselves so the photos always appear.
+    // The map holds a light copy (one photo): the page asks for the
+    // space in full first (migration 175).
+    if (venue.isSlim) {
+      final full = await _supabase.fullVenue(venue.id);
+      if (full != null) {
+        if (full.live != null) venue.live = full.live;
+        _hidden.addAll(full.hiddenPhotos);
+        _food.addAll(full.foodPhotos);
+      }
+    }
     var live = venue.live;
     if ((live == null || live.photoNames.isEmpty) &&
         venue.googlePlaceId != null) {

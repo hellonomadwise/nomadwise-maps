@@ -269,14 +269,45 @@ class SupabaseService {
   // ---------- venues ----------
 
   static const _venueCacheKey = 'venues_cache_v1';
+  static const _venueCacheAtKey = 'venues_cache_at_v1';
 
-  Future<List<Venue>> fetchVenues() async {
-    // A place Google reports closed for good leaves the map, unless a
-    // founder has looked and said it is still open.
-    final rows = await _db.from('venues').select().or(
-        'business_status.is.null,business_status.neq.CLOSED_PERMANENTLY,'
-        'closed_dismissed_at.not.is.null');
-    final list = (rows as List)
+  /// The spaces for the map. A light copy (migration 175): every
+  /// column the map reads, Google's answer cut to what the app shows
+  /// and one photo per space; a card or page asks for its space in
+  /// full when opened ([fullVenue]). About a fifth of what the plain
+  /// read sent, which was most of the project's data allowance
+  /// (8 Oct 2026). A copy fetched in the last 20 minutes on this
+  /// device is used as it is, unless [force].
+  Future<List<Venue>> fetchVenues({bool force = false}) async {
+    if (!force) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final at = DateTime.tryParse(prefs.getString(_venueCacheAtKey) ?? '');
+        if (at != null &&
+            DateTime.now().difference(at) < const Duration(minutes: 20)) {
+          final cached = await cachedVenues();
+          if (cached.isNotEmpty) return cached;
+        }
+      } catch (_) {}
+    }
+    List rows;
+    try {
+      final r = await _db.rpc('map_venues');
+      rows = r is List ? r : const [];
+    } on PostgrestException catch (e) {
+      // The database is one step behind the app (migration 175 not
+      // applied yet): the plain read, as before.
+      final unknown = e.code == 'PGRST202' ||
+          e.message.contains('Could not find the function');
+      if (!unknown) rethrow;
+      // A place Google reports closed for good leaves the map, unless
+      // a founder has looked and said it is still open.
+      rows = await _db.from('venues').select().or(
+          'business_status.is.null,business_status.neq.CLOSED_PERMANENTLY,'
+          'closed_dismissed_at.not.is.null') as List;
+    }
+    final list = rows
+        .whereType<Map>()
         .map((r) => Venue.fromJson(Map<String, dynamic>.from(r)))
         .toList();
     // Remember for instant startup next time.
@@ -284,8 +315,20 @@ class SupabaseService {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(
           _venueCacheKey, jsonEncode(list.map((v) => v.raw).toList()));
+      await prefs.setString(
+          _venueCacheAtKey, DateTime.now().toIso8601String());
     } catch (_) {}
     return list;
+  }
+
+  /// One space in full, for a card or page opened from the light copy
+  /// the map holds; null when it cannot be read.
+  Future<Venue?> fullVenue(String id) async {
+    try {
+      return await venueById(id);
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Venues remembered from the last visit, instant, may be slightly stale.

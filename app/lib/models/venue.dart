@@ -98,6 +98,10 @@ class Venue {
   /// Raw database row (kept for offline caching).
   final Map<String, dynamic> raw;
 
+  /// From the map's light copy (migration 175): one photo and Google's
+  /// answer cut short. A card or page asks for the space in full.
+  bool get isSlim => raw['slim'] == true;
+
   /// Live data filled in from Google Places at runtime.
   PlaceLive? live;
 
