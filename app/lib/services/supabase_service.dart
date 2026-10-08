@@ -2395,6 +2395,40 @@ class SupabaseService {
     return Map<String, dynamic>.from(r as Map);
   }
 
+  /// Asks Claude which Location a space is in (migration 169). Returns
+  /// the question's number; the answer is read with [locationAnswer].
+  Future<int> locationAsk(String venueId,
+      {String? regionId, List<String> areaNames = const []}) async {
+    final r = await _db.rpc('admin_location_ask', params: {
+      'p_venue': venueId,
+      if ((regionId ?? '').isNotEmpty) 'p_region': regionId,
+      if (areaNames.isNotEmpty) 'p_names': areaNames,
+    });
+    return (r as num).toInt();
+  }
+
+  /// {status: 'waiting'}, {status: 'done', options, note} or
+  /// {status: 'error', error}.
+  Future<Map<String, dynamic>> locationAnswer(int askId) async {
+    final r = await _db.rpc('admin_location_answer', params: {'p_ask': askId});
+    return Map<String, dynamic>.from(r as Map);
+  }
+
+  /// What the founder chose after asking, and why: every later
+  /// question carries it, so the answers get closer to his own.
+  Future<void> locationAskChosen(int askId,
+          {required String kind,
+          String? name,
+          String? locationId,
+          String? reason}) =>
+      _db.rpc('admin_location_ask_chosen', params: {
+        'p_ask': askId,
+        'p_kind': kind,
+        'p_name': name,
+        'p_location_id': locationId,
+        'p_reason': reason,
+      });
+
   /// What kind of Region this is ('city', 'island' or 'rural'): it
   /// sets how far the nearest listed places are compared.
   Future<void> setRegionKind(String regionId, String kind) => _db.rpc(

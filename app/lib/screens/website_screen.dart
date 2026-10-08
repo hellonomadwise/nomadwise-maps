@@ -834,6 +834,33 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       await _pickLocation(v);
       return;
     }
+    if (choice.id == 'new') {
+      // A new Location from Claude's answer: the usual "new Location"
+      // page, filled in, and the space waits for it like one asked for
+      // from the editor.
+      final made = await Navigator.push<String>(
+          context,
+          MaterialPageRoute(
+              builder: (_) => _NewLocationPage(
+                  supabase: _supabase,
+                  regions: _regions,
+                  locations: _locations,
+                  initialRegionId: (_prepared(v)['region_id'] ??
+                      _regionFor(v)?['id']) as String?,
+                  initialName: choice.name,
+                  venueId: '${v['id']}')));
+      if (made == null || !mounted) return;
+      await _update(
+          v,
+          {
+            'website_new_location': made,
+            'website_location_override': null,
+            'website_prepared': null,
+          },
+          '$made is being created on nomadwise.io; ${v['name']} is linked '
+              'to it once it exists.');
+      return;
+    }
     await _applyLocation(v, {'id': choice.id, 'name': choice.name});
   }
 

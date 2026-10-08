@@ -3911,3 +3911,38 @@ Jonathan: "country doesnt have a dropdown like region and location
 have". COUNTRY is now tappable like REGION and LOCATION, picking from
 the site's Countries; the choice is saved on the space. The Region
 picker then lists that Country's Regions first.
+
+## 8 Oct 2026: no "finished a visit" phone notices (migration 168)
+
+Jonathan: not useful when it pings his phone. The 5-minute job
+`summarize-visitors` (migration 27) is stopped; the function stays so
+it can be switched back on with one line (in the migration's header).
+Other phone notices are unchanged.
+
+## 8 Oct 2026: Ask Claude which Location (migration 169)
+
+Jonathan, on the map of nearby spaces: "maybe its possible to run a
+search to ask claude or google to check" (he chose Claude), then
+"giving me a choice would be great ... and then if you can learn each
+time so that over time you get it more right", and "I could even
+provide a reason why I selected the option I chose."
+
+On the map screen, "Ask Claude" sends the space's position, Google's
+names for its area, the Region's Locations, the Region's listed places
+with their Locations, and his earlier choices with his reasons. Claude
+offers up to three options (an existing Location, or a well-known
+area name to create as a new one), each with a reason; no options
+means the Region page alone. He picks one, may write why, and that is
+kept (`location_asks`). Later questions in the same Region carry his
+choices; the ones where he went against Claude's first option are
+sent for every Region. That is how it learns: from his decisions, not
+from a model being retrained.
+
+Needs a Claude API key in the Supabase Vault as `anthropic_api_key`
+(he adds it). Model `claude-sonnet-4-5` unless a Vault entry
+`anthropic_model` says otherwise. Capped at 50 questions a day.
+Choosing a new Location opens the usual new-Location page, filled in,
+and the space waits for it.
+
+Also: a Region with no Locations now says so on the map, instead of
+"Nothing points to a Location".

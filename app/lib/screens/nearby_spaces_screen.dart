@@ -58,6 +58,16 @@ class _NearbySpacesScreenState extends State<NearbySpacesScreen> {
   String? _picked;
   bool _pickedByHand = false;
 
+  // Asking Claude (migration 169): the question's number, its answer,
+  // a new Location picked from the answer, and the founder's reason,
+  // which is kept with his choice so later answers learn from it.
+  int? _askId;
+  bool _asking = false;
+  Map<String, dynamic>? _answer;
+  String? _askError;
+  String? _pickedNew;
+  final _reason = TextEditingController();
+
   // One dot per colour, drawn once.
   final Map<int, BitmapDescriptor> _dots = {};
   BitmapDescriptor? _here;
@@ -82,6 +92,92 @@ class _NearbySpacesScreenState extends State<NearbySpacesScreen> {
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void dispose() {
+    _reason.dispose();
+    super.dispose();
+  }
+
+  /// Sends the question, then reads the answer every two seconds for
+  /// up to a minute and a half.
+  Future<void> _ask(Map<String, dynamic>? region) async {
+    setState(() {
+      _asking = true;
+      _askError = null;
+      _answer = null;
+      _pickedNew = null;
+    });
+    try {
+      final id = await _supabase.locationAsk(widget.venueId,
+          regionId: '${region?['id'] ?? widget.regionId ?? ''}',
+          areaNames: widget.areaNames);
+      _askId = id;
+      for (var i = 0; i < 45; i++) {
+        await Future.delayed(const Duration(seconds: 2));
+        if (!mounted) return;
+        final a = await _supabase.locationAnswer(id);
+        final status = '${a['status'] ?? ''}';
+        if (status == 'waiting') continue;
+        if (!mounted) return;
+        setState(() {
+          _asking = false;
+          if (status == 'done') {
+            _answer = a;
+            // The first option is pre-selected, like the suggestion.
+            final first = _maps(a['options']).firstOrNull;
+            if (first != null && !_pickedByHand) {
+              if (first['kind'] == 'existing' &&
+                  '${first['location_id'] ?? ''}'.isNotEmpty) {
+                _picked = '${first['location_id']}';
+              } else if (first['kind'] == 'new') {
+                _picked = null;
+                _pickedNew = '${first['name'] ?? ''}';
+              }
+            }
+          } else {
+            _askError = '${a['error'] ?? 'Something went wrong.'}';
+          }
+        });
+        return;
+      }
+      if (!mounted) return;
+      setState(() {
+        _asking = false;
+        _askError = 'No answer after a minute and a half. Try again.';
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _asking = false;
+        _askError = _plain(e);
+      });
+    }
+  }
+
+  /// Keeps what was chosen after asking (and why), then closes the map
+  /// with that choice.
+  Future<void> _finish(NearbyChoice choice) async {
+    final id = _askId;
+    if (id != null && _answer != null && choice.id != 'other') {
+      final kind = choice.id == 'none'
+          ? 'none'
+          : choice.id == 'new'
+              ? 'new'
+              : 'existing';
+      try {
+        await _supabase.locationAskChosen(id,
+            kind: kind,
+            name: choice.name,
+            locationId: kind == 'existing' ? choice.id : null,
+            reason: _reason.text.trim().isEmpty ? null : _reason.text.trim());
+      } catch (_) {
+        // Not keeping the lesson never stops the choice.
+      }
+    }
+    if (!mounted) return;
+    Navigator.of(context).pop(choice);
   }
 
   static String _plain(Object e) => e is PostgrestException
@@ -126,6 +222,7 @@ class _NearbySpacesScreenState extends State<NearbySpacesScreen> {
 
   void _pick(String? id) => setState(() {
         _picked = id;
+        _pickedNew = null;
         _pickedByHand = true;
       });
 
@@ -358,7 +455,13 @@ class _NearbySpacesScreenState extends State<NearbySpacesScreen> {
   Widget _verdictBox(
       Map<String, dynamic> verdict, Map<String, dynamic>? region) {
     final kind = '${verdict['verdict'] ?? 'none'}';
-    final why = '${verdict['why'] ?? ''}'.trim();
+    final noLocations =
+        region != null && _maps(_help?['locations']).isEmpty;
+    final why = noLocations && kind == 'none'
+        ? '${region?['name'] ?? 'This Region'} has no Locations on nomadwise.io yet, so the '
+            'page sits under the Region alone. Ask Claude below if the '
+            'area has a well-known name worth creating as a Location.'
+        : '${verdict['why'] ?? ''}'.trim();
     final location = '${verdict['location'] ?? ''}'.trim();
     final (String title, Color tint, Color ink) = switch (kind) {
       'assign' => (
@@ -479,19 +582,26 @@ class _NearbySpacesScreenState extends State<NearbySpacesScreen> {
         ]),
       ],
       if (region != null) ...[
+        const SizedBox(height: 12),
+        _askSection(region, all),
         const SizedBox(height: 10),
         Wrap(spacing: 8, runSpacing: 4, children: [
-          ElevatedButton(
-              onPressed: _picked == null || (pickedName ?? '').isEmpty
-                  ? null
-                  : () => Navigator.of(context)
-                      .pop(NearbyChoice(_picked!, pickedName)),
-              child: Text((pickedName ?? '').isEmpty
-                  ? 'Choose a Location above'
-                  : 'Use $pickedName')),
+          if ((_pickedNew ?? '').isNotEmpty)
+            ElevatedButton(
+                onPressed: () => _finish(NearbyChoice('new', _pickedNew)),
+                child: Text('Create "$_pickedNew" as a new Location'))
+          else
+            ElevatedButton(
+                onPressed: _picked == null || (pickedName ?? '').isEmpty
+                    ? null
+                    : () => _finish(NearbyChoice(_picked!, pickedName)),
+                child: Text((pickedName ?? '').isNotEmpty
+                    ? 'Use $pickedName'
+                    : all.isEmpty
+                        ? 'No Locations in $regionName yet'
+                        : 'Choose a Location above')),
           TextButton(
-              onPressed: () =>
-                  Navigator.of(context).pop(const NearbyChoice('none')),
+              onPressed: () => _finish(const NearbyChoice('none')),
               child: const Text('No Location (Region page only)')),
           TextButton(
               onPressed: () =>
@@ -512,15 +622,156 @@ class _NearbySpacesScreenState extends State<NearbySpacesScreen> {
             ('island', 'Island (4 km)'),
             ('rural', 'Rural or wide area (8 km)'),
           ])
+            // Colours set here: left to the theme, the chosen one was
+            // dark text on a dark chip, so its words could not be read.
             ChoiceChip(
-                label: Text(k.$2, style: const TextStyle(fontSize: 12)),
+                label: Text(k.$2,
+                    style: TextStyle(
+                        fontSize: 12,
+                        fontWeight:
+                            kind == k.$1 ? FontWeight.w700 : FontWeight.w500,
+                        color: kind == k.$1 ? Colors.white : Brand.ink)),
                 selected: kind == k.$1,
-                onSelected: _savingKind || kind == k.$1
-                    ? null
-                    : (_) => _setKind('${region['id']}', k.$1)),
+                selectedColor: Brand.ink,
+                checkmarkColor: Colors.white,
+                backgroundColor: Brand.surface,
+                onSelected: (_) {
+                  if (_savingKind || kind == k.$1) return;
+                  _setKind('${region['id']}', k.$1);
+                }),
         ]),
       ],
     ]);
+  }
+
+  /// "Ask Claude": the button, then the options to choose from (each
+  /// with its reason) and a box for the founder's own reason.
+  Widget _askSection(
+      Map<String, dynamic> region, List<Map<String, dynamic>> all) {
+    final answer = _answer;
+    final options = _maps(answer?['options']);
+    final note = '${answer?['note'] ?? ''}'.trim();
+    const small = TextStyle(fontSize: 12.5, height: 1.4, color: Brand.inkSecondary);
+
+    Widget option(Map<String, dynamic> o) {
+      final isNew = o['kind'] == 'new';
+      final name = '${o['name'] ?? ''}';
+      final lid = '${o['location_id'] ?? ''}';
+      final on = isNew ? _pickedNew == name : (_picked == lid && _pickedNew == null);
+      final reason = '${o['reason'] ?? ''}'.trim();
+      final conf = '${o['confidence'] ?? ''}';
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 6),
+        child: Material(
+          color: on ? Brand.logoTealTint : Brand.surface,
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+              side: BorderSide(color: on ? Brand.logoNavy : Brand.border)),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(10),
+            onTap: () => setState(() {
+              _pickedByHand = true;
+              if (isNew) {
+                _picked = null;
+                _pickedNew = name;
+              } else {
+                _picked = lid;
+                _pickedNew = null;
+              }
+            }),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Icon(on ? Icons.radio_button_checked : Icons.radio_button_off,
+                    size: 18, color: on ? Brand.logoNavy : Brand.inkMuted),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                            [
+                              name,
+                              if (isNew) '(new Location)',
+                              if (conf.isNotEmpty) '· $conf confidence',
+                            ].join(' '),
+                            style: const TextStyle(
+                                fontSize: 13, fontWeight: FontWeight.w700)),
+                        if (reason.isNotEmpty) Text(reason, style: small),
+                      ]),
+                ),
+              ]),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+          color: Brand.field, borderRadius: BorderRadius.circular(12)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const Expanded(
+            child: Text('ASK CLAUDE',
+                style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: .4,
+                    color: Brand.inkMuted)),
+          ),
+          TextButton.icon(
+              onPressed: _asking ? null : () => _ask(region),
+              icon: const Icon(Icons.auto_awesome_outlined, size: 16),
+              label: Text(answer == null ? 'Ask Claude' : 'Ask again')),
+        ]),
+        if (_asking) ...[
+          const LinearProgressIndicator(minHeight: 2),
+          const SizedBox(height: 6),
+          const Text('Asking Claude. This takes up to half a minute.',
+              style: small),
+        ] else if (_askError != null)
+          Text(_askError!,
+              style: const TextStyle(fontSize: 12.5, color: Brand.red))
+        else if (answer == null)
+          const Text(
+              'Claude looks at where the space is, the Locations of the '
+              'Region, the places already listed there and your earlier '
+              'choices, and offers the options.',
+              style: small)
+        else ...[
+          if (options.isEmpty)
+            Text(
+                'No Location fits${note.isEmpty ? '.' : ': $note'} The '
+                'Region page alone is fine.',
+                style: small)
+          else ...[
+            if (note.isNotEmpty) ...[
+              Text(note, style: small),
+              const SizedBox(height: 6),
+            ],
+            ...options.map(option),
+          ],
+          const SizedBox(height: 4),
+          TextField(
+            controller: _reason,
+            minLines: 1,
+            maxLines: 3,
+            style: const TextStyle(fontSize: 13),
+            decoration: InputDecoration(
+                isDense: true,
+                filled: true,
+                fillColor: Brand.surface,
+                hintText: 'Why this choice? (optional; Claude learns from it)',
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide.none)),
+          ),
+        ],
+      ]),
+    );
   }
 }
 
