@@ -21,6 +21,7 @@ import '../widgets/resubmit_changes.dart';
 import '../widgets/ui.dart';
 import 'admin_analytics_screen.dart';
 import 'admin_chats_screen.dart';
+import 'admin_sequences_screen.dart';
 import 'admin_prices_screen.dart';
 import 'admin_pricing_screen.dart';
 import 'admin_outreach_screen.dart';
@@ -641,16 +642,60 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         'Slug saved: /coworking/$slug');
   }
 
-  Future<void> _pickRegion(Map<String, dynamic> v) async {
+  /// The Country, picked from the site's Countries the same way as
+  /// the Region. Saved on the space itself, so the Region picker can
+  /// put that Country's Regions first.
+  Future<void> _pickCountry(Map<String, dynamic> v) async {
     final picked = await showModalBottomSheet<Map<String, dynamic>>(
         context: context,
         isScrollControlled: true,
         shape: const RoundedRectangleBorder(
             borderRadius: BorderRadius.vertical(top: Radius.circular(18))),
         builder: (_) => _RegionPicker(
-            regions: _regions,
+            regions: _countries,
             forName: v['name'],
-            onRefresh: _refreshFromWebflow));
+            onRefresh: _refreshFromWebflow,
+            title: 'Which Country is ${v['name'] ?? 'this space'} in?',
+            subtitle: 'Countries are the country pages on nomadwise.io. '
+                'Pick the Country here, then the Region inside it.',
+            hint: 'Search countries'));
+    if (picked == null) return;
+    await _update(
+        v,
+        {
+          'country': picked['name'],
+          // Nothing could be prepared without a Region; with the
+          // Country known, the next try may find one.
+          if (_regionFor(v) == null) 'website_prepared': null,
+        },
+        '${picked['name']} chosen.');
+  }
+
+  Future<void> _pickRegion(Map<String, dynamic> v) async {
+    // The space's Country's Regions first, then all the others, so a
+    // known Country narrows the list without hiding anything.
+    final country = (_countryOf(v) ?? '').trim().toLowerCase();
+    bool inCountry(Map<String, dynamic> r) =>
+        country.isNotEmpty &&
+        '${r['country'] ?? ''}'.trim().toLowerCase() == country;
+    final ordered = [
+      ..._regions.where(inCountry),
+      ..._regions.where((r) => !inCountry(r)),
+    ];
+    final firstCount = _regions.where(inCountry).length;
+    final picked = await showModalBottomSheet<Map<String, dynamic>>(
+        context: context,
+        isScrollControlled: true,
+        shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(18))),
+        builder: (_) => _RegionPicker(
+            regions: ordered,
+            forName: v['name'],
+            onRefresh: _refreshFromWebflow,
+            subtitle: firstCount > 0
+                ? 'Regions are the city pages on nomadwise.io. The '
+                    '${_countryOf(v)} ones are at the top.'
+                : null));
     if (picked == null) return;
     await _update(
         v,
@@ -1125,6 +1170,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         'pricing' => const AdminPricingScreen(),
         'outreach' => const AdminOutreachScreen(),
         'chats' => const AdminChatsScreen(),
+        'sequences' => const AdminSequencesScreen(),
         'upgrades' => const AdminUpgradesScreen(),
         'prices' => const AdminPricesScreen(),
         'review' => const AdminScreen(),
@@ -1359,6 +1405,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       tool('prices', Icons.sell_outlined, 'Price check'),
       tool('outreach', Icons.mail_outline, 'Outreach'),
       tool('chats', Icons.forum_outlined, 'Chats'),
+      tool('sequences', Icons.timeline_outlined, 'Sequences'),
       heading('CREATE ON NOMADWISE.IO'),
       item(Icons.public, 'Country page', () {
         if (mounted) _newCountry();
@@ -1450,6 +1497,8 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                   child: Text(_chatsUnread > 0
                       ? 'Chats ($_chatsUnread)'
                       : 'Chats')),
+              const PopupMenuItem(
+                  value: 'sequences', child: Text('Sequences')),
               const PopupMenuDivider(),
               const PopupMenuItem(
                   value: 'analytics', child: Text('Analytics')),
@@ -5927,7 +5976,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
 
   /// Country, Region and Location as the site will file the space,
   /// spelled out under the title so nothing has to be guessed from
-  /// the address line. Region and Location are tappable pickers.
+  /// the address line. All three are tappable pickers.
   Widget _taxonomyRow(Map<String, dynamic> v) {
     final region = _regionFor(v);
     final newRegion = v['website_new_region'] as String?;
@@ -5997,7 +6046,8 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
 
     return Wrap(spacing: 6, runSpacing: 6, children: [
       cell('COUNTRY', country ?? 'Unknown',
-          country == null ? Brand.red : Brand.ink),
+          country == null ? Brand.red : Brand.ink,
+          onTap: () => _pickCountry(v)),
       cell(
           'REGION',
           newRegion != null && newRegion.isNotEmpty
@@ -7835,12 +7885,15 @@ class _RegionPicker extends StatefulWidget {
   /// Offered when nothing matches: pull the site's current items into
   /// the app (for something made in Webflow by hand).
   final Future<void> Function()? onRefresh;
+  /// The search box's hint; 'Search regions' when not given.
+  final String? hint;
   const _RegionPicker(
       {required this.regions,
       this.forName,
       this.title,
       this.subtitle,
-      this.onRefresh});
+      this.onRefresh,
+      this.hint});
   @override
   State<_RegionPicker> createState() => _RegionPickerState();
 }
@@ -7883,7 +7936,7 @@ class _RegionPickerState extends State<_RegionPicker> {
               autofocus: true,
               decoration: InputDecoration(
                   prefixIcon: const Icon(Icons.search),
-                  hintText: 'Search regions',
+                  hintText: widget.hint ?? 'Search regions',
                   filled: true,
                   fillColor: Brand.field,
                   border: OutlineInputBorder(

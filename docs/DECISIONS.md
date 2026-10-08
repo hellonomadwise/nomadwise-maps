@@ -3876,3 +3876,38 @@ only words people read changed. The live nomadwise.io pages checked
 (a coworking page, the coworking list, the home page, the old "add my
 business" page) had no "facts" in them.
 
+
+## 8 Oct 2026: sign-in reminders as a Sequence (migration 167)
+
+Jonathan: a "super friendly reminder" for spaces that claimed but never
+signed in, then "clearly illustrate it within the Nomad Maps admin
+area ... what spaces are included in sequencing and what the sequencing
+route is and also for the ability for us to switch that off ... either
+all together or for each individual email or listing". Chosen: two
+emails, day 7 and day 21, with the wording he approved.
+
+Who: a space claimed by its owner (not a test), with the claim
+approved, never signed in to the Owner account. Email 1 goes 7 days
+after the claim (and at least 2 days after approval); email 2 goes 21
+days after the claim (and at least 10 days after email 1). Signing in
+at any point takes the space out. Each email goes to a space once,
+whatever happens (`sequence_sends`). Runs every morning at 09:10
+London time (cron `signin-reminders`), with one phone notice listing
+what went.
+
+Switches, in Control centre > Sequences: the whole sequence, each
+email, and each space. All start on. The tables are `sequences`,
+`sequence_steps` and `sequence_exclusions`, so a later sequence can
+reuse the same screen.
+
+Also in 167: link-checkers at owners' mail providers open the claim
+link with a scrambled code (a "From email/WhatsApp" visit to an
+unknown claim page). Those no longer send a phone notice. A real
+claim link always matches a space, so real owners still notify.
+
+## 8 Oct 2026: Country picker on New spaces cards
+
+Jonathan: "country doesnt have a dropdown like region and location
+have". COUNTRY is now tappable like REGION and LOCATION, picking from
+the site's Countries; the choice is saved on the space. The Region
+picker then lists that Country's Regions first.

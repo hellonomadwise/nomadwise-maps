@@ -169,7 +169,9 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(SnackBar(
-            duration: const Duration(seconds: 8),
+            // An Undo button would otherwise keep it up until closed.
+            duration: const Duration(seconds: 20),
+            persist: false,
             content: Text('$who: ${_stageLabel(stage)}.'),
             action: undoable && was.isNotEmpty && was != stage
                 ? SnackBarAction(
@@ -1906,8 +1908,8 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
       'Claimed, never been in their Owner account',
       'Their address. The page is theirs and nothing has been done '
           'with it.',
-      'Remind them how to get in. (A reminder that goes by itself is '
-          'on the list to build.)'
+      'Remind them how to get in. Two reminders go by themselves, at '
+          'day 7 and day 21: see Sequences in the menu.'
     ),
     (
       'owners', 'opened_only', Icons.hourglass_empty_outlined,

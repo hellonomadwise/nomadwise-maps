@@ -549,6 +549,7 @@ class _MapScreenState extends State<MapScreen> {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 8),
+        persist: false,
         // Explicit rounded shape and a margin clear of the home
         // indicator, so the corners are never clipped by the edge.
         shape: RoundedRectangleBorder(
@@ -1534,6 +1535,7 @@ class _MapScreenState extends State<MapScreen> {
       ..showSnackBar(SnackBar(
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 6),
+        persist: false,
         content: const Text('Jumped to city'),
         action: SnackBarAction(
           label: 'Back',

@@ -216,3 +216,10 @@ description and prices" (and "Claimed: how to get into their Owner
 account" says "update the description, opening hours and contact
 details"). Only those words were changed in the stored templates.
 
+
+## Sign-in reminders (8 Oct 2026, migration 167)
+
+After a claim is approved, two reminders go by themselves to owners
+who have not signed in: day 7 and day 21. See Control centre >
+Sequences for who is in it, the route, and the switches. Details in
+DECISIONS.md.

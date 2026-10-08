@@ -1483,6 +1483,30 @@ class SupabaseService {
   static List<Map<String, dynamic>> chatRowsOf(Map<String, dynamic> chat) =>
       _chatRows(chat);
 
+  /// Sequences (migration 167): each with its switch, its emails, and
+  /// the spaces it has to do with and where each stands.
+  Future<List<Map<String, dynamic>>> adminSequences() async {
+    final r = await _db.rpc('admin_sequences');
+    return [
+      if (r is List)
+        for (final x in r)
+          if (x is Map) Map<String, dynamic>.from(x)
+    ];
+  }
+
+  /// Switches a whole sequence ([step] null) or one of its emails.
+  Future<void> adminSequenceSet(String key, int? step, bool enabled) async {
+    await _db.rpc('admin_sequence_set',
+        params: {'p_key': key, 'p_step': step, 'p_enabled': enabled});
+  }
+
+  /// Switches a sequence off ([off] true) or back on for one space.
+  Future<void> adminSequenceExclude(
+      String key, String venueId, bool off) async {
+    await _db.rpc('admin_sequence_exclude',
+        params: {'p_key': key, 'p_venue': venueId, 'p_off': off});
+  }
+
   Future<List<Map<String, dynamic>>> outreachMessages(String contactId) async {
     final r = await _db.rpc('admin_outreach_messages', params: {'p_contact': contactId});
     return [
