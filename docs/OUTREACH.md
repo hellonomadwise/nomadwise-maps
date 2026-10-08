@@ -232,3 +232,9 @@ recommendation); change it with the three dots, "What it was about".
 Other business and Removed or not a fit sit under "Not for outreach".
 Lines Outreach made by itself for a space are folded into that
 space's other card every night. Details in DECISIONS.md.
+
+## The unsubscribe line (8 Oct 2026, migration 174)
+
+Every Outreach email sent from here ends with a small grey line,
+"If you would rather not hear from us again, unsubscribe here.", the
+address behind the two words. Plain emails stay plain-looking.

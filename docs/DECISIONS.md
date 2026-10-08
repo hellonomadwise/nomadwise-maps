@@ -3999,3 +3999,13 @@ set on the Webflow item and the item published again by the website
 sync (`website_location_apply`); a new one is linked once it exists
 (`website_new_location`). Every change to a live page starts from a
 founder's press that first says exactly what changes.
+
+## 8 Oct 2026: small unsubscribe line in plain Outreach emails (migration 174)
+
+Jonathan: "the unsubscribe link should be styled and smaller and a
+shorter link". Plain Outreach emails (to spaces that have not claimed)
+now carry an HTML version that still looks like a personal email (no
+logo, card, pictures or buttons), with the last line in small grey
+type: "If you would rather not hear from us again, unsubscribe here."
+The address sits behind "unsubscribe here". Claimed spaces keep the
+designed card (migration 163).
