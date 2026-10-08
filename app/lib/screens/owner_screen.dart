@@ -987,7 +987,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
           const SizedBox(height: 8),
           const Text(
               'Manage your listing on Nomadwise: your description, '
-              'prices, hours, photos and facts. Sign in with the email your '
+              'prices, hours, photos and amenities. Sign in with the email your '
               'space was claimed with; no password.',
               style: TextStyle(
                   color: Brand.inkSecondary, fontSize: 14.5, height: 1.5)),
@@ -2050,7 +2050,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
         const SizedBox(height: 4),
         const Text(
             'What nomads read before they choose you. We read every change '
-            'before it goes on the page: facts and photos are yours, the '
+            'before it goes on the page: the details and photos are yours, the '
             'tone stays honest.',
             style: TextStyle(
                 color: Brand.inkSecondary, fontSize: 12.5, height: 1.45)),
@@ -2105,7 +2105,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
               label: const Text('Use Monday\'s hours for every day')),
         ),
         const SizedBox(height: 18),
-        const Text('Work-friendly facts',
+        const Text('Work-friendly amenities',
             style: TextStyle(fontWeight: FontWeight.w700)),
         const SizedBox(height: 6),
         Wrap(spacing: 4, runSpacing: 0, children: [

@@ -2703,7 +2703,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         hint: 'Suggested updates from anyone (the "Something need '
             'updating?" link on each page), then changes owners submitted '
             'from their Owner account: '
-            'description, prices, hours, facts, photos, contact, and on '
+            'description, prices, hours, amenities, photos, contact, and on '
             'Verified pages the message for the advert slot. Nothing is on '
             'the page until you put it there. Send back anything that '
             'oversells; the note reaches the owner.',
@@ -6872,7 +6872,7 @@ class _EditVenuePageState extends State<_EditVenuePage> {
             _field(_wifi, 'WiFi speed (Mbps)',
                 hint: 'Leave empty if untested',
                 keyboard: TextInputType.number),
-            _heading('FACTS'),
+            _heading('AMENITIES'),
             const Text('Tap to cycle: unknown, yes, no.',
                 style: TextStyle(fontSize: 12, color: Brand.inkMuted)),
             const SizedBox(height: 8),

@@ -81,7 +81,7 @@ class _SpaceTrailScreenState extends State<SpaceTrailScreen> {
     }
     final f = (d['facts'] is Map) ? d['facts'] as Map : const {};
     final on = f.entries.where((e) => e.value == true).map((e) => e.key).toList();
-    if (on.isNotEmpty) lines.add('Facts: ${on.join(', ').replaceAll('_', ' ')}');
+    if (on.isNotEmpty) lines.add('Amenities: ${on.join(', ').replaceAll('_', ' ')}');
     for (final k in ['website', 'instagram', 'whatsapp', 'enquiry_email']) {
       if (s(d[k]).isNotEmpty) lines.add('${k.replaceAll('_', ' ')}: ${s(d[k])}');
     }

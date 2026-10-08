@@ -206,3 +206,13 @@ always has: a designed email to a space that does not know us is more
 likely to be filed under Promotions. The template's words are the
 same either way, and the box in Outreach still shows and edits the
 plain words. An email sent from your own inbox is not affected.
+
+## No "facts" in the templates (8 Oct 2026, migration 165)
+
+Jonathan: "can we change this template to not say "facts"". The four
+templates that said an owner can "correct the facts" now say "update
+your opening hours and contact details, and add your own photos,
+description and prices" (and "Claimed: how to get into their Owner
+account" says "update the description, opening hours and contact
+details"). Only those words were changed in the stored templates.
+

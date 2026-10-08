@@ -146,7 +146,7 @@ class StoryCard {
     if (v.laptopsAllowed == false) {
       _pills(c, ['No laptops'], ry + 16, const Color(0xFFD64545));
     } else if (ups.isEmpty) {
-      _pills(c, ['Facts not checked yet'], ry + 16,
+      _pills(c, ['Amenities not checked yet'], ry + 16,
           Colors.white.withValues(alpha: .22));
     } else {
       _pills(c, ups, ry + 16, const Color(0xFF2E9E5B), tick: true);

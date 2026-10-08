@@ -555,7 +555,7 @@ class _AdminUpgradesScreenState extends State<AdminUpgradesScreen>
       Icons.edit_outlined,
       'Write my own',
       'On a page, any part can be written by hand. Saving sends it to the '
-          'website, so it is the Go. "Build from the facts" makes a plain '
+          'website, so it is the Go. "Build from the details" makes a plain '
           'search description from what we hold about the place, for you '
           'to check first.'
     ),
@@ -801,7 +801,7 @@ class _AdminUpgradesScreenState extends State<AdminUpgradesScreen>
                   bg: Brand.logoTealTint, fg: Brand.logoNavy),
               if (source == 'drafted') _chip('DRAFTED'),
               if (source == 'founder' && !isPhotos) _chip('YOUR WORDING'),
-              if (source == 'rule') _chip('FROM THE FACTS'),
+              if (source == 'rule') _chip('FROM THE DETAILS'),
               if (u['owned'] == true)
                 _chip('HAS AN OWNER',
                     bg: Brand.goldTint, fg: Brand.goldTextDark),
@@ -1799,7 +1799,7 @@ class _PageReviewPageState extends State<_PageReviewPage>
                       fontWeight: FontWeight.w800, fontSize: 15)),
               if (hasOpen && source == 'drafted') _chip('DRAFTED'),
               if (hasOpen && source == 'founder') _chip('YOUR WORDING'),
-              if (hasOpen && source == 'rule') _chip('FROM THE FACTS'),
+              if (hasOpen && source == 'rule') _chip('FROM THE DETAILS'),
               if (ownersPart)
                 _chip('THE OWNER WRITES THIS',
                     bg: Brand.goldTint, fg: Brand.goldTextDark),
@@ -1906,7 +1906,7 @@ class _PageReviewPageState extends State<_PageReviewPage>
                 TextButton.icon(
                     onPressed: busy ? null : _buildFromFacts,
                     icon: const Icon(Icons.build_outlined, size: 16),
-                    label: const Text('Build from the facts')),
+                    label: const Text('Build from the details')),
             ]),
       ]),
     );

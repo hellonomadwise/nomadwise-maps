@@ -3860,3 +3860,19 @@ up waiting for the "blocked" answer after 1.5 seconds. It now waits up
 to five seconds, and a later answer still silences the rest of the
 visit.
 
+## 8 Oct 2026: no "facts" anywhere an owner reads (migrations 165, 166)
+
+Jonathan: "can we change this template to not say "facts"", then "any
+reference to "facts" to be changed please". What an owner can change
+is now named: "update your opening hours and contact details" (Outreach
+templates, migration 165), "update your contact details" (the claim
+emails, migration 166), "Update your details: hours, prices, WiFi and
+contact" (claim page), "amenities" for the yes/no list of what a space
+offers for work (Owner account, the team's space editor, the space
+trail, the story card), "the details and photos are yours" (Owner
+account, nomadmaps.io/spaces), and "Build from the details" in Page
+upgrades. The data keeps its own name (`facts`, `venue_page_facts`):
+only words people read changed. The live nomadwise.io pages checked
+(a coworking page, the coworking list, the home page, the old "add my
+business" page) had no "facts" in them.
+
