@@ -103,7 +103,8 @@ class FakeDatabase extends SupabaseService {
       {String? area,
       int limit = 60,
       int offset = 0,
-      String sort = 'best'}) async {
+      String sort = 'best',
+      String query = ''}) async {
     areasAsked.add(area);
     sortsAsked.add(sort);
     if (fail) throw Exception('the database is away');
