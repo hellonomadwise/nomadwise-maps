@@ -5542,11 +5542,13 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   }
 
   /// The photos row on a card: thumbnails, the count, and the button.
-  Widget _photosRow(Map<String, dynamic> v) {
+  /// [fresh]: a New spaces card, before it is queued. Photos can be
+  /// chosen already (they are kept); suggestions only come once queued.
+  Widget _photosRow(Map<String, dynamic> v, {bool fresh = false}) {
     final urls = _pasted(v);
     final count = _photoCount(v);
     final enough = count >= minPhotos;
-    final auto = v['website_photos_auto'] == true;
+    final auto = !fresh && v['website_photos_auto'] == true;
     // Suggested photos the brief was not sure about (filled in to reach
     // five when the place had too few clear shots).
     final weak = auto
@@ -5555,7 +5557,15 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
             .length
         : 0;
     final text = Text(
-        auto
+        fresh
+            ? (urls.isEmpty
+                ? 'Photos: none chosen yet. Add your own now, or queue it '
+                    'and suggested photos appear on its card.'
+                : enough
+                    ? '${urls.length} photos chosen for the page'
+                    : '${urls.length} of $minPhotos photos chosen '
+                        '($minPhotos needed before Approve)')
+            : auto
             ? (weak > 0
                 ? '$count suggested, $weak weak (few clear shots on '
                     'Google). Check them'
@@ -5566,9 +5576,11 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                 : '$count of $minPhotos photos needed before Approve',
         style: TextStyle(
             fontSize: 12.5,
-            color: auto
-                ? Brand.goldTextDark
-                : (enough ? Brand.success : Brand.goldTextDark),
+            color: fresh && urls.isEmpty
+                ? Brand.inkSecondary
+                : auto
+                    ? Brand.goldTextDark
+                    : (enough ? Brand.success : Brand.goldTextDark),
             fontWeight: FontWeight.w600));
     final button = TextButton.icon(
         onPressed: () => _editPhotos(v),
@@ -5582,6 +5594,12 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
             : urls.isEmpty
                 ? (_candidates(v).isEmpty ? 'Add photos' : 'Pick photos')
                 : 'Edit photos'));
+    // On a New spaces card the button stands out (outlined), so it reads
+    // as something to do, not a footnote.
+    final freshButton = OutlinedButton.icon(
+        onPressed: () => _editPhotos(v),
+        icon: const Icon(Icons.add_photo_alternate_outlined, size: 16),
+        label: Text(urls.isEmpty ? 'Add photos' : 'Edit photos'));
     // Thumbnails on their own line (they scroll sideways on a phone),
     // then the words and the button; a Row with the strip inside left
     // the text one letter per line on mobile.
@@ -5619,7 +5637,8 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
             const SizedBox(width: 8),
           ],
           Expanded(child: text),
-          button,
+          const SizedBox(width: 6),
+          fresh ? freshButton : button,
         ]),
       ]),
     );
@@ -5747,6 +5766,9 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         _title(v, badge: 'NEW', badgeColor: Brand.violet),
         const SizedBox(height: 8),
         _taxonomyRow(v),
+        // Photos can be chosen here already, before queueing (Jonathan,
+        // 9 Oct 2026: the card did not show that photos can be updated).
+        if (!noLaptops) _photosRow(v, fresh: true),
         _ownerNote(v),
         const SizedBox(height: 8),
         Wrap(spacing: 6, runSpacing: 6, children: [
