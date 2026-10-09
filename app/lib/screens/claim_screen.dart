@@ -1424,7 +1424,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
       ]);
 
   static const _freeGets = [
-    'Your page on Nomadwise, built to be found by Google and AI assistants',
+    'Your page on Nomadwise, optimised to be found by Google and AI assistants',
     'Update your details: hours, prices, WiFi and contact',
     'Your own photos and description',
     'Enquiries from nomads, passed on by us',

@@ -255,7 +255,7 @@ Pending:
 - Order inside the Verified group rotates nightly; nothing
   owner-supplied (WiFi speed, ratings) decides position.
 - Free listings get a "Contact the space" button, not a request form.
-- "Page built to be found by Google and AI assistants" is about page
+- "Optimised to be found by Google and AI assistants" (Leonie, 9 Oct) is about page
   structure, not the description.
 - Supabase refuses an `update` without a `where`; every migration
   must carry one.

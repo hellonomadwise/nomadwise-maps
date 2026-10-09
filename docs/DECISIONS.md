@@ -4104,3 +4104,48 @@ text sent alongside, emails to spaces that have claimed (the designed
 card) and emails sent from a founder's own inbox are unchanged.
 Checked on the test copy with the Level39 hello, and a phone-sized
 picture shown to Jonathan.
+
+## 9 Oct 2026: "Not a person" in Claim journeys (migration 181), and "Optimised to be found"
+
+1. Jonathan, on a Claim journeys card with a scrambled name from our
+   email: "This is bot, I have no option", and then "Yes please label
+   Instagram or Facebook correctly". Each card now has "Not a person"
+   beside "This was me" (undo: "Was a person"); the buttons wrap under
+   the outcome on a phone. Two kinds are marked by themselves: a mail
+   system checking the link in our message (the scrambled name, as
+   migration 167 already kept from the phone), and Instagram's or
+   Facebook's own servers opening the link in a message (Meta's
+   networks; a person reading the message opens it from their own
+   connection). Such a visit sends no phone notice, is not "Looked at
+   the claim page" in Outreach, and is not counted; the eye in Claim
+   journeys shows them, labelled with why. A link we sent by Instagram
+   or Facebook now reads "Arrived through our Instagram message".
+   The PostHog log (Claim page: journeys) labels Meta's servers
+   "Instagram/Facebook link check" in its bot column.
+2. Leonie's review, agreed by Jonathan: "Optimised to be found by
+   Google and AI assistants" (was "Page built to be found..."). Changed
+   in the claim page's free plan list, the Owner account's billing
+   panel and nomadmaps.io/spaces. The live Webflow page "List my
+   coworking space" still says "Found by Google and AI assistants" and
+   uses "facts" three times; those wait for Jonathan's Go.
+
+## 9 Oct 2026: "Not a person" in Claim journeys; Instagram and Facebook link checks (migration 181)
+
+Jonathan, on a Claim journeys card with a scrambled name from our email:
+"This is bot, I have no option". And, on a visit to Ohana that came
+from Instagram's own servers in Ireland after an Instagram message:
+"Yes please label Instagram or Facebook correctly".
+Now: bot_visitors holds visitors that are machines. The claim page ping
+notes them by itself (a mail system's scrambled link; any visit from
+Meta's published networks, AS32934, which is Instagram or Facebook
+opening the link in a message) and tells nobody. Claim journeys leaves
+them out of the cards and the numbers (the eye shows them, labelled with
+why), and every card has "Not a person" (undo: "Was a person").
+claim_lookers leaves them out, so they are not "Looked at the claim
+page" in Outreach nor counted on New pages. Already recorded: every
+scrambled-name visit from our messages, and the two Meta checks seen
+(Library Cafe 7 Oct, Ohana 9 Oct). The PostHog activity log labels
+Meta's addresses "INSTAGRAM/FACEBOOK LINK CHECK".
+Checked on the test copy: a Meta visit and a scrambled link are noted
+and leave the counts; a person's visit stays; marking and undoing by
+hand work. Dart reviewed by reading.

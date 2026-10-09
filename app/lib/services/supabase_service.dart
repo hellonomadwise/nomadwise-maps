@@ -787,6 +787,25 @@ class SupabaseService {
   Future<void> markTeamDevice(String anonId, bool team) =>
       _db.rpc('mark_team_device', params: {'p_anon': anonId, 'p_team': team});
 
+  /// "Not a person" (migration 181): a visitor that is a machine, or
+  /// back to a person.
+  Future<void> markBotVisitor(String anonId, bool bot) =>
+      _db.rpc('admin_mark_bot', params: {'p_anon': anonId, 'p_bot': bot});
+
+  /// Visitors known to be machines, with why (found by itself: a mail
+  /// system or Instagram checking our link; or marked by hand).
+  Future<Map<String, String>> botVisitors() async {
+    try {
+      final r = await _db.rpc('admin_bot_visitors');
+      return {
+        for (final x in (r as List? ?? const []))
+          '${(x as Map)['anon_id']}': '${x['why'] ?? 'Not a person'}'
+      };
+    } catch (_) {
+      return {};
+    }
+  }
+
   Future<Set<String>> teamDevices() async {
     try {
       final rows = await _db.from('team_devices').select('anon_id');

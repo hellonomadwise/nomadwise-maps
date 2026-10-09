@@ -51,7 +51,7 @@ class _BillingPanelState extends State<BillingPanel> {
     'Your event or offer in the advert slot on your page',
   ];
   static const _freeGets = [
-    'Your page on Nomadwise, found by Google and AI assistants',
+    'Your page on Nomadwise, optimised to be found by Google and AI assistants',
     'Your own description, photos, prices and hours',
     'Your Owner account to keep it up to date',
   ];

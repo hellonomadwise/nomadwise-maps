@@ -13,7 +13,9 @@ import '../theme.dart';
 /// the seconds since the page opened.
 ///
 /// Built from the claim_* events the claim page records about itself
-/// (app_events). Team devices are left out.
+/// (app_events). Team devices are left out, and so are machines: a
+/// mail system or Instagram checking a link we sent, or a visitor
+/// marked "Not a person" (migration 181). The eye shows them all.
 class ClaimJourneysScreen extends StatefulWidget {
   const ClaimJourneysScreen({super.key});
   @override
@@ -143,6 +145,8 @@ class _ClaimJourneysScreenState extends State<ClaimJourneysScreen> {
   int _days = 30;
   final Set<String> _open = {};
   Set<String> _team = {};
+  // visitor -> why it is not a person
+  Map<String, String> _bots = {};
   bool _showTeam = false;
 
   @override
@@ -154,11 +158,15 @@ class _ClaimJourneysScreenState extends State<ClaimJourneysScreen> {
   Future<void> _load() async {
     final events = await _supabase.claimJourneyEvents(days: _days);
     final team = await _supabase.teamDevices();
+    final bots = await _supabase.botVisitors();
     _team = team;
+    _bots = bots;
     final byKey = <String, _Visit>{};
     for (final e in events) {
       final anon = '${e['anon_id']}';
-      if (team.contains(anon) && !_showTeam) continue;
+      if ((team.contains(anon) || bots.containsKey(anon)) && !_showTeam) {
+        continue;
+      }
       final p = (e['props'] is Map) ? e['props'] as Map : const {};
       // Events from before the journey ids: group by device and hour.
       final t = DateTime.tryParse('${e['created_at']}') ?? DateTime.now();
@@ -188,7 +196,9 @@ class _ClaimJourneysScreenState extends State<ClaimJourneysScreen> {
         title: const Text('Claim journeys'),
         actions: [
           IconButton(
-            tooltip: _showTeam ? 'Hide our own visits' : 'Show our own visits',
+            tooltip: _showTeam
+                ? 'Hide our own visits and machines'
+                : 'Show our own visits and machines',
             icon: Icon(_showTeam ? Icons.visibility_off : Icons.visibility,
                 size: 20),
             onPressed: () {
@@ -271,8 +281,31 @@ class _ClaimJourneysScreenState extends State<ClaimJourneysScreen> {
     }
   }
 
+  /// "Not a person": every visit from that visitor leaves the numbers,
+  /// Outreach's "Looked at the claim page" and the New pages counts.
+  Future<void> _markBot(_Visit v, bool bot) async {
+    try {
+      await _supabase.markBotVisitor(v.anon, bot);
+      await _load();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(bot
+                ? 'Marked as not a person. Its visits are left out of the '
+                    'numbers and of Outreach. The eye at the top shows them.'
+                : 'Counted as a person again.')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Could not save: $e')));
+      }
+    }
+  }
+
   Widget _summary(List<_Visit> all) {
-    final visits = all.where((v) => !_team.contains(v.anon)).toList();
+    final visits = all
+        .where((v) => !_team.contains(v.anon) && !_bots.containsKey(v.anon))
+        .toList();
     final n = visits.length;
     final chose = visits.where((v) => v.furthest >= 1).length;
     final about = visits.where((v) => v.furthest >= 2).length;
@@ -334,12 +367,20 @@ class _ClaimJourneysScreenState extends State<ClaimJourneysScreen> {
         ? 'through our WhatsApp message'
         : from.toLowerCase() == 'email'
             ? 'through our email'
-            : from.startsWith('/')
+            : from.toLowerCase() == 'instagram'
+                ? 'through our Instagram message'
+                : from.toLowerCase() == 'facebook'
+                    ? 'through our Facebook message'
+                    : from.startsWith('/')
         ? 'from nomadwise.io$from'
         : ref.isNotEmpty
             ? 'from ${ref.replaceFirst(RegExp(r'^https?://(www\.)?'), '').split('/').first}'
             : 'direct, no referrer';
-    final (outcome, fg, bg) = v.outcome;
+    final bot = _bots[v.anon];
+    // A machine: says what it was instead of how far "they" got.
+    final (outcome, fg, bg) = bot != null
+        ? (bot, Brand.inkSecondary, Brand.field)
+        : v.outcome;
     final open = _open.contains(v.key);
     final repeat = (_visitsByDevice[v.anon] ?? 1) > 1;
     final when = DateFormat('EEE d MMM, HH:mm').format(v.start);
@@ -392,33 +433,60 @@ class _ClaimJourneysScreenState extends State<ClaimJourneysScreen> {
             const SizedBox(height: 10),
             _progress(v.furthest),
             const SizedBox(height: 10),
-            Row(children: [
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                    color: bg, borderRadius: BorderRadius.circular(8)),
-                child: Text(outcome,
-                    style: TextStyle(
-                        color: fg, fontWeight: FontWeight.w700, fontSize: 12)),
-              ),
-              const Spacer(),
-              // Founders testing the form: one tap keeps their visits
-              // out of the numbers, by browser, past and future.
-              TextButton.icon(
-                onPressed: () => _markMe(v, !isTeam),
-                icon: Icon(
-                    isTeam ? Icons.person_off_outlined : Icons.person_outline,
-                    size: 15),
-                label: Text(isTeam ? 'Marked as us' : 'This was me'),
-                style: TextButton.styleFrom(
-                    foregroundColor:
-                        isTeam ? Brand.goldTextDark : Brand.inkSecondary,
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    textStyle: const TextStyle(
-                        fontSize: 12, fontWeight: FontWeight.w600)),
-              ),
-            ]),
+            // The outcome, then the two marks; they wrap under it on a
+            // phone instead of running off the card.
+            Wrap(
+                spacing: 4,
+                runSpacing: 4,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                        color: bg, borderRadius: BorderRadius.circular(8)),
+                    child: Text(outcome,
+                        style: TextStyle(
+                            color: fg,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12)),
+                  ),
+                  // Founders testing the form: one tap keeps their visits
+                  // out of the numbers, by browser, past and future.
+                  if (bot == null || isTeam)
+                    TextButton.icon(
+                      onPressed: () => _markMe(v, !isTeam),
+                      icon: Icon(
+                          isTeam
+                              ? Icons.person_off_outlined
+                              : Icons.person_outline,
+                          size: 15),
+                      label: Text(isTeam ? 'Marked as us' : 'This was me'),
+                      style: TextButton.styleFrom(
+                          foregroundColor:
+                              isTeam ? Brand.goldTextDark : Brand.inkSecondary,
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          textStyle: const TextStyle(
+                              fontSize: 12, fontWeight: FontWeight.w600)),
+                    ),
+                  // A machine (a link checker, a crawler): out of the
+                  // numbers; undone the same way.
+                  if (!isTeam)
+                    TextButton.icon(
+                      onPressed: () => _markBot(v, bot == null),
+                      icon: Icon(
+                          bot == null
+                              ? Icons.smart_toy_outlined
+                              : Icons.undo,
+                          size: 15),
+                      label: Text(bot == null ? 'Not a person' : 'Was a person'),
+                      style: TextButton.styleFrom(
+                          foregroundColor: Brand.inkSecondary,
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          textStyle: const TextStyle(
+                              fontSize: 12, fontWeight: FontWeight.w600)),
+                    ),
+                ]),
             if (open) ...[
               const SizedBox(height: 14),
               const Divider(height: 1, color: Brand.hairline),
