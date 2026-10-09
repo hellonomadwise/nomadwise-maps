@@ -4025,3 +4025,17 @@ page asks for that one space in full when opened, so photos are as
 before. A copy fetched in the last 20 minutes on the same device is
 used as it is. Measured on the live data: about a quarter of the
 compressed size, and repeat opens within 20 minutes send nothing.
+
+## 9 Oct 2026: crawler gets an empty map; founders' devices are ours; failed sends retried (migrations 176, 177)
+
+- map_venues() answers a visit from a blocked network (the Singapore
+  crawler, migration 164) with an empty list, so it no longer spends
+  the data allowance.
+- A device where a founder signs in marks itself as a team device:
+  it sends no analytics from then on (as nomadmaps.io/#internal) and
+  is added to team_devices. Jonathan's phone was added by hand.
+  nomadmaps.io/#public lifts it on a device.
+- Owner emails keep the exact payload sent. Every 20 minutes a send
+  that failed on the way (timeout, no answer, 429, 5xx) is tried again
+  as it was, up to three tries within six hours. Refusals that would
+  repeat (bad or inactive address) are not retried.

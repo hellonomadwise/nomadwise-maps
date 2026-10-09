@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config.dart';
 import '../models/discovered_place.dart';
 import '../models/venue.dart';
+import 'analytics_service.dart';
 
 /// All reads/writes to the Nomadwise Supabase backend live here.
 class SupabaseService {
@@ -1149,7 +1150,11 @@ class SupabaseService {
           .select('is_admin')
           .eq('id', uid)
           .single();
-      return row['is_admin'] == true;
+      final admin = row['is_admin'] == true;
+      // A founder's device is one of ours: it stops counting as a
+      // visitor (9 Oct 2026).
+      if (admin) Analytics.markTeamDevice();
+      return admin;
     } catch (_) {
       return false;
     }

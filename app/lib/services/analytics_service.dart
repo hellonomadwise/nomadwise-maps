@@ -324,6 +324,34 @@ class Analytics {
     } catch (_) {}
   }
 
+  /// A founder is signed in on this device (Jonathan, 9 Oct 2026: his
+  /// own phone showed up as a visitor). From now on this browser sends
+  /// nothing, as with nomadmaps.io/#internal, and the device is added
+  /// to the team's devices so the in-app numbers leave out its past
+  /// visits too. nomadmaps.io/#public lifts it again on this device.
+  static Future<void> markTeamDevice() async {
+    if (_internal == true) return;
+    _internal = true;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      // An explicit #public on this device wins.
+      if (Uri.base.fragment.contains('public')) {
+        _internal = false;
+        return;
+      }
+      await prefs.setBool('internal_device', true);
+      final ids = <String>{
+        if (_distinctId != null) _distinctId!,
+        if (prefs.getString('ph_distinct_id') != null)
+          prefs.getString('ph_distinct_id')!,
+      };
+      for (final id in ids) {
+        await Supabase.instance.client.rpc('mark_team_device',
+            params: {'p_anon': id, 'p_team': true});
+      }
+    } catch (_) {}
+  }
+
   /// Tie this device's activity to a signed-in account.
   static Future<void> identify(String userId,
       {String? email, String? name}) async {
