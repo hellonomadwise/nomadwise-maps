@@ -992,8 +992,88 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
             WidgetsBinding.instance
                 .addPostFrameCallback((_) => fill(key, setD));
           }
+          // On a phone (Jonathan, 9 Oct 2026: "Could look better on
+          // mobile"): the box uses the screen's width, the email grows
+          // to its full length, Cancel is the cross at the top and the
+          // two ways to send sit side by side.
+          final phone = MediaQuery.of(ctx).size.width < 600;
+          final who = '${c['person_name'] ?? c['space_name'] ?? c['email']}';
+          // Never written to and never wrote to us: a first email.
+          final first = c['last_in_at'] == null && c['last_out_at'] == null;
+          final title = first ? 'Write to $who' : 'Reply to $who';
+
+          Future<void> sendHere() async {
+            setD(() {
+              loading = true;
+              problem = null;
+            });
+            try {
+              await _supabase.outreachSend('${c['id']}', subject.text, body.text,
+                  templateKey: key, force: force);
+              if (open && ctx.mounted) Navigator.pop(ctx, true);
+            } catch (e) {
+              if (!open) return;
+              setD(() {
+                loading = false;
+                problem = _plain(e);
+              });
+            }
+          }
+
+          Future<void> logSent() async {
+            setD(() {
+              loading = true;
+              problem = null;
+            });
+            try {
+              await _supabase.outreachLogSent(
+                  '${c['id']}', subject.text, ownInboxBody(),
+                  templateKey: key, force: force);
+              if (open && ctx.mounted) Navigator.pop(ctx, true);
+            } catch (e) {
+              if (!open) return;
+              setD(() {
+                loading = false;
+                problem = _plain(e);
+              });
+            }
+          }
+
+          // The two buttons at the foot, side by side and the same width
+          // on a phone.
+          Widget pair(Widget a, Widget b) => Row(children: [
+                Expanded(child: a),
+                const SizedBox(width: 8),
+                Expanded(child: b),
+              ]);
+
           return AlertDialog(
-            title: Text('Reply to ${c['person_name'] ?? c['space_name'] ?? c['email']}'),
+            insetPadding: phone
+                ? const EdgeInsets.symmetric(horizontal: 8, vertical: 16)
+                : const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
+            titlePadding: phone
+                ? const EdgeInsets.fromLTRB(18, 14, 6, 0)
+                : const EdgeInsets.fromLTRB(24, 24, 12, 0),
+            contentPadding: phone
+                ? const EdgeInsets.fromLTRB(18, 12, 18, 0)
+                : const EdgeInsets.fromLTRB(24, 16, 24, 0),
+            actionsPadding: phone
+                ? const EdgeInsets.fromLTRB(18, 12, 18, 16)
+                : const EdgeInsets.fromLTRB(24, 12, 24, 20),
+            title: Row(children: [
+              Expanded(
+                  child: Text(title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          fontSize: phone ? 19 : 22,
+                          fontWeight: FontWeight.w800))),
+              if (phone && !drafted)
+                IconButton(
+                    tooltip: 'Cancel',
+                    onPressed: () => Navigator.pop(ctx, false),
+                    icon: const Icon(Icons.close)),
+            ]),
             content: SizedBox(
               width: 640,
               child: SingleChildScrollView(
@@ -1007,6 +1087,8 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
                   const SizedBox(height: 10),
                   DropdownButtonFormField<String>(
                     value: key,
+                    // the name is cut with dots, not under the arrow
+                    isExpanded: true,
                     decoration: const InputDecoration(
                         labelText: 'Template', border: OutlineInputBorder()),
                     items: [
@@ -1015,7 +1097,9 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
                         if (!'${t['key']}'.endsWith('_wa'))
                           DropdownMenuItem(
                               value: '${t['key']}',
-                              child: Text('${t['name']}')),
+                              child: Text('${t['name']}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis)),
                     ],
                     // Once the draft is open the words are fixed, so
                     // what is recorded is what was sent.
@@ -1031,13 +1115,22 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
                   TextField(
                       controller: subject,
                       readOnly: drafted,
+                      // a long subject wraps instead of running off;
+                      // Enter still moves on (no line break in a subject)
+                      minLines: 1,
+                      maxLines: 3,
+                      keyboardType: TextInputType.text,
+                      textInputAction: TextInputAction.next,
                       decoration: const InputDecoration(
                           labelText: 'Subject', border: OutlineInputBorder())),
                   const SizedBox(height: 10),
                   TextField(
                       controller: body,
                       readOnly: drafted,
-                      maxLines: 16,
+                      // On a phone the whole email shows and the box
+                      // scrolls; on a computer it keeps its own scroll.
+                      minLines: phone ? 8 : 10,
+                      maxLines: phone ? null : 16,
                       style: const TextStyle(fontSize: 13.5, height: 1.4),
                       decoration: const InputDecoration(
                           labelText: 'Email', border: OutlineInputBorder())),
@@ -1149,78 +1242,69 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
                           ]),
                     )
                   else
-                    const Text(
-                        'Two ways to send. "From my own inbox" gets the '
+                    Text(
+                        'Two ways to send. "${phone ? 'My own inbox' : 'From my own inbox'}" gets the '
                         'email ready to send by hand from Spark: use it '
                         'for invitations to spaces that have not written '
                         'to us. "Send from here" goes out at once from '
                         'hello@nomadwise.io: use it to answer someone who '
                         'wrote. Either way an unsubscribe line is added if '
                         'the email has none.',
-                        style: TextStyle(fontSize: 12, color: Brand.inkMuted)),
+                        style: const TextStyle(
+                            fontSize: 12, height: 1.4, color: Brand.inkMuted)),
                 ]),
               ),
             ),
             actions: drafted
                 ? [
-                    TextButton(
-                        onPressed: () => Navigator.pop(ctx, false),
-                        child: const Text('Not sent')),
-                    FilledButton(
-                      onPressed: loading
-                          ? null
-                          : () async {
-                              setD(() {
-                                loading = true;
-                                problem = null;
-                              });
-                              try {
-                                await _supabase.outreachLogSent('${c['id']}',
-                                    subject.text, ownInboxBody(),
-                                    templateKey: key, force: force);
-                                if (open && ctx.mounted) Navigator.pop(ctx, true);
-                              } catch (e) {
-                                if (!open) return;
-                                setD(() {
-                                  loading = false;
-                                  problem = _plain(e);
-                                });
-                              }
-                            },
-                      child: Text(loading ? 'One moment' : 'I sent it'),
-                    ),
+                    if (phone)
+                      pair(
+                          OutlinedButton(
+                              onPressed: () => Navigator.pop(ctx, false),
+                              child: const Text('Not sent')),
+                          FilledButton(
+                              onPressed: loading ? null : logSent,
+                              child: Text(loading ? 'One moment' : 'I sent it')))
+                    else ...[
+                      TextButton(
+                          onPressed: () => Navigator.pop(ctx, false),
+                          child: const Text('Not sent')),
+                      FilledButton(
+                          onPressed: loading ? null : logSent,
+                          child: Text(loading ? 'One moment' : 'I sent it')),
+                    ],
                   ]
                 : [
-              TextButton(
-                  onPressed: () => Navigator.pop(ctx, false),
-                  child: const Text('Cancel')),
-              OutlinedButton(
-                  onPressed: loading ? null : () => openDraft(setD),
-                  child: const Text('From my own inbox')),
-              FilledButton(
-                onPressed: loading
-                    ? null
-                    : () async {
-                        setD(() {
-                          loading = true;
-                          problem = null;
-                        });
-                        try {
-                          await _supabase.outreachSend(
-                              '${c['id']}', subject.text, body.text,
-                              templateKey: key, force: force);
-                          if (open && ctx.mounted) Navigator.pop(ctx, true);
-                        } catch (e) {
-                          if (!open) return;
-                          setD(() {
-                            loading = false;
-                            problem = _plain(e);
-                          });
-                        }
-                      },
-                child: Text(loading ? 'One moment' : 'Send from here'),
-              ),
-            ],
+                    if (phone)
+                      pair(
+                          OutlinedButton(
+                              onPressed: loading ? null : () => openDraft(setD),
+                              style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 12)),
+                              child: const Text('My own inbox',
+                                  textAlign: TextAlign.center)),
+                          FilledButton(
+                              onPressed: loading ? null : sendHere,
+                              style: FilledButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 12)),
+                              child: Text(
+                                  loading ? 'One moment' : 'Send from here',
+                                  textAlign: TextAlign.center)))
+                    else ...[
+                      TextButton(
+                          onPressed: () => Navigator.pop(ctx, false),
+                          child: const Text('Cancel')),
+                      OutlinedButton(
+                          onPressed: loading ? null : () => openDraft(setD),
+                          child: const Text('From my own inbox')),
+                      FilledButton(
+                        onPressed: loading ? null : sendHere,
+                        child: Text(loading ? 'One moment' : 'Send from here'),
+                      ),
+                    ],
+                  ],
           );
         },
       ),

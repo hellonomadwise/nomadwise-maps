@@ -4072,3 +4072,35 @@ live got one line (and only one on the next sync run), an owned page
 got none, a page never approved in Pages was left out, the address found
 afterwards reached the line, and the count followed it through written
 to and claimed. Dart reviewed by reading (no SDK here).
+
+## 9 Oct 2026: the email box on a phone, and the new-page hello reworded (migration 179)
+
+Jonathan, writing to Level39 from his phone: "Could look better on
+mobile". On a narrow screen the email box now uses the screen's width,
+the template name is cut with dots instead of running under the arrow,
+the subject wraps, the email shows at full length, Cancel is the cross
+at the top, and the two ways to send sit side by side ("My own inbox",
+"Send from here"). A first email is headed "Write to", not "Reply to".
+Then: "The message can be worded better. Maybe starting with 'We just
+wanted to you let you know that we've listed your coworking space on
+Nomadwise.io...'". The hello now opens "We just wanted to let you know
+that we've listed {space} on nomadwise.io" (the space's name, as the
+same words go to cafes), subject "{space} is now listed on Nomadwise".
+Changed only if the template was not edited in Outreach since.
+
+## 9 Oct 2026: first Outreach emails, plain but professional (migration 180)
+
+Jonathan: "I would ideally like the outreach email to have a balance
+between no styling and looking professional". He had chosen plain
+first emails on 7 Oct so they land in the inbox rather than under
+Promotions, so the middle way keeps what helps there (no pictures, no
+logo, no card or background, one column of text) and tidies the rest,
+in the HTML version only: the claim address becomes one red "Claim
+your page" button, other addresses are shown short
+(nomadwise.io/coworking/...), the sign-off becomes a small signature
+under a thin line (Jonathan; Nomadwise in red, nomadwise.io), slightly
+roomier type, and the small grey unsubscribe line stays. The plain
+text sent alongside, emails to spaces that have claimed (the designed
+card) and emails sent from a founder's own inbox are unchanged.
+Checked on the test copy with the Level39 hello, and a phone-sized
+picture shown to Jonathan.

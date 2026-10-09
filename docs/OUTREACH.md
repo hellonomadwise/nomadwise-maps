@@ -260,3 +260,10 @@ Nomadwise, claim your page" first, rather than a reply template.
 Pages approved since 6 Oct 2026 and live when this was applied are in
 the count from that moment. A page whose owner we put on ourselves is
 shown but left out of the numbers.
+
+## The look of a first email (9 Oct 2026, migration 180)
+
+Still a person's email (no pictures, logo or card), but tidier: the
+claim address is a red "Claim your page" button, other addresses are
+shown short, and the sign-off is a small signature under a thin line.
+Only the HTML version changes; the plain text is as written.
