@@ -56,9 +56,13 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
   Map<String, dynamic>? _whole;
   bool _wholeOpen = true;
 
-  // Which of the three cards is showing above the list: the signs of
-  // interest (migration 154), the path, or the whole picture.
-  String _view = 'signs';
+  // The pages we approved, from live to signed in (migration 178).
+  List<Map<String, dynamic>>? _newPages;
+
+  // Which card is showing above the list: the new pages (migration
+  // 178), the signs of interest (migration 154), the path, or the
+  // whole picture.
+  String _view = 'new';
 
   static const _stages = <(String, String)>[
     ('new', 'New'),
@@ -107,6 +111,7 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
     // not wait for it.
     final pathF = _supabase.outreachPath();
     final wholeF = _supabase.outreachWhole();
+    final newF = _supabase.outreachNewPages();
     try {
       final rows = await _supabase.outreachList(
           stage: _stage,
@@ -116,12 +121,14 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
       final counts = await _supabase.outreachCounts(group: _group);
       final path = await pathF;
       final whole = await wholeF;
+      final fresh = await newF;
       if (!mounted || n != _req) return;
       setState(() {
         _rows = rows;
         _counts = counts;
         if (path != null) _path = path;
         if (whole != null) _whole = whole;
+        if (fresh != null) _newPages = fresh;
         _numbersAsked = true;
         _error = null;
       });
@@ -818,11 +825,20 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
     // A space we know from a booking or a partnership talk is not
     // thanked for asking to be listed (migration 171).
     final known = c['topic'] == 'booking' || c['topic'] == 'partnership';
+    // Never written to and never wrote to us: a first hello, not a
+    // reply. A page we approved has its own (migration 178).
+    final cold = c['last_in_at'] == null &&
+        c['last_out_at'] == null &&
+        (c['source'] == 'listing' || c['source'] == 'prospect');
+    final newPage = (_newPages ?? const [])
+        .any((p) => p['venue_id'] != null && p['venue_id'] == c['venue_id']);
     String key = <String>[
       if (theirOwn) 'owner_account_how',
       if (known && onSite) 'reply_we_know_you',
       if (c['signup'] is Map) 'signed_up',
       if (c['claim_look'] is Map) 'claim_looked',
+      if (cold && onSite && newPage) 'invite_new_page',
+      if (cold && onSite) 'invite_listed',
       onSite ? 'reply_already_listed' : 'reply_listing',
     ].firstWhere((k) => _templates.any((t) => t['key'] == k),
         orElse: () => '');
@@ -1926,7 +1942,9 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
       );
     }
 
+    final fresh = (_newPages ?? const []).where((p) => p['ours'] != true).length;
     return Wrap(children: [
+      tab('new', fresh > 0 ? 'New pages $fresh' : 'New pages'),
       tab('signs', 'Signs of interest'),
       tab('path', 'The path'),
       tab('whole', 'The whole picture'),
@@ -2001,6 +2019,205 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
       'Tell them their Owner account is ready.'
     ),
   ];
+
+  /// A new page's line, read in full, then written to (or its address
+  /// added). The line is found by the space's name.
+  Future<void> _openNewPage(Map<String, dynamic> p, {required bool write}) async {
+    try {
+      final rows = await _supabase.outreachList(
+          stage: '', query: '${p['name'] ?? ''}', group: '', limit: 50);
+      final c = rows.where((r) => r['id'] == p['contact_id']).firstOrNull;
+      if (!mounted) return;
+      if (c == null) {
+        _snack('Its line in Outreach could not be found. Search for it below.',
+            bad: true);
+        return;
+      }
+      if (write) {
+        await _reply(c);
+      } else {
+        await _editContact(c);
+      }
+    } catch (e) {
+      if (mounted) _snack(_plain(e), bad: true);
+    }
+  }
+
+  /// Every page we approved, from the moment it went live: whether we
+  /// have an address, wrote to it, and whether it claimed and signed
+  /// in (Jonathan, 9 Oct 2026: "to see how many actually sign up").
+  Widget _newPagesCard() {
+    final all = _newPages;
+    if (all == null) return _noNumbers();
+    final pages = all.where((p) => p['ours'] != true).toList();
+    int count(bool Function(Map<String, dynamic>) f) => pages.where(f).length;
+    final steps = <(String, int)>[
+      ('Live', pages.length),
+      ('Have an address', count((p) => '${p['email'] ?? ''}'.isNotEmpty)),
+      ('Written to', count((p) => p['written_at'] != null)),
+      ('Opened the claim page',
+          count((p) => p['looked_at'] != null || p['claimed_at'] != null)),
+      ('Claimed', count((p) => p['claimed_at'] != null)),
+      ('In their Owner account', count((p) => p['been_in'] == true)),
+    ];
+
+    Widget stat((String, int) x) => Container(
+          width: 118,
+          padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+          decoration: BoxDecoration(
+              color: Brand.field, borderRadius: BorderRadius.circular(8)),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('${x.$2}',
+                style: TextStyle(
+                    fontSize: 19,
+                    fontWeight: FontWeight.w800,
+                    color: x.$2 > 0 ? Brand.ink : Brand.inkMuted)),
+            Text(x.$1,
+                style: const TextStyle(
+                    fontSize: 11.5, height: 1.3, color: Brand.inkSecondary)),
+          ]),
+        );
+
+    // How far it got, in words, and the colour of that line.
+    (String, Color) stepOf(Map<String, dynamic> p) {
+      if (p['ours'] == true) {
+        return ('Owner put on by us, so not part of the test.', Brand.inkMuted);
+      }
+      if (p['been_in'] == true) {
+        return ('Claimed on ${_when(p['claimed_at'])} and been in their '
+            'Owner account.', Brand.success);
+      }
+      if (p['claimed_at'] != null) {
+        final waiting = p['claim_status'] == 'free_pending' ||
+            p['claim_status'] == 'awaiting_approval';
+        return (
+          waiting
+              ? 'Claimed on ${_when(p['claimed_at'])}, waiting for your '
+                  'approval in Owners.'
+              : 'Claimed on ${_when(p['claimed_at'])}, not in their Owner '
+                  'account yet.',
+          Brand.success
+        );
+      }
+      if (p['looked_at'] != null) {
+        return ('Opened the claim page on ${_when(p['looked_at'])}, no '
+            'claim yet.', Brand.goldTextDark);
+      }
+      if (p['written_at'] != null) {
+        return ('Written to on ${_when(p['written_at'])}. No visit to the '
+            'claim page yet.', Brand.inkSecondary);
+      }
+      return ('Not written to yet.', Brand.logoNavy);
+    }
+
+    String address(Map<String, dynamic> p) {
+      final email = '${p['email'] ?? ''}';
+      if (email.isNotEmpty) return email;
+      if (p['contact_id'] == null) return 'No line in Outreach.';
+      if ('${p['website'] ?? ''}'.isEmpty) {
+        return 'No website to look on. Add an address by hand.';
+      }
+      return p['address_looked'] == true
+          ? 'No address on its website. Add one by hand (a contact page '
+              'or Instagram may have one).'
+          : 'Looking on its website for an address.';
+    }
+
+    Widget pageRow(Map<String, dynamic> p) {
+      final w = stepOf(p);
+      final place = [p['city'], p['country']]
+          .where((x) => x != null && '$x'.isNotEmpty)
+          .join(', ');
+      final hasEmail = '${p['email'] ?? ''}'.isNotEmpty;
+      final line = p['contact_id'] != null && p['ours'] != true;
+      return Container(
+        padding: const EdgeInsets.fromLTRB(8, 10, 8, 6),
+        decoration: const BoxDecoration(
+            border: Border(top: BorderSide(color: Brand.hairline))),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('${p['name'] ?? ''}',
+              style:
+                  const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5)),
+          Text(
+              [
+                p['type'] == 'coworking' ? 'Coworking space' : 'Cafe',
+                if (place.isNotEmpty) place,
+                'live since ${_when(p['live_at'])}',
+              ].join('  ·  '),
+              style: const TextStyle(fontSize: 12, color: Brand.inkMuted)),
+          const SizedBox(height: 4),
+          Text(w.$1,
+              style: TextStyle(
+                  fontSize: 13, fontWeight: FontWeight.w700, color: w.$2)),
+          const SizedBox(height: 2),
+          Row(children: [
+            Icon(hasEmail ? Icons.mail_outline : Icons.search,
+                size: 15, color: Brand.inkMuted),
+            const SizedBox(width: 6),
+            Expanded(
+                child: Text(address(p),
+                    style: const TextStyle(
+                        fontSize: 12.5, color: Brand.inkSecondary))),
+          ]),
+          if (line)
+            Wrap(spacing: 6, children: [
+              if (hasEmail && p['written_at'] == null)
+                FilledButton.icon(
+                    onPressed: () => _openNewPage(p, write: true),
+                    icon: const Icon(Icons.send_outlined, size: 16),
+                    label: const Text('Write the hello')),
+              if (!hasEmail)
+                OutlinedButton.icon(
+                    onPressed: () => _openNewPage(p, write: false),
+                    icon: const Icon(Icons.alternate_email, size: 16),
+                    label: const Text('Add an address')),
+              if (hasEmail && p['written_at'] != null)
+                TextButton(
+                    onPressed: () => _openNewPage(p, write: true),
+                    child: const Text('Write again')),
+            ]),
+        ]),
+      );
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.fromLTRB(8, 12, 8, 6),
+      decoration: BoxDecoration(
+        color: Brand.surface,
+        border: Border.all(color: Brand.border),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Padding(
+          padding: EdgeInsets.fromLTRB(8, 0, 8, 10),
+          child: Text(
+              'Each page you approve in Pages comes here once it is live on '
+              'nomadwise.io, and gets a line in Outreach (Listed, unclaimed, '
+              'stage New). The sync looks on its own website for an email '
+              'address. Nothing is sent by itself: you write the hello, and '
+              'the numbers show how many go on to claim and sign in.',
+              style: TextStyle(
+                  fontSize: 12.5, height: 1.4, color: Brand.inkSecondary)),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(8, 0, 8, 10),
+          child: Wrap(spacing: 6, runSpacing: 6, children: [
+            for (final x in steps) stat(x),
+          ]),
+        ),
+        if (all.isEmpty)
+          const Padding(
+            padding: EdgeInsets.fromLTRB(8, 4, 8, 8),
+            child: Text(
+                'No new page has gone live yet. The next one you approve '
+                'appears here once it is published.',
+                style: TextStyle(fontSize: 12.5, color: Brand.inkMuted)),
+          ),
+        for (final p in all) pageRow(p),
+      ]),
+    );
+  }
 
   /// In place of a card whose numbers did not come.
   Widget _noNumbers() => !_numbersAsked
@@ -3695,7 +3912,9 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
                         ]),
                         const SizedBox(height: 8),
                         _viewSwitch(),
-                        if (_view == 'signs')
+                        if (_view == 'new')
+                          _newPagesCard()
+                        else if (_view == 'signs')
                           _signsCard()
                         else if (_view == 'path')
                           _pathCard()

@@ -4039,3 +4039,36 @@ compressed size, and repeat opens within 20 minutes send nothing.
   that failed on the way (timeout, no answer, 429, 5xx) is tried again
   as it was, up to three tries within six hours. Refusals that would
   repeat (bad or inactive address) are not retried.
+
+## 9 Oct 2026: New spaces cards show photos; new pages join Outreach (migration 178)
+
+1. Jonathan, on Control centre > Pages > New spaces: "this isn't giving
+   me understanding that i can update the photos". Each New spaces card
+   now has a photos line under Country / Region / Location / Nearby,
+   with Add photos (or the chosen photos and Edit photos). Photos
+   picked before queueing are kept: the suggestion step only fills in
+   photos when none were chosen.
+2. Jonathan, on Level39 (shortlisted, approved, published 9 Oct): a
+   page we approve should reach cold outreach, with an address when one
+   can be found, to test how many go on to claim and sign in. Until now
+   such a space reached Outreach only through "Bring in listed spaces".
+   Now venues.new_page_live_at is set when an approved page is marked
+   released, a trigger makes its Outreach line the way "Bring in listed
+   spaces" does, its website is read for an address before the others,
+   and Outreach opens on a New pages card that counts live, address,
+   written to, opened the claim page, claimed, been in the Owner
+   account. Nothing is sent by itself; the hello is written by hand
+   (template invite_new_page). Pages approved since 6 Oct 2026 and live
+   already are counted from when the migration ran.
+   Leonie has not yet approved the outreach framework; sending this
+   first hello is Jonathan's own test.
+3. The address finder (webflow_enquiries.py) now prefers community@,
+   members@, enquiries@ and similar, and tries press, careers, events,
+   accounts and personal first.last addresses last. On Level39's
+   contact page that picks community@level39.co (general enquiries).
+
+Checked: migration 178 applied twice on the test copy; a page going
+live got one line (and only one on the next sync run), an owned page
+got none, a page never approved in Pages was left out, the address found
+afterwards reached the line, and the count followed it through written
+to and claimed. Dart reviewed by reading (no SDK here).

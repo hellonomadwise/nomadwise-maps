@@ -263,7 +263,13 @@ SKIP_DOMAINS = ('sentry.io', 'sentry-next.wixpress.com', 'wixpress.com', 'exampl
                 'domain.com', 'email.com', 'yourdomain.com', 'yoursite.com',
                 'godaddy.com', 'squarespace.com', 'wordpress.com', 'mysite.com')
 GOOD_PREFIXES = ('hello', 'info', 'contact', 'booking', 'bookings', 'reception',
-                 'cowork', 'coworking', 'hola', 'ola', 'ciao', 'office', 'team')
+                 'cowork', 'coworking', 'hola', 'ola', 'ciao', 'office', 'team',
+                 'community', 'members', 'membership', 'enquiries', 'enquiry',
+                 'welcome', 'sales')
+# Addresses for something else than a space's general post: tried last.
+POOR_PREFIXES = ('press', 'media', 'pr', 'careers', 'jobs', 'hr', 'privacy',
+                 'gdpr', 'dpo', 'legal', 'accounts', 'invoices', 'billing',
+                 'finance', 'events', 'webmaster', 'support')
 CONTACT_WORDS = ('contact', 'kontakt', 'contacto', 'contato', 'contatti', 'impressum',
                  'imprint', 'about')
 # Not the space's own site: nothing useful on their home page.
@@ -344,6 +350,10 @@ def rank(emails, domain):
             s -= 10
         if local in GOOD_PREFIXES or any(local.startswith(p) for p in GOOD_PREFIXES):
             s -= 3
+        elif local in POOR_PREFIXES:
+            s += 3
+        elif '.' in local:
+            s += 1      # a person's own address (first.last)
         return s
     return sorted(emails, key=score)
 

@@ -6246,7 +6246,8 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
             'Each draft is checked against Webflow within a minute or '
             'two. When it passes, Publish puts both the listing and its '
             'Images entry live; it then moves to Released and its entry '
-            'appears under Sitemap.'),
+            'appears under Sitemap. It also gets a line in Outreach, under '
+            'New pages, ready for a hello.'),
         ..._drafts.map((v) => _card(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Row(children: [

@@ -238,3 +238,25 @@ space's other card every night. Details in DECISIONS.md.
 Every Outreach email sent from here ends with a small grey line,
 "If you would rather not hear from us again, unsubscribe here.", the
 address behind the two words. Plain emails stay plain-looking.
+
+## New pages: from approved to signed in (9 Oct 2026, migration 178)
+
+Jonathan, on Level39: "i want to test the whole shortlisting, making
+live, and then sending them a hello ... to see how many actually sign
+up". Every page approved in Pages now gets a line in Outreach by
+itself the moment the sync sees it live (Listed, unclaimed, stage New),
+unless the space already has a line or an owner. Its own website is
+read for an address first, before older listed spaces. Nothing is sent
+by itself.
+
+Outreach opens on the **New pages** card: how many pages are live, have
+an address, were written to, opened the claim page, claimed, and have
+been in their Owner account; then each page with how far it got and
+one button (Write the hello, or Add an address). Writing to one picks
+the template "Hello: a new page of ours (first email)". Any other
+listed space never written to now gets "Invitation: you are on
+Nomadwise, claim your page" first, rather than a reply template.
+
+Pages approved since 6 Oct 2026 and live when this was applied are in
+the count from that moment. A page whose owner we put on ourselves is
+shown but left out of the numbers.

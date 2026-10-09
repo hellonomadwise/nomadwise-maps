@@ -1441,6 +1441,22 @@ class SupabaseService {
     }
   }
 
+  /// The pages we approved, from the moment each went live (migration
+  /// 178): its line in Outreach, and how far it got (written to,
+  /// opened the claim page, claimed, in its Owner account). Null when
+  /// it cannot be read; the rest of the screen works without it.
+  Future<List<Map<String, dynamic>>?> outreachNewPages() async {
+    try {
+      final r = await _db.rpc('admin_new_pages');
+      return [
+        for (final x in (r as List? ?? const []))
+          Map<String, dynamic>.from(x as Map)
+      ];
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// "Done for now" on a look at the claim page: the space leaves the
   /// step until its claim page is opened again.
   Future<void> outreachLookDone(String id) =>
