@@ -1327,7 +1327,9 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
     ('{page_link}', 'their page on nomadwise.io'),
     ('{price_words}', 'the Verified price for their country'),
     ('{unsubscribe_link}', 'the link that stops our emails'),
-    ('{signoff}', 'Jonathan, Nomadwise'),
+    // (migration 183: an email closes "Kind regards, Jonathan Heavens,
+    // Cofounder - Nomadwise.io"; a WhatsApp message keeps the short one)
+    ('{signoff}', 'Kind regards, Jonathan Heavens, Cofounder'),
   ];
 
   /// The templates: every one listed with its subject, each editable,

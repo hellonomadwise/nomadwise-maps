@@ -4156,3 +4156,14 @@ Jonathan, on the hello to Level39: remove "monthly or yearly" (the price
 words already say "a month or ... a year"). As migration 122, for the
 templates written since (reply_we_know_you, invite_new_page): "for
 {price_words}. Cancel any time."
+
+## 10 Oct 2026: outreach emails close as a letter (migration 183)
+
+Jonathan, on the hello to Level39: "We will not write again unless you
+reply. this should not be said. we can finish it with Kind regards,
+Jonathan Heavens, Cofounder - Nomadwise.io". The sentence is gone from
+every template (in invite_listed with the unsubscribe sentence after it;
+every email already ends with the small unsubscribe line). {signoff} in
+an email is now "Kind regards, / Jonathan Heavens / Cofounder -
+Nomadwise.io"; WhatsApp keeps "Jonathan, Nomadwise". In the HTML version
+the name and role sit as a small signature under a thin line.
