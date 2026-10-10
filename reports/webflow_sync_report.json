@@ -1,0 +1,87 @@
+{
+  "started": "2026-10-10T10:42:23.212116+00:00",
+  "items_read": 1048,
+  "live_items": 1018,
+  "sitemap_source": "snapshot 2026-09-12",
+  "matched_by_place_id": 995,
+  "matched_by_cms_id": 16,
+  "inserted": 0,
+  "updated": 1011,
+  "marked_removed": 0,
+  "status_counts": {
+    "released": 1009,
+    "removed": 1,
+    "retired": 1
+  },
+  "no_place_id": [],
+  "inserted_names": [],
+  "skipped_not_live_new": 28,
+  "queued_for_site": 0,
+  "created_on_site": [],
+  "needs_location": [],
+  "errors": [],
+  "sitemap_entries": 1012,
+  "sitemap_marked": 0,
+  "sitemap_unmarked": 0,
+  "sitemap_region_entries": 160,
+  "sitemap_region_marked": 0,
+  "sitemap_region_unmarked": 0,
+  "sitemap_locations_entries": 286,
+  "sitemap_locations_marked": 0,
+  "sitemap_locations_unmarked": 0,
+  "sitemap_country_entries": 63,
+  "sitemap_country_marked": 0,
+  "sitemap_country_unmarked": 0,
+  "prepared": [],
+  "awaiting_approval": [],
+  "taxonomy_requests": 0,
+  "retire_requests": 0,
+  "listing_requests": 0,
+  "upgrade_writes": 0,
+  "regions_copied": 169,
+  "page_text_copied": 8,
+  "page_facts": 1011,
+  "upgrades": {
+    "queue": {
+      "title:applied": 2,
+      "photos:applied": 1,
+      "description:applied": 2,
+      "search_description:applied": 2,
+      "search_description:superseded": 1
+    },
+    "drafted_slugs": [
+      "indonesia-bali-flow-workspace",
+      "monday"
+    ],
+    "open_requests": [],
+    "page_requests": []
+  },
+  "google_fresh": [
+    "Madeira Friends Hub",
+    "co.work",
+    "SpecOps network",
+    "Zoku Vienna",
+    "Red Panda Hostel & Cafe",
+    "Hive Five Coworking Space Trogir",
+    "Jiboia Studio",
+    "ShaPel Hostel x Cafes"
+  ],
+  "hours_backfilled": [],
+  "image_layout_fixed": [],
+  "page_photos": 1011,
+  "rotation": {
+    "day": "2026-10-10",
+    "ranked": 6,
+    "republished": 6,
+    "order": [
+      "Neighbors and Nomads Coworking",
+      "Ofis Voyvoda Istanbul",
+      "SOKKOOL Coliving & Coworking",
+      "Nomio Coworking Lounge",
+      "Monday",
+      "DEOS Coworking"
+    ]
+  },
+  "locations_copied": 355,
+  "finished": "2026-10-10T10:43:19.239909+00:00"
+}
