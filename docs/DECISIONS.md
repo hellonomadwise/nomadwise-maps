@@ -4149,3 +4149,10 @@ Meta's addresses "INSTAGRAM/FACEBOOK LINK CHECK".
 Checked on the test copy: a Meta visit and a scrambled link are noted
 and leave the counts; a person's visit stays; marking and undoing by
 hand work. Dart reviewed by reading.
+
+## 10 Oct 2026: price sentence said once (migration 182)
+
+Jonathan, on the hello to Level39: remove "monthly or yearly" (the price
+words already say "a month or ... a year"). As migration 122, for the
+templates written since (reply_we_know_you, invite_new_page): "for
+{price_words}. Cancel any time."
