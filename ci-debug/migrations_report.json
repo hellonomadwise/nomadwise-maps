@@ -1,0 +1,18 @@
+{
+  "newly_applied": [
+    {
+      "file": "migration186_email_html_for_own_inbox.sql",
+      "status": "applied"
+    }
+  ],
+  "failed": [],
+  "error": null,
+  "share_pages": {
+    "venues": 1025,
+    "found": 5287,
+    "with_picture": 6305,
+    "skipped": 158,
+    "live_picture": true,
+    "seconds": 39.4
+  }
+}
