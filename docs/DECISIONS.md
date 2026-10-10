@@ -4167,3 +4167,20 @@ every email already ends with the small unsubscribe line). {signoff} in
 an email is now "Kind regards, / Jonathan Heavens / Cofounder -
 Nomadwise.io"; WhatsApp keeps "Jonathan, Nomadwise". In the HTML version
 the name and role sit as a small signature under a thin line.
+
+## 10 Oct 2026: a friendlier hello (migration 184)
+
+Jonathan: the hello to a new page read "too salesy", and "Cancel any
+time" did not flow; "I want it to be communicated as though we are
+friendly, we've done a nice thing and they can claim and manage their
+listing if they wish". The template now says what we did, that being
+listed is free and nothing is needed from them, that they can claim the
+page if they wish (the button), mentions Verified once with no price
+("you will find the details in your Owner account"), and ends "We hope
+it helps a few more people find you." Subject: "{space} is now on
+Nomadwise".
+
+## 10 Oct 2026: signature "Nomadwise.io" all in red (migration 185)
+
+Jonathan: "the .io in the Nomadwise.io is not red, think this should be
+also red?". The whole word is now red in the email signature.
