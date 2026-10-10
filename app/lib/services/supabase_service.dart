@@ -1685,6 +1685,20 @@ class SupabaseService {
     return '${r ?? ''}';
   }
 
+  /// The designed version of an email (migration 186), to copy into
+  /// Spark when sending from our own inbox. Null when it cannot be
+  /// made; the plain text is copied instead.
+  Future<String?> outreachEmailHtml(String body) async {
+    try {
+      final r = await _db.rpc('admin_outreach_email_html',
+          params: {'p_body': body});
+      final s = '${r ?? ''}';
+      return s.trim().isEmpty ? null : s;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Records an email the founder sent from their own mail app.
   Future<void> outreachLogSent(String id, String subject, String body,
           {String? templateKey, bool force = false}) =>

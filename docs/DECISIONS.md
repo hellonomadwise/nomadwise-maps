@@ -4184,3 +4184,18 @@ Nomadwise".
 
 Jonathan: "the .io in the Nomadwise.io is not red, think this should be
 also red?". The whole word is now red in the email signature.
+
+## 10 Oct 2026: the designed email goes to Spark through the clipboard (migration 186)
+
+Jonathan, with the Level39 hello pasted into Spark on Windows as bare
+text: "how can i go about sending it with the styling ... with the button
+etc.". A web page cannot hand a designed email to Spark, but it can put
+one on the clipboard. "From my own inbox" now copies the email as HTML
+(the same design as an email sent from here: the claim button, short
+links, the signature, the small unsubscribe line) together with the plain
+text; pasting into the body of a new email in Spark keeps the design. On
+a Mac the draft then opens with address and subject only, for the email
+to be pasted in. "Copy the email" does the same. Where the browser
+refuses, the plain text is copied as before. admin_outreach_email_html
+(founders only) gives the app the HTML; nothing is sent or stored.
+Not yet seen in Spark itself: Spark may simplify the button to a link.

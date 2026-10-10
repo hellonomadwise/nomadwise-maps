@@ -8,6 +8,8 @@ import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
 import 'package:url_launcher/url_launcher.dart';
 
+import '../services/clipboard_stub.dart'
+    if (dart.library.html) '../services/clipboard_web.dart' as rich;
 import '../services/places_service.dart';
 import '../services/supabase_service.dart';
 import '../theme.dart';
@@ -796,6 +798,16 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
 
   // -------------------------------------------------------------- reply
 
+  /// What goes inside <body> of the designed email: the part a mail
+  /// program keeps when it is pasted in.
+  static String _htmlFragment(String doc) {
+    final start = doc.indexOf('<body');
+    final open = start < 0 ? -1 : doc.indexOf('>', start);
+    final end = doc.lastIndexOf('</body>');
+    if (open < 0 || end <= open) return doc;
+    return doc.substring(open + 1, end);
+  }
+
   Future<void> _reply(Map<String, dynamic> c) async {
     if ('${c['email'] ?? ''}'.isEmpty) {
       _snack('No email address for this contact yet. Edit it first.', bad: true);
@@ -857,6 +869,11 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
     // The link that hands the draft to the mail app, and the part
     // last put on the clipboard.
     Uri? draftUri;
+    // The designed email (migration 186), copied so that pasting it into
+    // Spark keeps the button and signature; null when it could not be
+    // made, and then the plain text is copied.
+    String? richHtml;
+    bool richCopied = false;
     String? copied;
     // Spark on Windows cannot take an email link (Readdle: "you cannot
     // currently set Spark as your default email client"), so there the
@@ -940,12 +957,23 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
           return;
         }
         final text = ownInboxBody();
-        // A browser may refuse the clipboard; the draft still opens,
-        // and the copy buttons are there.
-        try {
-          await Clipboard.setData(ClipboardData(text: text));
+        // The designed version first (Jonathan, 10 Oct 2026: Spark
+        // showed the bare text, long links and no button); a browser
+        // may refuse it, and then the plain text is copied. The draft
+        // still opens, and the copy buttons are there.
+        richHtml = await _supabase.outreachEmailHtml(text);
+        richCopied = false;
+        if (richHtml != null) {
+          richCopied = await rich.copyRich(_htmlFragment(richHtml!), text);
+        }
+        if (richCopied) {
           copied = 'email';
-        } catch (_) {}
+        } else {
+          try {
+            await Clipboard.setData(ClipboardData(text: text));
+            copied = 'email';
+          } catch (_) {}
+        }
         // Windows drops a link much over 2,000 characters without a
         // word, so there a long email goes over with its address and
         // subject only (for the "try this computer's mail app" button).
@@ -953,8 +981,10 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
             '?subject=${Uri.encodeComponent(subject.text.trim())}';
         final full = '$head&body='
             '${Uri.encodeComponent(text.replaceAll('\r\n', '\n').replaceAll('\n', '\r\n'))}';
-        final uri =
-            Uri.tryParse(onWindows && full.length > 1800 ? head : full);
+        // With the designed email on the clipboard, the draft opens with
+        // its address and subject only, for the email to be pasted in.
+        final uri = Uri.tryParse(
+            richCopied || (onWindows && full.length > 1800) ? head : full);
         draftUri = uri;
         if (!onWindows && uri != null) {
           // The page cannot tell whether a mail app took the link, so
@@ -1167,15 +1197,28 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
                                         'email from a web page, so copy it '
                                         'over: start a new email in Spark, '
                                         'then use the three buttons below '
-                                        'and paste each part. Send it '
-                                        'there, then come back and press '
-                                        '"I sent it" so the card moves on.'
-                                    : 'Your mail app should now be open '
-                                        'with the draft. Choose the inbox '
-                                        'to send from, read it, and send '
-                                        'it there. Then come back and '
+                                        'and paste each part. '
+                                        '${richCopied ? 'The email is copied with its design (the button and the signature): click in the body of the new email and press Ctrl+V. ' : ''}'
+                                        'Send it there, then come back and '
                                         'press "I sent it" so the card '
-                                        'moves on.',
+                                        'moves on.'
+                                    : richCopied
+                                        ? 'Your mail app should now be open '
+                                            'with the address and subject. '
+                                            'The email is copied with its '
+                                            'design (the button and the '
+                                            'signature): click in the body '
+                                            'and paste it (Cmd+V). Choose '
+                                            'the inbox to send from, read '
+                                            'it, and send it there. Then '
+                                            'come back and press "I sent '
+                                            'it" so the card moves on.'
+                                        : 'Your mail app should now be open '
+                                            'with the draft. Choose the inbox '
+                                            'to send from, read it, and send '
+                                            'it there. Then come back and '
+                                            'press "I sent it" so the card '
+                                            'moves on.',
                                 style: const TextStyle(
                                     fontSize: 13,
                                     height: 1.4,
@@ -1190,8 +1233,17 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
                                 TextButton.icon(
                                     onPressed: () async {
                                       try {
-                                        await Clipboard.setData(
-                                            ClipboardData(text: part.$2));
+                                        // the email with its design when
+                                        // the browser allows it
+                                        final h = richHtml;
+                                        final done = part.$1 == 'email' &&
+                                            h != null &&
+                                            await rich.copyRich(
+                                                _htmlFragment(h), part.$2);
+                                        if (!done) {
+                                          await Clipboard.setData(
+                                              ClipboardData(text: part.$2));
+                                        }
                                         if (open) {
                                           setD(() {
                                             copied = part.$1;
