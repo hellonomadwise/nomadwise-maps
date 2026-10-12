@@ -4199,3 +4199,58 @@ to be pasted in. "Copy the email" does the same. Where the browser
 refuses, the plain text is copied as before. admin_outreach_email_html
 (founders only) gives the app the HTML; nothing is sent or stored.
 Not yet seen in Spark itself: Spark may simplify the button to a link.
+
+## 12 Oct 2026: Outreach buttons and the New pages list, CRM style
+
+Jonathan, on the New pages list with its large round red "Write the
+hello": "can these buttons ... be better ui/ux please. this should be
+like a premium style system, like hubspot". Outreach now uses compact
+control-centre buttons (controlCentreButtons in theme.dart): 36 px tall,
+8 px corners, 13.5 px text; the main action red and flat with a soft
+shadow, second actions white with a grey edge, quiet actions grey ink
+(red on hover). Dialogs keep the app's own look. Each New pages row now
+reads like a CRM list: a small tile for the kind of place (coworking or
+cafe), the name with a coloured status label (Ready to write, Needs an
+address, Written to, Opened claim page, Claimed, In Owner account), the
+address, the detail with dates, and the action on the right (under the
+text on a phone). "Write again" is a white button, no longer red text.
+Other control-centre screens can take the same style later.
+
+## 12 Oct 2026: the control centre search, always in view
+
+Jonathan: "in the admin, i don't have an easy search bar where I can
+search and access info about a listing. i have to think more about where
+to go to find a space to then message a coworking space". The search
+already existed but sat behind a magnifier on the control centre's
+home only. Now a "Search spaces" box sits at the top of the menu down
+the left, on every tool, and Ctrl+K (Cmd+K on a Mac) opens it from
+anywhere. On a computer it opens as a panel in the middle of the
+screen. Each space shows its kind, where it is, whether its page is
+live, Verified or claimed, and how to reach it (the owner, the
+addresses found on its website, its website and Instagram), with
+"Write to them" first: it opens Outreach searched for that space, all
+stages. Their Owner account, Open page, Open the space, Show in list,
+Listing plan and History follow.
+
+## 12 Oct 2026: the map's spaces served as a file (data allowance)
+
+Supabase, 15 Sep to 15 Oct: 7.63 GB sent of the free plan's 5 GB. The
+grace period is used once; going over again next cycle (from 15 Oct)
+would restrict the project, with every request refused. Since the
+lighter map (migration 175, 8 Oct) the project still sends 100 to 200 MB
+a day, about the whole allowance over a month, most of it the map's list
+of spaces (about 0.85 MB each time the map opens).
+
+The site's build now writes that list to data/map.json, served by the
+site's own hosting at no cost to the database (scripts/export_map.py).
+It asks as a signed-out visitor, so the file holds exactly what a
+signed-out visitor may see. The build also runs once a night at 06:17
+UTC, after the nightly data job, without rebuilding the Android app, so
+the file is at most a day old: a space approved during the day shows on
+the map for signed-out visitors after the next upload or that night.
+Signed-out visitors read the file; signed-in people (founders, owners,
+anyone who added a space) still ask the database, so their own pending
+spaces show as before. If the file is missing, older than three days,
+or holds too few spaces, the app asks the database as before. The
+build's report: ci-debug/map_export_report.json. If this is not enough,
+the fallback is Supabase Pro ($25 a month, 250 GB).

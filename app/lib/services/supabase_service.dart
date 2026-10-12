@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config.dart';
@@ -291,21 +292,26 @@ class SupabaseService {
         }
       } catch (_) {}
     }
-    List rows;
-    try {
-      final r = await _db.rpc('map_venues');
-      rows = r is List ? r : const [];
-    } on PostgrestException catch (e) {
-      // The database is one step behind the app (migration 175 not
-      // applied yet): the plain read, as before.
-      final unknown = e.code == 'PGRST202' ||
-          e.message.contains('Could not find the function');
-      if (!unknown) rethrow;
-      // A place Google reports closed for good leaves the map, unless
-      // a founder has looked and said it is still open.
-      rows = await _db.from('venues').select().or(
-          'business_status.is.null,business_status.neq.CLOSED_PERMANENTLY,'
-          'closed_dismissed_at.not.is.null') as List;
+    // Signed out (most visits): the file the site's build writes
+    // (scripts/export_map.py), which costs the database nothing.
+    // Signed in, or no usable file: the database, as before.
+    List? rows = currentUser == null ? await _mapFileRows() : null;
+    if (rows == null) {
+      try {
+        final r = await _db.rpc('map_venues');
+        rows = r is List ? r : const [];
+      } on PostgrestException catch (e) {
+        // The database is one step behind the app (migration 175 not
+        // applied yet): the plain read, as before.
+        final unknown = e.code == 'PGRST202' ||
+            e.message.contains('Could not find the function');
+        if (!unknown) rethrow;
+        // A place Google reports closed for good leaves the map, unless
+        // a founder has looked and said it is still open.
+        rows = await _db.from('venues').select().or(
+            'business_status.is.null,business_status.neq.CLOSED_PERMANENTLY,'
+            'closed_dismissed_at.not.is.null') as List;
+      }
     }
     final list = rows
         .whereType<Map>()
@@ -320,6 +326,36 @@ class SupabaseService {
           _venueCacheAtKey, DateTime.now().toIso8601String());
     } catch (_) {}
     return list;
+  }
+
+  /// The map's spaces from the file served with the site
+  /// (data/map.json, written by the build on every upload and once a
+  /// night, 12 Oct 2026: the database's data allowance). The same
+  /// answer a signed-out visitor gets from map_venues(). Null when the
+  /// file is missing, unreadable, older than three days (the nightly
+  /// build has stopped) or holds too few spaces: the caller then asks
+  /// the database.
+  Future<List?> _mapFileRows() async {
+    try {
+      final uri = kIsWeb
+          ? Uri.base.resolve('/data/map.json')
+          : Uri.parse('https://nomadmaps.io/data/map.json');
+      final res = await http.get(uri).timeout(const Duration(seconds: 20));
+      if (res.statusCode != 200) return null;
+      final body = jsonDecode(utf8.decode(res.bodyBytes));
+      if (body is! Map) return null;
+      final at = DateTime.tryParse('${body['generated_at']}');
+      if (at == null ||
+          DateTime.now().toUtc().difference(at.toUtc()) >
+              const Duration(days: 3)) {
+        return null;
+      }
+      final rows = body['venues'];
+      if (rows is! List || rows.length < 100) return null;
+      return rows;
+    } catch (_) {
+      return null;
+    }
   }
 
   /// One space in full, for a card or page opened from the light copy
@@ -2187,14 +2223,23 @@ class SupabaseService {
     List<Map<String, dynamic>> spaces = [];
     List<Map<String, dynamic>> claims = [];
     try {
-      final rows = await _db
+      // With the space's own contact details (website, Instagram, the
+      // addresses found on its website), for writing to it from the
+      // search (Jonathan, 12 Oct 2026). Without them if that fails.
+      Future<List> find(String cols) => _db
           .from('venues')
-          .select(_websiteCols)
+          .select(cols)
           .or('name.ilike.$like,webflow_slug.ilike.$like,'
               'listing_owner_email.ilike.$like,city.ilike.$like')
           .order('name')
           .limit(25);
-      spaces = (rows as List).map((r) => Map<String, dynamic>.from(r)).toList();
+      List rows;
+      try {
+        rows = await find('$_websiteCols, website, instagram, contact_emails');
+      } catch (_) {
+        rows = await find(_websiteCols);
+      }
+      spaces = rows.map((r) => Map<String, dynamic>.from(r as Map)).toList();
     } catch (_) {}
     try {
       final rows = await _db

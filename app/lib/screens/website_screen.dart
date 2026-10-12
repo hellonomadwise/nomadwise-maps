@@ -2,7 +2,8 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show Clipboard, ClipboardData;
+import 'package:flutter/services.dart'
+    show Clipboard, ClipboardData, LogicalKeyboardKey;
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -1198,20 +1199,34 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
 
   /// A screen with the menu down its left; [current] is the tool shown
   /// (null: the control centre), so the menu can mark where you are.
-  Widget _besideMenu(String? current, Widget screen) => Material(
-        color: Brand.surface,
-        child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          _sideMenu(current),
-          Expanded(child: screen),
-        ]),
+  Widget _besideMenu(String? current, Widget screen) => CallbackShortcuts(
+        // Ctrl+K (Cmd+K on a Mac) opens the search from any tool.
+        bindings: {
+          const SingleActivator(LogicalKeyboardKey.keyK, control: true):
+              _openSearch,
+          const SingleActivator(LogicalKeyboardKey.keyK, meta: true):
+              _openSearch,
+        },
+        child: FocusScope(
+          autofocus: true,
+          child: Material(
+            color: Brand.surface,
+            child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _sideMenu(current),
+                  Expanded(child: screen),
+                ]),
+          ),
+        ),
       );
 
   /// The tools of the team menu, by their key.
-  Widget _toolScreen(String k) => switch (k) {
+  Widget _toolScreen(String k, {String? query}) => switch (k) {
         'analytics' => const AdminAnalyticsScreen(),
         'users' => const AdminUsersScreen(),
         'pricing' => const AdminPricingScreen(),
-        'outreach' => const AdminOutreachScreen(),
+        'outreach' => AdminOutreachScreen(initialQuery: query),
         'chats' => const AdminChatsScreen(),
         'sequences' => const AdminSequencesScreen(),
         'upgrades' => const AdminUpgradesScreen(),
@@ -1226,7 +1241,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   /// centre. The tool keeps the menu beside it; the pages a tool
   /// opens itself (one page's review, one space's prices) take the
   /// whole screen as before.
-  void _showTool(String? k) {
+  void _showTool(String? k, {String? query}) {
     // The control centre has gone (signed out in another tab, say)
     // while a tool's menu was still on screen.
     if (!mounted) return;
@@ -1246,7 +1261,8 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
           transitionDuration: Duration.zero,
           reverseTransitionDuration: Duration.zero,
           pageBuilder: (ctx, _, __) {
-            final tool = KeyedSubtree(key: toolKey, child: _toolScreen(k));
+            final tool = KeyedSubtree(
+                key: toolKey, child: _toolScreen(k, query: query));
             return MediaQuery.sizeOf(ctx).width >= _menuFrom
                 ? _besideMenu(k, tool)
                 : tool;
@@ -1442,6 +1458,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         child: Text('Nomadwise',
             style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
       ),
+      _searchBox(),
       item(Icons.dashboard_outlined, 'Control centre', () => _showTool(null),
           on: current == null, countOf: 'home'),
       tool('upgrades', Icons.auto_fix_high_outlined, 'Page upgrades'),
@@ -1638,162 +1655,322 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         _ => 'No page yet',
       };
 
+  /// The search box at the top of the menu down the left: always in
+  /// view, whichever tool is open (Jonathan, 12 Oct 2026: "i don't have
+  /// an easy search bar where I can search and access info about a
+  /// listing").
+  Widget _searchBox() => Padding(
+        padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+        child: Material(
+          color: Brand.field,
+          borderRadius: BorderRadius.circular(8),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: _openSearch,
+            child: Container(
+              height: 36,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Brand.hairline)),
+              child: Row(children: [
+                const Icon(Icons.search, size: 17, color: Brand.inkMuted),
+                const SizedBox(width: 8),
+                const Expanded(
+                    child: Text('Search spaces',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            fontSize: 13, color: Brand.inkSecondary))),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                  decoration: BoxDecoration(
+                      color: Brand.surface,
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: Brand.border)),
+                  child: Text(
+                      Theme.of(context).platform == TargetPlatform.macOS
+                          ? '⌘K'
+                          : 'Ctrl K',
+                      style: const TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w600,
+                          color: Brand.inkMuted)),
+                ),
+              ]),
+            ),
+          ),
+        ),
+      );
+
   /// Search across everything: spaces by name, city, page address or
-  /// owner email, and claims by space, owner name or email.
+  /// owner email, and claims by space, owner name or email. On a
+  /// computer it opens as a panel in the middle of the screen, on a
+  /// phone from the bottom. Each space shows how to reach it and a
+  /// "Write to them" button, which opens Outreach on that space.
+  bool _searchOpen = false;
   void _openSearch() {
+    if (_searchOpen || !mounted) return;
+    _searchOpen = true;
     final ctl = TextEditingController();
     Timer? debounce;
     var busy = false;
     var spaces = <Map<String, dynamic>>[];
     var claims = <Map<String, dynamic>>[];
     var searched = '';
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Brand.surface,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(12))),
-      builder: (ctx) => StatefulBuilder(builder: (ctx, setSheet) {
-        Future<void> run(String q) async {
-          if (q.trim().length < 2) {
-            setSheet(() {
-              spaces = [];
-              claims = [];
-              searched = '';
-            });
-            return;
-          }
-          setSheet(() => busy = true);
-          final r = await _supabase.controlSearch(q);
-          if (!ctx.mounted) return;
+    final wide = MediaQuery.sizeOf(context).width >= _menuFrom;
+
+    final content = StatefulBuilder(builder: (ctx, setSheet) {
+      Future<void> run(String q) async {
+        if (q.trim().length < 2) {
           setSheet(() {
-            spaces = r.spaces;
-            claims = r.claims;
-            searched = q.trim();
-            busy = false;
+            spaces = [];
+            claims = [];
+            searched = '';
           });
+          return;
         }
+        setSheet(() => busy = true);
+        final r = await _supabase.controlSearch(q);
+        if (!ctx.mounted) return;
+        setSheet(() {
+          spaces = r.spaces;
+          claims = r.claims;
+          searched = q.trim();
+          busy = false;
+        });
+      }
 
-        void go(VoidCallback f) {
-          Navigator.pop(ctx);
-          f();
-        }
+      void go(VoidCallback f) {
+        Navigator.pop(ctx);
+        f();
+      }
 
-        Widget spaceTile(Map<String, dynamic> v) {
-          final id = '${v['id']}';
-          final where = _groupOfSpace(id);
-          final owner = (v['listing_owner_email'] ?? '').toString();
-          final tier = (v['listing_tier'] ?? 'free').toString();
-          final live = v['website_status'] == 'released' &&
-              (v['webflow_slug'] ?? '').toString().isNotEmpty;
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('${v['name']}',
-                      style: const TextStyle(
-                          fontWeight: FontWeight.w700, fontSize: 14.5)),
-                  Text(
-                      [
-                        [v['neighbourhood'], v['city']]
-                            .where((x) => x != null && '$x'.isNotEmpty)
-                            .join(', '),
-                        _pageWords(v['website_status']?.toString()),
-                        if (tier != 'free') 'Verified',
-                        if (owner.isNotEmpty) owner,
-                        if (where != null) 'in ${_groupNames[where]}',
-                      ].where((x) => x.isNotEmpty).join(' · '),
-                      style: const TextStyle(
-                          fontSize: 12, color: Brand.inkSecondary)),
-                  const SizedBox(height: 4),
-                  Wrap(spacing: 4, runSpacing: 0, children: [
-                    if (where != null)
-                      TextButton(
-                          onPressed: () => go(() => _goToGroup(where)),
-                          child: const Text('Show in list')),
-                    TextButton(
-                        onPressed: () => go(() => _openVenue(v)),
-                        child: const Text('Open the space')),
-                    if (live)
-                      TextButton(
-                          onPressed: () => launchUrl(
-                              Uri.parse('https://www.nomadwise.io/coworking/'
-                                  '${v['webflow_slug']}'),
-                              mode: LaunchMode.externalApplication),
-                          child: const Text('Open page')),
+      Widget pill(String text, Color fg, Color bg) => Container(
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+            decoration: BoxDecoration(
+                color: bg, borderRadius: BorderRadius.circular(5)),
+            child: Text(text,
+                style: TextStyle(
+                    fontSize: 11, fontWeight: FontWeight.w600, color: fg)),
+          );
+
+      Widget contactLine(IconData icon, String text, {String? url}) => Padding(
+            padding: const EdgeInsets.only(top: 3),
+            child: Row(children: [
+              Icon(icon, size: 14, color: Brand.inkMuted),
+              const SizedBox(width: 6),
+              Flexible(
+                child: url == null
+                    ? SelectableText(text,
+                        style: const TextStyle(
+                            fontSize: 12.5, color: Brand.ink))
+                    : InkWell(
+                        onTap: () => launchUrl(Uri.parse(url),
+                            mode: LaunchMode.externalApplication),
+                        child: Text(text,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                fontSize: 12.5, color: Brand.ink))),
+              ),
+            ]),
+          );
+
+      Widget spaceTile(Map<String, dynamic> v) {
+        final id = '${v['id']}';
+        final where = _groupOfSpace(id);
+        final owner = (v['listing_owner_email'] ?? '').toString();
+        final tier = (v['listing_tier'] ?? 'free').toString();
+        final live = v['website_status'] == 'released' &&
+            (v['webflow_slug'] ?? '').toString().isNotEmpty;
+        final cowork = v['type'] == 'coworking';
+        final emails = [
+          for (final e in (v['contact_emails'] as List? ?? const []))
+            if ('$e'.contains('@')) '$e'
+        ];
+        final site = (v['website'] ?? '').toString().trim();
+        final insta = (v['instagram'] ?? '')
+            .toString()
+            .trim()
+            .replaceAll(RegExp(r'^@'), '');
+        final place = [v['neighbourhood'], v['city'], v['country']]
+            .where((x) => x != null && '$x'.isNotEmpty)
+            .join(', ');
+        return Container(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: Brand.hairline))),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                  color: cowork ? Brand.logoTealTint : Brand.goldTint,
+                  borderRadius: BorderRadius.circular(8)),
+              child: Icon(
+                  cowork
+                      ? Icons.business_center_outlined
+                      : Icons.local_cafe_outlined,
+                  size: 17,
+                  color: cowork ? Brand.logoNavy : Brand.goldTextDark),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Text('${v['name']}',
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 14.5)),
+                          pill(
+                              _pageWords(v['website_status']?.toString()),
+                              live ? Brand.success : Brand.inkSecondary,
+                              live ? Brand.successTint : Brand.field),
+                          if (tier != 'free')
+                            pill('Verified', Brand.logoNavy,
+                                Brand.logoTealTint),
+                          if (owner.isNotEmpty)
+                            pill('Claimed', Brand.goldTextDark, Brand.goldTint),
+                        ]),
+                    const SizedBox(height: 2),
+                    Text(
+                        [
+                          cowork ? 'Coworking space' : 'Cafe',
+                          if (place.isNotEmpty) place,
+                          if (where != null) 'in ${_groupNames[where]}',
+                        ].join('  ·  '),
+                        style: const TextStyle(
+                            fontSize: 12, color: Brand.inkMuted)),
+                    const SizedBox(height: 4),
                     if (owner.isNotEmpty)
+                      contactLine(Icons.person_outline, 'Owner: $owner'),
+                    for (final e in emails.take(2))
+                      contactLine(Icons.mail_outline, e),
+                    if (site.isNotEmpty)
+                      contactLine(Icons.language,
+                          site.replaceAll(RegExp(r'^https?://(www\.)?'), ''),
+                          url: site.startsWith('http') ? site : 'https://$site'),
+                    if (insta.isNotEmpty)
+                      contactLine(Icons.camera_alt_outlined, '@$insta',
+                          url: 'https://www.instagram.com/$insta'),
+                    const SizedBox(height: 10),
+                    Wrap(spacing: 6, runSpacing: 6, children: [
+                      FilledButton.icon(
+                          onPressed: () => go(() => _showTool('outreach',
+                              query: '${v['name']}')),
+                          icon: const Icon(Icons.send_rounded),
+                          label: const Text('Write to them')),
+                      if (owner.isNotEmpty)
+                        OutlinedButton(
+                            onPressed: () => go(() => _openOwnerPreview(id)),
+                            child: const Text('Their Owner account')),
+                      if (live)
+                        OutlinedButton.icon(
+                            onPressed: () => launchUrl(
+                                Uri.parse('https://www.nomadwise.io/coworking/'
+                                    '${v['webflow_slug']}'),
+                                mode: LaunchMode.externalApplication),
+                            icon: const Icon(Icons.open_in_new),
+                            label: const Text('Open page')),
                       TextButton(
-                          onPressed: () => go(() => _openOwnerPreview(id)),
-                          child: const Text('Their Owner account')),
-                    TextButton(
-                        onPressed: () => go(() => _editPlan(v)),
-                        child: const Text('Listing plan')),
-                    TextButton(
-                        onPressed: () =>
-                            go(() => _openTrail(id, '${v['name']}')),
-                        child: const Text('History')),
-                  ]),
-                  const Divider(height: 8, color: Brand.hairline),
-                ]),
-          );
-        }
-
-        Widget claimTile(Map<String, dynamic> c) {
-          final vid = (c['venue_id'] ?? '').toString();
-          final t = DateTime.tryParse('${c['created_at']}');
-          final status = switch ('${c['status']}') {
-            'started' => 'started, not finished',
-            'awaiting_approval' => 'paid, waiting for a decision',
-            'free_pending' => 'free, waiting for a decision',
-            'paid' => 'Verified, approved',
-            'free' => 'free, approved',
-            'rejected' => 'turned down',
-            'abandoned' => 'abandoned',
-            final x => x,
-          };
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('${c['space_name'] ?? 'A space'}',
-                      style: const TextStyle(
-                          fontWeight: FontWeight.w700, fontSize: 14.5)),
-                  Text(
-                      [
-                        'Claim by ${c['owner_name'] ?? '?'} '
-                            '(${c['owner_email'] ?? ''})',
-                        status,
-                        if (t != null)
-                          DateFormat('d MMM yyyy').format(t.toLocal()),
-                      ].join(' · '),
-                      style: const TextStyle(
-                          fontSize: 12, color: Brand.inkSecondary)),
-                  Wrap(spacing: 4, children: [
-                    TextButton(
-                        onPressed: () => go(() => _goToGroup('paid')),
-                        child: const Text('Show in Owners')),
-                    if (vid.isNotEmpty) ...[
+                          onPressed: () => go(() => _openVenue(v)),
+                          child: const Text('Open the space')),
+                      if (where != null)
+                        TextButton(
+                            onPressed: () => go(() => _goToGroup(where)),
+                            child: const Text('Show in list')),
                       TextButton(
-                          onPressed: () => go(() => _openOwnerPreview(vid)),
-                          child: const Text('Their Owner account')),
+                          onPressed: () => go(() => _editPlan(v)),
+                          child: const Text('Listing plan')),
                       TextButton(
-                          onPressed: () => go(() => _openTrail(
-                              vid, '${c['space_name'] ?? 'this space'}')),
+                          onPressed: () =>
+                              go(() => _openTrail(id, '${v['name']}')),
                           child: const Text('History')),
-                    ],
+                    ]),
                   ]),
-                  const Divider(height: 8, color: Brand.hairline),
-                ]),
-          );
-        }
+            ),
+          ]),
+        );
+      }
 
-        return Padding(
+      Widget claimTile(Map<String, dynamic> c) {
+        final vid = (c['venue_id'] ?? '').toString();
+        final t = DateTime.tryParse('${c['created_at']}');
+        final status = switch ('${c['status']}') {
+          'started' => 'started, not finished',
+          'awaiting_approval' => 'paid, waiting for a decision',
+          'free_pending' => 'free, waiting for a decision',
+          'paid' => 'Verified, approved',
+          'free' => 'free, approved',
+          'rejected' => 'turned down',
+          'abandoned' => 'abandoned',
+          final x => x,
+        };
+        return Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: Brand.hairline))),
+          child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('${c['space_name'] ?? 'A space'}',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w700, fontSize: 14.5)),
+                Text(
+                    [
+                      'Claim by ${c['owner_name'] ?? '?'} '
+                          '(${c['owner_email'] ?? ''})',
+                      status,
+                      if (t != null)
+                        DateFormat('d MMM yyyy').format(t.toLocal()),
+                    ].join('  ·  '),
+                    style: const TextStyle(
+                        fontSize: 12, color: Brand.inkSecondary)),
+                const SizedBox(height: 8),
+                Wrap(spacing: 6, runSpacing: 6, children: [
+                  TextButton(
+                      onPressed: () => go(() => _goToGroup('paid')),
+                      child: const Text('Show in Owners')),
+                  if (vid.isNotEmpty) ...[
+                    TextButton(
+                        onPressed: () => go(() => _openOwnerPreview(vid)),
+                        child: const Text('Their Owner account')),
+                    TextButton(
+                        onPressed: () => go(() => _openTrail(
+                            vid, '${c['space_name'] ?? 'this space'}')),
+                        child: const Text('History')),
+                  ],
+                ]),
+              ]),
+        );
+      }
+
+      Widget label(String t) => Padding(
+            padding: const EdgeInsets.only(top: 6, bottom: 2),
+            child: Text(t,
+                style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: .6,
+                    color: Brand.inkMuted)),
+          );
+
+      final height = MediaQuery.of(ctx).size.height * (wide ? .72 : .85);
+      return Theme(
+        data: controlCentreButtons(Theme.of(ctx)),
+        child: Padding(
           padding: EdgeInsets.only(
-              bottom: MediaQuery.of(ctx).viewInsets.bottom),
+              bottom: wide ? 0 : MediaQuery.of(ctx).viewInsets.bottom),
           child: SizedBox(
-            height: MediaQuery.of(ctx).size.height * .85,
+            height: height,
             child: Column(children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
@@ -1826,6 +2003,15 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                   children: [
+                    if (searched.isEmpty && !busy)
+                      const Padding(
+                        padding: EdgeInsets.all(20),
+                        child: Text(
+                            'Type a space\'s name, a city, or an owner\'s '
+                            'email.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: Brand.inkMuted)),
+                      ),
                     if (searched.isNotEmpty &&
                         spaces.isEmpty &&
                         claims.isEmpty &&
@@ -1837,22 +2023,12 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                             style: const TextStyle(color: Brand.inkMuted)),
                       ),
                     if (spaces.isNotEmpty) ...[
-                      Text('SPACES (${spaces.length})',
-                          style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: .6,
-                              color: Brand.inkMuted)),
+                      label('SPACES (${spaces.length})'),
                       ...spaces.map(spaceTile),
                     ],
                     if (claims.isNotEmpty) ...[
                       const SizedBox(height: 12),
-                      Text('CLAIMS (${claims.length})',
-                          style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: .6,
-                              color: Brand.inkMuted)),
+                      label('CLAIMS (${claims.length})'),
                       ...claims.map(claimTile),
                     ],
                   ],
@@ -1860,10 +2036,38 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
               ),
             ]),
           ),
-        );
-      }),
-    ).whenComplete(() {
+        ),
+      );
+    });
+
+    final shown = wide
+        ? showDialog<void>(
+            context: context,
+            builder: (_) => Dialog(
+              alignment: const Alignment(0, -0.6),
+              insetPadding:
+                  const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+              backgroundColor: Brand.surface,
+              surfaceTintColor: Colors.transparent,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+              clipBehavior: Clip.antiAlias,
+              child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 720),
+                  child: content),
+            ),
+          )
+        : showModalBottomSheet<void>(
+            context: context,
+            isScrollControlled: true,
+            backgroundColor: Brand.surface,
+            shape: const RoundedRectangleBorder(
+                borderRadius: BorderRadius.vertical(top: Radius.circular(12))),
+            builder: (_) => content,
+          );
+    shown.whenComplete(() {
       debounce?.cancel();
+      _searchOpen = false;
     });
   }
 

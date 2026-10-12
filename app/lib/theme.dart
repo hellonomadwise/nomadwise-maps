@@ -293,3 +293,93 @@ ThemeData siteButtons(ThemeData t, {double radius = 4}) {
     visualDensity: VisualDensity.compact,
   );
 }
+
+/// Buttons for the control centre, in the manner of a CRM such as
+/// HubSpot (Jonathan, 12 Oct 2026: "this should be like a premium style
+/// system"): compact (36 px), 8 px corners, 13.5 px semi-bold text.
+///   * filled: the one main action, Nomadwise red, flat with a soft
+///     red shadow, a shade darker on hover
+///   * outlined: the second action, white with a grey edge, grey wash
+///     on hover
+///   * text: quiet actions in grey ink, red only when hovered
+/// Wrap a screen in Theme(data: controlCentreButtons(Theme.of(context)))
+/// to use it. Dialogs opened from the screen keep the app's own look.
+ThemeData controlCentreButtons(ThemeData t) {
+  final shape = WidgetStatePropertyAll(
+      RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)));
+  const text = WidgetStatePropertyAll(TextStyle(
+      fontFamily: 'Roboto',
+      fontWeight: FontWeight.w600,
+      fontSize: 13.5,
+      letterSpacing: 0.1));
+  const size = WidgetStatePropertyAll(Size(0, 36));
+  const pad = WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 14));
+  const icon = WidgetStatePropertyAll(16.0);
+  bool on(Set<WidgetState> s, WidgetState x) => s.contains(x);
+  return t.copyWith(
+    filledButtonTheme: FilledButtonThemeData(
+      style: ButtonStyle(
+        shape: shape,
+        textStyle: text,
+        minimumSize: size,
+        padding: pad,
+        iconSize: icon,
+        elevation: WidgetStateProperty.resolveWith(
+            (s) => on(s, WidgetState.disabled) ? 0 : 1.5),
+        shadowColor: const WidgetStatePropertyAll(Color(0x66FF444F)),
+        backgroundColor: WidgetStateProperty.resolveWith((s) {
+          if (on(s, WidgetState.disabled)) return Brand.field;
+          if (on(s, WidgetState.pressed)) return const Color(0xFFD9323C);
+          if (on(s, WidgetState.hovered)) return const Color(0xFFEE3943);
+          return Brand.accent;
+        }),
+        foregroundColor: WidgetStateProperty.resolveWith((s) =>
+            on(s, WidgetState.disabled) ? Brand.inkMuted : Colors.white),
+        iconColor: WidgetStateProperty.resolveWith((s) =>
+            on(s, WidgetState.disabled) ? Brand.inkMuted : Colors.white),
+        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+      ),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: ButtonStyle(
+        shape: shape,
+        textStyle: text,
+        minimumSize: size,
+        padding: pad,
+        iconSize: icon,
+        side: WidgetStateProperty.resolveWith((s) => BorderSide(
+            color: on(s, WidgetState.hovered)
+                ? const Color(0x3D142032)
+                : const Color(0x29142032))),
+        backgroundColor: WidgetStateProperty.resolveWith((s) =>
+            on(s, WidgetState.hovered) || on(s, WidgetState.pressed)
+                ? Brand.field
+                : Brand.surface),
+        foregroundColor: WidgetStateProperty.resolveWith((s) =>
+            on(s, WidgetState.disabled) ? Brand.inkMuted : Brand.ink),
+        iconColor: const WidgetStatePropertyAll(Brand.inkSecondary),
+        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+      ),
+    ),
+    textButtonTheme: TextButtonThemeData(
+      style: ButtonStyle(
+        shape: shape,
+        textStyle: text,
+        minimumSize: size,
+        padding: const WidgetStatePropertyAll(
+            EdgeInsets.symmetric(horizontal: 10)),
+        iconSize: icon,
+        backgroundColor: WidgetStateProperty.resolveWith((s) =>
+            on(s, WidgetState.hovered) || on(s, WidgetState.pressed)
+                ? Brand.field
+                : Colors.transparent),
+        foregroundColor: WidgetStateProperty.resolveWith((s) {
+          if (on(s, WidgetState.disabled)) return Brand.inkMuted;
+          if (on(s, WidgetState.hovered)) return Brand.accent;
+          return Brand.inkSecondary;
+        }),
+        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+      ),
+    ),
+  );
+}

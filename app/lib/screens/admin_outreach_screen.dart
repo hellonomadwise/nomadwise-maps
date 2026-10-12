@@ -20,11 +20,15 @@ import '../theme.dart';
 /// templates with their details, sends it from hello@nomadwise.io and
 /// logs it. Founders only.
 class AdminOutreachScreen extends StatefulWidget {
-  const AdminOutreachScreen({super.key, this.initialStep});
+  const AdminOutreachScreen({super.key, this.initialStep, this.initialQuery});
 
   /// Opens on one step of the path (from "Next up": the spaces that
   /// looked at claiming).
   final String? initialStep;
+
+  /// Opens on the whole picture, searched for this (a space's name,
+  /// from the control centre's search: "Write to them").
+  final String? initialQuery;
   @override
   State<AdminOutreachScreen> createState() => _AdminOutreachScreenState();
 }
@@ -91,6 +95,12 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
   void initState() {
     super.initState();
     _step = widget.initialStep;
+    final q = (widget.initialQuery ?? '').trim();
+    if (q.isNotEmpty) {
+      _search.text = q;
+      _view = 'whole';
+      _stage = ''; // All stages, so a space already written to shows
+    }
     _load();
     _supabase.outreachTemplates().then((t) {
       if (mounted) setState(() => _templates = t);
@@ -2216,36 +2226,74 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
           ]),
         );
 
-    // How far it got, in words, and the colour of that line.
-    (String, Color) stepOf(Map<String, dynamic> p) {
+    // Where it is, as a short coloured label (the pill beside the name),
+    // and the detail with dates under it (Jonathan, 12 Oct 2026: a
+    // premium, CRM-like list).
+    ({String label, Color fg, Color bg, String detail}) stepOf(
+        Map<String, dynamic> p) {
+      final hasEmail = '${p['email'] ?? ''}'.isNotEmpty;
       if (p['ours'] == true) {
-        return ('Owner put on by us, so not part of the test.', Brand.inkMuted);
+        return (
+          label: 'Not in the test',
+          fg: Brand.inkSecondary,
+          bg: Brand.field,
+          detail: 'Owner put on by us.'
+        );
       }
       if (p['been_in'] == true) {
-        return ('Claimed on ${_when(p['claimed_at'])} and been in their '
-            'Owner account.', Brand.success);
+        return (
+          label: 'In Owner account',
+          fg: Brand.success,
+          bg: Brand.successTint,
+          detail: 'Claimed on ${_when(p['claimed_at'])} and been in their '
+              'Owner account.'
+        );
       }
       if (p['claimed_at'] != null) {
         final waiting = p['claim_status'] == 'free_pending' ||
             p['claim_status'] == 'awaiting_approval';
         return (
-          waiting
+          label: waiting ? 'Claimed, to approve' : 'Claimed',
+          fg: Brand.success,
+          bg: Brand.successTint,
+          detail: waiting
               ? 'Claimed on ${_when(p['claimed_at'])}, waiting for your '
                   'approval in Owners.'
               : 'Claimed on ${_when(p['claimed_at'])}, not in their Owner '
-                  'account yet.',
-          Brand.success
+                  'account yet.'
         );
       }
       if (p['looked_at'] != null) {
-        return ('Opened the claim page on ${_when(p['looked_at'])}, no '
-            'claim yet.', Brand.goldTextDark);
+        return (
+          label: 'Opened claim page',
+          fg: Brand.goldTextDark,
+          bg: Brand.goldTint,
+          detail: 'Opened the claim page on ${_when(p['looked_at'])}, no '
+              'claim yet.'
+        );
       }
       if (p['written_at'] != null) {
-        return ('Written to on ${_when(p['written_at'])}. No visit to the '
-            'claim page yet.', Brand.inkSecondary);
+        return (
+          label: 'Written to',
+          fg: Brand.logoNavy,
+          bg: Brand.logoTealTint,
+          detail: 'Written to on ${_when(p['written_at'])}. No visit to the '
+              'claim page yet.'
+        );
       }
-      return ('Not written to yet.', Brand.logoNavy);
+      return hasEmail
+          ? (
+              label: 'Ready to write',
+              fg: Brand.accent,
+              bg: Brand.accentTint,
+              detail: ''
+            )
+          : (
+              label: 'Needs an address',
+              fg: Brand.inkSecondary,
+              bg: Brand.field,
+              detail: ''
+            );
     }
 
     String address(Map<String, dynamic> p) {
@@ -2261,6 +2309,26 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
           : 'Looking on its website for an address.';
     }
 
+    Widget pill(String text, Color fg, Color bg) => Container(
+          padding: const EdgeInsets.fromLTRB(8, 3, 9, 3),
+          decoration: BoxDecoration(
+              color: bg, borderRadius: BorderRadius.circular(6)),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Container(
+                width: 6,
+                height: 6,
+                decoration:
+                    BoxDecoration(color: fg, shape: BoxShape.circle)),
+            const SizedBox(width: 6),
+            Text(text,
+                style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w600,
+                    height: 1.2,
+                    color: fg)),
+          ]),
+        );
+
     Widget pageRow(Map<String, dynamic> p) {
       final w = stepOf(p);
       final place = [p['city'], p['country']]
@@ -2268,54 +2336,115 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
           .join(', ');
       final hasEmail = '${p['email'] ?? ''}'.isNotEmpty;
       final line = p['contact_id'] != null && p['ours'] != true;
-      return Container(
-        padding: const EdgeInsets.fromLTRB(8, 10, 8, 6),
-        decoration: const BoxDecoration(
-            border: Border(top: BorderSide(color: Brand.hairline))),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('${p['name'] ?? ''}',
-              style:
-                  const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5)),
-          Text(
-              [
-                p['type'] == 'coworking' ? 'Coworking space' : 'Cafe',
-                if (place.isNotEmpty) place,
-                'live since ${_when(p['live_at'])}',
-              ].join('  ·  '),
-              style: const TextStyle(fontSize: 12, color: Brand.inkMuted)),
-          const SizedBox(height: 4),
-          Text(w.$1,
-              style: TextStyle(
-                  fontSize: 13, fontWeight: FontWeight.w700, color: w.$2)),
-          const SizedBox(height: 2),
-          Row(children: [
-            Icon(hasEmail ? Icons.mail_outline : Icons.search,
-                size: 15, color: Brand.inkMuted),
-            const SizedBox(width: 6),
-            Expanded(
-                child: Text(address(p),
-                    style: const TextStyle(
-                        fontSize: 12.5, color: Brand.inkSecondary))),
-          ]),
-          if (line)
-            Wrap(spacing: 6, children: [
-              if (hasEmail && p['written_at'] == null)
-                FilledButton.icon(
-                    onPressed: () => _openNewPage(p, write: true),
-                    icon: const Icon(Icons.send_outlined, size: 16),
-                    label: const Text('Write the hello')),
-              if (!hasEmail)
-                OutlinedButton.icon(
-                    onPressed: () => _openNewPage(p, write: false),
-                    icon: const Icon(Icons.alternate_email, size: 16),
-                    label: const Text('Add an address')),
-              if (hasEmail && p['written_at'] != null)
-                TextButton(
-                    onPressed: () => _openNewPage(p, write: true),
-                    child: const Text('Write again')),
-            ]),
-        ]),
+      final cowork = p['type'] == 'coworking';
+
+      // A square tile in place of a logo: what kind of place it is.
+      final tile = Container(
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+            color: cowork ? Brand.logoTealTint : Brand.goldTint,
+            borderRadius: BorderRadius.circular(9)),
+        child: Icon(
+            cowork ? Icons.business_center_outlined : Icons.local_cafe_outlined,
+            size: 18,
+            color: cowork ? Brand.logoNavy : Brand.goldTextDark),
       );
+
+      final actions = <Widget>[
+        if (line && hasEmail && p['written_at'] == null)
+          FilledButton.icon(
+              onPressed: () => _openNewPage(p, write: true),
+              icon: const Icon(Icons.send_rounded),
+              label: const Text('Write the hello')),
+        if (line && !hasEmail)
+          OutlinedButton.icon(
+              onPressed: () => _openNewPage(p, write: false),
+              icon: const Icon(Icons.alternate_email),
+              label: const Text('Add an address')),
+        if (line && hasEmail && p['written_at'] != null)
+          OutlinedButton.icon(
+              onPressed: () => _openNewPage(p, write: true),
+              icon: const Icon(Icons.forward_to_inbox_outlined),
+              label: const Text('Write again')),
+      ];
+
+      final info = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Text('${p['name'] ?? ''}',
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14.5,
+                          color: Brand.ink)),
+                  pill(w.label, w.fg, w.bg),
+                ]),
+            const SizedBox(height: 3),
+            Text(
+                [
+                  cowork ? 'Coworking space' : 'Cafe',
+                  if (place.isNotEmpty) place,
+                  'live since ${_when(p['live_at'])}',
+                ].join('  ·  '),
+                style: const TextStyle(fontSize: 12, color: Brand.inkMuted)),
+            const SizedBox(height: 8),
+            Row(children: [
+              Icon(hasEmail ? Icons.mail_outline : Icons.search,
+                  size: 14, color: Brand.inkMuted),
+              const SizedBox(width: 6),
+              Flexible(
+                  child: Text(address(p),
+                      style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight:
+                              hasEmail ? FontWeight.w500 : FontWeight.w400,
+                          color:
+                              hasEmail ? Brand.ink : Brand.inkSecondary))),
+            ]),
+            if (w.detail.isNotEmpty) ...[
+              const SizedBox(height: 3),
+              Text(w.detail,
+                  style: const TextStyle(
+                      fontSize: 12, color: Brand.inkSecondary)),
+            ],
+          ]);
+
+      return LayoutBuilder(builder: (context, box) {
+        // Wide: the action sits on the right, as in a CRM list. Narrow
+        // (a phone): under the text.
+        final wide = box.maxWidth >= 640;
+        return Container(
+          padding: const EdgeInsets.fromLTRB(12, 14, 12, 14),
+          decoration: const BoxDecoration(
+              border: Border(top: BorderSide(color: Brand.hairline))),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            tile,
+            const SizedBox(width: 12),
+            Expanded(
+                child: wide || actions.isEmpty
+                    ? info
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                            info,
+                            const SizedBox(height: 10),
+                            Wrap(spacing: 8, runSpacing: 8, children: actions),
+                          ])),
+            if (wide && actions.isNotEmpty) ...[
+              const SizedBox(width: 16),
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Wrap(spacing: 8, runSpacing: 8, children: actions),
+              ),
+            ],
+          ]),
+        );
+      });
     }
 
     return Container(
@@ -4003,6 +4132,14 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
   @override
   Widget build(BuildContext context) {
     final rows = _rows;
+    // Compact, CRM-style buttons on this screen (theme.dart).
+    return Theme(
+      data: controlCentreButtons(Theme.of(context)),
+      child: _screen(context, rows),
+    );
+  }
+
+  Widget _screen(BuildContext context, List<Map<String, dynamic>>? rows) {
     return Scaffold(
       appBar: AppBar(title: const Text('Outreach'), actions: [
         IconButton(
