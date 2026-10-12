@@ -4,6 +4,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  # Once a night, after the nightly data job (enrich.yml, 04:23 UTC),
+  # so the map's file of spaces (scripts/export_map.py) is fresh even
+  # on days with no upload. The Android app is not rebuilt at night.
+  schedule:
+    - cron: '17 6 * * *'
 
 permissions:
   contents: write
@@ -101,6 +106,16 @@ jobs:
             2>&1 | tee -a ../ci_debug.log
         working-directory: app
 
+      # The map's spaces as a file served with the site, so opening the
+      # map costs the database nothing (12 Oct 2026, data allowance).
+      # As a signed-out visitor sees them. If anything looks wrong no
+      # file is written and the app asks the database, as before.
+      - name: Export map data
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: python3 scripts/export_map.py app/build/web/data/map.json
 
       # Render the built app in a real phone-sized browser and keep a
       # screenshot + console log, so display bugs on testers' phones can
@@ -146,6 +161,7 @@ jobs:
           cp ci-debug/webflow_import_report.json /tmp/smokekeep/ 2>/dev/null || true
           cp ci-debug/webflow_unresolved.json /tmp/smokekeep/ 2>/dev/null || true
           cp ci-debug/migrations_report.json /tmp/smokekeep/ 2>/dev/null || true
+          cp ci-debug/map_export_report.json /tmp/smokekeep/ 2>/dev/null || true
           git config user.name "nomadwise-bot"
           git config user.email "actions@github.com"
           git checkout -B ci-debug
@@ -157,6 +173,7 @@ jobs:
           cp /tmp/smokekeep/webflow_import_report.json ci-debug/webflow_import_report.json 2>/dev/null || true
           cp /tmp/smokekeep/webflow_unresolved.json ci-debug/webflow_unresolved.json 2>/dev/null || true
           cp /tmp/smokekeep/migrations_report.json ci-debug/migrations_report.json 2>/dev/null || true
+          cp /tmp/smokekeep/map_export_report.json ci-debug/map_export_report.json 2>/dev/null || true
           git add -f ci-debug/ 2>/dev/null || true
           git commit -m "ci: smoke render artifacts" || true
           git push -f origin ci-debug || true
@@ -167,6 +184,7 @@ jobs:
 
       # ---------- Android APK ----------
       - name: Build APK
+        if: github.event_name != 'schedule'
         run: |
           flutter build apk --release \
             --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }} \
@@ -175,6 +193,7 @@ jobs:
         working-directory: app
 
       - uses: actions/upload-artifact@v4
+        if: github.event_name != 'schedule'
         with:
           name: nomadwise-maps-apk
           path: app/build/app/outputs/flutter-apk/app-release.apk
