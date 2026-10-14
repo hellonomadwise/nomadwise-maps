@@ -818,6 +818,35 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
     return doc.substring(open + 1, end);
   }
 
+  /// A second message to a space we have written to is offered only
+  /// when there is a sign of interest since: the claim page was opened
+  /// after our message, they have not answered, and we have written
+  /// once. It is due three days after our message (Jonathan, 14 Oct
+  /// 2026: no follow-ups without activity, and a good gap after the
+  /// first message). Migration 187 holds its words.
+  static const _followUpGap = Duration(days: 3);
+  ({bool interest, DateTime? due}) _followUp(Map<String, dynamic> c) {
+    final out = DateTime.tryParse('${c['last_out_at'] ?? ''}');
+    final look = c['claim_look'] is Map
+        ? DateTime.tryParse('${(c['claim_look'] as Map)['last_at'] ?? ''}')
+        : null;
+    final once = (num.tryParse('${c['message_count'] ?? 0}') ?? 0) <= 1;
+    if (out == null ||
+        look == null ||
+        c['last_in_at'] != null ||
+        !once ||
+        look.isBefore(out)) {
+      return (interest: false, due: null);
+    }
+    return (interest: true, due: out.add(_followUpGap));
+  }
+
+  /// The WhatsApp (and Instagram, Facebook) words for a space: the
+  /// follow-up after our message, or the note for a stranger who
+  /// opened the claim page.
+  String _waKey(Map<String, dynamic> c) =>
+      _followUp(c).interest ? 'followup_after_ours_wa' : 'claim_looked_wa';
+
   Future<void> _reply(Map<String, dynamic> c) async {
     if ('${c['email'] ?? ''}'.isEmpty) {
       _snack('No email address for this contact yet. Edit it first.', bad: true);
@@ -858,6 +887,7 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
       if (theirOwn) 'owner_account_how',
       if (known && onSite) 'reply_we_know_you',
       if (c['signup'] is Map) 'signed_up',
+      if (_followUp(c).interest) 'followup_after_ours',
       if (c['claim_look'] is Map) 'claim_looked',
       if (cold && onSite && newPage) 'invite_new_page',
       if (cold && onSite) 'invite_listed',
@@ -3240,6 +3270,41 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
                   ),
                 ]),
           ),
+        if (_followUp(c).interest)
+          Builder(builder: (_) {
+            final due = _followUp(c).due!;
+            final ready = !DateTime.now().isBefore(due);
+            return Padding(
+              padding: const EdgeInsets.only(top: 4, right: 4),
+              child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(top: 1, right: 6),
+                      child: Icon(
+                          ready
+                              ? Icons.reply_outlined
+                              : Icons.schedule_outlined,
+                          size: 16,
+                          color: Brand.goldTextDark),
+                    ),
+                    Expanded(
+                      child: Text(
+                          ready
+                              ? 'A follow-up is due: we wrote once, '
+                                  'three days or more ago, and they have '
+                                  'not answered. The message is ready.'
+                              : 'Best to wait before following up: due '
+                                  '${DateFormat('EEE d MMM').format(due.toLocal())}, '
+                                  'three days after our message.',
+                          style: const TextStyle(
+                              fontSize: 12.5,
+                              height: 1.4,
+                              color: Brand.goldTextDark)),
+                    ),
+                  ]),
+            );
+          }),
         if (formEmail.isNotEmpty && formEmail != email)
           Padding(
             padding: const EdgeInsets.only(top: 4),
@@ -3406,7 +3471,7 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
     Future<void> fill(void Function(void Function()) setD) async {
       String body;
       try {
-        final p = await _supabase.outreachPreview(id, 'claim_looked_wa');
+        final p = await _supabase.outreachPreview(id, _waKey(c));
         body = '${p['body'] ?? ''}';
       } catch (_) {
         body = 'Hi, this is Jonathan from Nomadwise. Someone opened the '
@@ -3669,7 +3734,7 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
 
     Future<void> fill(void Function(void Function()) setD) async {
       try {
-        final p = await _supabase.outreachPreview(id, 'claim_looked_wa');
+        final p = await _supabase.outreachPreview(id, _waKey(c));
         text.text = '${p['body'] ?? ''}';
       } catch (_) {
         text.text = 'Hi, this is Jonathan from Nomadwise. Someone opened '

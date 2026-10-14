@@ -4254,3 +4254,23 @@ spaces show as before. If the file is missing, older than three days,
 or holds too few spaces, the app asks the database as before. The
 build's report: ci-debug/map_export_report.json. If this is not enough,
 the fallback is Supabase Pro ($25 a month, 250 GB).
+
+## 14 Oct 2026: a follow-up only after interest, and not too soon (migration 187)
+
+Jonathan, on Enosta Space (Da Nang): we wrote on WhatsApp on 10 Oct;
+on 12 Oct the claim page was opened through that message, twice, and
+the details were begun. "Write again" offered the words for a stranger
+("Someone opened the claim page ... If that was you"). He asked for a
+follow-up in its own words, but "only if detecting that there is some
+potential interest", with a good gap after the first message.
+
+Two templates: followup_after_ours (email) and followup_after_ours_wa
+(WhatsApp, Instagram, Facebook): "Just checking in after my message
+about your page for {space} ... Claiming is free, and you can pick it
+up here". Outreach picks them by itself only when we have written to
+the space once, they have not answered, and the claim page was opened
+after our message. The visit box on the card then says when the
+follow-up is due: three days after our message ("Best to wait before
+following up: due Fri 16 Oct"), then "A follow-up is due". Once it is
+sent nothing further is suggested. Without a sign of interest nothing
+is suggested at all.
