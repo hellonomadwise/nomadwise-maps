@@ -116,6 +116,15 @@ class _OwnerScreenState extends State<OwnerScreen> {
   final _hours = {for (final d in _days) d: TextEditingController()};
   final _facts = <String, bool?>{};
   List<String> _photos = [];
+  // Jonathan, 15 Oct 2026: adding one photo used to replace all five
+  // on the page. The editor now opens with the photos the page shows
+  // today, slot by slot, so an owner replaces or removes the ones they
+  // choose and the rest stay. _photosFromPage: the list started as the
+  // page's own photos; _photosTouched: the owner changed it. Only a
+  // touched list is saved, so an owner who edits only their prices
+  // leaves the page's photos (and our own top-ups) as they are.
+  bool _photosFromPage = false;
+  bool _photosTouched = false;
   // The hours Google shows today, when the owner has set none of their
   // own: the form opens with them, and they are only saved as the
   // owner's once a day is changed, so an untouched page keeps
@@ -289,6 +298,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
 
   @override
   void dispose() {
+    _newHeadingFocus.dispose();
     _auth?.cancel();
     _poll?.cancel();
     _chatTimer?.cancel();
@@ -584,6 +594,12 @@ class _OwnerScreenState extends State<OwnerScreen> {
     }
     _photos = List<String>.from(
         (d['photos'] ?? oc['photos'] ?? const []) as List);
+    _photosTouched = false;
+    _photosFromPage = false;
+    if (_photos.isEmpty && _pagePhotos.isNotEmpty) {
+      _photos = _pagePhotos.take(5).toList();
+      _photosFromPage = true;
+    }
     final m = Map<String, dynamic>.from(
         (d['mention'] ?? oc['mention'] ?? {}) as Map);
     _mentionKind = ['Event', 'Offer', 'Announcement'].contains(m['kind'])
@@ -626,7 +642,10 @@ class _OwnerScreenState extends State<OwnerScreen> {
             ? ''
             : PhoneField.compose(_waCountry.value, _whatsapp.text),
         'enquiry_email': _enquiryEmail.text.trim(),
-        'photos': _photos,
+        // The page's own photos, untouched, are not saved as the
+        // owner's (see _photosFromPage).
+        'photos':
+            _photosFromPage && !_photosTouched ? <String>[] : _photos,
         if (_verified)
           'mention': {
             'kind': _mentionKind,
@@ -745,8 +764,36 @@ class _OwnerScreenState extends State<OwnerScreen> {
     if (joined != _description.text) _description.text = joined;
   }
 
-  void _addSection() {
-    setState(() => _sections.add(_newSection('', '')));
+  /// The headings an owner can pick for a section (Leonie, 15 Oct
+  /// 2026); they can still type their own.
+  static const _sectionHeadings = [
+    'Location',
+    'Desk Setup',
+    'Food & Drinks',
+    'Wi-Fi & Power',
+    'Meeting & Call Rooms',
+    'Community & Events',
+  ];
+
+  // True right after "My own heading" adds a section, so its heading
+  // box opens ready to type in.
+  bool _focusNewHeading = false;
+  final _newHeadingFocus = FocusNode();
+  static const _ownHeading = '\u0000own';
+
+  /// Adds a section, with [heading] already filled in when picked from
+  /// the list, or empty for the owner's own.
+  void _addSection([String heading = '']) {
+    setState(() {
+      _focusNewHeading = heading.isEmpty;
+      _sections.add(_newSection(heading, ''));
+    });
+    _sectionsChanged();
+    if (heading.isEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _newHeadingFocus.requestFocus();
+      });
+    }
   }
 
   void _removeSection(int i) {
@@ -835,6 +882,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
         final link = await _supabase.ownerUploadPhoto(bytes, ext);
         _photos.add(link);
       }
+      _photosTouched = true;
       _dirty = true;
     } catch (e) {
       _savedNote = 'Could not add the photo: $e';
@@ -842,6 +890,52 @@ class _OwnerScreenState extends State<OwnerScreen> {
       if (mounted) setState(() => _saving = false);
     }
   }
+
+  /// Swaps the photo in slot [i] for one the owner picks; the others
+  /// stay where they are.
+  Future<void> _replacePhoto(int i) async {
+    if (_isPreview) {
+      setState(() => _savedNote = 'Preview: photos cannot be changed here.');
+      return;
+    }
+    try {
+      final x = await ImagePicker().pickImage(
+          source: ImageSource.gallery,
+          maxWidth: 1600,
+          maxHeight: 1600,
+          imageQuality: 85);
+      if (x == null) return;
+      setState(() => _saving = true);
+      final bytes = await x.readAsBytes();
+      final ext = x.name.toLowerCase().endsWith('.png') ? 'png' : 'jpg';
+      final link = await _supabase.ownerUploadPhoto(bytes, ext);
+      if (i < _photos.length) {
+        _photos[i] = link;
+      } else {
+        _photos.add(link);
+      }
+      _photosTouched = true;
+      _dirty = true;
+    } catch (e) {
+      _savedNote = 'Could not add the photo: $e';
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  void _removePhoto(int i) => setState(() {
+        _photos.removeAt(i);
+        _photosTouched = true;
+        _dirty = true;
+      });
+
+  /// Moves the photo in slot [i] to the front: the large one on the page.
+  void _makeMainPhoto(int i) => setState(() {
+        final p = _photos.removeAt(i);
+        _photos.insert(0, p);
+        _photosTouched = true;
+        _dirty = true;
+      });
 
   // ---------------------------------------------------------------- sign in
 
@@ -1846,7 +1940,6 @@ class _OwnerScreenState extends State<OwnerScreen> {
   /// The description as an opening paragraph plus headed sections the
   /// owner adds, instead of typing "##" (S3-5).
   Widget _descriptionEditor() {
-    final name = '${_venue?['name'] ?? 'your space'}';
     final total = _description.text.length;
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       const Text('About your space',
@@ -1854,8 +1947,10 @@ class _OwnerScreenState extends State<OwnerScreen> {
       const SizedBox(height: 4),
       const Text(
           'What makes it special: the workspace, the atmosphere, the people. '
-          'Plain words work best. Add sections with their own heading if it '
-          'helps.',
+          'Plain words work best. The more detail you add, the easier it is '
+          'for people to find you through search engines and AI assistants. '
+          'Add sections if it helps: choose a heading like Location or Desk '
+          'Setup, or write your own.',
           style: TextStyle(color: Brand.inkMuted, fontSize: 12, height: 1.4)),
       const SizedBox(height: 10),
       for (var i = 0; i < _sections.length; i++)
@@ -1872,14 +1967,28 @@ class _OwnerScreenState extends State<OwnerScreen> {
             if (i > 0) ...[
               Row(children: [
                 Expanded(
+                  // Pick a heading from the list (the arrow) or type
+                  // your own.
                   child: TextField(
                     controller: _sections[i].$1,
+                    focusNode: _focusNewHeading && i == _sections.length - 1
+                        ? _newHeadingFocus
+                        : null,
                     style: const TextStyle(
                         fontWeight: FontWeight.w700, fontSize: 15),
                     decoration: _dec('Section heading',
-                        hint: i == 1
-                            ? 'e.g. Working at $name'
-                            : 'e.g. Food and drinks'),
+                            hint: 'Choose one or type your own')
+                        .copyWith(
+                      suffixIcon: PopupMenuButton<String>(
+                        tooltip: 'Choose a heading',
+                        icon: const Icon(Icons.arrow_drop_down),
+                        onSelected: (h) => _sections[i].$1.text = h,
+                        itemBuilder: (_) => [
+                          for (final h in _sectionHeadings)
+                            PopupMenuItem(value: h, child: Text(h)),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
                 IconButton(
@@ -1911,12 +2020,40 @@ class _OwnerScreenState extends State<OwnerScreen> {
                 color: total > _descriptionMax ? Brand.red : Brand.inkMuted)),
       ),
       const SizedBox(height: 10),
+      // Add a section: pick its heading from the list, or "My own
+      // heading" to type one.
       Align(
         alignment: Alignment.centerLeft,
-        child: OutlinedButton.icon(
-            onPressed: _addSection,
-            icon: const Icon(Icons.add, size: 18),
-            label: const Text('Add a section with a heading')),
+        child: PopupMenuButton<String>(
+          tooltip: 'Add a section',
+          onSelected: (h) => _addSection(h == _ownHeading ? '' : h),
+          itemBuilder: (_) {
+            final used = {
+              for (final (h, _) in _sections) h.text.trim().toLowerCase()
+            };
+            return [
+              for (final h in _sectionHeadings)
+                if (!used.contains(h.toLowerCase()))
+                  PopupMenuItem(value: h, child: Text(h)),
+              const PopupMenuDivider(),
+              const PopupMenuItem(
+                  value: _ownHeading,
+                  child: Row(children: [
+                    Icon(Icons.edit_outlined, size: 18),
+                    SizedBox(width: 10),
+                    Text('My own heading'),
+                  ])),
+            ];
+          },
+          child: IgnorePointer(
+            child: ExcludeFocus(
+              child: OutlinedButton.icon(
+                  onPressed: () {},
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Add a section')),
+            ),
+          ),
+        ),
       ),
     ]);
   }
@@ -2060,10 +2197,17 @@ class _OwnerScreenState extends State<OwnerScreen> {
         Text(_venue?['type'] == 'cafe' ? 'Prices' : 'Passes and prices',
             style: const TextStyle(fontWeight: FontWeight.w700)),
         const SizedBox(height: 4),
-        const Text(
-            'Type the amount only, like 3.60 or 1,500. The currency below '
-            'applies to every price.',
-            style: TextStyle(color: Brand.inkMuted, fontSize: 12)),
+        Text(
+            // Jonathan, 15 Oct 2026: owners should see this is a rough
+            // guide for nomads, not their full menu or price list.
+            '${_venue?['type'] == 'cafe' ? 'A general guide, not your full '
+                'menu: nomads use a typical price or two to see roughly '
+                'what a visit costs.' : 'A general guide, not your full '
+                'price list: nomads use these to see roughly what working '
+                'here costs.'} Type the amount only, like 3.60 or 1,500. '
+            'The currency below applies to every price.',
+            style: const TextStyle(
+                color: Brand.inkMuted, fontSize: 12, height: 1.45)),
         const SizedBox(height: 10),
         _currencyPicker(),
         const SizedBox(height: 12),
@@ -2129,63 +2273,20 @@ class _OwnerScreenState extends State<OwnerScreen> {
         const Text('Photos', style: TextStyle(fontWeight: FontWeight.w700)),
         const SizedBox(height: 4),
         Text(
-            _photos.isEmpty && _pagePhotos.isNotEmpty
-                ? 'These are on your page now. Add up to five of your own '
-                    'and, once approved, they take their place.'
-                : 'Up to five of your own. They replace the photos on '
-                    'your page once approved.',
-            style: const TextStyle(color: Brand.inkMuted, fontSize: 12)),
+            _photosFromPage
+                ? 'These are the photos on your page now. Replace any of '
+                    'them, remove the ones you would rather not show, or add '
+                    'your own in a free space. The rest stay as they are. '
+                    'The first one is the large photo at the top of your page.'
+                : 'Up to five photos. The first one is the large photo at '
+                    'the top of your page. Changes go on the page once '
+                    'approved.',
+            style: const TextStyle(
+                color: Brand.inkMuted, fontSize: 12, height: 1.45)),
         const SizedBox(height: 10),
-        Wrap(spacing: 8, runSpacing: 8, children: [
-          // What the page shows today, until they add their own.
-          if (_photos.isEmpty)
-            for (final p in _pagePhotos.take(5))
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Image.network(p,
-                    width: 110,
-                    height: 82,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
-                        width: 110,
-                        height: 82,
-                        color: Brand.field,
-                        child: const Icon(Icons.broken_image_outlined))),
-              ),
-          for (final p in _photos)
-            Stack(children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Image.network(p,
-                    width: 110, height: 82, fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
-                        width: 110,
-                        height: 82,
-                        color: Brand.field,
-                        child: const Icon(Icons.broken_image_outlined))),
-              ),
-              Positioned(
-                right: 2,
-                top: 2,
-                child: InkWell(
-                  onTap: () => setState(() {
-                    _photos.remove(p);
-                    _dirty = true;
-                  }),
-                  child: Container(
-                    padding: const EdgeInsets.all(3),
-                    decoration: const BoxDecoration(
-                        color: Colors.black54, shape: BoxShape.circle),
-                    child: const Icon(Icons.close,
-                        size: 14, color: Colors.white),
-                  ),
-                ),
-              ),
-            ]),
-          OutlinedButton.icon(
-              onPressed: _saving ? null : _addPhotos,
-              icon: const Icon(Icons.add_photo_alternate_outlined, size: 18),
-              label: const Text('Add photos')),
+        Wrap(spacing: 10, runSpacing: 10, children: [
+          for (var i = 0; i < _photos.length; i++) _photoSlot(i),
+          if (_photos.length < 5) _addPhotoSlot(),
         ]),
         const SizedBox(height: 18),
         const Text('Contact', style: TextStyle(fontWeight: FontWeight.w700)),
@@ -2770,6 +2871,116 @@ class _OwnerScreenState extends State<OwnerScreen> {
                 fontSize: 12.5,
                 fontWeight: FontWeight.w500,
                 color: Colors.white)),
+      );
+
+  static const double _slotW = 164, _slotH = 120;
+
+  /// One photo in the editor: the picture, "Main photo" on the first,
+  /// and Replace, Make main and Remove under it.
+  Widget _photoSlot(int i) {
+    final p = _photos[i];
+    return SizedBox(
+      width: _slotW,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Stack(children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: Image.network(p,
+                width: _slotW,
+                height: _slotH,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Container(
+                    width: _slotW,
+                    height: _slotH,
+                    color: Brand.field,
+                    child: const Icon(Icons.broken_image_outlined))),
+          ),
+          if (i == 0)
+            Positioned(
+              left: 6,
+              top: 6,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: .62),
+                    borderRadius: BorderRadius.circular(6)),
+                child: const Text('Main photo',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700)),
+              ),
+            ),
+        ]),
+        const SizedBox(height: 4),
+        Row(children: [
+          TextButton.icon(
+            style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                minimumSize: const Size(0, 32),
+                visualDensity: VisualDensity.compact,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                textStyle: const TextStyle(fontSize: 12.5)),
+            onPressed: _saving ? null : () => _replacePhoto(i),
+            icon: const Icon(Icons.swap_horiz, size: 16),
+            label: const Text('Replace'),
+          ),
+          const Spacer(),
+          if (i > 0)
+            IconButton(
+              tooltip: 'Make this the main photo',
+              style: IconButton.styleFrom(
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+              visualDensity: VisualDensity.compact,
+              iconSize: 18,
+              onPressed: _saving ? null : () => _makeMainPhoto(i),
+              icon: const Icon(Icons.star_outline),
+            ),
+          // The last photo stays: an empty list would leave the page's
+          // photos as they are, the opposite of what removing means.
+          IconButton(
+            tooltip: _photos.length == 1
+                ? 'A page needs at least one photo'
+                : 'Remove this photo',
+            style: IconButton.styleFrom(
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+            visualDensity: VisualDensity.compact,
+            iconSize: 18,
+            onPressed: _saving || _photos.length == 1
+                ? null
+                : () => _removePhoto(i),
+            icon: const Icon(Icons.delete_outline),
+          ),
+        ]),
+      ]),
+    );
+  }
+
+  /// The free space after the photos: tap to add one or more.
+  Widget _addPhotoSlot() => SizedBox(
+        width: _slotW,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: _saving ? null : _addPhotos,
+          child: Container(
+            height: _slotH,
+            decoration: BoxDecoration(
+              color: Brand.field,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Brand.border),
+            ),
+            child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+              const Icon(Icons.add_photo_alternate_outlined,
+                  color: Brand.inkSecondary),
+              const SizedBox(height: 4),
+              Text(_photos.isEmpty ? 'Add photos' : 'Add a photo',
+                  style: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      color: Brand.inkSecondary)),
+            ]),
+          ),
+        ),
       );
 
   /// One large photo and four small ones, as on the page.

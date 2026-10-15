@@ -4274,3 +4274,31 @@ follow-up is due: three days after our message ("Best to wait before
 following up: due Fri 16 Oct"), then "A follow-up is due". Once it is
 sent nothing further is suggested. Without a sign of interest nothing
 is suggested at all.
+
+## 15 Oct 2026: owner photos change one at a time; prices are a guide
+
+Jonathan: adding photos in the Owner account must not wipe the
+photos we picked for the page. Before, the list started empty and,
+once approved, whatever the owner added replaced all five (one new
+photo left the page with one). Now the Photos box opens with the
+photos the page shows today, in page order, the first marked "Main
+photo". Each has Replace, Make main and Remove; a free space after
+them adds more, up to five. The rest stay as they are. The list is
+only saved once the owner changes it, so an owner who edits only the
+prices or hours leaves the page's photos (and our own top-ups) alone.
+The last photo cannot be removed: an empty list means "no change" to
+the website push, so removing it would do nothing.
+
+Also Jonathan: the Prices box now says it is a general guide, not the
+full menu (cafes) or price list (coworking): nomads use a typical
+price or two to see roughly what a visit, or working there, costs.
+
+Leonie (same day): description sections pick their heading from a
+list (Location, Desk Setup, Food & Drinks, Wi-Fi & Power, Meeting &
+Call Rooms, Community & Events) or the owner types their own. "Add a
+section" opens that list, with "My own heading" at the bottom (the
+box then opens ready to type); each heading box has an arrow to
+switch to one from the list. Headings already used are left out of
+the add list. The help text under "About your space" now also says
+that the more detail an owner adds, the easier it is for people to
+find them through search engines and AI assistants (Jonathan).
