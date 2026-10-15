@@ -277,6 +277,16 @@ Future<Harness> open(WidgetTester tester, List<Map<String, dynamic>> places,
   return h;
 }
 
+/// Scrolls the list back up until [f] is built again: the count line
+/// sits above the cards, and pressing a card's button scrolls it away.
+Future<void> backUpTo(WidgetTester tester, Finder f) async {
+  final list = find.byType(Scrollable).first;
+  for (var i = 0; i < 30 && f.evaluate().isEmpty; i++) {
+    await tester.drag(list, const Offset(0, 250));
+    await tester.pumpAndSettle();
+  }
+}
+
 Future<void> tapText(WidgetTester tester, Finder f) async {
   await tester.ensureVisible(f);
   await tester.pumpAndSettle();
@@ -353,6 +363,7 @@ void main() {
     expect(find.text('HappyBlue Coffee'), findsNothing);
     expect(find.text('One Workspace'), findsOneWidget);
     expect(find.textContaining('HappyBlue Coffee queued'), findsOneWidget);
+    await backUpTo(tester, find.textContaining('2 places waiting'));
     expect(find.textContaining('2 places waiting'), findsOneWidget);
     expect(h.counts.last, 2);
     // The control centre was told, so Queued shows the new space.
@@ -372,6 +383,7 @@ void main() {
     expect(h.reloads, 0);
 
     // The way back.
+    await backUpTo(tester, find.text('1 turned down'));
     await tapText(tester, find.text('1 turned down'));
     expect(find.text('Turned down'), findsOneWidget);
     expect(find.text('HappyBlue Coffee'), findsOneWidget);

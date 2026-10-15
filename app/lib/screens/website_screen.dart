@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'
     show Clipboard, ClipboardData, LogicalKeyboardKey;
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -7330,6 +7331,61 @@ class _PhotosPageState extends State<_PhotosPage> {
       .where((u) => u.startsWith('http'))
       .toList();
 
+  bool _uploading = false;
+
+  /// From the phone or laptop: pick photos (on a phone, long-press a
+  /// photo on Google, "Save to Photos", then pick it here). Each one
+  /// is stored with us and its link goes into a free slot, or into
+  /// slot [slot] when one was tapped.
+  Future<void> _upload({int? slot}) async {
+    final free = [
+      for (var i = 0; i < _ctl.length; i++)
+        if (_ctl[i].text.trim().isEmpty) i
+    ];
+    if (slot == null && free.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Five already. Remove one first.')));
+      return;
+    }
+    try {
+      final List<XFile> picked;
+      if (slot != null) {
+        final one = await ImagePicker().pickImage(
+            source: ImageSource.gallery,
+            maxWidth: 1600,
+            maxHeight: 1600,
+            imageQuality: 85);
+        picked = one == null ? [] : [one];
+      } else {
+        picked = await ImagePicker().pickMultiImage(
+            maxWidth: 1600, maxHeight: 1600, imageQuality: 85);
+      }
+      if (picked.isEmpty) return;
+      setState(() => _uploading = true);
+      final targets = slot != null ? [slot] : free;
+      var added = 0;
+      for (final x in picked.take(targets.length)) {
+        final bytes = await x.readAsBytes();
+        final ext = x.name.toLowerCase().endsWith('.png') ? 'png' : 'jpg';
+        final link = await SupabaseService().ownerUploadPhoto(bytes, ext);
+        _ctl[targets[added]].text = link;
+        added++;
+        if (mounted) setState(() {});
+      }
+      if (picked.length > targets.length && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Added $added. Only five fit; the rest were left out.')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Could not add the photo: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _uploading = false);
+    }
+  }
+
   /// Tap a suggested photo: into the first free slot, or out again.
   void _toggle(String uri) {
     setState(() {
@@ -7490,7 +7546,7 @@ class _PhotosPageState extends State<_PhotosPage> {
               const SizedBox(height: 8),
               _grid(),
               const SizedBox(height: 14),
-              const Text('OR PASTE LINKS',
+              const Text('OR ADD YOUR OWN',
                   style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w800,
@@ -7505,23 +7561,37 @@ class _PhotosPageState extends State<_PhotosPage> {
               child: Text(
                   widget.livePage
                       ? 'The photos on the page now are in the slots. Open '
-                          'the place on Google, right-click a photo, choose '
+                          'the place on Google and save a photo to your phone, '
+                          'then Upload photos; on a laptop, right-click it, '
                           '"Copy image address", and paste it into a free '
                           'slot. A page holds five; the first one is the '
                           'main picture.'
                       : widget.candidates.isEmpty
                           ? 'Suggestions arrive a minute or two after queueing. '
-                              'Or open the place on Google, right-click a photo, '
-                              'choose "Copy image address", and paste it below. '
-                              'At least three; the first one is the main picture.'
-                          : 'Any photo not in the grid: right-click it on Google, '
-                              '"Copy image address", paste into a free slot.',
+                              'Or open the place on Google and save a photo to '
+                              'your phone, then Upload photos; on a laptop, '
+                              'right-click it, "Copy image address", and paste '
+                              'it below. At least three; the first one is the '
+                              'main picture.'
+                          : 'Any photo not in the grid. On a phone: long-press it '
+                              'on Google, "Save to Photos", then Upload photos below. '
+                              'On a laptop: right-click it, "Copy image address", '
+                              'and paste it into a free slot.',
                   style: const TextStyle(fontSize: 12.5, height: 1.45)),
             ),
             const SizedBox(height: 10),
             // Straight to the place on Google (its panel with the
             // photos), not the directions page.
             Wrap(spacing: 8, runSpacing: 8, children: [
+              ElevatedButton.icon(
+                  onPressed: _uploading ? null : () => _upload(),
+                  icon: _uploading
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.upload, size: 18),
+                  label: Text(_uploading ? 'Uploading…' : 'Upload photos')),
               OutlinedButton.icon(
                   onPressed: () => launchUrl(
                       Uri.https('www.google.com', '/search',
@@ -7554,15 +7624,22 @@ class _PhotosPageState extends State<_PhotosPage> {
                               color: Brand.field,
                               child: const Icon(Icons.broken_image_outlined,
                                   color: Brand.inkMuted)))
-                      : Container(
-                          width: 72,
-                          height: 54,
-                          color: Brand.field,
-                          child: Center(
-                              child: Text('${i + 1}',
-                                  style: const TextStyle(
-                                      color: Brand.inkMuted,
-                                      fontWeight: FontWeight.w700)))),
+                      : InkWell(
+                          onTap: _uploading ? null : () => _upload(slot: i),
+                          child: Container(
+                              width: 72,
+                              height: 54,
+                              color: Brand.field,
+                              child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text('${i + 1}',
+                                        style: const TextStyle(
+                                            color: Brand.inkMuted,
+                                            fontWeight: FontWeight.w700)),
+                                    const Icon(Icons.add_photo_alternate_outlined,
+                                        size: 16, color: Brand.inkMuted),
+                                  ]))),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -7574,7 +7651,7 @@ class _PhotosPageState extends State<_PhotosPage> {
                     onChanged: (_) => setState(() {}),
                     decoration: InputDecoration(
                         labelText: i == 0 ? 'Main photo link' : 'Photo ${i + 1} link',
-                        hintText: 'https://...',
+                        hintText: 'Paste a link, or tap the box to upload',
                         filled: true,
                         fillColor: Brand.field,
                         suffixIcon: _ctl[i].text.isEmpty
