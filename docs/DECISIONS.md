@@ -4302,3 +4302,22 @@ switch to one from the list. Headings already used are left out of
 the add list. The help text under "About your space" now also says
 that the more detail an owner adds, the easier it is for people to
 find them through search engines and AI assistants (Jonathan).
+
+## 16 Oct 2026: sign-in links that a mail checker cannot use up
+
+Cafe AMANO (Berlin, a company mailbox): the button in the sign-in email
+brought them back to "Email me a sign-in link", every time. Supabase's
+own link ({{ .ConfirmationURL }}) signs in the moment it is opened and
+works once; company mail systems (Outlook's Safe Links and the like)
+open every link to check it before the person does, so the real click
+found it spent. It also only worked in the browser that asked for it.
+The Magic Link and Confirm sign up templates now point to nomadmaps.io
+with the link's token (?token_hash=...&type=...). The app opens
+SignInLinkScreen, which signs in only when the person presses Continue
+(a checker never presses), in any browser or device; then the Owner
+account, or for a confirm email, the Owner account when the person has
+a space or a claim and the map otherwise. A spent or old link says so
+and offers a new one. The "?chat" return from the chat email is not
+carried through the new link; the owner lands on their account.
+Templates: docs/EMAIL_STYLE.md (pasted into Supabase by hand, after
+this build is live).

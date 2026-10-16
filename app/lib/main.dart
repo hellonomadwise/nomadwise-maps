@@ -5,6 +5,7 @@ import 'config.dart';
 import 'screens/admin_gate.dart';
 import 'screens/claim_screen.dart';
 import 'screens/owner_screen.dart';
+import 'screens/sign_in_link_screen.dart';
 import 'screens/admin_outreach_screen.dart' show UnsubscribeScreen;
 import 'screens/enquiry_screen.dart';
 import 'screens/update_screen.dart';
@@ -60,12 +61,21 @@ class NomadwiseMapsApp extends StatelessWidget {
     //   ?owner           the Owner account (manage my listing)
     //   ?update=<slug>   Something need updating? (anyone; owners are
     //                    pointed to claiming)
+    //   ?token_hash=..&type=..  the button in a sign-in email
     //   ?admin[=analytics|users]  the team's control centre (also
     //                    nomadmaps.io/admin); team accounts only
     // Anything else is the map.
     final enquire = _param('enquire');
+    final tokenHash = _param('token_hash');
     final Widget home;
-    if (enquire != null) {
+    if (tokenHash != null) {
+      // The button in a sign-in or confirm email (docs/EMAIL_STYLE.md):
+      // signs in on a press, so a mail checker cannot use the link up.
+      home = SignInLinkScreen(
+          tokenHash: tokenHash,
+          type: _param('type') ?? 'magiclink',
+          owner: _has('owner') || _path.startsWith('/owner'));
+    } else if (enquire != null) {
       home = EnquiryScreen(slug: enquire);
     } else if (_has('update')) {
       home = UpdateScreen(slug: _param('update') ?? '');
