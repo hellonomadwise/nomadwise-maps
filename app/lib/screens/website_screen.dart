@@ -7879,11 +7879,12 @@ class _ListingPlanPageState extends State<_ListingPlanPage> {
         '${email.contains('@') ? '&email=${Uri.encodeQueryComponent(email)}' : ''}';
   }
 
-  /// "10 EUR a month or 99 EUR a year", for the offer email.
+  /// "€10 a month or €99 a year", for the offer email. Prices are
+  /// written with the currency sign, never "EUR".
   String get _priceWords {
     final p = _pricing;
     if (p == null || p.monthly == null || p.yearly == null) {
-      return '99 EUR a year';
+      return '€99 a year';
     }
     return '${formatMoney(p.monthly!, p.currency)} a month or '
         '${formatMoney(p.yearly!, p.currency)} a year';

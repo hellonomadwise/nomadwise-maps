@@ -4362,3 +4362,10 @@ From the V1 change requests list.
   loads the newest 300 pages. The tab now shows how many pages are
   live in all (counted in the database), and the line under the
   search box says how many are listed and that search finds the rest.
+
+## 19 Oct 2026: euro sign in the Verified offer email
+
+The "Copy offer email" text on Listing plan said "99 EUR a year" when
+the space's country had no price set. Prices are always written with
+the currency sign, so it now says "€99 a year". (Whether the two copy
+buttons stay at all is change request 11, Leonie's call.)
