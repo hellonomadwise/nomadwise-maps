@@ -2501,6 +2501,23 @@ class SupabaseService {
     return (rows as List).map((r) => Map<String, dynamic>.from(r)).toList();
   }
 
+  /// How many pages are live on nomadwise.io: the number on the
+  /// Released tab (websiteReleased only loads the newest 300). Null
+  /// when it cannot be read; the tab then counts the loaded list.
+  Future<int?> websiteReleasedCount() async {
+    try {
+      final res = await _db
+          .from('venues')
+          .select('id')
+          .eq('website_status', 'released')
+          .limit(1)
+          .count(CountOption.exact);
+      return res.count;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Released pages whose entry has not gone into the custom sitemap.
   Future<List<Map<String, dynamic>>> sitemapPending() async {
     final rows = await _db

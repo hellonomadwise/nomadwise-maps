@@ -4345,3 +4345,20 @@ to the top. Each card says which and when ("Claimed 12 Oct 2026" or
 All, Verified or Free, with a count on each; Verified matches the
 badge on the card. A legacy page with the Verified switch on in
 Webflow but no plan here counts as Free and keeps its warning.
+
+## 19 Oct 2026: three small control centre clean-ups
+
+From the V1 change requests list.
+- Change request 6: the review card for a new page no longer shows
+  an opening-hours line ("No opening hours known" or a summary). The
+  hours fill themselves in from Google, so the line only added noise.
+  The Edit page still has the seven day fields for the rare page
+  whose Google hours are wrong.
+- Change request 7: the "Start the run now" button under "Approved,
+  being created" is gone. Approving already starts the run and it has
+  never stuck. If a page is still there after ten minutes, the text
+  says where to start it by hand on GitHub.
+- Change request 10: the Released tab said 300 because the list only
+  loads the newest 300 pages. The tab now shows how many pages are
+  live in all (counted in the database), and the line under the
+  search box says how many are listed and that search finds the rest.

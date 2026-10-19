@@ -140,6 +140,11 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   List<Map<String, dynamic>>? _inbox;
   List<Map<String, dynamic>> _drafts = [];
   List<Map<String, dynamic>> _released = [];
+
+  /// How many pages are live in all. The Released list itself only
+  /// loads the newest 300, which is why its tab used to say 300
+  /// (change request 10). Null until read, or if it could not be.
+  int? _releasedTotal;
   List<Map<String, dynamic>> _sitemap = [];
   List<Map<String, dynamic>> _sitemapRegions = [];
   List<Map<String, dynamic>> _sitemapLocations = [];
@@ -247,6 +252,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     final firstLoad = _inbox == null;
     try {
       final passOnF = _supabase.enquiriesToPassOn();
+      final releasedTotalF = _supabase.websiteReleasedCount();
       final results = await Future.wait([
         _supabase.websiteInbox(),
         _supabase.websiteDrafts(),
@@ -271,6 +277,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         _supabase.listingUpdates(),
       ]);
       final passOn = await passOnF;
+      final releasedTotal = await releasedTotalF;
       if (!mounted) return;
       setState(() {
         _passOn = [
@@ -285,6 +292,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         _inbox = results[0];
         _drafts = results[1];
         _released = results[2];
+        _releasedTotal = releasedTotal;
         _sitemap = results[3];
         _regions = results[4];
         _hidden = results[5];
@@ -3134,7 +3142,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       (
         key: 'released',
         label: 'Released',
-        count: _released.length,
+        count: _releasedTotal ?? _released.length,
         color: Brand.success,
         hint: 'Every page live on nomadwise.io, for looking one up. '
             'Nothing here needs doing.',
@@ -6215,7 +6223,6 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
 
   Widget _readyCard(Map<String, dynamic> v) {
     final p = _prepared(v);
-    final hours = Map<String, dynamic>.from(p['hours'] as Map? ?? {});
     final facts = Map<String, dynamic>.from(p['facts'] as Map? ?? {});
     final place = [p['location'], p['region'], p['country']]
         .where((x) => x != null)
@@ -6264,11 +6271,8 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         ),
         ..._locationHint(v, p),
         _kv(Icons.title, p['h1'] ?? ''),
-        if (hours.isNotEmpty)
-          _kv(Icons.schedule_outlined, _hoursSummary(hours))
-        else
-          _kv(Icons.schedule_outlined, 'No opening hours known',
-              muted: true),
+        // No opening-hours line (change request 6): the hours fill
+        // themselves in from Google, so it only added noise here.
         _photosRow(v),
         if (facts.isNotEmpty) ...[
           const SizedBox(height: 8),
@@ -6325,31 +6329,6 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         ]),
       ]),
     );
-  }
-
-  static String _hoursSummary(Map<String, dynamic> hours) {
-    // "Mon-Fri 8:00 AM - 6:00 PM · Sat 9:00 AM - 2:00 PM · Sun Closed"
-    const order = [
-      'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday',
-      'Sunday'
-    ];
-    const short = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    final parts = <String>[];
-    var i = 0;
-    while (i < order.length) {
-      final val = hours[order[i]];
-      if (val == null) {
-        i++;
-        continue;
-      }
-      var j = i;
-      while (j + 1 < order.length && hours[order[j + 1]] == val) {
-        j++;
-      }
-      parts.add('${i == j ? short[i] : '${short[i]}-${short[j]}'} $val');
-      i = j + 1;
-    }
-    return parts.join(' · ');
   }
 
   /// Country, Region and Location as the site will file the space,
@@ -6460,23 +6439,6 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
 
   // -------------------------------------------------------------- drafts
 
-  Future<void> _startPushRun() async {
-    String msg;
-    try {
-      final r = await _supabase.requestWebsitePush();
-      msg = r == 'requested'
-          ? 'Run requested. GitHub starts it within a minute; pull down '
-              'to refresh in a few minutes.'
-          : 'No GitHub token in the Supabase Vault (github_actions_token), '
-              'so the run has to be started on GitHub: Actions, Website '
-              'push, Run workflow.';
-    } catch (e) {
-      msg = 'Could not request the run: $e';
-    }
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
-  }
-
   Widget _draftsTab() {
     final approved = _approvedTonight;
     if (_drafts.isEmpty && approved.isEmpty) {
@@ -6486,18 +6448,14 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     }
     return ListView(padding: const EdgeInsets.all(14), children: [
       if (approved.isNotEmpty) ...[
+        // No "Start the run now" button any more (change request 7):
+        // approving already starts the run, and it has never stuck.
         _section('APPROVED, BEING CREATED', approved.length,
             'Approving starts a run on GitHub that builds the Webflow '
             'draft and its Images entry, usually within a few minutes. '
-            'Pull down to refresh. Still here after ten minutes? Start '
-            'the run again.'),
-        Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: OutlinedButton.icon(
-              onPressed: _startPushRun,
-              icon: const Icon(Icons.play_arrow_outlined, size: 18),
-              label: const Text('Start the run now')),
-        ),
+            'Pull down to refresh. Still here after ten minutes? On '
+            'GitHub: Actions, "Website push (queued spaces)", Run '
+            'workflow.'),
         ...approved.map((v) => _card(
               tint: Brand.successTint,
               child: Row(children: [
@@ -6730,9 +6688,12 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       const SizedBox(height: 6),
       Text(
           q.length < 2
-              ? '${_released.length} newest released page'
-                  '${_released.length == 1 ? '' : 's'}. Search to find any '
-                  'of the others.'
+              ? (_releasedTotal ?? 0) > _released.length
+                  ? '$_releasedTotal pages live. The newest '
+                      '${_released.length} are listed; search to find any '
+                      'of the others.'
+                  : '${_released.length} page'
+                      '${_released.length == 1 ? '' : 's'} live.'
               : _searching
                   ? 'Searching every released page...'
                   : '${rows.length} match${rows.length == 1 ? '' : 'es'}'
