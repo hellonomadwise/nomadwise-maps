@@ -156,16 +156,33 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   // for the WhatsApp buttons on owner cards.
   Map<String, (String, String)> _ownerContact = {};
 
-  /// Newest first: by approval of the owner's claim, else the date paid,
-  /// else when the space was added.
+  /// Newest first: by the latest of the owner's claim being approved
+  /// and the space going Verified, else when the space was added. So a
+  /// free owner who upgrades today moves to the top.
   List<Map<String, dynamic>> _newestFirst(List<Map<String, dynamic>> rows) {
     DateTime when(Map<String, dynamic> v) =>
-        _ownerSince['${v['id']}'] ??
-        DateTime.tryParse('${v['listing_paid_at']}') ??
+        _ownerDate(v)?.$2 ??
         DateTime.tryParse('${v['created_at']}') ??
         DateTime(2000);
     return [...rows]..sort((a, b) => when(b).compareTo(when(a)));
   }
+
+  /// What last happened to a listing with an owner, and when: the
+  /// claim approved ("Claimed") or the plan paid ("Verified"),
+  /// whichever is later. Null when neither date is known.
+  (String, DateTime)? _ownerDate(Map<String, dynamic> v) {
+    final owner = _ownerSince['${v['id']}'];
+    final paid = v['listing_tier'] == 'verified'
+        ? DateTime.tryParse('${v['listing_paid_at']}')
+        : null;
+    if (paid != null && (owner == null || paid.isAfter(owner))) {
+      return ('Verified', paid);
+    }
+    return owner == null ? null : ('Claimed', owner);
+  }
+
+  /// Listings with an owner: All, Verified or Free (Owners tab).
+  String _ownerFilter = 'all';
   List<Map<String, dynamic>> _enquiries = [];
   List<Map<String, dynamic>> _orders = [];
   // Enquiries waiting to be passed on to a space (migration 113).
@@ -3201,16 +3218,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                 _started.length),
             ..._started.map(_startedCard),
           ],
-          _ownersSection('Verified listings', _paid.length),
-          ..._newestFirst(_paid).map(_paidCard),
-          _ownersSection('Free listings with an owner', _freeOwned.length),
-          if (_freeOwned.isEmpty)
-            const Padding(
-              padding: EdgeInsets.fromLTRB(4, 0, 4, 12),
-              child: Text('None yet. An approved free claim lands here.',
-                  style: TextStyle(fontSize: 12.5, color: Brand.inkMuted)),
-            ),
-          ..._newestFirst(_freeOwned).map(_paidCard),
+          ..._ownerListings(),
         ],
       _ => <Widget>[],
     };
@@ -4621,6 +4629,12 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     if (who.isNotEmpty) {
       lines.add(Text('Owner: $who', style: const TextStyle(fontSize: 12.5)));
     }
+    final latest = _ownerDate(v);
+    if (latest != null) {
+      lines.add(Text(
+          '${latest.$1} ${DateFormat('d MMM yyyy').format(latest.$2.toLocal())}',
+          style: const TextStyle(fontSize: 12.5, color: Brand.inkSecondary)));
+    }
     if (verified) {
       lines.add(Text(
           'Enquiries to ${(v['listing_enquiry_email'] ?? '').toString().isEmpty ? 'hello@nomadwise.io (none set)' : v['listing_enquiry_email']}',
@@ -4743,6 +4757,69 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         ]),
       ]),
     );
+  }
+
+  /// Verified and Free listings with an owner in one list, newest
+  /// claimed or Verified first (Jonathan, 19 Oct 2026: not Verified
+  /// first). All, Verified and Free narrow it down.
+  List<Widget> _ownerListings() {
+    final paidIds = {for (final v in _paid) '${v['id']}'};
+    final all = _newestFirst([
+      ..._paid,
+      ..._freeOwned.where((v) => !paidIds.contains('${v['id']}')),
+    ]);
+    // Same as the badge on the card. A legacy page with the Verified
+    // switch on in Webflow but no plan here shows as Free, with its
+    // warning on the card.
+    bool isPaid(Map<String, dynamic> v) => v['listing_tier'] == 'verified';
+    final nPaid = all.where(isPaid).length;
+    final choices = [
+      ('all', 'All', all.length, Brand.ink),
+      ('verified', 'Verified', nPaid, Brand.success),
+      ('free', 'Free', all.length - nPaid, Brand.inkSecondary),
+    ];
+    final shown = switch (_ownerFilter) {
+      'verified' => all.where(isPaid).toList(),
+      'free' => all.where((v) => !isPaid(v)).toList(),
+      _ => all,
+    };
+    return [
+      _ownersSection('Listings with an owner', all.length),
+      Padding(
+        padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
+        child: Wrap(spacing: 6, runSpacing: 6, children: [
+          for (final (k, label, n, color) in choices)
+            ChoiceChip(
+              selected: _ownerFilter == k,
+              showCheckmark: false,
+              onSelected: (_) => setState(() => _ownerFilter = k),
+              selectedColor: color,
+              backgroundColor: Brand.surface,
+              side: BorderSide(
+                  color: _ownerFilter == k ? color : Brand.border),
+              labelStyle: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: _ownerFilter == k
+                      ? Colors.white
+                      : Brand.inkSecondary),
+              label: Text('$label  $n'),
+            ),
+        ]),
+      ),
+      if (shown.isEmpty)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 0, 4, 12),
+          child: Text(
+              _ownerFilter == 'free'
+                  ? 'None yet. An approved free claim lands here.'
+                  : _ownerFilter == 'verified'
+                      ? 'No Verified listings yet.'
+                      : 'None yet.',
+              style: const TextStyle(fontSize: 12.5, color: Brand.inkMuted)),
+        ),
+      ...shown.map(_paidCard),
+    ];
   }
 
   // ------------------------------------------------------------ stripe orders

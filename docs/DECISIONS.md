@@ -4333,3 +4333,15 @@ place at a time. The first slot is still the main picture, and the
 numbers on the suggested photos follow the new order. Only the order
 changes; the links themselves are not touched, and nothing is saved
 until Save is pressed, as before.
+
+## 19 Oct 2026: owners list newest first, with All, Verified and Free
+
+Control centre, Owners tab. The listings with an owner were two lists,
+every Verified one above every free one. They are now one list,
+newest first: by when the owner's claim was approved or the space went
+Verified, whichever is later, so a free owner who upgrades moves back
+to the top. Each card says which and when ("Claimed 12 Oct 2026" or
+"Verified 18 Oct 2026"). Three buttons above the list narrow it to
+All, Verified or Free, with a count on each; Verified matches the
+badge on the card. A legacy page with the Verified switch on in
+Webflow but no plan here counts as Free and keeps its warning.
