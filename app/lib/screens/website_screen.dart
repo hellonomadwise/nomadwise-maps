@@ -7413,6 +7413,152 @@ class _PhotosPageState extends State<_PhotosPage> {
     return -1;
   }
 
+  /// Moves the photo in slot [from] to slot [to]; the photos in
+  /// between shift one place. The links themselves are not touched,
+  /// only their order (change request 8: no more copying links out
+  /// to a notepad to swap two photos).
+  void _move(int from, int to) {
+    if (from == to || to < 0 || to >= _ctl.length) return;
+    setState(() {
+      final c = _ctl.removeAt(from);
+      _ctl.insert(to, c);
+    });
+  }
+
+  /// The five slots, in page order. Each can be dragged by its handle
+  /// (mouse or finger) or moved one place with its arrows.
+  Widget _slots() {
+    return ReorderableListView(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      buildDefaultDragHandles: false,
+      // The lifted row: a white card, without the gap under it.
+      proxyDecorator: (child, _, __) => Material(
+          color: Colors.transparent,
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: const [
+                    BoxShadow(blurRadius: 12, color: Color(0x33000000))
+                  ]),
+              child: child,
+            ),
+          )),
+      // onReorder still works on every Flutter we build with; its
+      // newer replacement (onReorderItem) does not exist on older ones.
+      // Flutter gives the slot index as if the dragged one were still
+      // in the list, so a move down lands one further than meant.
+      onReorder: (from, to) => _move(from, to > from ? to - 1 : to),
+      children: [
+        for (var i = 0; i < _ctl.length; i++)
+          Padding(
+            key: ObjectKey(_ctl[i]),
+            padding: const EdgeInsets.only(bottom: 10),
+            child: _slot(i),
+          ),
+      ],
+    );
+  }
+
+  Widget _slot(int i) {
+    final arrow = BoxConstraints.tight(const Size(30, 27));
+    return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      ReorderableDragStartListener(
+        index: i,
+        child: MouseRegion(
+          cursor: SystemMouseCursors.grab,
+          child: Tooltip(
+            message: 'Drag to change the order',
+            child: Container(
+                width: 26,
+                height: 54,
+                alignment: Alignment.center,
+                child: const Icon(Icons.drag_indicator,
+                    size: 20, color: Brand.inkMuted)),
+          ),
+        ),
+      ),
+      const SizedBox(width: 4),
+      ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: _ctl[i].text.trim().startsWith('http')
+            ? Image.network(_ctl[i].text.trim(),
+                width: 72,
+                height: 54,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Container(
+                    width: 72,
+                    height: 54,
+                    color: Brand.field,
+                    child: const Icon(Icons.broken_image_outlined,
+                        color: Brand.inkMuted)))
+            : InkWell(
+                onTap: _uploading ? null : () => _upload(slot: i),
+                child: Container(
+                    width: 72,
+                    height: 54,
+                    color: Brand.field,
+                    child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text('${i + 1}',
+                              style: const TextStyle(
+                                  color: Brand.inkMuted,
+                                  fontWeight: FontWeight.w700)),
+                          const Icon(Icons.add_photo_alternate_outlined,
+                              size: 16, color: Brand.inkMuted),
+                        ]))),
+      ),
+      const SizedBox(width: 10),
+      Expanded(
+        child: TextField(
+          controller: _ctl[i],
+          maxLines: 2,
+          minLines: 1,
+          style: const TextStyle(fontSize: 12),
+          onChanged: (_) => setState(() {}),
+          decoration: InputDecoration(
+              labelText: i == 0 ? 'Main photo link' : 'Photo ${i + 1} link',
+              hintText: 'Paste a link, or tap the box to upload',
+              filled: true,
+              fillColor: Brand.field,
+              suffixIcon: _ctl[i].text.isEmpty
+                  ? null
+                  : IconButton(
+                      icon: const Icon(Icons.close, size: 16),
+                      onPressed: () => setState(() => _ctl[i].clear())),
+              border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none)),
+        ),
+      ),
+      const SizedBox(width: 4),
+      Column(mainAxisSize: MainAxisSize.min, children: [
+        IconButton(
+            tooltip: i == 1 ? 'Make this the main photo' : 'Move up',
+            padding: EdgeInsets.zero,
+            constraints: arrow,
+            style: IconButton.styleFrom(
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+            iconSize: 18,
+            onPressed: i == 0 ? null : () => _move(i, i - 1),
+            icon: const Icon(Icons.keyboard_arrow_up)),
+        IconButton(
+            tooltip: 'Move down',
+            padding: EdgeInsets.zero,
+            constraints: arrow,
+            style: IconButton.styleFrom(
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+            iconSize: 18,
+            onPressed: i == _ctl.length - 1 ? null : () => _move(i, i + 1),
+            icon: const Icon(Icons.keyboard_arrow_down)),
+      ]),
+    ]);
+  }
+
   /// Short, human label from the brief sentence the photo matched.
   static String _short(String? label) {
     if (label == null) return '';
@@ -7609,65 +7755,13 @@ class _PhotosPageState extends State<_PhotosPage> {
                     label: const Text('Photos on Google Maps')),
             ]),
             const SizedBox(height: 12),
-            for (var i = 0; i < 5; i++) ...[
-              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: _ctl[i].text.trim().startsWith('http')
-                      ? Image.network(_ctl[i].text.trim(),
-                          width: 72,
-                          height: 54,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
-                              width: 72,
-                              height: 54,
-                              color: Brand.field,
-                              child: const Icon(Icons.broken_image_outlined,
-                                  color: Brand.inkMuted)))
-                      : InkWell(
-                          onTap: _uploading ? null : () => _upload(slot: i),
-                          child: Container(
-                              width: 72,
-                              height: 54,
-                              color: Brand.field,
-                              child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text('${i + 1}',
-                                        style: const TextStyle(
-                                            color: Brand.inkMuted,
-                                            fontWeight: FontWeight.w700)),
-                                    const Icon(Icons.add_photo_alternate_outlined,
-                                        size: 16, color: Brand.inkMuted),
-                                  ]))),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: TextField(
-                    controller: _ctl[i],
-                    maxLines: 2,
-                    minLines: 1,
-                    style: const TextStyle(fontSize: 12),
-                    onChanged: (_) => setState(() {}),
-                    decoration: InputDecoration(
-                        labelText: i == 0 ? 'Main photo link' : 'Photo ${i + 1} link',
-                        hintText: 'Paste a link, or tap the box to upload',
-                        filled: true,
-                        fillColor: Brand.field,
-                        suffixIcon: _ctl[i].text.isEmpty
-                            ? null
-                            : IconButton(
-                                icon: const Icon(Icons.close, size: 16),
-                                onPressed: () =>
-                                    setState(() => _ctl[i].clear())),
-                        border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none)),
-                  ),
-                ),
-              ]),
-              const SizedBox(height: 10),
-            ],
+            const Text(
+                'To change the order, drag a photo by the handle on its left, '
+                'or use the arrows on its right. The first one is the main '
+                'picture.',
+                style: TextStyle(fontSize: 12.5, height: 1.45, color: Brand.inkSecondary)),
+            const SizedBox(height: 8),
+            _slots(),
             Text(
                 widget.livePage
                     ? (n >= 5

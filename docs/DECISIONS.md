@@ -4321,3 +4321,15 @@ and offers a new one. The "?chat" return from the chat email is not
 carried through the new link; the owner lands on their account.
 Templates: docs/EMAIL_STYLE.md (pasted into Supabase by hand, after
 this build is live).
+
+## 19 Oct 2026: reorder photos on the admin photo page
+
+Change request 8. On the admin photo page (Website pages and Page
+upgrades both use it), changing the order meant copying a link out to
+a notepad, pasting another into its slot, then pasting the first one
+back. Each slot now has a drag handle on its left and up and down
+arrows on its right: drag a photo to any position, or move it one
+place at a time. The first slot is still the main picture, and the
+numbers on the suggested photos follow the new order. Only the order
+changes; the links themselves are not touched, and nothing is saved
+until Save is pressed, as before.
