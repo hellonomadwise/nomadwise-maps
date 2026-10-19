@@ -204,6 +204,10 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   List<Map<String, dynamic>> _countries = [];
   String? _error;
 
+  /// Spaces that signed up through our old forms and are not on the
+  /// site yet (migration 188): first in "Next up", top of Candidates.
+  List<Map<String, dynamic>> _signups = [];
+
   /// How many candidates wait (migration 129): places the nightly job
   /// found that look worth a page and are not spaces yet. Read once
   /// for the number on the tab; the tab keeps it right while open.
@@ -253,6 +257,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     try {
       final passOnF = _supabase.enquiriesToPassOn();
       final releasedTotalF = _supabase.websiteReleasedCount();
+      final signupsF = _supabase.candidateSignups();
       final results = await Future.wait([
         _supabase.websiteInbox(),
         _supabase.websiteDrafts(),
@@ -278,6 +283,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       ]);
       final passOn = await passOnF;
       final releasedTotal = await releasedTotalF;
+      final signups = await signupsF;
       if (!mounted) return;
       setState(() {
         _passOn = [
@@ -293,6 +299,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         _drafts = results[1];
         _released = results[2];
         _releasedTotal = releasedTotal;
+        _signups = signups;
         _sitemap = results[3];
         _regions = results[4];
         _hidden = results[5];
@@ -2433,6 +2440,19 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
             'Open in Outreach',
             () => _nextUpOpen('signup',
                 const AdminOutreachScreen(initialStep: 'signed_up'))),
+      // Spaces that asked to be listed through our old forms and are
+      // not on the site yet (migration 188): they come before the
+      // places the nightly job found.
+      if (_signups.isNotEmpty)
+        _NextJob(
+            'signups',
+            'Decide a sign-up: ${_signups.first['name'] ?? 'a space'}',
+            '${n(_signups.length, 'space', 'spaces')} signed up through our '
+                'old forms and ${_signups.length == 1 ? 'is' : 'are'} not on '
+                'the site yet. They asked to be listed, so they come first: '
+                'find each on Google and queue it, or say why not.',
+            'Open the list',
+            () => _nextUpHere('signups', 'candidates')),
       if (_updates.isNotEmpty)
         _NextJob(
             'updates',

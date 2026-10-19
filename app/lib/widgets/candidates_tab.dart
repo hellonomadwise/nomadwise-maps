@@ -9,6 +9,7 @@ import '../services/places_service.dart';
 import '../services/supabase_service.dart';
 import '../theme.dart';
 import 'arrow_scroll_row.dart';
+import 'signup_candidates.dart';
 import 'ui.dart';
 
 /// The control centre's Candidates list (migration 129): places the
@@ -645,6 +646,16 @@ class _CandidatesTabState extends State<CandidatesTab> {
             padding: const EdgeInsets.fromLTRB(14, 4, 14, 30),
             children: [
               _intro(),
+              // Spaces that asked to be listed through our old forms
+              // come first (migration 188). Hidden while searching.
+              if (_q.isEmpty)
+                SignupCandidates(
+                    key: const ValueKey('signup-candidates'),
+                    supabase: widget.supabase,
+                    places: widget.places,
+                    regionForCity: widget.regionForCity,
+                    dismissReasons: widget.dismissReasons,
+                    onQueued: widget.onQueued),
               if (_areas.length > 1) _areaRow(),
               if (_total > 0) _searchBox(),
               if (_total > 0 && _q.isEmpty) _modeRow(),

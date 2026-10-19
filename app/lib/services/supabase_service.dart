@@ -1105,6 +1105,37 @@ class SupabaseService {
     return r is Map ? Map<String, dynamic>.from(r) : <String, dynamic>{};
   }
 
+  /// Admin: spaces that signed up through our old forms and are not
+  /// on the site yet (migration 188), in the order to look at them.
+  /// Empty when none wait or they cannot be read.
+  Future<List<Map<String, dynamic>>> candidateSignups() async {
+    try {
+      final r = await _db.rpc('admin_candidate_signups');
+      return [
+        for (final x in (r as List? ?? const []))
+          if (x is Map) Map<String, dynamic>.from(x),
+      ];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Admin: a sign-up becomes a space, already queued, once its Google
+  /// place is found. [google] carries what Google said for that place
+  /// (name, lat, lng, rating, reviews, city, country, website).
+  Future<Map<String, dynamic>> candidateSignupQueue(
+      String id, String placeId, Map<String, dynamic> google) async {
+    final r = await _db.rpc('candidate_signup_queue',
+        params: {'p_id': id, 'p_place': placeId, 'p': google});
+    return r is Map ? Map<String, dynamic>.from(r) : <String, dynamic>{};
+  }
+
+  /// Admin: a sign-up is not for the site; kept with its reason.
+  Future<void> candidateSignupDismiss(String id, String reason,
+          {String? note}) =>
+      _db.rpc('candidate_signup_dismiss',
+          params: {'p_id': id, 'p_reason': reason, 'p_note': note});
+
   /// Admin: a candidate is not for the site; kept with its reason.
   Future<void> candidateDismiss(String placeId, String reason,
           {String? note}) =>

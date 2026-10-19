@@ -4369,3 +4369,28 @@ The "Copy offer email" text on Listing plan said "99 EUR a year" when
 the space's country had no price set. Prices are always written with
 the currency sign, so it now says "€99 a year". (Whether the two copy
 buttons stay at all is change request 11, Leonie's call.)
+
+## 19 Oct 2026: forms.app sign-ups on the Candidates list
+
+Jonathan: the spaces that signed up through our old forms.app forms
+and are not on nomadwise.io yet should be a list added to Candidates,
+with all the relevant info from the form, and "next on the list to
+review". They asked to be listed, so they come first.
+
+- Migration 188 adds a small table of sign-ups (a sign-up has a name
+  and an address, not a Google place id yet) and three calls: list the
+  open ones, queue one, set one aside.
+- Candidates shows them at the top, under "Asked to be listed", with
+  everything the form gave: address, contact, website, Instagram,
+  features, WiFi, prices, and our earlier contact with them. Hidden
+  while searching.
+- On each card: "Find on Google and queue" (search Google, check it is
+  the right place, queue it; from there it is a space like any
+  candidate and nothing reaches Webflow without Approve), or "Not for
+  the site" with a reason, as for any candidate. Nothing is deleted.
+- Next up in the control centre shows "Decide a sign-up" before every
+  other job while any are open.
+- The rows (names, emails, phone numbers) are NOT in the repository.
+  They are added once in the Supabase SQL editor from a file kept
+  outside GitHub: 14 spaces, the 10 good fits first, then the 4 marked
+  "Unclear: Leonie to decide".
