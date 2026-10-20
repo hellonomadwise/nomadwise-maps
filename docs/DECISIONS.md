@@ -4515,3 +4515,38 @@ allowance).
   phone told): on a phone the chosen Chats tabs (Website, Open) were
   dark text on a dark chip. Their colours are now set: white on dark
   when chosen, dark on white otherwise, no tick.
+- Same day: the assistant is told to write plain text, but it still
+  wrote **Escape Cafe** with stars. Migration 191 cleans every
+  assistant message as it is saved (bold, markdown links, headings)
+  and cleaned the ones already saved. "Their page" in a chat shows
+  only for someone who runs a space ("Their page isn't relevant if
+  it's a user").
+
+## 20 Oct 2026: Page upgrades, a calmer control centre
+
+Jonathan and Leonie: "we're trying to tidy up the control centre, so
+its less overwhelming". Suggestions from visitors are not owners'
+changes, and Leonie suggested wrapping the quality work in Page
+upgrades.
+
+- The menu item Page upgrades now has three parts, switched at the
+  top: Suggestions (from visitors: tags to add, something changed),
+  Clean-up (Closed, Not for the site, No Location) and Upgrades
+  (titles and text, photos: what Page upgrades was before). The number
+  beside it in the menu counts suggestions, closed places and drafts
+  waiting for a Go. It opens on the first part with something waiting.
+- The control centre shows Owners and Pages only. Owner changes are
+  owners' changes only. The To do line and its count leave out
+  suggestions and closed places (they are counted in Page upgrades).
+  "Next up" still offers them, and its button opens the right part.
+- Back (or the arrow on a phone) leads from Page upgrades to the
+  control centre. On a laptop the menu does.
+
+## 20 Oct 2026: where the website chat shows
+
+Jonathan: not on any blog article ("it's going to disrupt and affect
+conversion"). The chat box now shows only on the homepage, About us,
+coworking listing pages (/coworking/...), and the Country, Region and
+Location pages (/country/..., /region/..., /locations/...). Everywhere
+else chat.js stops before drawing anything. A chat already started
+carries on when the visitor comes back to one of those pages.

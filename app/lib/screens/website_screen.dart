@@ -1290,8 +1290,14 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     // Keyed, so that widening or narrowing the window moves the
     // control centre beside the menu (or back) as it is, without
     // starting it afresh.
-    final centre = KeyedSubtree(key: _centreKey, child: _centre(wide));
-    return wide ? _besideMenu(null, centre) : centre;
+    // Page upgrades (20 Oct 2026) takes the control centre's place
+    // beside the menu: it shares its lists and keeps them up to date.
+    final centre = KeyedSubtree(
+        key: _centreKey,
+        child: _upgradesOpen ? _upgradesHub(wide) : _centre(wide));
+    return wide
+        ? _besideMenu(_upgradesOpen ? 'upgrades' : null, centre)
+        : centre;
   }
 
   final _centreKey = GlobalKey();
@@ -1351,7 +1357,12 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     final home = ModalRoute.of(context);
     if (home != null) nav.popUntil((r) => r == home || r.isFirst);
     if (k == null) {
+      if (_upgradesOpen) setState(() => _upgradesOpen = false);
       _loadNextUp();
+      return;
+    }
+    if (k == 'upgrades') {
+      _showUpgrades();
       return;
     }
     // Keyed, so the tool is not started afresh when the window is
@@ -1402,21 +1413,20 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   }
 
   /// Everything the To do line counts: what waits in the control
-  /// centre itself.
+  /// centre itself. Suggestions from visitors and closed places wait
+  /// in Page upgrades, and are counted there.
   int get _todoCount {
     final g = _groups();
     return _passOn.length +
         _held.length +
         _orders.length +
         _ownerDrafts.length +
-        _updates.length +
         g.ready.length +
         g.needsRegion.length +
         g.fresh.length +
         _drafts.length +
         _approvedTonight.length +
-        _sitemapCount +
-        _closed.length;
+        _sitemapCount;
   }
 
   /// What is open behind a menu item (Jonathan, 6 Oct 2026), and what
@@ -1430,8 +1440,9 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     return switch (key) {
       'home' => (_todoCount, 'waiting in the control centre (its To do line)'),
       'upgrades' => (
-          part('drafts'),
-          'drafts waiting for your Go, or needing a look'
+          _updates.length + _closed.length + part('drafts'),
+          'waiting in Page upgrades: suggestions from visitors, closed '
+              'places to check, and drafts waiting for your Go'
         ),
       'prices' => (
           part('prices'),
@@ -2179,6 +2190,10 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       launchUrl(Uri.parse('/'), webOnlyWindowName: '_self');
       return;
     }
+    if (k == 'upgrades') {
+      _showUpgrades();
+      return;
+    }
     Navigator.push(
             context, MaterialPageRoute(builder: (_) => _toolScreen(k)))
         // back from a tool: what is waiting may have changed
@@ -2241,13 +2256,194 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                 onPressed: _load, child: const Text('Try again'))),
       ]);
 
+  // ------------------------------------------------------- page upgrades
+
+  /// Page upgrades (Jonathan and Leonie, 20 Oct 2026: "we're trying to
+  /// tidy up the control centre, so its less overwhelming"): everything
+  /// that improves pages that are already live, in one place beside the
+  /// menu. Three parts: suggestions from visitors (tags to add, things
+  /// that changed), Clean-up (Closed, Not for the site, No Location)
+  /// and Upgrades (titles and text, photos). While it is open it takes
+  /// the control centre's place, so its lists stay up to date.
+  bool _upgradesOpen = false;
+
+  /// 'suggest', 'cleanup' or 'upgrades'.
+  String _upgradesPart = 'suggest';
+
+  /// The Clean-up group showing: 'closed', 'hidden' or 'nolocation'.
+  String _cleanKey = 'closed';
+
+  int get _draftsWaiting {
+    final p = _nextUp?['drafts'];
+    return p is Map ? ((p['n'] as num?)?.toInt() ?? 0) : 0;
+  }
+
+  /// Open Page upgrades at [part] (and, in Clean-up, at [group]). With
+  /// no part: the first with something waiting.
+  void _showUpgrades([String? part, String? group]) {
+    if (!mounted) return;
+    final nav = Navigator.of(context);
+    final home = ModalRoute.of(context);
+    if (home != null) nav.popUntil((r) => r == home || r.isFirst);
+    setState(() {
+      _upgradesOpen = true;
+      _upgradesPart = part ??
+          (_updates.isNotEmpty
+              ? 'suggest'
+              : _closed.isNotEmpty
+                  ? 'cleanup'
+                  : _draftsWaiting > 0
+                      ? 'upgrades'
+                      : 'suggest');
+      if (group != null) _cleanKey = group;
+    });
+    _loadNextUp();
+  }
+
+  /// Back to the control centre.
+  void _leaveUpgrades() {
+    if (!mounted || !_upgradesOpen) return;
+    setState(() => _upgradesOpen = false);
+    _loadNextUp();
+  }
+
+  Widget _upgradesHub(bool wide) {
+    final body = switch (_upgradesPart) {
+      'cleanup' => SelectionArea(child: _pipeline(cleanup: true)),
+      'upgrades' => const AdminUpgradesScreen(
+          key: ValueKey('upgrades-part'), embedded: true),
+      _ => ListingUpdatesScreen(
+          key: const ValueKey('suggest-part'),
+          embedded: true,
+          onChanged: _load),
+    };
+    return PopScope(
+      // Back (a phone's back gesture too) leads to the control centre.
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _leaveUpgrades();
+      },
+      child: Scaffold(
+        backgroundColor: Brand.bg,
+        appBar: AppBar(
+          automaticallyImplyLeading: false,
+          // On a laptop the menu down the left leads back.
+          leading: wide
+              ? null
+              : IconButton(
+                  tooltip: 'Control centre',
+                  onPressed: _leaveUpgrades,
+                  icon: const Icon(Icons.arrow_back)),
+          title: const Text('Page upgrades'),
+          actions: [
+            IconButton(
+                tooltip: 'Search spaces, owners and claims',
+                onPressed: _openSearch,
+                icon: const Icon(Icons.search)),
+          ],
+        ),
+        body: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 900),
+            child: Column(children: [
+              _upgradesSwitch(),
+              Expanded(child: body),
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Suggestions · Clean-up · Upgrades, each with what is waiting in
+  /// it, in the same look as the control centre's Owners · Pages.
+  Widget _upgradesSwitch() {
+    final parts = <(String, String, int)>[
+      ('suggest', 'Suggestions', _updates.length),
+      ('cleanup', 'Clean-up', _closed.length),
+      ('upgrades', 'Upgrades', _draftsWaiting),
+    ];
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 6),
+      child: Container(
+        padding: const EdgeInsets.all(3),
+        decoration: BoxDecoration(
+            color: Brand.field, borderRadius: BorderRadius.circular(8)),
+        child: Row(children: [
+          for (final (key, label, count) in parts)
+            Expanded(
+              child: _tapArea(GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  if (key != _upgradesPart) {
+                    setState(() => _upgradesPart = key);
+                  }
+                },
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                  decoration: BoxDecoration(
+                    color: key == _upgradesPart
+                        ? Brand.surface
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(6),
+                    boxShadow: key == _upgradesPart
+                        ? [
+                            BoxShadow(
+                                color: Colors.black.withValues(alpha: .06),
+                                blurRadius: 4,
+                                offset: const Offset(0, 1))
+                          ]
+                        : null,
+                  ),
+                  // A phone's third of the width is narrow: the label
+                  // and its number shrink to fit rather than wrap.
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Text(label,
+                          style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: key == _upgradesPart
+                                  ? FontWeight.w700
+                                  : FontWeight.w600,
+                              color: key == _upgradesPart
+                                  ? Brand.ink
+                                  : Brand.inkSecondary)),
+                      if (count > 0) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 1),
+                          decoration: BoxDecoration(
+                              color: Brand.accent,
+                              borderRadius: BorderRadius.circular(9)),
+                          child: Text(count > 999 ? '999+' : '$count',
+                              style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white)),
+                        ),
+                      ],
+                    ]),
+                  ),
+                ),
+              )),
+            ),
+        ]),
+      ),
+    );
+  }
+
   // --------------------------------------------------------------- inbox
 
   /// Which inbox group is showing. null = the first one with work in it.
   String? _groupKey;
 
   // Three sections instead of eleven tabs in a row (30 Sep 2026):
-  // the people, the pages, and the tidying up.
+  // the people, the pages, and the tidying up. Since 20 Oct 2026 the
+  // tidying up (Clean-up) lives in Page upgrades, so the control
+  // centre shows Owners and Pages only.
   static const _sections = [
     ('owners', 'Owners', ['paid', 'enquiries', 'owner']),
     ('pages', 'Pages',
@@ -2279,8 +2475,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         'owners' => _passOn.length +
             _held.length +
             _orders.length +
-            _ownerDrafts.length +
-            _updates.length,
+            _ownerDrafts.length,
         'pages' => g.fresh.length +
             g.preparing.length +
             g.needsRegion.length +
@@ -2292,6 +2487,11 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       };
 
   void _goToGroup(String key) {
+    // Closed, Not for the site and No Location are in Page upgrades.
+    if (_sectionOf(key) == 'cleanup') {
+      _showUpgrades('cleanup', key);
+      return;
+    }
     setState(() => _groupKey = key);
     if (_tabScroll.hasClients) _tabScroll.jumpTo(0);
   }
@@ -2413,6 +2613,12 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     _goToGroup(groupKey);
   }
 
+  /// A job of the card that lives in Page upgrades: open that part.
+  void _nextUpUpgrades(String kind, String part) {
+    if (_turns.contains(kind)) _openedTurn = kind;
+    _showUpgrades(part, part == 'cleanup' ? 'closed' : null);
+  }
+
   /// A job of the card with a screen of its own: open it, and when
   /// you come back show what is next.
   Future<void> _nextUpOpen(String kind, Widget screen) async {
@@ -2525,11 +2731,11 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       if (_updates.isNotEmpty)
         _NextJob(
             'updates',
-            'Look at a suggested update',
+            'Look at a suggestion from a visitor',
             '${n(_updates.length, 'visitor has', 'visitors have')} said '
-                'something on a page needs updating.',
-            'Open suggested updates',
-            () => _nextUpHere('updates', 'owner')),
+                'something on a page needs updating, or suggested a tag.',
+            'Open suggestions',
+            () => _nextUpUpgrades('updates', 'suggest')),
       if (_ownerDrafts.isNotEmpty)
         _NextJob(
             'ownerchanges',
@@ -2655,7 +2861,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
             'Google says ${n(_closed.length, 'place has', 'places have')} '
                 'closed: retire the page, or say it is still open.',
             'Open closed places',
-            () => _nextUpHere('closed', 'closed')),
+            () => _nextUpUpgrades('closed', 'cleanup')),
       if (g.needsRegion.isNotEmpty)
         'region': _NextJob(
             'region',
@@ -2911,9 +3117,6 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       if (_ownerDrafts.isNotEmpty)
         (n(_ownerDrafts.length, 'owner change', 'owner changes'), 'owner',
             Brand.goldTextDark),
-      if (_updates.isNotEmpty)
-        (n(_updates.length, 'suggested update', 'suggested updates'), 'owner',
-            Brand.goldTextDark),
       if (g.ready.isNotEmpty)
         (n(g.ready.length, 'page to approve', 'pages to approve'), 'ready',
             Brand.accent),
@@ -2932,9 +3135,6 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       if (_sitemapCount > 0)
         (n(_sitemapCount, 'sitemap entry', 'sitemap entries'), 'sitemap',
             Brand.goldTextDark),
-      if (_closed.isNotEmpty)
-        (n(_closed.length, 'closed place', 'closed places'), 'closed',
-            Brand.red),
     ];
     return Container(
       width: double.infinity,
@@ -2977,7 +3177,8 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     );
   }
 
-  /// Owners · Pages · Clean-up, each with what is waiting in it.
+  /// Owners · Pages, each with what is waiting in it (Clean-up is in
+  /// Page upgrades since 20 Oct 2026).
   Widget _sectionSwitch(
       ({
         List<Map<String, dynamic>> ready,
@@ -2993,7 +3194,8 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         decoration: BoxDecoration(
             color: Brand.field, borderRadius: BorderRadius.circular(8)),
         child: Row(children: [
-          for (final (key, label, groupKeys) in _sections)
+          for (final (key, label, groupKeys)
+              in _sections.where((s) => s.$1 != 'cleanup'))
             Expanded(
               // A pointing hand, and labels that are not picked up as
               // text: the page around them is selectable, which gave
@@ -3005,14 +3207,13 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                   // The first group in it with work, else its first.
                   final todo = <String, int>{
                     'paid': _held.length + _orders.length,
-                    'owner': _ownerDrafts.length + _updates.length,
+                    'owner': _ownerDrafts.length,
                     'fresh': g.fresh.length,
                     'preparing': g.preparing.length,
                     'region': g.needsRegion.length,
                     'ready': g.ready.length,
                     'drafts': _drafts.length + _approvedTonight.length,
                     'sitemap': _sitemapCount,
-                    'closed': _closed.length,
                   };
                   _goToGroup(groupKeys.firstWhere(
                       (k) => (todo[k] ?? 0) > 0,
@@ -3075,7 +3276,10 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         child: SelectionContainer.disabled(child: child),
       );
 
-  Widget _pipeline({bool nextUpBeside = false}) {
+  /// The control centre's lists. [cleanup]: the Clean-up part of Page
+  /// upgrades instead (Closed, No Location, Not for the site), on its
+  /// own: no "Next up", To do line or Owners · Pages switch.
+  Widget _pipeline({bool nextUpBeside = false, bool cleanup = false}) {
     final g = _groups();
     final groups = <({String key, String label, int count, Color color,
         String hint, String empty})>[
@@ -3109,11 +3313,9 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       (
         key: 'owner',
         label: 'Owner changes',
-        count: _ownerDrafts.length + _updates.length,
+        count: _ownerDrafts.length,
         color: Brand.goldTextDark,
-        hint: 'Suggested updates from anyone (the "Something need '
-            'updating?" link on each page), then changes owners submitted '
-            'from their Owner account: '
+        hint: 'Changes owners submitted from their Owner account: '
             'description, prices, hours, amenities, photos, contact, and on '
             'Verified pages the message for the advert slot. Nothing is on '
             'the page until you put it there. Send back anything that '
@@ -3238,15 +3440,23 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         empty: 'Nothing released yet.'
       ),
     ];
-    var key = _groupKey;
+    var key = cleanup ? _cleanKey : _groupKey;
     // A group stays chosen when it empties (its empty note shows); the
-    // Today strip and the three sections take you to the next work.
-    if (key == null || !groups.any((x) => x.key == key)) {
-      const steps = ['enquiries', 'fresh', 'preparing', 'region', 'ready'];
-      key = groups
-          .firstWhere((x) => steps.contains(x.key) && x.count > 0,
-              orElse: () => groups.firstWhere((x) => x.key == 'fresh'))
-          .key;
+    // Today strip and the two sections take you to the next work. The
+    // control centre never shows a Clean-up group, nor Clean-up any
+    // other.
+    if (key == null ||
+        !groups.any((x) => x.key == key) ||
+        (_sectionOf(key) == 'cleanup') != cleanup) {
+      if (cleanup) {
+        key = 'closed';
+      } else {
+        const steps = ['enquiries', 'fresh', 'preparing', 'region', 'ready'];
+        key = groups
+            .firstWhere((x) => steps.contains(x.key) && x.count > 0,
+                orElse: () => groups.firstWhere((x) => x.key == 'fresh'))
+            .key;
+      }
     }
     final current = groups.firstWhere((x) => x.key == key);
 
@@ -3287,7 +3497,6 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       'hidden' => _hiddenCards(),
       'closed' => _closedCards(),
       'owner' => [
-          _updatesCard(),
           if (_ownerDrafts.isEmpty)
             const Padding(
               padding: EdgeInsets.fromLTRB(4, 6, 4, 12),
@@ -3442,19 +3651,22 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     }
     final away = _topAway && _smallScreen;
     return Column(children: [
-      SizedBox(
-        width: double.infinity,
-        child: AnimatedSize(
-          duration: const Duration(milliseconds: 160),
-          curve: Curves.easeOut,
-          alignment: Alignment.topCenter,
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            if (!nextUpBeside) _nextUpCard(g),
-            if (!away) _todayStrip(g),
-          ]),
+      if (!cleanup) ...[
+        SizedBox(
+          width: double.infinity,
+          child: AnimatedSize(
+            duration: const Duration(milliseconds: 160),
+            curve: Curves.easeOut,
+            alignment: Alignment.topCenter,
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              if (!nextUpBeside) _nextUpCard(g),
+              if (!away) _todayStrip(g),
+            ]),
+          ),
         ),
-      ),
-      _sectionSwitch(g, section),
+        _sectionSwitch(g, section),
+      ] else
+        const SizedBox(height: 4),
       // The groups of the chosen section, side by side: a swipe on a
       // phone, arrows at either end on a laptop (a mouse cannot swipe),
       // which only show when there is more to see in that direction.
@@ -3473,7 +3685,13 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
             return ChoiceChip(
               selected: on,
               showCheckmark: false,
-              onSelected: (_) => setState(() => _groupKey = x.key),
+              onSelected: (_) => setState(() {
+                if (cleanup) {
+                  _cleanKey = x.key;
+                } else {
+                  _groupKey = x.key;
+                }
+              }),
               selectedColor: x.color,
               backgroundColor: Brand.surface,
               side: BorderSide(color: on ? x.color : Brand.border),
@@ -3526,7 +3744,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                               height: 1.4)),
                     ),
                     if (cards.isEmpty)
-                      _inboxCount == 0
+                      _inboxCount == 0 && !cleanup
                           ? _inboxZero()
                           : _groupEmpty(current.empty)
                     else
@@ -5478,35 +5696,6 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
           trailing: const Icon(Icons.chevron_right, color: Brand.inkMuted),
           onTap: () => Navigator.of(context).push(MaterialPageRoute(
               builder: (_) => const OwnerInsightsScreen())),
-        ),
-      );
-
-  /// The way into Suggested updates: what visitors told us has changed.
-  Widget _updatesCard() => Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        decoration: BoxDecoration(
-          color: Brand.surface,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-              color: _updates.isEmpty ? Brand.border : Brand.goldTextDark),
-        ),
-        child: ListTile(
-          leading: const Icon(Icons.edit_note, color: Brand.accent),
-          title: Text(
-              _updates.isEmpty
-                  ? 'Suggested updates'
-                  : 'Suggested updates (${_updates.length} open)',
-              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
-          subtitle: const Text(
-              'What visitors told us has changed at a space. Fix the page, '
-              'then mark it done, or dismiss it.',
-              style: TextStyle(fontSize: 12.5, color: Brand.inkSecondary)),
-          trailing: const Icon(Icons.chevron_right, color: Brand.inkMuted),
-          onTap: () async {
-            await Navigator.of(context).push(MaterialPageRoute(
-                builder: (_) => const ListingUpdatesScreen()));
-            _load();
-          },
         ),
       );
 

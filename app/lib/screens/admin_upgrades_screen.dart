@@ -375,7 +375,10 @@ mixin _UpgradeActions<T extends StatefulWidget> on State<T> {
 /// the website push then writes it within minutes, and Undo puts the
 /// earlier version back. Founders only.
 class AdminUpgradesScreen extends StatefulWidget {
-  const AdminUpgradesScreen({super.key});
+  /// [embedded]: shown as the Upgrades part of Page upgrades, under
+  /// its title, so it has no title bar of its own.
+  const AdminUpgradesScreen({super.key, this.embedded = false});
+  final bool embedded;
   @override
   State<AdminUpgradesScreen> createState() => _AdminUpgradesScreenState();
 }
@@ -932,7 +935,7 @@ class _AdminUpgradesScreenState extends State<AdminUpgradesScreen>
     final factsPages = _int(_overview['facts_pages']);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Page upgrades')),
+      appBar: widget.embedded ? null : AppBar(title: const Text('Page upgrades')),
       body: _error != null
           ? Center(
               child: Padding(

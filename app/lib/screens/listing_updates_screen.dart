@@ -8,8 +8,17 @@ import '../theme.dart';
 /// Admin only: what visitors told us has changed at a space, from the
 /// "Something need updating?" link on each nomadwise.io page. Open
 /// ones by default; fix the page, then mark it done, or dismiss it.
+///
+/// [embedded]: shown inside Page upgrades, under its own title, so it
+/// has no title bar of its own (Jonathan, 20 Oct 2026: what visitors
+/// suggest is not an owner's change, it is a page upgrade).
+/// [onChanged]: told when one is marked done, dismissed or reopened,
+/// so the numbers around it can be read again.
 class ListingUpdatesScreen extends StatefulWidget {
-  const ListingUpdatesScreen({super.key});
+  const ListingUpdatesScreen(
+      {super.key, this.embedded = false, this.onChanged});
+  final bool embedded;
+  final VoidCallback? onChanged;
   @override
   State<ListingUpdatesScreen> createState() => _ListingUpdatesScreenState();
 }
@@ -55,6 +64,7 @@ class _ListingUpdatesScreenState extends State<ListingUpdatesScreen> {
     try {
       await _supabase.setListingUpdateStatus('${r['id']}', status);
       await _load();
+      widget.onChanged?.call();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
@@ -63,20 +73,27 @@ class _ListingUpdatesScreenState extends State<ListingUpdatesScreen> {
     }
   }
 
+  void _toggleAll() {
+    setState(() {
+      _all = !_all;
+      _rows = null;
+    });
+    _load();
+  }
+
+  static const _emptyText = 'Nothing waiting. When someone uses "Something '
+      'need updating?" or "Add a tag" on a page, it lands here and pings '
+      'your phone.';
+
   @override
   Widget build(BuildContext context) {
     final rows = _rows;
+    if (widget.embedded) return _embeddedBody(rows);
     return Scaffold(
       backgroundColor: Brand.bg,
       appBar: AppBar(title: const Text('Suggested updates'), actions: [
         TextButton(
-            onPressed: () {
-              setState(() {
-                _all = !_all;
-                _rows = null;
-              });
-              _load();
-            },
+            onPressed: _toggleAll,
             child: Text(_all ? 'Open only' : 'Show all')),
       ]),
       body: rows == null
@@ -85,10 +102,7 @@ class _ListingUpdatesScreenState extends State<ListingUpdatesScreen> {
               ? const Center(
                   child: Padding(
                   padding: EdgeInsets.all(24),
-                  child: Text(
-                      'Nothing waiting. When someone uses "Something need '
-                      'updating?" or "Add a tag" on a page, it lands here '
-                      'and pings your phone.',
+                  child: Text(_emptyText,
                       textAlign: TextAlign.center,
                       style: TextStyle(color: Brand.inkMuted, height: 1.5)),
                 ))
@@ -100,6 +114,51 @@ class _ListingUpdatesScreenState extends State<ListingUpdatesScreen> {
                 ),
     );
   }
+
+  /// Inside Page upgrades: one list, with what it is and the "Show
+  /// all" switch at its top instead of in a title bar.
+  Widget _embeddedBody(List<Map<String, dynamic>>? rows) => RefreshIndicator(
+        onRefresh: _load,
+        child: ListView(
+            padding: const EdgeInsets.fromLTRB(14, 6, 14, 30),
+            children: [
+              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.only(top: 6, right: 8),
+                    child: Text(
+                        'From visitors, on any page: tags to add, and '
+                        'things that have changed (hours, wifi, prices, '
+                        'closed). Fix the page, then mark it done, or '
+                        'dismiss it.',
+                        style: TextStyle(
+                            fontSize: 12.5,
+                            height: 1.4,
+                            color: Brand.inkSecondary)),
+                  ),
+                ),
+                TextButton(
+                    onPressed: _toggleAll,
+                    child: Text(_all ? 'Open only' : 'Show all')),
+              ]),
+              const SizedBox(height: 8),
+              if (rows == null)
+                const Padding(
+                  padding: EdgeInsets.all(30),
+                  child: Center(
+                      child: CircularProgressIndicator(color: Brand.red)),
+                )
+              else if (rows.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(4, 20, 4, 0),
+                  child: Text(_emptyText,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Brand.inkMuted, height: 1.5)),
+                )
+              else
+                ...rows.map(_card),
+            ]),
+      );
 
   Widget _card(Map<String, dynamic> r) {
     final when = DateTime.tryParse('${r['created_at']}')?.toLocal();

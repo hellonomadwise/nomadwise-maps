@@ -1,6 +1,10 @@
 /* Nomadwise chat box (migration 190).
  *
- * Loaded on every nomadwise.io page from https://nomadmaps.io/chat.js.
+ * Loaded on every nomadwise.io page from https://nomadmaps.io/chat.js,
+ * but shown only on the homepage, About us, the coworking listing pages
+ * and the Country, Region and Location pages. Never on blog articles or
+ * the other guides, where it would get in the way of the reading and
+ * the affiliate links (Jonathan, 20 Oct 2026).
  * A round button bottom right; tapping it opens the chat. The visitor's
  * chat key lives in their browser (localStorage), so a chat carries on
  * across pages and visits. Answers come from Nomadwise's assistant, or
@@ -20,6 +24,14 @@
   var KEY = '__NW_SUPABASE_KEY__';
   if (URL_.indexOf('__') === 0 || KEY.indexOf('__') === 0) return;
   if (window.__nwChat) return;
+
+  // Where the chat box shows: / , /about-us, /coworking/<listing>,
+  // /country/<country>, /region/<region>, /locations/<location>.
+  var path = (location.pathname || '/').replace(/\/+$/, '') || '/';
+  if (!(path === '/' || path === '/about-us' ||
+        /^\/(coworking|country|region|locations)\/[^\/]+$/.test(path))) {
+    return;
+  }
   window.__nwChat = true;
 
   var RED = '#FF444F', INK = '#142032', BG = '#F7F7F7';

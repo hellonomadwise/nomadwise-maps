@@ -271,7 +271,10 @@ class _SiteChatsPaneState extends State<SiteChatsPane> {
                 onPressed: () => _askEmail(id, email.isEmpty ? null : email),
                 icon: const Icon(Icons.alternate_email, size: 16),
                 label: Text(email.isEmpty ? 'Add their email' : 'Change email')),
-            if (url.startsWith('http'))
+            // Only for someone who runs a space: a visitor's chat was
+            // started on a page that is not theirs (Jonathan, 20 Oct
+            // 2026: "Their page isn't relevant if it's a user").
+            if (url.startsWith('http') && m['who'] == 'owner')
               TextButton.icon(
                   onPressed: () => launchUrl(Uri.parse(url)),
                   icon: const Icon(Icons.open_in_new, size: 16),
