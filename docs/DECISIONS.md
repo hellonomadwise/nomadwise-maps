@@ -4435,3 +4435,29 @@ heights" (Outreach, New pages: Live, Have an address, Written to,
 Opened the claim page, Claimed, In their Owner account). Every box is
 now the same height and the six share the row evenly (three a row on
 a phone), labels up to two lines.
+
+## 20 Oct 2026: "Add a tag" asks who you are first
+
+Leonie spotted that "Add a tag" on every listing page still opened the
+old recommend form (/old-add). Jonathan: "when add a tag is clicked, it
+takes to a new screen in nomadmaps which asks are you the coworking
+space or a user (not using the word user). If coworking space then to
+claim page if user then to a user form where they can complete info.
+This then flows into nomadmaps admin, in a simple way, for me to work
+through".
+
+- nomadmaps.io/?tag=<slug> opens "Add a tag to {space}" with two
+  cards: "I run {space}" (to the claim page, free) and "I have worked
+  from here" (to the tag form).
+- The tag form: the tags the listing pages use as chips (plug sockets,
+  quiet room, aircon, good for calls and so on), "Anything else?",
+  when they were last there, optional name and email.
+- It lands in the existing Suggested updates list (control centre,
+  Owner changes) as "Tags to add", with the picked tags written out,
+  and pings the phone. Add the tags to the page, then Mark done, or
+  Dismiss. No new table: the same report as "Something need
+  updating?" (migration 94), kind "tags".
+- On Webflow (after this is live, with Jonathan's Go): the "Add a tag"
+  link on the listing template points to https://nomadmaps.io/?tag,
+  and the site footer script adds the page's slug to it, as it does
+  for ?claim and ?update.

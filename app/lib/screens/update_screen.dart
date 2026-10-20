@@ -10,9 +10,16 @@ import '../theme.dart';
 /// the top: the people who run the space claim it and change it
 /// themselves; everyone else tells us what has changed, which lands in
 /// the control centre (Owner changes, Suggested updates).
+///
+/// With [tags] (nomadmaps.io/?tag=<slug>, the "Add a tag" button on a
+/// listing page; Jonathan, 20 Oct 2026): it asks who you are first. The
+/// people who run the space go to claiming it; someone who has worked
+/// from it picks what the place has, which lands in the same Suggested
+/// updates list as "Tags to add".
 class UpdateScreen extends StatefulWidget {
   final String slug;
-  const UpdateScreen({super.key, required this.slug});
+  final bool tags;
+  const UpdateScreen({super.key, required this.slug, this.tags = false});
   @override
   State<UpdateScreen> createState() => _UpdateScreenState();
 }
@@ -32,6 +39,34 @@ class _UpdateScreenState extends State<UpdateScreen> {
   final _website = TextEditingController();
   final Set<String> _kinds = {};
   String? _lastVisit;
+
+  // "Add a tag": false while asking who you are; true once a visitor
+  // has said they have been there. The tags they picked.
+  bool _visitor = false;
+  final Set<String> _tags = {};
+
+  /// The details the listing pages show as tags, in the site's words.
+  static const _tagOptions = [
+    'Fast WiFi',
+    'Enough plug sockets',
+    'Comfortable seating',
+    'Office chairs',
+    'Monitors available',
+    'Quiet room or phone booth',
+    'Good for video calls',
+    'Aircon',
+    'Low background music',
+    'No traffic noise',
+    'Cozy',
+    'Day passes',
+    'Meeting rooms',
+    '24-hour access',
+    'Good coffee',
+    'Vegan friendly',
+    'Gluten-free options',
+    'Outdoor space',
+    'Instagrammable',
+  ];
 
   static const _kindOptions = [
     ('closed', 'It has closed'),
@@ -67,7 +102,8 @@ class _UpdateScreenState extends State<UpdateScreen> {
       _loading = false;
     });
     if (v != null) {
-      Analytics.capture('update_opened', {'venue': v['name'], 'slug': widget.slug});
+      Analytics.capture(widget.tags ? 'tag_opened' : 'update_opened',
+          {'venue': v['name'], 'slug': widget.slug});
     }
   }
 
@@ -82,10 +118,24 @@ class _UpdateScreenState extends State<UpdateScreen> {
       setState(() => _sent = true); // a bot; nothing is stored
       return;
     }
-    if (_kinds.isEmpty && _details.text.trim().isEmpty) {
+    if (widget.tags && _tags.isEmpty && _details.text.trim().isEmpty) {
+      setState(() => _error = 'Pick what it has, or tell us in a few words.');
+      return;
+    }
+    if (!widget.tags && _kinds.isEmpty && _details.text.trim().isEmpty) {
       setState(() => _error = 'Pick what has changed, or tell us in a few words.');
       return;
     }
+    // Tags travel as one report, kind "tags", the picked tags written
+    // out first so the control centre and the phone ping show them.
+    final note = _details.text.trim();
+    final details = widget.tags
+        ? [
+            if (_tags.isNotEmpty)
+              'Tags: ${_tagOptions.where(_tags.contains).join(', ')}',
+            if (note.isNotEmpty) note,
+          ].join('\n\n')
+        : note;
     setState(() {
       _sending = true;
       _error = null;
@@ -93,14 +143,16 @@ class _UpdateScreenState extends State<UpdateScreen> {
     try {
       await _supabase.submitListingUpdate({
         'venue_id': v['id'],
-        'kinds': _kinds.toList(),
-        'details': _details.text.trim(),
+        'kinds': widget.tags ? const ['tags'] : _kinds.toList(),
+        'details': details,
         'last_visit': _lastVisit,
         'name': _name.text.trim(),
         'email': _email.text.trim(),
       });
-      Analytics.capture('update_sent',
-          {'venue': v['name'], 'kinds': _kinds.join(',')});
+      Analytics.capture(widget.tags ? 'tag_sent' : 'update_sent', {
+        'venue': v['name'],
+        'kinds': widget.tags ? _tags.join(',') : _kinds.join(','),
+      });
       if (mounted) setState(() => _sent = true);
     } catch (e) {
       final s = '$e';
@@ -121,7 +173,7 @@ class _UpdateScreenState extends State<UpdateScreen> {
     return Scaffold(
       backgroundColor: Brand.bg,
       appBar: AppBar(
-        title: const Text('Suggest an update'),
+        title: Text(widget.tags ? 'Add a tag' : 'Suggest an update'),
         leading: IconButton(
             tooltip: 'Back to the listing',
             icon: const Icon(Icons.arrow_back),
@@ -137,7 +189,11 @@ class _UpdateScreenState extends State<UpdateScreen> {
                   ? _notFound()
                   : _sent
                       ? _thanks(v)
-                      : _form(v),
+                      : !widget.tags
+                          ? _form(v)
+                          : _visitor
+                              ? _tagForm(v)
+                              : _whoAreYou(v),
         ),
       ),
     );
@@ -227,7 +283,7 @@ class _UpdateScreenState extends State<UpdateScreen> {
                 launchUrl(
                     Uri.parse('https://nomadmaps.io/?claim='
                         '${Uri.encodeQueryComponent(widget.slug)}'
-                        '&from=${Uri.encodeQueryComponent('/update')}'),
+                        '&from=${Uri.encodeQueryComponent(widget.tags ? '/tag' : '/update')}'),
                     webOnlyWindowName: '_self');
               },
               style: FilledButton.styleFrom(backgroundColor: Brand.red),
@@ -247,6 +303,174 @@ class _UpdateScreenState extends State<UpdateScreen> {
             color: on ? Colors.white : Brand.ink),
         onSelected: (_) => tap(),
       );
+
+  void _toClaim(Map<String, dynamic> v) {
+    Analytics.capture('tag_to_claim', {'venue': v['name']});
+    launchUrl(
+        Uri.parse('https://nomadmaps.io/?claim='
+            '${Uri.encodeQueryComponent(widget.slug)}'
+            '&from=${Uri.encodeQueryComponent('/tag')}'),
+        webOnlyWindowName: '_self');
+  }
+
+  /// One of the two answers to "who are you?", as a large tappable card.
+  Widget _door(
+          {required IconData icon,
+          required String title,
+          required String text,
+          required VoidCallback onTap}) =>
+      Material(
+        color: Brand.surface,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+            side: const BorderSide(color: Brand.border)),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 12, 16),
+            child: Row(children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                    color: Brand.bg, borderRadius: BorderRadius.circular(10)),
+                child: Icon(icon, size: 21, color: Brand.ink),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title,
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w800, fontSize: 15)),
+                      const SizedBox(height: 3),
+                      Text(text,
+                          style: const TextStyle(
+                              fontSize: 13,
+                              height: 1.4,
+                              color: Brand.inkSecondary)),
+                    ]),
+              ),
+              const Icon(Icons.chevron_right, color: Brand.inkMuted),
+            ]),
+          ),
+        ),
+      );
+
+  /// "Add a tag", first step: who are you?
+  Widget _whoAreYou(Map<String, dynamic> v) {
+    final name = '${v['name']}';
+    return ListView(padding: const EdgeInsets.all(18), children: [
+      Text('Add a tag to $name',
+          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 20)),
+      const SizedBox(height: 6),
+      const Text('Tags tell nomads what a place has: plug sockets, a quiet '
+          'room, aircon and more. Which describes you?',
+          style: TextStyle(
+              color: Brand.inkSecondary, fontSize: 13.5, height: 1.45)),
+      const SizedBox(height: 18),
+      _door(
+          icon: Icons.storefront_outlined,
+          title: 'I run $name',
+          text: 'Claim your $_kind for free and add the tags yourself, '
+              'with your photos, hours and prices.',
+          onTap: () => _toClaim(v)),
+      const SizedBox(height: 10),
+      _door(
+          icon: Icons.laptop_mac_outlined,
+          title: 'I have worked from here',
+          text: 'Tell us what it has, so the page is right for the next '
+              'person. It takes a minute.',
+          onTap: () {
+            Analytics.capture('tag_visitor', {'venue': v['name']});
+            setState(() => _visitor = true);
+          }),
+    ]);
+  }
+
+  /// "Add a tag", second step for someone who has been there.
+  Widget _tagForm(Map<String, dynamic> v) {
+    return ListView(padding: const EdgeInsets.all(18), children: [
+      Align(
+        alignment: Alignment.centerLeft,
+        child: TextButton.icon(
+            onPressed: () => setState(() {
+                  _visitor = false;
+                  _error = null;
+                }),
+            icon: const Icon(Icons.arrow_back, size: 16),
+            label: const Text('Back')),
+      ),
+      Text('What does ${v['name']} have?',
+          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 20)),
+      const SizedBox(height: 4),
+      const Text('Pick everything you saw there.',
+          style: TextStyle(color: Brand.inkSecondary, fontSize: 13)),
+      const SizedBox(height: 14),
+      Wrap(spacing: 8, runSpacing: 8, children: [
+        for (final tag in _tagOptions)
+          _chip(tag, _tags.contains(tag), () {
+            setState(() =>
+                _tags.contains(tag) ? _tags.remove(tag) : _tags.add(tag));
+          }),
+      ]),
+      const SizedBox(height: 16),
+      TextField(
+          controller: _details,
+          minLines: 2,
+          maxLines: 6,
+          decoration: const InputDecoration(
+              labelText: 'Anything else? (optional)',
+              hintText: 'e.g. WiFi about 80 Mbps; quiet in the mornings; '
+                  'standing desks upstairs',
+              alignLabelWithHint: true)),
+      const SizedBox(height: 16),
+      const Text('When were you last there? (optional)',
+          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+      const SizedBox(height: 8),
+      Wrap(spacing: 8, runSpacing: 8, children: [
+        for (final (key, label) in _visits)
+          _chip(label, _lastVisit == key,
+              () => setState(() => _lastVisit = _lastVisit == key ? null : key)),
+      ]),
+      const SizedBox(height: 16),
+      TextField(
+          controller: _name,
+          textCapitalization: TextCapitalization.words,
+          decoration: const InputDecoration(labelText: 'Your name (optional)')),
+      const SizedBox(height: 12),
+      TextField(
+          controller: _email,
+          keyboardType: TextInputType.emailAddress,
+          decoration: const InputDecoration(
+              labelText: 'Your email (optional)',
+              helperText: 'Only if we have a question about what you sent.')),
+      Offstage(
+          offstage: true,
+          child: TextField(controller: _website, autofocus: false)),
+      if (_error != null)
+        Padding(
+          padding: const EdgeInsets.only(top: 12),
+          child: Text(_error!,
+              style: const TextStyle(color: Brand.red, fontSize: 13)),
+        ),
+      const SizedBox(height: 18),
+      FilledButton.icon(
+          onPressed: _sending ? null : _send,
+          style: FilledButton.styleFrom(
+              backgroundColor: Brand.ink,
+              padding: const EdgeInsets.symmetric(vertical: 16)),
+          icon: const Icon(Icons.send, size: 18),
+          label: Text(_sending ? 'Sending' : 'Send tags')),
+      const SizedBox(height: 10),
+      const Text('We check every tag before it goes on the page.',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: Brand.inkMuted, fontSize: 11.5)),
+      const SizedBox(height: 40),
+    ]);
+  }
 
   Widget _form(Map<String, dynamic> v) {
     final where = [v['neighbourhood'], v['city']]

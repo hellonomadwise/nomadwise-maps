@@ -61,6 +61,8 @@ class NomadwiseMapsApp extends StatelessWidget {
     //   ?owner           the Owner account (manage my listing)
     //   ?update=<slug>   Something need updating? (anyone; owners are
     //                    pointed to claiming)
+    //   ?tag=<slug>      Add a tag: asks who you are first; owners go
+    //                    to claiming, visitors say what the place has
     //   ?token_hash=..&type=..  the button in a sign-in email
     //   ?admin[=analytics|users]  the team's control centre (also
     //                    nomadmaps.io/admin); team accounts only
@@ -79,6 +81,10 @@ class NomadwiseMapsApp extends StatelessWidget {
       home = EnquiryScreen(slug: enquire);
     } else if (_has('update')) {
       home = UpdateScreen(slug: _param('update') ?? '');
+    } else if (_has('tag')) {
+      // "Add a tag" on a listing page: who are you first, then the
+      // owner claims, a visitor says what the place has.
+      home = UpdateScreen(slug: _param('tag') ?? '', tags: true);
     } else if (_has('claimed')) {
       home = const ClaimedScreen();
     } else if (_has('claim') || _path.startsWith('/claim')) {

@@ -30,6 +30,8 @@ class _ListingUpdatesScreenState extends State<ListingUpdatesScreen> {
     'photos': 'Photos',
     'address': 'Name or address',
     'other': 'Something else',
+    // From "Add a tag" on a listing page (nomadmaps.io/?tag=<slug>).
+    'tags': 'Tags to add',
   };
   static const _visitLabels = {
     'today': 'today',
@@ -85,8 +87,8 @@ class _ListingUpdatesScreenState extends State<ListingUpdatesScreen> {
                   padding: EdgeInsets.all(24),
                   child: Text(
                       'Nothing waiting. When someone uses "Something need '
-                      'updating?" on a page, it lands here and pings your '
-                      'phone.',
+                      'updating?" or "Add a tag" on a page, it lands here '
+                      'and pings your phone.',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: Brand.inkMuted, height: 1.5)),
                 ))
