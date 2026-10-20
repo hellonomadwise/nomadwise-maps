@@ -38,6 +38,7 @@ import 'listing_updates_screen.dart';
 import 'nearby_spaces_screen.dart';
 import 'owner_insights_screen.dart';
 import 'owner_screen.dart';
+import 'region_help_screen.dart';
 import 'space_trail_screen.dart';
 import 'venue_detail.dart';
 
@@ -739,22 +740,90 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         shape: const RoundedRectangleBorder(
             borderRadius: BorderRadius.vertical(top: Radius.circular(18))),
         builder: (_) => _RegionPicker(
-            regions: ordered,
+            regions: [
+              {'id': 'new', 'name': 'Needs a new Region (not on the site yet)',
+                'country': null},
+              ...ordered,
+            ],
             forName: v['name'],
             onRefresh: _refreshFromWebflow,
             subtitle: firstCount > 0
                 ? 'Regions are the city pages on nomadwise.io. The '
                     '${_countryOf(v)} ones are at the top.'
                 : null));
-    if (picked == null) return;
+    if (picked == null || !mounted) return;
+    if (picked['id'] == 'new') {
+      await _requestNewRegion(v);
+      return;
+    }
+    await _useRegion(v, '${picked['id']}', '${picked['name']}');
+  }
+
+  /// An existing Region for a space, kept as the founder's choice.
+  Future<void> _useRegion(Map<String, dynamic> v, String id, String name) =>
+      _update(
+          v,
+          {
+            'website_region_override': id,
+            'website_new_region': null,
+            // Cleared so the card moves back to Queued with the new Region.
+            'website_prepared': null,
+          },
+          '$name chosen. The proposal is prepared in a few minutes.');
+
+  /// A Region not on the site yet: the same creator as on the Edit
+  /// page, filled in from the space (city, Country, state for US and
+  /// India addresses) or from Claude's answer. The sync makes the
+  /// Region and links this space to it by name within a few minutes.
+  Future<void> _requestNewRegion(Map<String, dynamic> v,
+      {String? name, String? state}) async {
+    final made = await Navigator.push<String>(
+        context,
+        MaterialPageRoute(
+            builder: (_) => _NewRegionPage(
+                supabase: _supabase,
+                countries: _countries,
+                regions: _regions,
+                initialName: (name ?? '').trim().isNotEmpty
+                    ? name!.trim()
+                    : '${v['city'] ?? ''}'.trim(),
+                initialCountry: _countryOf(v),
+                state: (state ?? '').trim().isNotEmpty
+                    ? state!.trim()
+                    : _adminArea(v),
+                lat: (v['lat'] as num?)?.toDouble(),
+                lng: (v['lng'] as num?)?.toDouble(),
+                venueId: v['id'] as String?)));
+    if (made == null || !mounted) return;
     await _update(
         v,
         {
-          'website_region_override': picked['id'],
-          // Cleared so the card moves back to Queued with the new Region.
+          'website_new_region': made,
+          'website_region_override': null,
+          'website_location_override': null,
+          'website_new_location': null,
           'website_prepared': null,
         },
-        '${picked['name']} chosen. The proposal is prepared in a few minutes.');
+        '$made is being created on nomadwise.io. ${v['name']} is linked '
+            'to it as soon as it exists.');
+  }
+
+  /// Which Region a space belongs to: the nearest Regions, a first
+  /// verdict and Ask Claude (migration 189), like the Location on the
+  /// map of the spaces nearby. The full list is one tap away.
+  Future<void> _openRegionHelp(Map<String, dynamic> v) async {
+    final choice = await Navigator.of(context).push<RegionChoice>(
+        MaterialPageRoute(
+            builder: (_) => RegionHelpScreen(
+                venueId: '${v['id']}', venueName: '${v['name'] ?? ''}')));
+    if (choice == null || !mounted) return;
+    if (choice.id == 'other') {
+      await _pickRegion(v);
+    } else if (choice.id == 'new') {
+      await _requestNewRegion(v, name: choice.name, state: choice.state);
+    } else {
+      await _useRegion(v, choice.id, choice.name ?? 'That Region');
+    }
   }
 
   /// The full space page (photos, WiFi tests, facts, hours, who
@@ -6433,7 +6502,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
           newRegion != null && newRegion.isNotEmpty
               ? Brand.goldTextDark
               : (region == null ? Brand.red : Brand.ink),
-          onTap: () => _pickRegion(v)),
+          onTap: () => _openRegionHelp(v)),
       cell('LOCATION', locText, locColor,
           onTap: region == null ? null : () => _pickLocation(v)),
       // The listed places around it, coloured by Location (migration
@@ -8439,6 +8508,9 @@ class _RegionPickerState extends State<_RegionPicker> {
         ? widget.regions
         : widget.regions
             .where((r) =>
+                // "Needs a new one" stays while searching: a city not
+                // on the site is exactly when it is needed.
+                r['id'] == 'new' ||
                 '${r['name']} ${r['country']}'.toLowerCase().contains(q))
             .toList();
     return SafeArea(
@@ -8792,6 +8864,79 @@ class _SitemapTabState extends State<_SitemapTab> {
 
 // ------------------------------------------------- Region and Location creators
 
+/// Google's state or province for a space (administrative_area_level_1),
+/// from the cached address parts: "Florida".
+String? _adminArea(Map<String, dynamic> row) {
+  final comps = row['address_components'];
+  if (comps is! List) return null;
+  for (final c in comps) {
+    if (c is Map &&
+        (c['types'] as List?)?.contains('administrative_area_level_1') ==
+            true) {
+      final n = c['longText'] ?? c['shortText'];
+      if (n != null && '$n'.trim().isNotEmpty) return '$n'.trim();
+    }
+  }
+  return null;
+}
+
+/// US states and their two-letter codes, so a US city page is named
+/// the site's way ("Duluth, MN") and "FL" can be typed for Florida.
+const Map<String, String> _usStates = {
+  'Alabama': 'AL',
+  'Alaska': 'AK',
+  'Arizona': 'AZ',
+  'Arkansas': 'AR',
+  'California': 'CA',
+  'Colorado': 'CO',
+  'Connecticut': 'CT',
+  'Delaware': 'DE',
+  'District of Columbia': 'DC',
+  'Florida': 'FL',
+  'Georgia': 'GA',
+  'Hawaii': 'HI',
+  'Idaho': 'ID',
+  'Illinois': 'IL',
+  'Indiana': 'IN',
+  'Iowa': 'IA',
+  'Kansas': 'KS',
+  'Kentucky': 'KY',
+  'Louisiana': 'LA',
+  'Maine': 'ME',
+  'Maryland': 'MD',
+  'Massachusetts': 'MA',
+  'Michigan': 'MI',
+  'Minnesota': 'MN',
+  'Mississippi': 'MS',
+  'Missouri': 'MO',
+  'Montana': 'MT',
+  'Nebraska': 'NE',
+  'Nevada': 'NV',
+  'New Hampshire': 'NH',
+  'New Jersey': 'NJ',
+  'New Mexico': 'NM',
+  'New York': 'NY',
+  'North Carolina': 'NC',
+  'North Dakota': 'ND',
+  'Ohio': 'OH',
+  'Oklahoma': 'OK',
+  'Oregon': 'OR',
+  'Pennsylvania': 'PA',
+  'Rhode Island': 'RI',
+  'South Carolina': 'SC',
+  'South Dakota': 'SD',
+  'Tennessee': 'TN',
+  'Texas': 'TX',
+  'Utah': 'UT',
+  'Vermont': 'VT',
+  'Virginia': 'VA',
+  'Washington': 'WA',
+  'West Virginia': 'WV',
+  'Wisconsin': 'WI',
+  'Wyoming': 'WY',
+  'Puerto Rico': 'PR',
+};
+
 /// A new city page on nomadwise.io. The sync builds it the way the
 /// existing ones are (name, label, slug, category label, H2, map
 /// centre, Country link), publishes it and puts it in the pickers.
@@ -8953,6 +9098,12 @@ class _NewRegionPageState extends State<_NewRegionPage> {
           .where((c) => '${c['name']}'.toLowerCase() == want)
           .firstOrNull;
     }
+    // A US city page is named the site's way, "Duluth, MN".
+    final abbr = _usStates[(widget.state ?? '').trim()];
+    final n = _name.text.trim();
+    if (_isUs && abbr != null && n.isNotEmpty && !n.contains(',')) {
+      _name.text = '$n, $abbr';
+    }
     _slugCtl.text = _slugSuggestion;
     _scheduleLookup();
   }
@@ -8960,6 +9111,7 @@ class _NewRegionPageState extends State<_NewRegionPage> {
   @override
   void dispose() {
     _lookupTimer?.cancel();
+    _stateCtl.dispose();
     super.dispose();
   }
 
@@ -9021,13 +9173,38 @@ class _NewRegionPageState extends State<_NewRegionPage> {
   String get _slugSuggestion {
     if (_isCountry) return _slug(_name.text);
     final c = _country == null ? '' : _slug('${_country!['name']}');
-    final n = _slug(_name.text);
-    final st = _slug(widget.state ?? '');
-    final layered = c == 'united-states' || c == 'india';
-    return [c, if (layered && st.isNotEmpty) st, n]
+    // "Daytona Beach, FL": the city part only, the state is its own
+    // piece of the address.
+    final n = _slug(_layered ? _name.text.split(',').first : _name.text);
+    final st = _slug(_stateFull(_stateCtl.text));
+    return [c, if (_layered && st.isNotEmpty) st, n]
         .where((x) => x.isNotEmpty)
         .join('-');
   }
+
+  /// Countries whose city pages carry the state in the address
+  /// (united-states-florida-orlando).
+  bool get _layered {
+    final c = _country == null ? '' : _slug('${_country!['name']}');
+    return c == 'united-states' || c == 'india';
+  }
+
+  bool get _isUs =>
+      _country != null && _slug('${_country!['name']}') == 'united-states';
+
+  /// The state as it goes in the address: "FL" becomes "Florida".
+  static String _stateFull(String s) {
+    final t = s.trim();
+    if (t.length == 2) {
+      final up = t.toUpperCase();
+      for (final e in _usStates.entries) {
+        if (e.value == up) return e.key;
+      }
+    }
+    return t;
+  }
+
+  late final _stateCtl = TextEditingController(text: widget.state ?? '');
 
   /// Existing Regions in the same country, as examples of the pattern.
   List<String> get _siblings {
@@ -9094,6 +9271,12 @@ class _NewRegionPageState extends State<_NewRegionPage> {
     if (_slugPreview.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text('The slug cannot be empty.')));
+      return;
+    }
+    if (_isUs && _stateCtl.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Add the state: it is part of the page address '
+              'for a US city.')));
       return;
     }
     if ((_isCountry ? widget.countries : widget.regions)
@@ -9170,7 +9353,11 @@ class _NewRegionPageState extends State<_NewRegionPage> {
                     labelText: _isCountry
                         ? 'Country name as shown on the site'
                         : 'City name as shown on the site',
-                    hintText: _isCountry ? 'e.g. Sri Lanka' : 'e.g. Porto')),
+                    hintText: _isCountry
+                        ? 'e.g. Sri Lanka'
+                        : _isUs
+                            ? 'e.g. Daytona Beach, FL'
+                            : 'e.g. Porto')),
             if (dup != null)
               Padding(
                 padding: const EdgeInsets.only(top: 6),
@@ -9192,6 +9379,36 @@ class _NewRegionPageState extends State<_NewRegionPage> {
                 ),
               ),
               const SizedBox(height: 12),
+              if (_layered) ...[
+                TextField(
+                    controller: _stateCtl,
+                    onChanged: (_) => _refreshSlug(),
+                    textCapitalization: TextCapitalization.words,
+                    decoration: InputDecoration(
+                        labelText: 'State',
+                        hintText: _isUs ? 'e.g. Florida or FL' : 'e.g. Goa',
+                        helperText: 'Goes in the page address only, '
+                            'not a page of its own.')),
+                const SizedBox(height: 12),
+              ],
+              if (_isUs)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                      color: Brand.field,
+                      borderRadius: BorderRadius.circular(10)),
+                  child: const Text(
+                      'In the United States a Region is one city or metro '
+                      'area, written City, ST: Duluth, MN. The state is not '
+                      'a Region; it goes in the page address '
+                      '(united-states-minnesota-duluth). Neighbourhoods '
+                      'inside the city are Locations, like Lincoln Park in '
+                      'Duluth, and are optional. A suburb goes under its '
+                      "big city's Region.",
+                      style: TextStyle(
+                          fontSize: 12, height: 1.45, color: Brand.inkSecondary)),
+                ),
             ],
             Row(children: [
               Expanded(
@@ -9320,6 +9537,8 @@ class _NewRegionPageState extends State<_NewRegionPage> {
                     prefixText: _isCountry ? '/country/' : '/region/',
                     helperText: _isCountry
                         ? 'Site convention: the country name'
+                        : _layered
+                        ? 'Site convention: country-state-city'
                         : 'Site convention: country-city'
                         '${_siblings.isEmpty ? '' : ', like ${_siblings.join(', ')}'}',
                     helperMaxLines: 3,

@@ -2112,6 +2112,7 @@ class SupabaseService {
 
   static const _websiteCols =
       'id, name, type, city, neighbourhood, country, google_place_id, status, '
+      'lat, lng, '
       'website_status, webflow_slug, webflow_cms_id, website_synced_at, '
       'website_prepared, website_prepared_at, website_approved_at, '
       'website_dismissed_at, website_dismiss_reason, website_dismiss_note, '
@@ -2648,6 +2649,43 @@ class SupabaseService {
         'p_kind': kind,
         'p_name': name,
         'p_location_id': locationId,
+        'p_reason': reason,
+      });
+
+  /// What is known about where a space is (Google's city, county,
+  /// state and country), the nearest Regions on the site with their
+  /// distance, and a first verdict (migration 189).
+  Future<Map<String, dynamic>> regionHelp(String venueId) async {
+    final r = await _db.rpc('admin_region_help', params: {'p_venue': venueId});
+    return Map<String, dynamic>.from(r as Map);
+  }
+
+  /// Asks Claude which Region a space belongs to (migration 189).
+  /// Returns the question's number; the answer is read with
+  /// [regionAnswer].
+  Future<int> regionAsk(String venueId) async {
+    final r = await _db.rpc('admin_region_ask', params: {'p_venue': venueId});
+    return (r as num).toInt();
+  }
+
+  /// {status: 'waiting'}, {status: 'done', options, note} or
+  /// {status: 'error', error}.
+  Future<Map<String, dynamic>> regionAnswer(int askId) async {
+    final r = await _db.rpc('admin_region_answer', params: {'p_ask': askId});
+    return Map<String, dynamic>.from(r as Map);
+  }
+
+  /// The Region the founder chose after asking, and why.
+  Future<void> regionAskChosen(int askId,
+          {required String kind,
+          String? name,
+          String? regionId,
+          String? reason}) =>
+      _db.rpc('admin_region_ask_chosen', params: {
+        'p_ask': askId,
+        'p_kind': kind,
+        'p_name': name,
+        'p_region_id': regionId,
         'p_reason': reason,
       });
 

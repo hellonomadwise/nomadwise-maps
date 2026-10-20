@@ -4394,3 +4394,36 @@ review". They asked to be listed, so they come first.
   They are added once in the Supabase SQL editor from a file kept
   outside GitHub: 14 spaces, the 10 good fits first, then the 4 marked
   "Unclear: Leonie to decide".
+
+## 20 Oct 2026: US city pages, and a new Region from the card
+
+Jonathan, adding two Florida spaces (Daytona Beach, Ocala): in the US
+a Region cannot be a state, because there are cities and then
+Locations inside them. The site already answers this: a US Region is
+one city or metro area, named "City, ST" (Duluth, MN), with the state
+only in the page address (united-states-minnesota-duluth). The 11 US
+Regions on the site all follow the country-state-city address; the
+newest also uses the "City, ST" name. Neighbourhoods are Locations
+(Lincoln Park in Duluth) and stay optional.
+
+- The New Region form, for the United States: the name is filled in
+  as "City, ST" from Google's address, a State box (also for India)
+  feeds the address and accepts "FL" or "Florida", a short note
+  explains the rule, and a US Region cannot be made without a state.
+- The Region picker on a New spaces card now starts with "Needs a new
+  Region (not on the site yet)", the same as on the Edit page, and
+  it stays visible while searching. It opens the form filled in from
+  the space; the sync makes the Region and links the space to it.
+- Jonathan, same day: "can you set it similar to how to choose a
+  location, in terms of ask claude etc". Tapping Region on a New
+  spaces card now opens "Which Region?" (migration 189), built like
+  the Location map: Google's address for the space, the nearest
+  Regions on the site with their distance (tap one to use it), a first
+  verdict (the nearest Region when within 25 km, else "probably a new
+  Region"), and Ask Claude. Claude gets the address, the nearest
+  Regions, how Regions in that country are named, and Jonathan's
+  earlier Region choices with his reasons, and offers up to three
+  options: an existing Region or a new one named the site's way
+  ("Daytona Beach, FL", with its state). A new one opens the New
+  Region form already filled in. "Full list" opens the old picker.
+  Same Claude key and model as the Location question; 50 a day.
