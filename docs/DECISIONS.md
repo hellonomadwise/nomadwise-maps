@@ -4427,3 +4427,11 @@ newest also uses the "City, ST" name. Neighbourhoods are Locations
   ("Daytona Beach, FL", with its state). A new one opens the New
   Region form already filled in. "Full list" opens the old picker.
   Same Claude key and model as the Location question; 50 a day.
+
+## 20 Oct 2026: Outreach number boxes the same size
+
+Jonathan: "this could be styled better. the boxes are different
+heights" (Outreach, New pages: Live, Have an address, Written to,
+Opened the claim page, Claimed, In their Owner account). Every box is
+now the same height and the six share the row evenly (three a row on
+a phone), labels up to two lines.

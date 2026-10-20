@@ -2239,8 +2239,12 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
       ('In their Owner account', count((p) => p['been_in'] == true)),
     ];
 
-    Widget stat((String, int) x) => Container(
-          width: 118,
+    // Every box the same size, filling the row: six across on a wide
+    // screen, three on a phone (Jonathan, 20 Oct 2026: "the boxes are
+    // different heights").
+    Widget stat((String, int) x, double width) => Container(
+          width: width,
+          height: 72,
           padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
           decoration: BoxDecoration(
               color: Brand.field, borderRadius: BorderRadius.circular(8)),
@@ -2251,6 +2255,8 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
                     fontWeight: FontWeight.w800,
                     color: x.$2 > 0 ? Brand.ink : Brand.inkMuted)),
             Text(x.$1,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                     fontSize: 11.5, height: 1.3, color: Brand.inkSecondary)),
           ]),
@@ -2499,9 +2505,14 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(8, 0, 8, 10),
-          child: Wrap(spacing: 6, runSpacing: 6, children: [
-            for (final x in steps) stat(x),
-          ]),
+          child: LayoutBuilder(builder: (context, box) {
+            const gap = 6.0;
+            final cols = box.maxWidth >= 660 ? steps.length : 3;
+            final w = (box.maxWidth - gap * (cols - 1)) / cols;
+            return Wrap(spacing: gap, runSpacing: gap, children: [
+              for (final x in steps) stat(x, w.floorToDouble()),
+            ]);
+          }),
         ),
         if (all.isEmpty)
           const Padding(
