@@ -4511,3 +4511,7 @@ allowance).
   (site_chat_email_sync, every two minutes), logged in the Email log
   as kind site_chat.
 - Every message is kept (site_chats, site_chat_messages).
+- Same day, first real chat (Koh Lanta, answered by the assistant,
+  phone told): on a phone the chosen Chats tabs (Website, Open) were
+  dark text on a dark chip. Their colours are now set: white on dark
+  when chosen, dark on white otherwise, no tick.

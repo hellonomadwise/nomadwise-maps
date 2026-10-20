@@ -429,8 +429,14 @@ class _SiteChatsPaneState extends State<SiteChatsPane> {
         padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
         child: Wrap(spacing: 6, children: [
           ChoiceChip(
-              label: const Text('Open'),
+              label: Text('Open',
+                  style: TextStyle(
+                      fontWeight: !_done ? FontWeight.w700 : FontWeight.w500,
+                      color: !_done ? Colors.white : Brand.ink)),
               selected: !_done,
+              showCheckmark: false,
+              selectedColor: Brand.ink,
+              backgroundColor: Brand.surface,
               onSelected: (_) {
                 if (!_done) return;
                 setState(() {
@@ -441,8 +447,14 @@ class _SiteChatsPaneState extends State<SiteChatsPane> {
                 _load();
               }),
           ChoiceChip(
-              label: const Text('Done'),
+              label: Text('Done',
+                  style: TextStyle(
+                      fontWeight: _done ? FontWeight.w700 : FontWeight.w500,
+                      color: _done ? Colors.white : Brand.ink)),
               selected: _done,
+              showCheckmark: false,
+              selectedColor: Brand.ink,
+              backgroundColor: Brand.surface,
               onSelected: (_) {
                 if (_done) return;
                 setState(() {

@@ -62,20 +62,28 @@ class _AdminChatsScreenState extends State<AdminChatsScreen> {
     });
   }
 
+  // Colours set here: left to the theme, the chosen chip was dark text
+  // on a dark chip and could not be read (seen on a phone, 20 Oct).
+  static Widget _chip(String text, bool on, VoidCallback tap) => ChoiceChip(
+      label: Text(text,
+          style: TextStyle(
+              fontSize: 13.5,
+              fontWeight: on ? FontWeight.w700 : FontWeight.w500,
+              color: on ? Colors.white : Brand.ink)),
+      selected: on,
+      showCheckmark: false,
+      selectedColor: Brand.ink,
+      backgroundColor: Brand.surface,
+      onSelected: (_) => tap());
+
   Widget _tabs() => Padding(
         padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
         child: Row(children: [
-          ChoiceChip(
-              label: const Text('Owners'),
-              selected: _tab == 'owners',
-              onSelected: (_) => setState(() => _tab = 'owners')),
+          _chip('Owners', _tab == 'owners',
+              () => setState(() => _tab = 'owners')),
           const SizedBox(width: 8),
-          ChoiceChip(
-              label: Text(_siteWaiting > 0
-                  ? 'Website ($_siteWaiting)'
-                  : 'Website'),
-              selected: _tab == 'site',
-              onSelected: (_) => setState(() => _tab = 'site')),
+          _chip(_siteWaiting > 0 ? 'Website ($_siteWaiting)' : 'Website',
+              _tab == 'site', () => setState(() => _tab = 'site')),
         ]),
       );
 
