@@ -34,10 +34,31 @@ import urllib.request
 MIN_SPACES = 300
 
 
+def fill_chat_box(web_dir, url, key):
+    """The chat box on nomadwise.io (web/chat.js, migration 190) needs
+    the database's public address and public key, the same two the app
+    is built with. They are written into the built file here, so they
+    live in GitHub's secrets only. Without them the box stays hidden."""
+    path = os.path.join(web_dir, 'chat.js')
+    try:
+        if not url or not key or not os.path.exists(path):
+            return
+        with open(path, encoding='utf-8') as f:
+            text = f.read()
+        text = (text.replace('__NW_SUPABASE_URL__', url)
+                    .replace('__NW_SUPABASE_KEY__', key))
+        with open(path, 'w', encoding='utf-8') as f:
+            f.write(text)
+        print('chat box: filled in')
+    except OSError as e:
+        print(f'chat box not filled in: {e}')
+
+
 def main():
     out = sys.argv[1] if len(sys.argv) > 1 else 'app/build/web/data/map.json'
     url = os.environ.get('SUPABASE_URL', '').rstrip('/')
     key = os.environ.get('SUPABASE_ANON_KEY', '')
+    fill_chat_box(os.path.dirname(os.path.dirname(out)), url, key)
     report = {'at': datetime.datetime.now(datetime.timezone.utc).isoformat(),
               'written': False}
     try:

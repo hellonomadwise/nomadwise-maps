@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../services/supabase_service.dart';
 import '../theme.dart';
 import '../widgets/chat_thread.dart';
+import '../widgets/site_chats_pane.dart';
 
 /// The founders' side of the chat with owners (migration 161): every
 /// space that has an owner, the chats waiting for an answer first.
@@ -34,6 +35,21 @@ class _AdminChatsScreenState extends State<AdminChatsScreen> {
   String? _error;
   String? _open; // the space whose chat is beside the list (wide)
 
+  // Owners (migration 161) or Website (the chat box on nomadwise.io,
+  // migration 190). A phone notice about a website chat opens
+  // /chats/#site, which lands on the Website tab.
+  String _tab = _startTab();
+  int _siteWaiting = 0;
+
+  static String _startTab() {
+    try {
+      // nomadmaps.io/chats/#site forwards to /?admin=chats&tab=site
+      return Uri.base.queryParameters['tab'] == 'site' ? 'site' : 'owners';
+    } catch (_) {
+      return 'owners';
+    }
+  }
+
   static const double _wideFrom = 860;
 
   @override
@@ -41,7 +57,27 @@ class _AdminChatsScreenState extends State<AdminChatsScreen> {
     super.initState();
     _load();
     _timer = Timer.periodic(const Duration(seconds: 15), (_) => _load());
+    _supabase.adminSiteChatsWaiting().then((n) {
+      if (mounted) setState(() => _siteWaiting = n);
+    });
   }
+
+  Widget _tabs() => Padding(
+        padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+        child: Row(children: [
+          ChoiceChip(
+              label: const Text('Owners'),
+              selected: _tab == 'owners',
+              onSelected: (_) => setState(() => _tab = 'owners')),
+          const SizedBox(width: 8),
+          ChoiceChip(
+              label: Text(_siteWaiting > 0
+                  ? 'Website ($_siteWaiting)'
+                  : 'Website'),
+              selected: _tab == 'site',
+              onSelected: (_) => setState(() => _tab = 'site')),
+        ]),
+      );
 
   @override
   void dispose() {
@@ -56,6 +92,10 @@ class _AdminChatsScreenState extends State<AdminChatsScreen> {
     try {
       final rows = await _supabase.adminChats();
       if (!mounted) return;
+      // the Website tab's number, also while the Owners tab is open
+      _supabase.adminSiteChatsWaiting().then((n) {
+        if (mounted && n != _siteWaiting) setState(() => _siteWaiting = n);
+      });
       setState(() {
         _chats = rows;
         _loading = false;
@@ -345,7 +385,17 @@ class _AdminChatsScreenState extends State<AdminChatsScreen> {
           ],
         ),
         body: SafeArea(
-          child: !wide
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            _tabs(),
+            Expanded(
+          child: _tab == 'site'
+              ? SiteChatsPane(
+                  onCount: (n) {
+                    if (mounted && n != _siteWaiting) {
+                      setState(() => _siteWaiting = n);
+                    }
+                  })
+              : !wide
               ? _list(false)
               : Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                   SizedBox(width: 360, child: _list(true)),
@@ -368,6 +418,8 @@ class _AdminChatsScreenState extends State<AdminChatsScreen> {
                           ),
                   ),
                 ]),
+            ),
+          ]),
         ),
       );
     });

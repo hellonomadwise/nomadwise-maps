@@ -22,7 +22,10 @@
   if (adding) {
     try { history.replaceState(null, '', '/chats/'); } catch (e) {}
   } else {
-    location.replace('/?admin=chats' + location.hash);
+    // #site (the phone notice about a website chat, migration 190)
+    // opens the Website tab; the app keeps a query, not a #.
+    location.replace('/?admin=chats' +
+        (location.hash === '#site' ? '&tab=site' : location.hash));
   }
 </script>
 <style>

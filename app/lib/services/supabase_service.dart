@@ -1647,13 +1647,69 @@ class SupabaseService {
 
   /// The number beside "Chats": messages from owners nobody has opened.
   Future<int> adminChatsUnread() async {
+    var n = 0;
     try {
       final r = await _db.rpc('admin_chats_unread');
+      n += (r as num?)?.toInt() ?? 0;
+    } catch (_) {}
+    // Plus the website chats waiting for a founder (migration 190).
+    n += await adminSiteChatsWaiting();
+    return n;
+  }
+
+  // ------------------------------------------- website chats (190)
+
+  /// The chats from the chat box on nomadwise.io: open ones (the
+  /// ones waiting for a founder first), or the done ones.
+  Future<List<Map<String, dynamic>>> adminSiteChats({bool done = false}) async {
+    final r = await _db.rpc('admin_site_chats', params: {'p_done': done});
+    return (r as List? ?? const [])
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
+  }
+
+  /// How many website chats are waiting for a founder.
+  Future<int> adminSiteChatsWaiting() async {
+    try {
+      final r = await _db.rpc('admin_site_chats_waiting');
       return (r as num?)?.toInt() ?? 0;
     } catch (_) {
       return 0;
     }
   }
+
+  /// One website chat: {chat, messages}. Opening it marks it seen.
+  Future<Map<String, dynamic>> adminSiteChat(String id) async {
+    final r = await _db.rpc('admin_site_chat', params: {'p_id': id});
+    return Map<String, dynamic>.from(r as Map);
+  }
+
+  /// A founder writes in a website chat (and so takes it over).
+  Future<Map<String, dynamic>> adminSiteChatSend(String id, String body) async {
+    final r = await _db
+        .rpc('admin_site_chat_send', params: {'p_id': id, 'p_body': body});
+    return Map<String, dynamic>.from(r as Map);
+  }
+
+  /// Take over or hand back ('team' / 'bot'), done or reopen
+  /// ('done' / 'open'), or set their email or name by hand.
+  Future<Map<String, dynamic>> adminSiteChatSet(String id,
+      {String? mode, String? status, String? email, String? name}) async {
+    final r = await _db.rpc('admin_site_chat_set', params: {
+      'p_id': id,
+      'p_mode': mode,
+      'p_status': status,
+      'p_email': email,
+      'p_name': name,
+    });
+    return Map<String, dynamic>.from(r as Map);
+  }
+
+  /// The messages of a website chat in the shape ChatThread shows.
+  static List<Map<String, dynamic>> siteChatRowsOf(Map<String, dynamic> chat) =>
+      ((chat['messages'] as List?) ?? const [])
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
 
   static List<Map<String, dynamic>> chatRowsOf(Map<String, dynamic> chat) =>
       _chatRows(chat);

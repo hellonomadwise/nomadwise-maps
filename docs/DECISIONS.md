@@ -4461,3 +4461,53 @@ through".
   link on the listing template points to https://nomadmaps.io/?tag,
   and the site footer script adds the page's slug to it, as it does
   for ?claim and ?update.
+
+## 20 Oct 2026: our own chat on nomadwise.io (migration 190)
+
+tawk.to came off nomadwise.io (it had collected enquiries since March
+that nobody saw). Jonathan: a chat box powered by Claude in the
+Nomadwise voice; it guides owners through claiming towards Verified
+and answers visitors about spaces and the site; a phone alert when a
+chat starts; a Chats inbox in Nomad Maps in the tick-off style, where
+he can take over and reply live, or by email if they left; every
+conversation kept. Keep it light (the database is over its free data
+allowance).
+
+- The box: nomadmaps.io/chat.js (app/web/chat.js), added to every
+  nomadwise.io page by one small Webflow site script. The build fills
+  in the database's public address and key (scripts/export_map.py, from
+  the same GitHub secrets the app uses). Nothing is asked of the
+  database until someone writes; then it looks every 2 seconds while
+  an answer is coming, every 10 seconds while the box is open, and
+  stops when it is closed or after 15 quiet minutes.
+- The assistant: Claude through pg_net (the key and model in Vault,
+  as for Ask Claude), told what the page is about from our own data
+  (the space, or the spaces of that Region or Location with WiFi,
+  facts, hours and page links; any Region the visitor names). It says
+  it is an assistant if asked and never claims to be a person or names
+  the model. Owners are pointed to claiming (the exact claim link on a
+  listing page), the Owner account and Verified (no price quoted).
+  When a person is needed it says Jonathan will pick it up and asks for
+  an email; the chat goes to the top of the inbox and the phone is
+  told.
+- Limits (tightened the same day: "can you put tighter restrictions
+  in place if someone hammers it"): the assistant answers at most 60
+  times a day and 1,000 a month in all, 12 times in one chat, 20 times
+  a day for one connection, 400 tokens an answer; one connection may
+  send 15 messages an hour, 40 a day, start 3 chats a day, one message
+  every 3 seconds, and the same words twice in a row count once; 20
+  new chats an hour and 80 a day in all; 800 characters a message;
+  blocked networks refused. Past an assistant limit a kind holding
+  message asks for their email (no cost), and the first time a day an
+  overall limit is reached the phones are told. Worst case about $1 a
+  day and $15 a month.
+- The inbox: Chats, Website tab (the phone notice opens it). Waiting
+  for you first (the assistant asked for a person, or they wrote after
+  you took over), then the ones the assistant has; a tick on each row
+  marks it done, Done list to reopen. In a chat: Take over / Let the
+  assistant answer, Add their email, Their page, Mark done. Writing
+  takes it over. They see your reply live if on the site; if they left
+  and gave an email, it is emailed a minute after your last message
+  (site_chat_email_sync, every two minutes), logged in the Email log
+  as kind site_chat.
+- Every message is kept (site_chats, site_chat_messages).
