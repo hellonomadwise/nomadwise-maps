@@ -4658,3 +4658,27 @@ gain a verified subscription". Built:
    (admin_venue_customers), the strongest opening for a hello, and the
    evidence for Verified now and a booking share later (a decision for
    Jonathan and Leonie once bookings are on record).
+
+## 22 Oct 2026: enquiry emails polished, previewed and editable (migration 194)
+
+Jonathan, before passing Ellie's enquiries on: "make sure you get this
+wording absolutely professional", "I need to see if they are styled or
+not ... what a preview will look like", "the ability to update / edit
+any of the details".
+
+- New words for the email to the space ("New enquiry for <space> from
+  Nomadwise": the customer's details laid out, their message, "To
+  reply, simply answer this email", and a short "About your listing":
+  claim it at no cost / Verified / add an enquiry address) and to the
+  customer ("Your enquiry has been sent to ...", replies come straight
+  to them, help if they do not hear back).
+- Pass on (one space or all) now opens "Check before sending": every
+  email shown exactly as it will arrive (the same styled template, in a
+  frame), each with Edit for the address, subject and words. Nothing is
+  sent until Send. Edited words are sent as written; untouched ones use
+  the drafts. If a space fails and the customer's list was edited, the
+  customer's email waits for a founder (the list would be wrong).
+- One place builds each email (enquiry_space_email,
+  enquiry_nomad_email); admin_enquiry_drafts and admin_email_preview
+  serve the screen; admin_enquiry_pass_on and admin_enquiries_tell_nomad
+  take the edited subject and words.

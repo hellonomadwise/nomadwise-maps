@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../services/supabase_service.dart';
 import '../theme.dart';
+import 'enquiry_review.dart';
 
 /// One enquiry waiting to be passed on to a space (migration 113): a
 /// nomad used Send an enquiry on a page that has no owner yet, or whose
@@ -179,22 +180,35 @@ class PassOnCard extends StatelessWidget {
                 onPressed: ctl.text.contains('@')
                     ? () => Navigator.pop(ctx, true)
                     : null,
-                icon: const Icon(Icons.send_rounded, size: 16),
-                label: const Text('Pass on')),
+                icon: const Icon(Icons.visibility_outlined, size: 16),
+                label: const Text('Check the emails')),
           ],
         ),
       ),
     );
     final to = ctl.text.trim();
     if (ok != true || !context.mounted) return;
-    try {
-      await supabase.passOnEnquiry('${e['id']}', to, tellNomad: tell);
-      if (!context.mounted) return;
-      _snack(context, 'Passed on to $to${tell ? ', and $_first has been told' : ''}.');
-      await onDone();
-    } catch (err) {
-      if (context.mounted) _snack(context, 'That did not send: $err', bad: true);
-    }
+    // Every email shown as it will arrive, editable, before anything
+    // is sent (migration 194).
+    final r = await Navigator.of(context).push<EnquiryReviewResult>(
+        MaterialPageRoute(
+            builder: (_) => EnquiryReviewScreen(
+                supabase: supabase,
+                targets: [
+                  EnquiryTarget('${e['id']}', '${e['venue_name'] ?? 'the space'}', to)
+                ],
+                tellCustomer: tell,
+                customerName: '${e['name'] ?? ''}')));
+    if (r == null || !context.mounted) return;
+    _snack(
+        context,
+        r.passed == 0
+            ? 'That did not send. Please try again.'
+            : 'Passed on to ${e['venue_name'] ?? 'the space'}'
+                '${r.customerTold ? ', and $_first has been told' : ''}'
+                '${r.customerSkipped ? '. The email to $_first did not go: write to them by hand' : ''}.',
+        bad: r.passed == 0 || r.customerSkipped);
+    await onDone();
   }
 
   Future<void> _close(BuildContext context, String reason) async {
@@ -563,50 +577,44 @@ class PassOnGroupCard extends StatelessWidget {
                 child: const Text('Cancel')),
             FilledButton.icon(
                 onPressed: n > 0 ? () => Navigator.pop(ctx, true) : null,
-                icon: const Icon(Icons.send_rounded, size: 16),
-                label: Text(n == 1 ? 'Pass on to 1 space' : 'Pass on to $n spaces')),
+                icon: const Icon(Icons.visibility_outlined, size: 16),
+                label: Text(n == 1
+                    ? 'Check the email (1 space)'
+                    : 'Check the emails ($n spaces)')),
           ],
         );
       }),
     );
-    if (ok != true || !context.mounted) {
-      for (final c in ctls) {
-        c.dispose();
-      }
-      return;
-    }
-    final done = <String>[];
-    final failed = <String>[];
-    for (var i = 0; i < matched.length; i++) {
-      final to = ctls[i].text.trim();
-      if (!include[i] || !to.contains('@')) continue;
-      try {
-        await supabase.passOnEnquiry('${matched[i]['id']}', to, tellNomad: false);
-        done.add('${matched[i]['id']}');
-      } catch (_) {
-        failed.add('${matched[i]['venue_name'] ?? 'a space'}');
-      }
-    }
+    final targets = <EnquiryTarget>[
+      for (var i = 0; i < matched.length; i++)
+        if (include[i] && ctls[i].text.contains('@'))
+          EnquiryTarget('${matched[i]['id']}',
+              '${matched[i]['venue_name'] ?? 'A space'}', ctls[i].text.trim())
+    ];
     for (final c in ctls) {
       c.dispose();
     }
-    var told = false;
-    if (tell && done.isNotEmpty) {
-      try {
-        told = await supabase.tellNomadMany(done) > 0;
-      } catch (_) {}
-    }
-    if (!context.mounted) return;
-    final mailFailed = tell && done.isNotEmpty && !told;
+    if (ok != true || !context.mounted || targets.isEmpty) return;
+    // Every email shown as it will arrive, editable, before anything
+    // is sent (migration 194).
+    final r = await Navigator.of(context).push<EnquiryReviewResult>(
+        MaterialPageRoute(
+            builder: (_) => EnquiryReviewScreen(
+                supabase: supabase,
+                targets: targets,
+                tellCustomer: tell,
+                customerName: '${_first['name'] ?? ''}')));
+    if (r == null || !context.mounted) return;
     _snack(
         context,
         [
-          'Passed on to ${done.length} ${done.length == 1 ? 'space' : 'spaces'}',
-          if (told) '$_firstName has one email with the list',
-          if (mailFailed) 'but the email to $_firstName did not go: write to them by hand',
-          if (failed.isNotEmpty) 'not sent to ${failed.join(', ')}',
+          'Passed on to ${r.passed} ${r.passed == 1 ? 'space' : 'spaces'}',
+          if (r.customerTold) '$_firstName has one email with the list',
+          if (r.customerSkipped)
+            'the email to $_firstName did not go: write to them by hand',
+          if (r.failed.isNotEmpty) 'not sent to ${r.failed.join(', ')}',
         ].join('. ') + '.',
-        bad: failed.isNotEmpty || mailFailed);
+        bad: r.failed.isNotEmpty || r.customerSkipped);
     await onDone();
   }
 

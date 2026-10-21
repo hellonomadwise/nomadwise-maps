@@ -946,15 +946,41 @@ class SupabaseService {
 
   /// Admin: sends a waiting enquiry to the space (reply-to the nomad)
   /// and, when asked, tells the nomad it went.
-  Future<void> passOnEnquiry(String id, String to, {bool tellNomad = true}) =>
-      _db.rpc('admin_enquiry_pass_on',
-          params: {'p_id': id, 'p_to': to, 'p_tell_nomad': tellNomad});
+  Future<void> passOnEnquiry(String id, String to,
+          {bool tellNomad = true, String? subject, String? body}) =>
+      _db.rpc('admin_enquiry_pass_on', params: {
+        'p_id': id,
+        'p_to': to,
+        'p_tell_nomad': tellNomad,
+        // The founder's edited words (migration 194); null sends the draft.
+        if (subject != null) 'p_subject': subject,
+        if (body != null) 'p_body': body,
+      });
+
+  /// Admin: the emails these enquiries would send, to show and edit
+  /// before sending (migration 194): {spaces: [{id, venue_name,
+  /// subject, body}], nomad: {to, subject, body}}.
+  Future<Map<String, dynamic>> enquiryDrafts(List<String> ids) async {
+    final r = await _db.rpc('admin_enquiry_drafts', params: {'p_ids': ids});
+    return r is Map ? Map<String, dynamic>.from(r) : {};
+  }
+
+  /// Admin: an email's words as the styled email they are sent as.
+  Future<String> emailPreview(String text) async {
+    final r = await _db.rpc('admin_email_preview', params: {'p_text': text});
+    return r is String ? r : '';
+  }
 
   /// Admin: after several enquiries from one person were passed on
   /// together, ONE email to them listing every space (migration 193).
-  Future<int> tellNomadMany(List<String> ids) async {
-    final r = await _db
-        .rpc('admin_enquiries_tell_nomad', params: {'p_ids': ids});
+  Future<int> tellNomadMany(List<String> ids,
+      {String? subject, String? body, String? to}) async {
+    final r = await _db.rpc('admin_enquiries_tell_nomad', params: {
+      'p_ids': ids,
+      if (to != null) 'p_to': to,
+      if (subject != null) 'p_subject': subject,
+      if (body != null) 'p_body': body,
+    });
     return r is Map ? ((r['told'] as num?)?.toInt() ?? 0) : 0;
   }
 
