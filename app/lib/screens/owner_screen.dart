@@ -450,9 +450,9 @@ class _OwnerScreenState extends State<OwnerScreen> {
   /// the reminder that nothing here is saved.
   Widget _previewBar() {
     const states = [
-      ('waiting_free', 'Claimed free, not checked'),
+      ('waiting_free', 'Claimed, not checked'),
       ('waiting_paid', 'Paid, not checked'),
-      ('free', 'Free listing'),
+      ('free', 'Claimed'),
       ('verified', 'Verified'),
     ];
     // One slim line: the reminder, then the states to look at, which

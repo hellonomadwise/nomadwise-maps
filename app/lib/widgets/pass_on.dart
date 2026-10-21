@@ -280,7 +280,7 @@ class PassOnCard extends StatelessWidget {
         : _verified
             ? ('Verified, no enquiry address', Brand.success)
             : owner
-                ? ('Free owner', Brand.accent)
+                ? ('Claimed', Brand.accent)
                 : ('Not claimed', Brand.inkSecondary);
     final title = _matched
         ? '${e['venue_name']}${(e['city'] ?? '').toString().isEmpty ? '' : ', ${e['city']}'}'
@@ -377,6 +377,393 @@ class PassOnCard extends StatelessWidget {
                           value: 'unreachable',
                           child: Text('Can\'t reach the space')),
                     const PopupMenuItem(value: 'spam', child: Text('Spam')),
+                  ],
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    child: Text('More',
+                        style: TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w600,
+                            color: Brand.inkSecondary)),
+                  ),
+                ),
+              ]),
+        ]),
+      ),
+    );
+  }
+}
+
+/// The addresses to suggest for a space: the owner's, then the ones
+/// found on its website.
+List<String> passOnSuggestions(Map<String, dynamic> e) => <String>[
+      if ((e['owner_email'] ?? '').toString().contains('@'))
+        (e['owner_email'] as String).trim().toLowerCase(),
+      for (final s in (e['contact_emails'] as List? ?? const []))
+        if ('$s'.contains('@')) '$s'.trim().toLowerCase(),
+    ].toSet().toList();
+
+/// Several enquiries from the same person, as one card (migration 193;
+/// Jonathan, 21 Oct 2026: Ellie, a team of two, asked six spaces in Ho
+/// Chi Minh City in one evening). One press passes it on to every
+/// space that has an address, and the person gets ONE email listing
+/// them all, instead of one each.
+class PassOnGroupCard extends StatelessWidget {
+  /// The waiting enquiries from this person, oldest first.
+  final List<Map<String, dynamic>> items;
+  final SupabaseService supabase;
+  final Future<void> Function() onDone;
+  final Future<Map<String, dynamic>?> Function(String initial) chooseSpace;
+
+  const PassOnGroupCard({
+    super.key,
+    required this.items,
+    required this.supabase,
+    required this.onDone,
+    required this.chooseSpace,
+  });
+
+  Map<String, dynamic> get _first => items.first;
+
+  String get _firstName {
+    final n = (_first['name'] ?? '').toString().trim().split(' ').first;
+    return n.isEmpty || n == 'Someone' ? 'them' : n;
+  }
+
+  void _snack(BuildContext context, String text, {bool bad = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(text), backgroundColor: bad ? Brand.red : null));
+  }
+
+  static (String, Color) _badge(Map<String, dynamic> e) => e['venue_id'] == null
+      ? ('Not matched', Brand.goldTextDark)
+      : e['tier'] == 'verified'
+          ? ('Verified', Brand.success)
+          : (e['owner_email'] ?? '').toString().isNotEmpty
+              ? ('Claimed', Brand.accent)
+              : ('Not claimed', Brand.inkSecondary);
+
+  Future<void> _passOnAll(BuildContext context) async {
+    final matched = items.where((e) => e['venue_id'] != null).toList();
+    final ctls = [
+      for (final e in matched)
+        TextEditingController(
+            text: passOnSuggestions(e).isEmpty ? '' : passOnSuggestions(e).first)
+    ];
+    final include = [for (final c in ctls) c.text.contains('@')];
+    var tell = true;
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(builder: (ctx, setD) {
+        final n = [
+          for (var i = 0; i < matched.length; i++)
+            if (include[i] && ctls[i].text.contains('@')) i
+        ].length;
+        return AlertDialog(
+          title: Text('Pass on ${_first['name'] ?? 'their'} enquiry'),
+          content: SizedBox(
+            width: 520,
+            child: SingleChildScrollView(
+              child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                        'Each space gets the enquiry on its own (their reply goes '
+                        'straight to the customer), with a free claim link, or a '
+                        'line about Verified if they have claimed.',
+                        style: TextStyle(
+                            fontSize: 12.5,
+                            height: 1.45,
+                            color: Brand.inkSecondary)),
+                    const SizedBox(height: 10),
+                    for (var i = 0; i < matched.length; i++) ...[
+                      Row(children: [
+                        Checkbox(
+                            value: include[i],
+                            onChanged: (v) =>
+                                setD(() => include[i] = v ?? false)),
+                        Expanded(
+                          child: Text('${matched[i]['venue_name'] ?? 'A space'}',
+                              style: const TextStyle(
+                                  fontSize: 14, fontWeight: FontWeight.w700)),
+                        ),
+                      ]),
+                      Padding(
+                        padding: const EdgeInsets.only(left: 12, bottom: 10),
+                        child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              TextField(
+                                controller: ctls[i],
+                                keyboardType: TextInputType.emailAddress,
+                                onChanged: (_) => setD(() {
+                                  if (ctls[i].text.contains('@')) {
+                                    include[i] = true;
+                                  }
+                                }),
+                                decoration: InputDecoration(
+                                    isDense: true,
+                                    labelText: 'Send it to',
+                                    helperText: passOnSuggestions(matched[i])
+                                            .isEmpty
+                                        ? (matched[i]['contact_checked'] == true
+                                            ? 'No email on their website: paste one, or leave it out'
+                                            : 'Still looking on their website: paste one, or leave it out')
+                                        : null),
+                              ),
+                              if (passOnSuggestions(matched[i]).length > 1)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 6),
+                                  child: Wrap(spacing: 6, runSpacing: 6, children: [
+                                    for (final s in passOnSuggestions(matched[i]))
+                                      ChoiceChip(
+                                        label: Text(s,
+                                            style: const TextStyle(fontSize: 12)),
+                                        selected:
+                                            ctls[i].text.trim().toLowerCase() == s,
+                                        showCheckmark: false,
+                                        visualDensity: VisualDensity.compact,
+                                        onSelected: (_) => setD(() {
+                                          ctls[i].text = s;
+                                          include[i] = true;
+                                        }),
+                                      ),
+                                  ]),
+                                ),
+                            ]),
+                      ),
+                    ],
+                    if (matched.length < items.length)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Text(
+                            '${items.length - matched.length} not matched to a '
+                            'space yet: choose the space on the card first.',
+                            style: const TextStyle(
+                                fontSize: 12.5, color: Brand.goldTextDark)),
+                      ),
+                    CheckboxListTile(
+                      value: tell,
+                      onChanged: (v) => setD(() => tell = v ?? true),
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      title: Text(
+                          'Tell $_firstName once, with the list of spaces it went to',
+                          style: const TextStyle(fontSize: 13.5)),
+                    ),
+                  ]),
+            ),
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel')),
+            FilledButton.icon(
+                onPressed: n > 0 ? () => Navigator.pop(ctx, true) : null,
+                icon: const Icon(Icons.send_rounded, size: 16),
+                label: Text(n == 1 ? 'Pass on to 1 space' : 'Pass on to $n spaces')),
+          ],
+        );
+      }),
+    );
+    if (ok != true || !context.mounted) {
+      for (final c in ctls) {
+        c.dispose();
+      }
+      return;
+    }
+    final done = <String>[];
+    final failed = <String>[];
+    for (var i = 0; i < matched.length; i++) {
+      final to = ctls[i].text.trim();
+      if (!include[i] || !to.contains('@')) continue;
+      try {
+        await supabase.passOnEnquiry('${matched[i]['id']}', to, tellNomad: false);
+        done.add('${matched[i]['id']}');
+      } catch (_) {
+        failed.add('${matched[i]['venue_name'] ?? 'a space'}');
+      }
+    }
+    for (final c in ctls) {
+      c.dispose();
+    }
+    var told = false;
+    if (tell && done.isNotEmpty) {
+      try {
+        told = await supabase.tellNomadMany(done) > 0;
+      } catch (_) {}
+    }
+    if (!context.mounted) return;
+    final mailFailed = tell && done.isNotEmpty && !told;
+    _snack(
+        context,
+        [
+          'Passed on to ${done.length} ${done.length == 1 ? 'space' : 'spaces'}',
+          if (told) '$_firstName has one email with the list',
+          if (mailFailed) 'but the email to $_firstName did not go: write to them by hand',
+          if (failed.isNotEmpty) 'not sent to ${failed.join(', ')}',
+        ].join('. ') + '.',
+        bad: failed.isNotEmpty || mailFailed);
+    await onDone();
+  }
+
+  Future<void> _closeAll(BuildContext context, String reason) async {
+    var n = 0;
+    for (final e in items) {
+      try {
+        await supabase.closeEnquiry('${e['id']}', reason);
+        n++;
+      } catch (_) {}
+    }
+    if (!context.mounted) return;
+    _snack(context,
+        reason == 'spam' ? '$n marked as spam.' : '$n marked as handled.');
+    await onDone();
+  }
+
+  Future<void> _attach(BuildContext context, Map<String, dynamic> e) async {
+    final listing = (e['listing_text'] ?? '').toString();
+    final picked = await chooseSpace(listing.split(',').first.trim());
+    if (picked == null || !context.mounted) return;
+    try {
+      await supabase.attachEnquiry('${e['id']}', '${picked['id']}');
+      if (!context.mounted) return;
+      _snack(context, 'Linked to ${picked['name']}.');
+      await onDone();
+    } catch (err) {
+      if (context.mounted) _snack(context, 'That did not work: $err', bad: true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final phone = (_first['phone'] ?? '').toString().trim();
+    final messages = items
+        .map((e) => (e['message'] ?? '').toString().trim())
+        .where((m) => m.isNotEmpty)
+        .toSet()
+        .toList();
+    final cities = items
+        .map((e) => (e['city'] ?? '').toString().trim())
+        .where((c) => c.isNotEmpty)
+        .toSet()
+        .join(', ');
+    final latest = items
+        .map((e) => '${e['created_at'] ?? ''}')
+        .reduce((a, b) => a.compareTo(b) >= 0 ? a : b);
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      elevation: 1.5,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Expanded(
+              child: Text(
+                  '${_first['name'] ?? 'Someone'} asked ${items.length} spaces'
+                  '${cities.isEmpty ? '' : ' in $cities'}',
+                  style: const TextStyle(
+                      fontSize: 15.5,
+                      fontWeight: FontWeight.w700,
+                      color: Brand.ink)),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                  color: Brand.violet.withValues(alpha: .10),
+                  borderRadius: BorderRadius.circular(6)),
+              child: const Text('One customer',
+                  style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                      color: Brand.violet)),
+            ),
+          ]),
+          const SizedBox(height: 4),
+          Text(PassOnCard._when(latest),
+              style: const TextStyle(fontSize: 12, color: Brand.inkMuted)),
+          const SizedBox(height: 10),
+          Text.rich(
+              TextSpan(children: [
+                TextSpan(
+                    text: '${_first['name'] ?? 'Someone'}  ',
+                    style: const TextStyle(fontWeight: FontWeight.w700)),
+                TextSpan(
+                    text:
+                        '${_first['email'] ?? ''}${phone.isEmpty ? '' : '  ·  $phone'}'),
+              ]),
+              style: const TextStyle(fontSize: 13.5, color: Brand.ink)),
+          const SizedBox(height: 8),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+                color: Brand.field, borderRadius: BorderRadius.circular(8)),
+            child: Text(
+                messages.isEmpty
+                    ? '(No message)'
+                    : messages.first +
+                        (messages.length > 1
+                            ? '\n\n(${messages.length - 1} of the others are worded a '
+                                'little differently; each space gets its own.)'
+                            : ''),
+                style: const TextStyle(
+                    fontSize: 13.5, height: 1.5, color: Brand.ink)),
+          ),
+          const SizedBox(height: 10),
+          for (final e in items)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Row(children: [
+                const Icon(Icons.storefront_outlined,
+                    size: 16, color: Brand.inkMuted),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                      e['venue_id'] == null
+                          ? (e['listing_text'] ?? 'Unknown listing').toString()
+                          : '${e['venue_name']}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 13.5)),
+                ),
+                if (e['venue_id'] == null)
+                  TextButton(
+                      onPressed: () => _attach(context, e),
+                      child: const Text('Choose the space'))
+                else
+                  Text(_badge(e).$1,
+                      style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                          color: _badge(e).$2)),
+              ]),
+            ),
+          const SizedBox(height: 6),
+          Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                FilledButton.icon(
+                    onPressed: items.any((e) => e['venue_id'] != null)
+                        ? () => _passOnAll(context)
+                        : null,
+                    icon: const Icon(Icons.send_rounded, size: 16),
+                    label: const Text('Pass on to all')),
+                PopupMenuButton<String>(
+                  tooltip: 'More',
+                  onSelected: (r) => _closeAll(context, r),
+                  itemBuilder: (_) => const [
+                    PopupMenuItem(
+                        value: 'handled', child: Text('All already handled')),
+                    PopupMenuItem(value: 'spam', child: Text('All spam')),
                   ],
                   child: const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),

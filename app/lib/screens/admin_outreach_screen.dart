@@ -40,6 +40,11 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
   final _places = PlacesService();
   final _search = TextEditingController();
   List<Map<String, dynamic>>? _rows;
+
+  /// Per space, the customers we sent it (enquiries passed on, or sent
+  /// straight to a Verified space) and how many booked, by venue id
+  /// (migration 193): the best opening for a hello.
+  Map<String, Map<String, dynamic>> _customers = const {};
   Map<String, int> _counts = {};
   List<Map<String, dynamic>> _templates = [];
   String _stage = 'new';
@@ -124,6 +129,7 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
     final pathF = _supabase.outreachPath();
     final wholeF = _supabase.outreachWhole();
     final newF = _supabase.outreachNewPages();
+    final customersF = _supabase.venueCustomers();
     try {
       final rows = await _supabase.outreachList(
           stage: _stage,
@@ -134,9 +140,11 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
       final path = await pathF;
       final whole = await wholeF;
       final fresh = await newF;
+      final customers = await customersF;
       if (!mounted || n != _req) return;
       setState(() {
         _rows = rows;
+        _customers = customers;
         _counts = counts;
         if (path != null) _path = path;
         if (whole != null) _whole = whole;
@@ -3173,11 +3181,33 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
                         : null,
                     child: Text(
                         '${onSite ? 'On nomadwise.io' : 'On the map'}: $venueName'
-                        '${tier == 'verified' ? (ours ? ' (Verified by us)' : ' (Verified)') : tier == 'free' && '${c['listing_owner_email'] ?? ''}'.isNotEmpty ? (ours ? ' (owner put on by us, Free)' : ' (claimed, Free)') : ''}',
+                        '${tier == 'verified' ? (ours ? ' (Verified by us)' : ' (Verified)') : tier == 'free' && '${c['listing_owner_email'] ?? ''}'.isNotEmpty ? (ours ? ' (owner put on by us, Claimed)' : ' (Claimed)') : ''}',
                         style: TextStyle(
                             fontSize: 12.5,
                             color: onSite ? Brand.logoNavy : Brand.inkSecondary,
                             decoration: onSite ? TextDecoration.underline : null)),
+                  ),
+                ),
+              // Customers we sent them (migration 193): what a hello can
+              // open with.
+              if (_customers['${c['venue_id']}'] case final cu?)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                    decoration: BoxDecoration(
+                        color: Brand.successTint,
+                        borderRadius: BorderRadius.circular(8)),
+                    child: Text(
+                        'We sent them ${cu['sent']} '
+                        '${cu['sent'] == 1 ? 'customer' : 'customers'}'
+                        '${(cu['booked'] as num? ?? 0) > 0 ? ', ${cu['booked']} booked' : ''}'
+                        '${_when(cu['last']).isEmpty ? '' : ' · last ${_when(cu['last'])}'}',
+                        style: const TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            color: Brand.success)),
                   ),
                 ),
             ]),

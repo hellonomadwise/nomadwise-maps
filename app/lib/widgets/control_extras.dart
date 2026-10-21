@@ -586,8 +586,8 @@ class _MoneyCardState extends State<MoneyCard> {
           const SizedBox(height: 8),
           Text(
               cancels.length == 1
-                  ? '1 switched to Free in the last 90 days:'
-                  : '${cancels.length} switched to Free in the last 90 days:',
+                  ? '1 went back to Claimed in the last 90 days:'
+                  : '${cancels.length} went back to Claimed in the last 90 days:',
               style: const TextStyle(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w600,
@@ -597,7 +597,7 @@ class _MoneyCardState extends State<MoneyCard> {
               padding: const EdgeInsets.only(top: 3),
               child: Text(
                   '${(c['venue'] is Map ? c['venue']['name'] : null) ?? 'A space'}'
-                  ' switched to Free on '
+                  ' went back to Claimed on '
                   '${DateFormat('d MMM').format(DateTime.parse('${c['created_at']}').toLocal())}'
                   '${(c['reason'] ?? '').toString().isNotEmpty ? ': "${c['reason']}"' : ', no reason given'}',
                   style: const TextStyle(

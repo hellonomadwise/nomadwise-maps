@@ -8,6 +8,7 @@ import 'screens/owner_screen.dart';
 import 'screens/sign_in_link_screen.dart';
 import 'screens/admin_outreach_screen.dart' show UnsubscribeScreen;
 import 'screens/enquiry_screen.dart';
+import 'screens/found_screen.dart';
 import 'screens/update_screen.dart';
 import 'screens/map_screen.dart';
 import 'theme.dart';
@@ -63,6 +64,8 @@ class NomadwiseMapsApp extends StatelessWidget {
     //                    pointed to claiming)
     //   ?tag=<slug>      Add a tag: asks who you are first; owners go
     //                    to claiming, visitors say what the place has
+    //   ?found=<key>     "Did you find a place?" after an enquiry
+    //                    (migration 193): where they went
     //   ?token_hash=..&type=..  the button in a sign-in email
     //   ?admin[=analytics|users]  the team's control centre (also
     //                    nomadmaps.io/admin); team accounts only
@@ -81,6 +84,8 @@ class NomadwiseMapsApp extends StatelessWidget {
       home = EnquiryScreen(slug: enquire);
     } else if (_has('update')) {
       home = UpdateScreen(slug: _param('update') ?? '');
+    } else if (_has('found')) {
+      home = FoundScreen(token: _param('found') ?? '');
     } else if (_has('tag')) {
       // "Add a tag" on a listing page: who are you first, then the
       // owner claims, a visitor says what the place has.

@@ -195,6 +195,13 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   List<Map<String, dynamic>> _passOn = [];
   int _passed30 = 0;
   int _direct30 = 0;
+
+  /// From the Enquiries list (migration 193): bookings in the last 30
+  /// days, whether the "Did you find a place?" email is on, and the
+  /// latest answers.
+  int _booked30 = 0;
+  bool _followupOn = false;
+  List<Map<String, dynamic>> _answers = const [];
   Map<String, dynamic>? _importNote;
   List<Map<String, dynamic>> _held = [];
   List<Map<String, dynamic>> _started = [];
@@ -293,6 +300,12 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         ];
         _passed30 = (passOn['passed_30d'] as num?)?.toInt() ?? 0;
         _direct30 = (passOn['direct_30d'] as num?)?.toInt() ?? 0;
+        _booked30 = (passOn['booked_30d'] as num?)?.toInt() ?? 0;
+        _followupOn = passOn['followup_on'] == true;
+        _answers = [
+          for (final r in (passOn['answers'] as List? ?? const []))
+            if (r is Map) Map<String, dynamic>.from(r),
+        ];
         _importNote = passOn['import'] is Map
             ? Map<String, dynamic>.from(passOn['import'])
             : null;
@@ -1361,8 +1374,9 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       _loadNextUp();
       return;
     }
-    if (k == 'upgrades') {
-      _showUpgrades();
+    if (k == 'upgrades' || k == 'prices') {
+      // Price check is a part of Quality (21 Oct 2026).
+      _showUpgrades(k == 'prices' ? 'prices' : null);
       return;
     }
     // Keyed, so the tool is not started afresh when the window is
@@ -1440,9 +1454,10 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     return switch (key) {
       'home' => (_todoCount, 'waiting in the control centre (its To do line)'),
       'upgrades' => (
-          _updates.length + _closed.length + part('drafts'),
-          'waiting in Page upgrades: suggestions from visitors, closed '
-              'places to check, and drafts waiting for your Go'
+          _updates.length + _closed.length + part('drafts') + part('prices'),
+          'waiting in Quality: suggestions from visitors, closed '
+              'places to check, and drafts and price changes waiting for '
+              'your Go'
         ),
       'prices' => (
           part('prices'),
@@ -1574,8 +1589,9 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       _searchBox(),
       item(Icons.dashboard_outlined, 'Control centre', () => _showTool(null),
           on: current == null, countOf: 'home'),
-      tool('upgrades', Icons.auto_fix_high_outlined, 'Page upgrades'),
-      tool('prices', Icons.sell_outlined, 'Price check'),
+      // Quality (Jonathan, 21 Oct 2026: Page upgrades renamed, with
+      // Price check inside it).
+      tool('upgrades', Icons.auto_fix_high_outlined, 'Quality'),
       tool('outreach', Icons.mail_outline, 'Outreach'),
       tool('chats', Icons.forum_outlined, 'Chats'),
       tool('sequences', Icons.timeline_outlined, 'Sequences'),
@@ -1660,9 +1676,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
             // the line (Jonathan, 6 Oct 2026).
             itemBuilder: (_) => <PopupMenuEntry<String>>[
               const PopupMenuItem(
-                  value: 'upgrades', child: Text('Page upgrades')),
-              const PopupMenuItem(
-                  value: 'prices', child: Text('Price check')),
+                  value: 'upgrades', child: Text('Quality')),
               const PopupMenuItem(
                   value: 'outreach', child: Text('Outreach')),
               PopupMenuItem(
@@ -2190,8 +2204,8 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       launchUrl(Uri.parse('/'), webOnlyWindowName: '_self');
       return;
     }
-    if (k == 'upgrades') {
-      _showUpgrades();
+    if (k == 'upgrades' || k == 'prices') {
+      _showUpgrades(k == 'prices' ? 'prices' : null);
       return;
     }
     Navigator.push(
@@ -2258,16 +2272,18 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
 
   // ------------------------------------------------------- page upgrades
 
-  /// Page upgrades (Jonathan and Leonie, 20 Oct 2026: "we're trying to
-  /// tidy up the control centre, so its less overwhelming"): everything
-  /// that improves pages that are already live, in one place beside the
-  /// menu. Three parts: suggestions from visitors (tags to add, things
-  /// that changed), Clean-up (Closed, Not for the site, No Location)
-  /// and Upgrades (titles and text, photos). While it is open it takes
-  /// the control centre's place, so its lists stay up to date.
+  /// Quality (Jonathan and Leonie, 20 Oct 2026: "we're trying to tidy
+  /// up the control centre, so its less overwhelming"; called Page
+  /// upgrades until 21 Oct, when Price check moved in): everything that
+  /// improves pages that are already live, in one place beside the
+  /// menu. Four parts: suggestions from visitors (tags to add, things
+  /// that changed), Clean-up (Closed, Not for the site, No Location),
+  /// Upgrades (titles and text, photos) and Prices (Price check). While
+  /// it is open it takes the control centre's place, so its lists stay
+  /// up to date.
   bool _upgradesOpen = false;
 
-  /// 'suggest', 'cleanup' or 'upgrades'.
+  /// 'suggest', 'cleanup', 'upgrades' or 'prices'.
   String _upgradesPart = 'suggest';
 
   /// The Clean-up group showing: 'closed', 'hidden' or 'nolocation'.
@@ -2278,7 +2294,13 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     return p is Map ? ((p['n'] as num?)?.toInt() ?? 0) : 0;
   }
 
-  /// Open Page upgrades at [part] (and, in Clean-up, at [group]). With
+  /// Price changes waiting for a Go (or needing a look).
+  int get _pricesWaiting {
+    final p = _nextUp?['prices'];
+    return p is Map ? ((p['n'] as num?)?.toInt() ?? 0) : 0;
+  }
+
+  /// Open Quality at [part] (and, in Clean-up, at [group]). With
   /// no part: the first with something waiting.
   void _showUpgrades([String? part, String? group]) {
     if (!mounted) return;
@@ -2294,7 +2316,9 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                   ? 'cleanup'
                   : _draftsWaiting > 0
                       ? 'upgrades'
-                      : 'suggest');
+                      : _pricesWaiting > 0
+                          ? 'prices'
+                          : 'suggest');
       if (group != null) _cleanKey = group;
     });
     _loadNextUp();
@@ -2312,6 +2336,8 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       'cleanup' => SelectionArea(child: _pipeline(cleanup: true)),
       'upgrades' => const AdminUpgradesScreen(
           key: ValueKey('upgrades-part'), embedded: true),
+      'prices' => const AdminPricesScreen(
+          key: ValueKey('prices-part'), embedded: true),
       _ => ListingUpdatesScreen(
           key: const ValueKey('suggest-part'),
           embedded: true,
@@ -2334,7 +2360,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                   tooltip: 'Control centre',
                   onPressed: _leaveUpgrades,
                   icon: const Icon(Icons.arrow_back)),
-          title: const Text('Page upgrades'),
+          title: const Text('Quality'),
           actions: [
             IconButton(
                 tooltip: 'Search spaces, owners and claims',
@@ -2355,13 +2381,14 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     );
   }
 
-  /// Suggestions · Clean-up · Upgrades, each with what is waiting in
+  /// Suggestions · Clean-up · Upgrades · Prices, each with what is waiting in
   /// it, in the same look as the control centre's Owners · Pages.
   Widget _upgradesSwitch() {
     final parts = <(String, String, int)>[
       ('suggest', 'Suggestions', _updates.length),
       ('cleanup', 'Clean-up', _closed.length),
       ('upgrades', 'Upgrades', _draftsWaiting),
+      ('prices', 'Prices', _pricesWaiting),
     ];
     return Padding(
       padding: const EdgeInsets.fromLTRB(14, 10, 14, 6),
@@ -3303,12 +3330,12 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         count: _passOn.length,
         color: Brand.red,
         hint: 'Nomads who used Send an enquiry on a page with no owner yet, '
-            'or with a Free owner. Pass each one on to the space: their reply '
+            'or that is Claimed. Pass each one on to the space: their reply '
             'goes straight to the nomad, and the email invites them to claim '
-            'their page (or, on Free, mentions Verified). Verified spaces get '
+            'their page (or, if Claimed, mentions Verified). Verified spaces get '
             'theirs directly and never show here.',
         empty: 'No enquiries waiting. Enquiries for pages without an owner, '
-            'or with a Free owner, land here to pass on.'
+            'or Claimed pages, land here to pass on.'
       ),
       (
         key: 'owner',
@@ -3468,27 +3495,33 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
               padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
               child: Text(
                   'Last 30 days: $_passed30 passed on, $_direct30 sent '
-                  'straight to Verified spaces.',
+                  'straight to Verified spaces'
+                  '${_booked30 > 0 ? ', $_booked30 booked (customers told us)' : ''}.',
                   style: const TextStyle(
                       fontSize: 12.5, color: Brand.inkSecondary)),
             ),
+          _followupLine(),
           if (_passOn.isEmpty) _groupEmpty(current.empty),
-          for (final e in _passOn)
-            PassOnCard(
-              key: ValueKey('passon-${e['id']}'),
-              e: e,
-              supabase: _supabase,
-              onDone: _load,
-              chooseSpace: (initial) =>
-                  showModalBottomSheet<Map<String, dynamic>>(
-                      context: context,
-                      isScrollControlled: true,
-                      shape: const RoundedRectangleBorder(
-                          borderRadius:
-                              BorderRadius.vertical(top: Radius.circular(18))),
-                      builder: (_) => _VenueSearchSheet(
-                          supabase: _supabase, initial: initial)),
-            ),
+          // One card per customer (migration 193): several enquiries
+          // from the same person are passed on together.
+          for (final grp in _passOnGroups())
+            if (grp.length == 1)
+              PassOnCard(
+                key: ValueKey('passon-${grp.first['id']}'),
+                e: grp.first,
+                supabase: _supabase,
+                onDone: _load,
+                chooseSpace: _chooseEnquirySpace,
+              )
+            else
+              PassOnGroupCard(
+                key: ValueKey('passon-group-${grp.first['id']}'),
+                items: grp,
+                supabase: _supabase,
+                onDone: _load,
+                chooseSpace: _chooseEnquirySpace,
+              ),
+          if (_answers.isNotEmpty) _answersCard(),
         ],
       'ready' => g.ready.map(_readyCard).toList(),
       'region' => g.needsRegion.map(_needsRegionCard).toList(),
@@ -3755,6 +3788,180 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     ]);
   }
 
+  /// The enquiries waiting, one list per person (by email), in the
+  /// order the first of each came in.
+  List<List<Map<String, dynamic>>> _passOnGroups() {
+    final by = <String, List<Map<String, dynamic>>>{};
+    for (final e in _passOn) {
+      final k = '${e['email'] ?? ''}'.trim().toLowerCase();
+      by.putIfAbsent(k.isEmpty ? '${e['id']}' : k, () => []).add(e);
+    }
+    return by.values.toList();
+  }
+
+  Future<Map<String, dynamic>?> _chooseEnquirySpace(String initial) =>
+      showModalBottomSheet<Map<String, dynamic>>(
+          context: context,
+          isScrollControlled: true,
+          shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(18))),
+          builder: (_) =>
+              _VenueSearchSheet(supabase: _supabase, initial: initial));
+
+  /// The "Did you find a place?" email (migration 193): a few days after
+  /// an enquiry is passed on, the customer is asked once where they
+  /// went. Off until Leonie has approved the wording.
+  static const _followupWords =
+      'Subject: Did you find a place to work?\n\n'
+      'Hi Ellie,\n\n'
+      'A few days ago you asked Xom Space, The Sentry C and 4 other spaces '
+      'on nomadwise.io about working there. Did you find a place?\n\n'
+      'It takes one tap to tell us. It helps us know which spaces reply, so '
+      'we can point other remote workers the right way.\n\n'
+      'If you are still looking, reply to this email and I will help you '
+      'find somewhere.\n\n'
+      'Kind regards,\nJonathan\nNomadwise\n\n'
+      '[Tell us where you went]  (opens a page with the spaces they asked, '
+      'plus "Still looking" and "Somewhere else")';
+
+  Widget _followupLine() => Padding(
+        padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
+        child: Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 6,
+            children: [
+              Icon(_followupOn ? Icons.mark_email_read_outlined : Icons.pause_circle_outline,
+                  size: 16,
+                  color: _followupOn ? Brand.success : Brand.inkMuted),
+              Text(
+                  _followupOn
+                      ? '"Did you find a place?" emails are on.'
+                      : '"Did you find a place?" emails are off until Leonie '
+                          'has approved the wording.',
+                  style: TextStyle(
+                      fontSize: 12.5,
+                      color: _followupOn ? Brand.success : Brand.inkSecondary)),
+              TextButton(
+                  onPressed: _followupDialog,
+                  style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      minimumSize: const Size(0, 30),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                  child: Text(_followupOn ? 'See it or turn off' : 'See the email')),
+            ]),
+      );
+
+  Future<void> _followupDialog() async {
+    final on = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('"Did you find a place?"'),
+        content: SizedBox(
+          width: 520,
+          child: SingleChildScrollView(
+            child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                      'Sent once, five to twelve days after an enquiry is '
+                      'passed on (only those passed on from 21 Oct), to the '
+                      'customer, one email per person however many spaces '
+                      'they asked. Their answer shows here and on your phone, '
+                      'and on each space in Outreach.',
+                      style: TextStyle(
+                          fontSize: 12.5,
+                          height: 1.45,
+                          color: Brand.inkSecondary)),
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                        color: Brand.field,
+                        borderRadius: BorderRadius.circular(8)),
+                    child: const SelectableText(_followupWords,
+                        style: TextStyle(fontSize: 13, height: 1.5)),
+                  ),
+                ]),
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Close')),
+          if (_followupOn)
+            OutlinedButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Turn off'))
+          else
+            FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Leonie approved: turn on')),
+        ],
+      ),
+    );
+    if (on == null || !mounted) return;
+    try {
+      final now = await _supabase.setEnquiryFollowup(on);
+      if (!mounted) return;
+      setState(() => _followupOn = now);
+      _nextUpSay(now
+          ? 'On. The first emails go out tomorrow morning, where due.'
+          : 'Off. No more "Did you find a place?" emails.');
+    } catch (e) {
+      _nextUpSay('That did not save: $e', bad: true);
+    }
+  }
+
+  /// What customers told us, newest first (migration 193).
+  Widget _answersCard() => Container(
+        margin: const EdgeInsets.only(top: 4, bottom: 12),
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
+        decoration: BoxDecoration(
+            color: Brand.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Brand.border)),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('WHAT CUSTOMERS TOLD US',
+              style: TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: .8,
+                  color: Brand.inkMuted)),
+          const SizedBox(height: 8),
+          for (final a in _answers)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Text.rich(
+                  TextSpan(children: [
+                    TextSpan(
+                        text: '${a['name'] ?? 'Someone'} ',
+                        style: const TextStyle(fontWeight: FontWeight.w700)),
+                    TextSpan(
+                        text: switch ('${a['outcome']}') {
+                          'booked' => 'went with ${a['space'] ?? 'a space'}',
+                          'looking' => 'is still looking',
+                          _ => 'found somewhere else',
+                        },
+                        style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: a['outcome'] == 'booked'
+                                ? Brand.success
+                                : a['outcome'] == 'looking'
+                                    ? Brand.goldTextDark
+                                    : Brand.inkSecondary)),
+                    TextSpan(
+                        text: '  ·  asked ${a['asked'] ?? 1}'
+                            '${(a['note'] ?? '').toString().isEmpty ? '' : '  ·  "${a['note']}"'}'
+                            '${DateTime.tryParse('${a['at']}') == null ? '' : '  ·  ${DateFormat('d MMM').format(DateTime.parse('${a['at']}').toLocal())}'}',
+                        style: const TextStyle(color: Brand.inkMuted)),
+                  ]),
+                  style: const TextStyle(fontSize: 13, height: 1.4)),
+            ),
+        ]),
+      );
+
   /// When the nomadwise.io pop-up was last read, or what went wrong.
   Widget _importLine() {
     final n = _importNote;
@@ -4011,7 +4218,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         ]),
         Text(
             '${[v['city'], v['country']].where((x) => (x ?? '').toString().isNotEmpty).join(', ')}'
-            '  ·  ${verified ? 'Verified' : 'Free'}  ·  ${d['owner_email'] ?? ''}'
+            '  ·  ${verified ? 'Verified' : 'Claimed'}  ·  ${d['owner_email'] ?? ''}'
             '  ·  submitted ${_ago(d['submitted_at'])}',
             style: const TextStyle(fontSize: 12, color: Brand.inkSecondary)),
         const SizedBox(height: 10),
@@ -4931,8 +5138,8 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     if (!verified && onSite) {
       lines.add(const Text(
           'Verified switch is on in Webflow but there is no plan here '
-          '(a legacy premium page). Set a plan, or save it as Free to '
-          'switch the badge off.',
+          '(a legacy premium page). Set a plan, or save it without '
+          'Verified to switch the badge off.',
           style: TextStyle(fontSize: 12.5, color: Brand.goldTextDark)));
     }
     final who = [
@@ -5091,7 +5298,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     final choices = [
       ('all', 'All', all.length, Brand.ink),
       ('verified', 'Verified', nPaid, Brand.success),
-      ('free', 'Free', all.length - nPaid, Brand.inkSecondary),
+      ('free', 'Claimed', all.length - nPaid, Brand.inkSecondary),
     ];
     final shown = switch (_ownerFilter) {
       'verified' => all.where(isPaid).toList(),
@@ -5127,7 +5334,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
           padding: const EdgeInsets.fromLTRB(4, 0, 4, 12),
           child: Text(
               _ownerFilter == 'free'
-                  ? 'None yet. An approved free claim lands here.'
+                  ? 'None yet. An approved claim lands here.'
                   : _ownerFilter == 'verified'
                       ? 'No Verified listings yet.'
                       : 'None yet.',
@@ -5370,7 +5577,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
             decoration: BoxDecoration(
                 color: free ? Brand.success : Brand.goldTextDark,
                 borderRadius: BorderRadius.circular(8)),
-            child: Text(free ? 'FREE CLAIM, APPROVE?' : 'PAID, APPROVE?',
+            child: Text(free ? 'CLAIMED (FREE), APPROVE?' : 'PAID, APPROVE?',
                 style: const TextStyle(
                     fontSize: 10.5,
                     fontWeight: FontWeight.w800,
@@ -5427,7 +5634,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
           padding: const EdgeInsets.only(top: 6),
           child: Text(
               free
-                  ? 'Free claim ${_ago(c['created_at'])} through the claim '
+                  ? 'Claimed (free) ${_ago(c['created_at'])} through the claim '
                       'form. Approving records them as the owner of the page; '
                       'the plan stays free and nothing visible changes.'
                       '${newSpace ? ' A space not on the map yet: approving creates it in the publishing queue.' : ''}'
@@ -8321,8 +8528,8 @@ class _ListingPlanPageState extends State<_ListingPlanPage> {
               children: [
                 Text(
                     '${who.isEmpty ? 'The owner' : who} will no longer run '
-                    '${v['name'] ?? 'this space'}. The plan goes back to '
-                    'Free, their claim is closed and any changes waiting '
+                    '${v['name'] ?? 'this space'}. The page goes back to '
+                    'Listed (no owner), their claim is closed and any changes waiting '
                     'for review are dropped. No email is sent.',
                     style: const TextStyle(fontSize: 13.5, height: 1.45)),
                 const SizedBox(height: 8),
@@ -8368,7 +8575,7 @@ class _ListingPlanPageState extends State<_ListingPlanPage> {
           note: why.isEmpty ? null : why);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Owner removed. The page is now a free listing.')));
+          content: Text('Owner removed. The page is Listed again, with no owner.')));
       Navigator.pop(context, true);
     } catch (e) {
       if (mounted) {
@@ -8412,9 +8619,14 @@ class _ListingPlanPageState extends State<_ListingPlanPage> {
               ),
             const SizedBox(height: 14),
             SegmentedButton<String>(
-              segments: const [
-                ButtonSegment(value: 'free', label: Text('Free')),
+              // Listed (no owner) or Claimed (an owner, free), and
+              // Verified (Jonathan, 21 Oct 2026: the free plan is
+              // called Claimed).
+              segments: [
                 ButtonSegment(
+                    value: 'free',
+                    label: Text(hasOwner ? 'Claimed' : 'Listed')),
+                const ButtonSegment(
                     value: 'verified',
                     label: Text('Verified'),
                     icon: Icon(Icons.verified, size: 16)),

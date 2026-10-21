@@ -607,7 +607,7 @@ class _AdminUpgradesScreenState extends State<AdminUpgradesScreen>
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('How Page upgrades works'),
+        title: const Text('How Upgrades works'),
         content: SizedBox(
           width: 620,
           child: SingleChildScrollView(
@@ -935,7 +935,7 @@ class _AdminUpgradesScreenState extends State<AdminUpgradesScreen>
     final factsPages = _int(_overview['facts_pages']);
 
     return Scaffold(
-      appBar: widget.embedded ? null : AppBar(title: const Text('Page upgrades')),
+      appBar: widget.embedded ? null : AppBar(title: const Text('Upgrades')),
       body: _error != null
           ? Center(
               child: Padding(

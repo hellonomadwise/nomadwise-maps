@@ -120,7 +120,7 @@ String _stepLabel(String s) => switch (s) {
       'find' => 'Find your space',
       'add_space' => 'Add your space',
       'about' => 'Owner details',
-      'plan' => 'the Free or Verified choice',
+      'plan' => 'the Claimed or Verified choice',
       _ => s,
     };
 
@@ -346,9 +346,9 @@ class _ClaimJourneysScreenState extends State<ClaimJourneysScreen> {
           tile('Opened', n),
           tile('Chose a space', chose),
           tile('Owner details', about),
-          tile('Free or Verified', plan),
+          tile('Claimed or Verified', plan),
           tile('To Stripe', paid),
-          tile('Free claim', free),
+          tile('Claimed (free)', free),
         ]),
       ]),
     );
@@ -500,7 +500,7 @@ class _ClaimJourneysScreenState extends State<ClaimJourneysScreen> {
   }
 
   Widget _progress(int furthest) {
-    const labels = ['Find', 'Space chosen', 'Owner details', 'Free or Verified'];
+    const labels = ['Find', 'Space chosen', 'Owner details', 'Claimed or Verified'];
     return Row(children: [
       for (var i = 0; i < labels.length; i++) ...[
         Expanded(
@@ -594,7 +594,7 @@ class _ClaimJourneysScreenState extends State<ClaimJourneysScreen> {
           'not_here' => 'Tapped "My space isn\'t here, add it"',
           'back' => 'Went back to ${_stepLabel(to)}',
           'continue' => 'Filled in their details and continued to the '
-              'Free or Verified choice',
+              'Claimed or Verified choice',
           _ => 'Moved to ${_stepLabel(to)}',
         };
       case 'claim_typed':

@@ -4600,3 +4600,61 @@ were left out on purpose.
   in each field. Kind, and for a new contact how we know them, are
   pills instead of drop-downs. On a laptop it stays a dialog, two
   fields to a line. The fields saved are unchanged.
+
+## 21 Oct 2026: the free owner plan is called Claimed
+
+Jonathan: "Basic" (the old name) and "Free" do not sound attractive.
+Agreed: **Claimed**. The steps read Listed (we made the page, no
+owner) -> Claimed (an owner runs it, free) -> Verified (paid). "Free"
+stays as the price ("Claiming is free"), not the name.
+
+- Done now, in Nomad Maps only (what founders see): the Owners filter,
+  the Listing plan switch (Listed or Claimed, by whether there is an
+  owner, and Verified), claim approval cards, Remove owner ("goes back
+  to Listed"), Enquiries, Outreach, the claim journeys, analytics, the
+  owner answers and the Owner account preview bar.
+- Waiting for Leonie's OK (owner-facing wording, standing rule): the
+  claim page plan card ("Free" and "Everything in Free, plus:"), the
+  Owner account (the "Free listing" label and the plan card), and the
+  "List my coworking space" page on nomadwise.io. Owner emails only
+  say "free listing" as a description and can stay. Optional: a
+  "Claimed by owner" mark on listing pages.
+
+## 21 Oct 2026: Page upgrades is now Quality, with Price check inside
+
+Jonathan: "put price check within page upgrades and change the name of
+page upgrades to Quality". The menu item is Quality, with four parts:
+Suggestions, Clean-up, Upgrades (titles and text, photos) and Prices
+(what Price check was, unchanged inside). Price check is gone from the
+menu down the left and from the phone's tools menu; ?admin=prices and
+?admin=upgrades open Quality at the right part. The number beside
+Quality adds the price changes waiting for a Go.
+
+## 21 Oct 2026: enquiries become business (migration 193)
+
+Six "Research Form" emails from one nomad (Ellie, a team of two, six
+spaces in Ho Chi Minh City District 1), assigned to Jonathan by Leonie
+in Spark. They are the Send an enquiry pop-up, which already files into
+Control centre, Owners, Enquiries; they reached Spark only because the
+Webflow key lacked "Forms: read". Jonathan: "build into a flow to be
+able to turn this into business ... so we can either get a share or
+gain a verified subscription". Built:
+
+1. One customer, one card. Enquiries from the same email are one card
+   ("Ellie asked 6 spaces in Ho Chi Minh City"): Pass on to all sends
+   each space its own enquiry (reply-to the customer, claim link or
+   Verified line as before), and the customer gets ONE email listing the
+   spaces (admin_enquiries_tell_nomad), not one each.
+2. "Did you find a place?" Five to twelve days after passing on (only
+   enquiries passed on from 21 Oct), the customer is emailed once with a
+   button to nomadmaps.io/?found=<key>: the spaces they asked, "Still
+   looking", "Somewhere else", a note. The answer is kept per enquiry
+   (outcome booked / not_chosen / looking / elsewhere), the phone is
+   told ("A customer booked", or "still looking ... Reply to their email
+   to help"), and Enquiries shows "What customers told us" and bookings
+   in the last 30 days. OFF until Leonie approves the wording: the
+   switch and the full email are on the Enquiries tab ("See the email").
+3. "We sent them N customers, M booked" on each space's Outreach card
+   (admin_venue_customers), the strongest opening for a hello, and the
+   evidence for Verified now and a booking share later (a decision for
+   Jonathan and Leonie once bookings are on record).

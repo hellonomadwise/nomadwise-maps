@@ -950,6 +950,58 @@ class SupabaseService {
       _db.rpc('admin_enquiry_pass_on',
           params: {'p_id': id, 'p_to': to, 'p_tell_nomad': tellNomad});
 
+  /// Admin: after several enquiries from one person were passed on
+  /// together, ONE email to them listing every space (migration 193).
+  Future<int> tellNomadMany(List<String> ids) async {
+    final r = await _db
+        .rpc('admin_enquiries_tell_nomad', params: {'p_ids': ids});
+    return r is Map ? ((r['told'] as num?)?.toInt() ?? 0) : 0;
+  }
+
+  /// Admin: the "Did you find a place?" email on or off (migration 193;
+  /// on once Leonie has approved the wording).
+  Future<bool> setEnquiryFollowup(bool on) async {
+    final r = await _db.rpc('admin_enquiry_followup_set', params: {'p_on': on});
+    return r == true;
+  }
+
+  /// Admin: per space, the enquiries that reached it and how many
+  /// booked: {venue_id: {sent, booked, last}} (migration 193).
+  Future<Map<String, Map<String, dynamic>>> venueCustomers() async {
+    try {
+      final r = await _db.rpc('admin_venue_customers');
+      if (r is! Map) return {};
+      return {
+        for (final e in r.entries)
+          if (e.value is Map)
+            '${e.key}': Map<String, dynamic>.from(e.value as Map)
+      };
+    } catch (_) {
+      return {};
+    }
+  }
+
+  /// Anyone with the link in the "Did you find a place?" email: who
+  /// asked, the spaces they asked, any answer given. Null if the link
+  /// is not valid.
+  Future<Map<String, dynamic>?> enquiryFollowup(String token) async {
+    final r = await _db.rpc('enquiry_followup_view', params: {'p_token': token});
+    return r is Map ? Map<String, dynamic>.from(r) : null;
+  }
+
+  /// Their answer: 'space' (with the chosen enquiry), 'looking' or
+  /// 'elsewhere', and a note.
+  Future<Map<String, dynamic>?> answerEnquiryFollowup(String token,
+      String choice, {String? enquiryId, String? note}) async {
+    final r = await _db.rpc('enquiry_followup_answer', params: {
+      'p_token': token,
+      'p_choice': choice,
+      'p_enquiry': enquiryId,
+      'p_note': note,
+    });
+    return r is Map ? Map<String, dynamic>.from(r) : null;
+  }
+
   /// Admin: closes a waiting enquiry: 'handled', 'unreachable' (the
   /// nomad can be sent the space's website) or 'spam'.
   Future<void> closeEnquiry(String id, String reason,

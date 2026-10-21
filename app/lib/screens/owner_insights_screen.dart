@@ -430,7 +430,7 @@ class _OwnerInsightsScreenState extends State<OwnerInsightsScreen> {
               [a['city'], a['country']]
                   .where((x) => (x ?? '').toString().isNotEmpty)
                   .join(', '),
-              if (a['tier'] == 'verified') 'Verified' else 'Free',
+              if (a['tier'] == 'verified') 'Verified' else 'Claimed',
               if (a['price'] != null) 'saw ${a['currency'] ?? ''}${a['price']}',
               if (when != null) DateFormat('d MMM').format(when),
             ].where((x) => '$x'.isNotEmpty).join('  ·  '),

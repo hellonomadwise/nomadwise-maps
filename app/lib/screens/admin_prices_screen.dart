@@ -488,7 +488,11 @@ Future<Map<String, dynamic>?> _askProduct(BuildContext context,
 /// writes it within minutes, and Undo puts the old one back.
 /// Founders only.
 class AdminPricesScreen extends StatefulWidget {
-  const AdminPricesScreen({super.key});
+  /// [embedded]: shown as the Prices part of Quality (21 Oct 2026),
+  /// under its title, so it has no title bar of its own; "How it works"
+  /// moves next to the opening words.
+  const AdminPricesScreen({super.key, this.embedded = false});
+  final bool embedded;
   @override
   State<AdminPricesScreen> createState() => _AdminPricesScreenState();
 }
@@ -929,7 +933,9 @@ class _AdminPricesScreenState extends State<AdminPricesScreen> {
     final rows = _rows;
     final overview = _overview;
     return Scaffold(
-      appBar: AppBar(
+      appBar: widget.embedded
+          ? null
+          : AppBar(
         title: const Text('Price check'),
         actions: [
           IconButton(
@@ -983,10 +989,21 @@ class _AdminPricesScreenState extends State<AdminPricesScreen> {
                                         color: Brand.inkSecondary)),
                               ),
                               const SizedBox(width: 8),
-                              OutlinedButton.icon(
-                                  onPressed: _copying ? null : _copyRequests,
-                                  icon: const Icon(Icons.copy, size: 16),
-                                  label: const Text('Copy requests')),
+                              Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    OutlinedButton.icon(
+                                        onPressed:
+                                            _copying ? null : _copyRequests,
+                                        icon: const Icon(Icons.copy, size: 16),
+                                        label: const Text('Copy requests')),
+                                    if (widget.embedded)
+                                      TextButton.icon(
+                                          onPressed: _showHelp,
+                                          icon: const Icon(Icons.help_outline,
+                                              size: 16),
+                                          label: const Text('How it works')),
+                                  ]),
                             ]),
                         const SizedBox(height: 12),
                         if (overview != null) _numbers(overview),
