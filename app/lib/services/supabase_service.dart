@@ -1705,6 +1705,28 @@ class SupabaseService {
     return Map<String, dynamic>.from(r as Map);
   }
 
+  /// The blog articles that show the website chat (migration 192):
+  /// {path, added_at, chats, last_chat}.
+  Future<List<Map<String, dynamic>>> adminSiteChatPages() async =>
+      _siteChatPagesOf(await _db.rpc('admin_site_chat_pages'));
+
+  /// Puts the chat on a blog article (its address, or just its slug).
+  Future<List<Map<String, dynamic>>> adminSiteChatPageAdd(String url) async =>
+      _siteChatPagesOf(
+          await _db.rpc('admin_site_chat_page_add', params: {'p_url': url}));
+
+  /// Takes the chat off a blog article.
+  Future<List<Map<String, dynamic>>> adminSiteChatPageRemove(
+          String path) async =>
+      _siteChatPagesOf(await _db
+          .rpc('admin_site_chat_page_remove', params: {'p_path': path}));
+
+  static List<Map<String, dynamic>> _siteChatPagesOf(dynamic r) => [
+        if (r is List)
+          for (final x in r)
+            if (x is Map) Map<String, dynamic>.from(x)
+      ];
+
   /// The messages of a website chat in the shape ChatThread shows.
   static List<Map<String, dynamic>> siteChatRowsOf(Map<String, dynamic> chat) =>
       ((chat['messages'] as List?) ?? const [])

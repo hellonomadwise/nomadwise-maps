@@ -4550,3 +4550,53 @@ coworking listing pages (/coworking/...), and the Country, Region and
 Location pages (/country/..., /region/..., /locations/...). Everywhere
 else chat.js stops before drawing anything. A chat already started
 carries on when the visitor comes back to one of those pages.
+
+## 20 Oct 2026: the website chat on chosen blog articles (migration 192)
+
+Jonathan: try the chat on a few blog articles that get readers but few
+clicks to providers, never on articles that already sell well, to see
+whether a question answered leads to a sale. "Build it" with the ten
+he approved: best-esims czech-republic, pakistan, indonesia,
+south-america, global, thailand; best-vpn japan, for-streaming,
+south-korea, for-bbc-iplayer (90 days to 20 Oct: 2 to 9 clicks per 100
+views, against about 21 for eSIM and 8.5 for VPN). Review articles,
+the Portugal and Malaysia VPN pair and anything converting normally
+were left out on purpose.
+
+- The list lives in Supabase (site_chat_pages) and is changed in Nomad
+  Maps: Chats, Website, Blog articles (paste an address to add, minus
+  to take off). chat.js reads it at most once an hour per visitor, so a
+  change reaches the site within the hour. The database also refuses a
+  chat on an article that is not on the list.
+- On an article the box says "Need a hand with anything, or have a
+  question about this article?" (Jonathan's words, 21 Oct), with one
+  "Help me choose" button.
+- chat.js sends what it reads from the article (title, headings, the
+  opening text and the names on the provider buttons) with each
+  message. The assistant uses it to help them choose among what the
+  guide recommends; it never states a price or discount, never writes
+  provider addresses (it points to the guide's buttons, so the
+  affiliate tracking holds), sends order and refund problems to the
+  provider, and does not bring up coworking unless asked.
+- Every new chat already told the phones; on an article the notice
+  says "New chat on a blog article". Those chats carry a "Blog article"
+  chip in the inbox.
+- PostHog gets nw_chat_opened and nw_chat_started (chat_page: blog or
+  site), so we can see whether people who chatted went on to a
+  provider. Judge it after six weeks against each article's previous
+  six weeks; stop early on any article whose clicks fall.
+
+## 21 Oct 2026: Outreach, calmer filters and contact form
+
+- Filter pills (Jonathan: "the spacing on the pills filters could be
+  closer together. Make it look more premium"): the view switch, the
+  who row and the stage row are compact pills now, without the extra
+  tap padding that spread the old chips apart, each number in a small
+  badge (a zero shown faint). Same choices, colours and behaviour.
+- Edit / Add contact (on a phone it was "big in terms of text", with
+  words cut off in half-width boxes): on a phone it opens as a full
+  page with Save at the top right, one field to a line, in sections
+  (The space, How to reach them, Notes), smaller type and a small icon
+  in each field. Kind, and for a new contact how we know them, are
+  pills instead of drop-downs. On a laptop it stays a dialog, two
+  fields to a line. The fields saved are unchanged.

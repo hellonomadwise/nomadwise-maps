@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../screens/site_chat_blog_pages_screen.dart';
 import '../services/supabase_service.dart';
 import '../theme.dart';
 import 'chat_thread.dart';
@@ -183,13 +184,18 @@ class _SiteChatsPaneState extends State<SiteChatsPane> {
                 fontSize: 11, fontWeight: FontWeight.w700, color: fg)),
       );
 
+  /// Started on a blog article (migration 192), not a coworking page.
+  static bool _blog(Map<String, dynamic> c) =>
+      '${c['page_url'] ?? ''}'.contains('/blog/');
+
   List<Widget> _chips(Map<String, dynamic> c) => [
         if (c['waiting'] == true) _chip('Needs you', Colors.white, Brand.red),
+        if (_blog(c)) _chip('Blog article', Brand.violet, Brand.field),
         if (c['here'] == true)
           _chip('On the site now', Brand.success, Brand.successTint),
         if (c['who'] == 'owner')
           _chip('Runs a space', Brand.goldTextDark, Brand.goldTint),
-        if (c['who'] == 'visitor')
+        if (c['who'] == 'visitor' && !_blog(c))
           _chip('Looking for a place', Brand.inkSecondary, Brand.field),
         if (c['mode'] == 'team')
           _chip('You are answering', Brand.ink, Brand.accentTint)
@@ -429,8 +435,10 @@ class _SiteChatsPaneState extends State<SiteChatsPane> {
     final rest = _chats.where((c) => c['waiting'] != true).toList();
     return ListView(padding: const EdgeInsets.only(bottom: 24), children: [
       Padding(
-        padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
-        child: Wrap(spacing: 6, children: [
+        padding: const EdgeInsets.fromLTRB(12, 10, 4, 0),
+        child: Row(children: [
+          Expanded(
+            child: Wrap(spacing: 6, children: [
           ChoiceChip(
               label: Text('Open',
                   style: TextStyle(
@@ -467,6 +475,14 @@ class _SiteChatsPaneState extends State<SiteChatsPane> {
                 });
                 _load();
               }),
+            ]),
+          ),
+          // Which blog articles show the chat (Jonathan, 20 Oct 2026).
+          TextButton.icon(
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => const SiteChatBlogPagesScreen())),
+              icon: const Icon(Icons.article_outlined, size: 17),
+              label: const Text('Blog articles')),
         ]),
       ),
       if (_loading)

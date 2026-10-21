@@ -285,6 +285,32 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
     }
   }
 
+  /// A field of the contact form: compact, with a small icon, the
+  /// label above the words once there are any.
+  static InputDecoration _formDecoration(String label, IconData? icon) {
+    OutlineInputBorder edge(Color color, [double width = 1]) =>
+        OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: color, width: width));
+    return InputDecoration(
+      labelText: label,
+      isDense: true,
+      filled: true,
+      fillColor: Brand.surface,
+      prefixIcon:
+          icon == null ? null : Icon(icon, size: 18, color: Brand.inkMuted),
+      prefixIconConstraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+      contentPadding: EdgeInsets.fromLTRB(icon == null ? 14 : 0, 13, 12, 13),
+      labelStyle: const TextStyle(fontSize: 14, color: Brand.inkSecondary),
+      floatingLabelStyle: const TextStyle(
+          fontSize: 13, fontWeight: FontWeight.w600, color: Brand.ink),
+      alignLabelWithHint: true,
+      border: edge(Brand.border),
+      enabledBorder: edge(Brand.border),
+      focusedBorder: edge(Brand.ink, 1.4),
+    );
+  }
+
   /// Add or edit a contact. [c] null means a new one.
   Future<void> _editContact(Map<String, dynamic>? c) async {
     String v(String k) => '${c?[k] ?? ''}';
@@ -301,97 +327,150 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
     String kind = _kinds.contains(v('kind')) ? v('kind') : 'coworking';
     String source = 'manual';
 
-    Widget field(TextEditingController t, String label, {int lines = 1}) =>
-        Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: TextField(
-              controller: t,
-              maxLines: lines,
-              decoration: InputDecoration(
-                  labelText: label, border: const OutlineInputBorder())),
+    // Jonathan, 21 Oct 2026, on a phone: the form was "big in terms of
+    // text", with words cut off in half-width boxes. On a phone it is a
+    // full page, one field to a line, in three short sections, with
+    // Save at the top; on a laptop a dialog with two fields to a line.
+    // The kind (and, for a new contact, how we know them) are pills
+    // rather than drop-down menus.
+    Widget field(TextEditingController t, String label,
+            {IconData? icon, int lines = 1, TextInputType? type}) =>
+        TextField(
+          controller: t,
+          minLines: lines > 1 ? 2 : 1,
+          maxLines: lines,
+          keyboardType: lines > 1 ? TextInputType.multiline : type,
+          style: const TextStyle(fontSize: 15, color: Brand.ink),
+          decoration: _formDecoration(label, icon),
         );
 
+    Widget heading(String text, {bool first = false}) => Padding(
+          padding: EdgeInsets.fromLTRB(2, first ? 2 : 18, 2, 8),
+          child: Text(text,
+              style: const TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: .8,
+                  color: Brand.inkMuted)),
+        );
+
+    const gap = SizedBox(height: 10, width: 10);
+    Widget pair(bool narrow, Widget a, Widget b) => narrow
+        ? Column(children: [a, gap, b])
+        : Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Expanded(child: a),
+            gap,
+            Expanded(child: b),
+          ]);
+
+    String capital(String k) =>
+        k.isEmpty ? k : k[0].toUpperCase() + k.substring(1);
+
+    List<Widget> form(bool narrow, StateSetter setD) => [
+          heading('THE SPACE', first: true),
+          field(space, 'Space name', icon: Icons.storefront_outlined),
+          gap,
+          Wrap(spacing: 6, runSpacing: 6, children: [
+            for (final k in _kinds)
+              _pill(capital(k),
+                  on: kind == k,
+                  idle: Brand.inkSecondary,
+                  onTap: () => setD(() => kind = k)),
+          ]),
+          gap,
+          pair(
+              narrow,
+              field(city, 'City', icon: Icons.location_city_outlined),
+              field(country, 'Country', icon: Icons.public)),
+          heading('HOW TO REACH THEM'),
+          pair(narrow, field(person, 'Person', icon: Icons.person_outline),
+              field(email, 'Email',
+                  icon: Icons.alternate_email,
+                  type: TextInputType.emailAddress)),
+          gap,
+          field(phone, 'Phone or WhatsApp',
+              icon: Icons.phone_outlined, type: TextInputType.phone),
+          gap,
+          pair(
+              narrow,
+              field(website, 'Website',
+                  icon: Icons.language, type: TextInputType.url),
+              field(instagram, 'Instagram', icon: Icons.camera_alt_outlined)),
+          if (c == null) ...[
+            heading('HOW WE KNOW THEM'),
+            Wrap(spacing: 6, runSpacing: 6, children: [
+              for (final (k, label) in const [
+                ('email', 'They emailed us'),
+                ('prospect', 'We found them'),
+                ('listing', 'Already listed'),
+                ('manual', 'Other'),
+              ])
+                _pill(label,
+                    on: source == k,
+                    idle: Brand.inkSecondary,
+                    onTap: () => setD(() => source = k)),
+            ]),
+            gap,
+            field(message, 'What they wrote (optional)', lines: 5),
+          ],
+          heading('NOTES'),
+          field(notes, 'Notes', lines: 4),
+        ];
+
+    final title = c == null ? 'Add a contact' : 'Edit contact';
+    final narrow = MediaQuery.sizeOf(context).width < 600;
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setD) => AlertDialog(
-          title: Text(c == null ? 'Add a contact' : 'Edit contact'),
-          content: SizedBox(
-            width: 520,
-            child: SingleChildScrollView(
-              child: Column(mainAxisSize: MainAxisSize.min, children: [
-                field(space, 'Space name'),
-                Row(children: [
-                  Expanded(child: field(person, 'Person')),
-                  const SizedBox(width: 10),
-                  Expanded(child: field(email, 'Email')),
-                ]),
-                Row(children: [
-                  Expanded(child: field(city, 'City')),
-                  const SizedBox(width: 10),
-                  Expanded(child: field(country, 'Country')),
-                ]),
-                Row(children: [
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: DropdownButtonFormField<String>(
-                        value: kind,
-                        decoration: const InputDecoration(
-                            labelText: 'Kind', border: OutlineInputBorder()),
-                        items: [
-                          for (final k in _kinds)
-                            DropdownMenuItem(value: k, child: Text(k)),
-                        ],
-                        onChanged: (x) => setD(() => kind = x ?? kind),
+        builder: (ctx, setD) => narrow
+            // A phone: the whole screen, Save always in reach.
+            ? Dialog.fullscreen(
+                backgroundColor: Brand.bg,
+                child: Scaffold(
+                  backgroundColor: Brand.bg,
+                  appBar: AppBar(
+                    leading: IconButton(
+                        tooltip: 'Cancel',
+                        onPressed: () => Navigator.pop(ctx, false),
+                        icon: const Icon(Icons.close)),
+                    title: Text(title),
+                    actions: [
+                      Padding(
+                        padding: const EdgeInsets.only(right: 10),
+                        child: FilledButton(
+                            onPressed: () => Navigator.pop(ctx, true),
+                            child: Text(c == null ? 'Add' : 'Save')),
                       ),
-                    ),
+                    ],
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(child: field(phone, 'Phone or WhatsApp')),
-                ]),
-                Row(children: [
-                  Expanded(child: field(website, 'Website')),
-                  const SizedBox(width: 10),
-                  Expanded(child: field(instagram, 'Instagram')),
-                ]),
-                if (c == null) ...[
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: DropdownButtonFormField<String>(
-                      value: source,
-                      decoration: const InputDecoration(
-                          labelText: 'How we know them',
-                          border: OutlineInputBorder()),
-                      items: const [
-                        DropdownMenuItem(
-                            value: 'email', child: Text('They emailed us')),
-                        DropdownMenuItem(
-                            value: 'prospect',
-                            child: Text('We found them (prospect)')),
-                        DropdownMenuItem(
-                            value: 'listing',
-                            child: Text('Already listed on nomadwise.io')),
-                        DropdownMenuItem(value: 'manual', child: Text('Other')),
-                      ],
-                      onChanged: (x) => setD(() => source = x ?? source),
-                    ),
+                  body: SafeArea(
+                    top: false,
+                    child: ListView(
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+                        children: form(true, setD)),
                   ),
-                  field(message, 'What they wrote (optional)', lines: 5),
+                ),
+              )
+            : AlertDialog(
+                title: Text(title),
+                content: SizedBox(
+                  width: 560,
+                  child: SingleChildScrollView(
+                    child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: form(false, setD)),
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text('Cancel')),
+                  FilledButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      child: Text(c == null ? 'Add' : 'Save')),
                 ],
-                field(notes, 'Notes', lines: 3),
-              ]),
-            ),
-          ),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Cancel')),
-            FilledButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                child: Text(c == null ? 'Add' : 'Save')),
-          ],
-        ),
+              ),
       ),
     );
     if (ok != true) return;
@@ -2100,33 +2179,87 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
 
   /// The three cards above the list, one at a time.
   Widget _viewSwitch() {
-    Widget tab(String key, String label) {
-      final on = _view == key;
-      return Padding(
-        padding: const EdgeInsets.only(right: 6, bottom: 8),
-        child: ChoiceChip(
-          selected: on,
-          showCheckmark: false,
-          onSelected: (_) => setState(() => _view = key),
-          selectedColor: Brand.logoNavy,
-          backgroundColor: Brand.surface,
-          side: BorderSide(color: on ? Brand.logoNavy : Brand.border),
-          labelStyle: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: on ? Colors.white : Brand.inkSecondary),
-          label: Text(label),
-        ),
-      );
-    }
+    Widget tab(String key, String label, [int? count]) => _pill(label,
+        count: count,
+        on: _view == key,
+        idle: Brand.inkSecondary,
+        onTap: () => setState(() => _view = key));
 
     final fresh = (_newPages ?? const []).where((p) => p['ours'] != true).length;
-    return Wrap(children: [
-      tab('new', fresh > 0 ? 'New pages $fresh' : 'New pages'),
-      tab('signs', 'Signs of interest'),
-      tab('path', 'The path'),
-      tab('whole', 'The whole picture'),
-    ]);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Wrap(spacing: 6, runSpacing: 6, children: [
+        tab('new', 'New pages', fresh > 0 ? fresh : null),
+        tab('signs', 'Signs of interest'),
+        tab('path', 'The path'),
+        tab('whole', 'The whole picture'),
+      ]),
+    );
+  }
+
+  /// A filter pill: compact, with its number in a small badge (Jonathan,
+  /// 21 Oct 2026: "the spacing on the pills filters could be closer
+  /// together. Make it look more premium"). The chosen one is filled
+  /// with [color]; the others are white with [idle] words. A zero is
+  /// shown faint. No extra tap padding around it, which is what spread
+  /// the old chips apart.
+  Widget _pill(String label,
+      {int? count,
+      required bool on,
+      Color color = Brand.logoNavy,
+      Color idle = Brand.ink,
+      required VoidCallback onTap}) {
+    final words = on ? Colors.white : idle;
+    return SelectionContainer.disabled(
+      child: Semantics(
+        button: true,
+        selected: on,
+        child: Material(
+        color: on ? color : Brand.surface,
+        shape: StadiumBorder(
+            side: BorderSide(color: on ? color : Brand.border)),
+        child: InkWell(
+          customBorder: const StadiumBorder(),
+          onTap: onTap,
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(12, 6, count == null ? 12 : 6, 6),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Text(label,
+                  style: TextStyle(
+                      fontSize: 13,
+                      height: 1.2,
+                      fontWeight: on ? FontWeight.w700 : FontWeight.w600,
+                      color: words)),
+              if (count != null) ...[
+                const SizedBox(width: 6),
+                Container(
+                  constraints: const BoxConstraints(minWidth: 20),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                  decoration: BoxDecoration(
+                      color: on
+                          ? Colors.white.withValues(alpha: .22)
+                          : Brand.field,
+                      borderRadius: BorderRadius.circular(10)),
+                  child: Text(NumberFormat.decimalPattern('en').format(count),
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                          fontSize: 11.5,
+                          height: 1.3,
+                          fontWeight: FontWeight.w700,
+                          color: on
+                              ? Colors.white
+                              : count == 0
+                                  ? Brand.inkMuted
+                                  : Brand.inkSecondary)),
+                ),
+              ],
+            ]),
+          ),
+        ),
+      ),
+      ),
+    );
   }
 
   /// Every way a space shows interest, as a row: what happened, how
@@ -4295,26 +4428,16 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
                         // Who: everyone, or one group.
                         Wrap(spacing: 6, runSpacing: 6, children: [
                           for (final g in _groups)
-                            ChoiceChip(
-                              label: Text(
-                                  '${g.$2}${g.$3.isEmpty ? '' : ' ${_counts[g.$3] ?? 0}'}'),
-                              showCheckmark: false,
-                              selectedColor: Brand.logoNavy,
-                              labelStyle: TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  color: _group == g.$1
-                                      ? Colors.white
-                                      : Brand.ink),
-                              selected: _group == g.$1,
-                              onSelected: (_) {
-                                setState(() {
-                                  _group = g.$1;
-                                  _step = null;
-                                  _rows = null;
-                                });
-                                _load();
-                              },
-                            ),
+                            _pill(g.$2,
+                                count: g.$3.isEmpty ? null : _counts[g.$3] ?? 0,
+                                on: _group == g.$1, onTap: () {
+                              setState(() {
+                                _group = g.$1;
+                                _step = null;
+                                _rows = null;
+                              });
+                              _load();
+                            }),
                         ]),
                         if (_group == 'listed') ...[
                           const SizedBox(height: 10),
@@ -4342,93 +4465,59 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
                         ],
                         const SizedBox(height: 10),
                         Wrap(spacing: 6, runSpacing: 6, children: [
+                          // While a step of the path is showing, no
+                          // stage is the chosen one.
                           for (final s in _stages)
-                            ChoiceChip(
-                              label: Text(
-                                  '${s.$2}${s.$1.isEmpty ? '' : ' ${_counts[s.$1] ?? 0}'}'),
-                              // The chosen tab: dark with white words (the
-                              // default left dark words on a dark chip).
-                              showCheckmark: false,
-                              selectedColor: Brand.ink,
-                              labelStyle: TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  color: _step == null && _stage == s.$1
-                                      ? Colors.white
-                                      : Brand.ink),
-                              // While a step of the path is showing,
-                              // no stage is the chosen one.
-                              selected: _step == null && _stage == s.$1,
-                              onSelected: (_) {
-                                setState(() {
-                                  _stage = s.$1;
-                                  _step = null;
-                                  _rows = null;
-                                });
-                                _load();
-                              },
-                            ),
+                            _pill(s.$2,
+                                count: s.$1.isEmpty ? null : _counts[s.$1] ?? 0,
+                                on: _step == null && _stage == s.$1,
+                                color: Brand.ink, onTap: () {
+                              setState(() {
+                                _stage = s.$1;
+                                _step = null;
+                                _rows = null;
+                              });
+                              _load();
+                            }),
                           // Spaces we set up and nobody has claimed:
-                          // their own chip, out of Claimed and Verified.
+                          // their own pill, out of Claimed and Verified.
                           if ((_counts['ours'] ?? 0) > 0 || _stage == 'ours')
-                            ChoiceChip(
-                              label: Text(
-                                  'Set up by us ${_counts['ours'] ?? 0}'),
-                              showCheckmark: false,
-                              selectedColor: Brand.logoNavy,
-                              labelStyle: TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  color: _step == null && _stage == 'ours'
-                                      ? Colors.white
-                                      : Brand.logoNavy),
-                              selected: _step == null && _stage == 'ours',
-                              onSelected: (_) {
-                                setState(() {
-                                  _stage = 'ours';
-                                  _step = null;
-                                  _rows = null;
-                                });
-                                _load();
-                              },
-                            ),
+                            _pill('Set up by us',
+                                count: _counts['ours'] ?? 0,
+                                on: _step == null && _stage == 'ours',
+                                idle: Brand.logoNavy, onTap: () {
+                              setState(() {
+                                _stage = 'ours';
+                                _step = null;
+                                _rows = null;
+                              });
+                              _load();
+                            }),
                           // Lines marked as tests (one of us): here and
                           // in no other tab or number.
                           if ((_counts['_tests'] ?? 0) > 0 || _stage == 'tests')
-                            ChoiceChip(
-                              label: Text('Tests ${_counts['_tests'] ?? 0}'),
-                              showCheckmark: false,
-                              selectedColor: Brand.goldTextDark,
-                              labelStyle: TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  color: _step == null && _stage == 'tests'
-                                      ? Colors.white
-                                      : Brand.goldTextDark),
-                              selected: _step == null && _stage == 'tests',
-                              onSelected: (_) => _showTests(),
-                            ),
+                            _pill('Tests',
+                                count: _counts['_tests'] ?? 0,
+                                on: _step == null && _stage == 'tests',
+                                color: Brand.goldTextDark,
+                                idle: Brand.goldTextDark,
+                                onTap: _showTests),
                           // Other business, and spaces that asked to be
                           // removed or are not a fit: out of the list,
                           // here, and found by searching (migration 171).
                           if ((_counts['_aside'] ?? 0) > 0 || _stage == 'aside')
-                            ChoiceChip(
-                              label: Text(
-                                  'Not for outreach ${_counts['_aside'] ?? 0}'),
-                              showCheckmark: false,
-                              selectedColor: Brand.inkSecondary,
-                              labelStyle: TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  color: _step == null && _stage == 'aside'
-                                      ? Colors.white
-                                      : Brand.inkSecondary),
-                              selected: _step == null && _stage == 'aside',
-                              onSelected: (_) {
-                                setState(() {
-                                  _stage = 'aside';
-                                  _step = null;
-                                  _rows = null;
-                                });
-                                _load();
-                              },
-                            ),
+                            _pill('Not for outreach',
+                                count: _counts['_aside'] ?? 0,
+                                on: _step == null && _stage == 'aside',
+                                color: Brand.inkSecondary,
+                                idle: Brand.inkSecondary, onTap: () {
+                              setState(() {
+                                _stage = 'aside';
+                                _step = null;
+                                _rows = null;
+                              });
+                              _load();
+                            }),
                         ]),
                         const SizedBox(height: 14),
                         if (rows == null)

@@ -2,9 +2,12 @@
  *
  * Loaded on every nomadwise.io page from https://nomadmaps.io/chat.js,
  * but shown only on the homepage, About us, the coworking listing pages
- * and the Country, Region and Location pages. Never on blog articles or
- * the other guides, where it would get in the way of the reading and
- * the affiliate links (Jonathan, 20 Oct 2026).
+ * and the Country, Region and Location pages, and on the few blog
+ * articles chosen in Nomad Maps (Chats, Website, Blog articles;
+ * migration 192). Never on the other articles and guides, where it
+ * would get in the way of the reading and the affiliate links
+ * (Jonathan, 20 Oct 2026). On a blog article it offers help with the
+ * guide ("Need a hand with anything?"), not coworking.
  * A round button bottom right; tapping it opens the chat. The visitor's
  * chat key lives in their browser (localStorage), so a chat carries on
  * across pages and visits. Answers come from Nomadwise's assistant, or
@@ -26,12 +29,13 @@
   if (window.__nwChat) return;
 
   // Where the chat box shows: / , /about-us, /coworking/<listing>,
-  // /country/<country>, /region/<region>, /locations/<location>.
+  // /country/<country>, /region/<region>, /locations/<location>, and
+  // the blog articles on the list kept in Nomad Maps.
   var path = (location.pathname || '/').replace(/\/+$/, '') || '/';
-  if (!(path === '/' || path === '/about-us' ||
-        /^\/(coworking|country|region|locations)\/[^\/]+$/.test(path))) {
-    return;
-  }
+  var core = path === '/' || path === '/about-us' ||
+    /^\/(coworking|country|region|locations)\/[^\/]+$/.test(path);
+  var BLOG = !core && /^\/blog\/[a-z0-9-]+$/.test(path.toLowerCase());
+  if (!core && !BLOG) return;
   window.__nwChat = true;
 
   var RED = '#FF444F', INK = '#142032', BG = '#F7F7F7';
@@ -63,6 +67,49 @@
       return (c === 'x' ? r : (r & 3 | 8)).toString(16);
     });
   }
+  // Counted in the site's analytics (PostHog), when it is on the page:
+  // the box opened, and a chat started, so we can see whether people
+  // who chatted then went on to a provider.
+  function track(name) {
+    try {
+      if (window.posthog && typeof window.posthog.capture === 'function') {
+        window.posthog.capture(name, { chat_page: BLOG ? 'blog' : 'site' });
+      }
+    } catch (e) {}
+  }
+
+  // On a blog article: what the guide says, for the assistant. Its
+  // title and headings, the start of the text, and the names on the
+  // buttons that lead to providers.
+  function outline() {
+    if (!BLOG) return null;
+    var out = [], seen = {};
+    function add(t) {
+      t = String(t || '').replace(/\s+/g, ' ').trim();
+      if (t && !seen[t]) { seen[t] = true; out.push(t); }
+    }
+    try {
+      var h1 = document.querySelector('h1');
+      if (h1) add('Title: ' + h1.textContent);
+      var hs = document.querySelectorAll('h2, h3');
+      for (var i = 0; i < hs.length && i < 50; i++) {
+        add((hs[i].tagName === 'H2' ? '- ' : '-- ') + hs[i].textContent);
+      }
+      var links = document.querySelectorAll('a[href^="http"]'), names = [];
+      for (var j = 0; j < links.length && names.length < 25; j++) {
+        var a = links[j];
+        if (/nomadwise|nomadmaps/i.test(a.hostname || '') || host.contains(a)) continue;
+        var t = (a.textContent || '').replace(/\s+/g, ' ').trim();
+        if (t && t.length < 80 && names.indexOf(t) < 0) names.push(t);
+      }
+      if (names.length) add('Buttons and links to providers: ' + names.join(' | '));
+      var body = document.querySelector('.w-richtext');
+      if (body) add('Opening text: ' + (body.innerText || body.textContent || '').slice(0, 1800));
+    } catch (e) {}
+    // Nothing found: keep what was read before.
+    return out.length ? out.join('\n').slice(0, 3900) : null;
+  }
+
   function rpc(name, args) {
     return fetch(URL_.replace(/\/$/, '') + '/rest/v1/rpc/' + name, {
       method: 'POST',
@@ -116,7 +163,9 @@
     '</style>' +
     '<button class="btn" aria-label="Chat with Nomadwise"><svg viewBox="0 0 24 24"><path d="M4 4h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H8l-4 4V6a2 2 0 0 1 2-2z"/></svg><i class="dot"></i></button>' +
     '<div class="panel" role="dialog" aria-label="Chat with Nomadwise">' +
-    '<div class="head"><div><b>Nomadwise</b><span>Ask us about places to work, or your listing</span></div><button class="x" aria-label="Close">&times;</button></div>' +
+    '<div class="head"><div><b>Nomadwise</b><span>' +
+    (BLOG ? 'Questions about this article? Ask us' : 'Ask us about places to work, or your listing') +
+    '</span></div><button class="x" aria-label="Close">&times;</button></div>' +
     '<div class="list"></div>' +
     '<div class="err"></div>' +
     '<div class="foot"><textarea rows="1" maxlength="800" placeholder="Write a message"></textarea><button class="send">Send</button></div>' +
@@ -148,13 +197,16 @@
 
   function render() {
     list.innerHTML = '';
-    list.appendChild(bubble('bot', null,
-      'Hi! I am Nomadwise\'s assistant. Looking for a good place to work, or do you run a cafe or coworking space?'));
+    list.appendChild(bubble('bot', null, BLOG
+      ? 'Need a hand with anything, or have a question about this article?'
+      : 'Hi! I am Nomadwise\'s assistant. Looking for a good place to work, or do you run a cafe or coworking space?'));
     if (!state.msgs.length) {
       var chips = document.createElement('div');
       chips.className = 'chips';
-      [['I run a cafe or coworking space', 'I run a cafe or coworking space.'],
-       ['I am looking for a place to work', 'I am looking for a place to work.']].forEach(function (c) {
+      (BLOG
+        ? [['Help me choose', 'Can you help me choose?']]
+        : [['I run a cafe or coworking space', 'I run a cafe or coworking space.'],
+           ['I am looking for a place to work', 'I am looking for a place to work.']]).forEach(function (c) {
         var b = document.createElement('button');
         b.className = 'chip';
         b.textContent = c[0];
@@ -198,7 +250,10 @@
     busy = true;
     sendBtn.disabled = true;
     err.style.display = 'none';
-    if (!state.token) state.token = uuid();
+    if (!state.token) {
+      state.token = uuid();
+      track('nw_chat_started');
+    }
     var temp = { id: -Date.now(), role: 'visitor', body: text };
     state.msgs.push(temp);
     typing = true;
@@ -206,7 +261,7 @@
     rpc('site_chat_send', {
       p_token: state.token, p_body: text,
       p_page: location.href.slice(0, 500), p_title: document.title.slice(0, 200),
-      p_after: state.after
+      p_after: state.after, p_outline: outline()
     }).then(function (view) {
       state.msgs = state.msgs.filter(function (m) { return m !== temp; });
       input.value = '';
@@ -254,6 +309,7 @@
     open = on;
     panel.classList.toggle('on', on);
     if (on) {
+      track('nw_chat_opened');
       dot.style.display = 'none';
       lastActivity = Date.now();
       render();
@@ -289,6 +345,32 @@
     try { s = JSON.parse(localStorage.getItem(STORE) || '{}'); } catch (e) {}
     if (state.token && s && s.at && Date.now() - s.at < 86400000) poll();
   }
-  if (document.body) mount();
-  else document.addEventListener('DOMContentLoaded', mount);
+  function go() {
+    if (document.body) mount();
+    else document.addEventListener('DOMContentLoaded', mount);
+  }
+
+  // A blog article shows the box only when it is on the list. The list
+  // is kept in the visitor's browser for an hour, so reading it costs
+  // one small request an hour at most.
+  var LIST = 'nw-chat-pages';
+  function onList(paths) {
+    return (paths || []).indexOf(path.toLowerCase()) >= 0;
+  }
+  if (!BLOG) {
+    go();
+  } else {
+    var cached = null;
+    try { cached = JSON.parse(localStorage.getItem(LIST) || 'null'); } catch (e) {}
+    if (cached && cached.at && Date.now() - cached.at < 3600000) {
+      if (onList(cached.paths)) go();
+    } else {
+      rpc('site_chat_pages_public', {}).then(function (paths) {
+        try {
+          localStorage.setItem(LIST, JSON.stringify({ at: Date.now(), paths: paths }));
+        } catch (e) {}
+        if (onList(paths)) go();
+      }).catch(function () {});
+    }
+  }
 })();
