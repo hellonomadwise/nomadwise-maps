@@ -222,6 +222,8 @@ class _BillingPanelState extends State<BillingPanel> {
                           selected: picked == r,
                           showCheckmark: false,
                           selectedColor: Brand.logoTealTint,
+                          // a light chosen colour: the words stay dark
+                          labelStyle: const TextStyle(color: Brand.ink),
                           onSelected: (on) => set(() => picked = on ? r : null),
                         ),
                     ]),

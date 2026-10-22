@@ -4727,3 +4727,23 @@ every button in Nomad Maps' admin, new or touched later:
    confirmed; the item leaves the list only when all are confirmed.
 7. Irreversible actions confirm first, naming the thing and the result.
 (Also in the Nomadwise project: workflows/admin-ux-principles.md.)
+
+## 22 Oct 2026: chosen chips always readable
+
+A chosen email address in the Pass on box showed as a blank dark pill
+(dark words on the dark chosen colour), "this has happened a few
+times". Fixed at the root: the app's chip theme now turns a chip's
+words white when it is chosen, so any chip that does not set its own
+colours is readable. The one chip with a light chosen colour (the
+reasons when an owner leaves Verified) keeps dark words explicitly.
+Every chip in the admin was checked.
+
+## 22 Oct 2026: Pass on shows links to find a space's details
+
+Jonathan: when a space has no email, he wants one click to its Google
+listing or website. Both Pass on steps (one space, or all of a
+person's spaces) now show "Google listing", "Website" and "Instagram"
+under each space's address box, where we have them. The Google link
+searches Google Maps for the space's name and city, which opens its
+listing (phone number, website, hours). Nothing is sent by these
+links; they only open the page.

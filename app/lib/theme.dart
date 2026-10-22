@@ -117,11 +117,30 @@ ThemeData nomadwiseTheme() {
         color: Brand.ink,
       ),
     ),
+    // A chosen chip is dark, so its words must turn white: the colour
+    // follows the chip's state (Jonathan, 22 Oct 2026, a chosen email
+    // address that showed as a blank dark pill: "this has happened a
+    // few times. can you make sure this doesnt happen"). A chip that
+    // sets its own words colour still wins.
     chipTheme: base.chipTheme.copyWith(
       selectedColor: Brand.ink,
+      secondarySelectedColor: Brand.ink,
       backgroundColor: Brand.surface,
-      labelStyle: const TextStyle(
-          fontWeight: FontWeight.w600, fontSize: 13, color: Brand.ink),
+      checkmarkColor: Colors.white,
+      labelStyle: TextStyle(
+          fontWeight: FontWeight.w600,
+          fontSize: 13,
+          color: WidgetStateColor.resolveWith((states) =>
+              states.contains(WidgetState.selected)
+                  ? Colors.white
+                  : Brand.ink)),
+      secondaryLabelStyle: TextStyle(
+          fontWeight: FontWeight.w600,
+          fontSize: 13,
+          color: WidgetStateColor.resolveWith((states) =>
+              states.contains(WidgetState.selected)
+                  ? Colors.white
+                  : Brand.ink)),
       side: const BorderSide(color: Brand.border),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
     ),

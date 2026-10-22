@@ -72,8 +72,6 @@ class PassOnCard extends StatelessWidget {
     final ctl = TextEditingController(
         text: suggestions.isEmpty ? '' : suggestions.first);
     var tell = true;
-    final website = (e['website'] ?? '').toString();
-    final instagram = (e['instagram'] ?? '').toString();
     final checked = e['contact_checked'] == true;
 
     final ok = await showDialog<bool>(
@@ -112,8 +110,8 @@ class PassOnCard extends StatelessWidget {
                         padding: const EdgeInsets.only(bottom: 10),
                         child: Text(
                             checked
-                                ? 'No email found on their website. Look on '
-                                    'their website or Instagram and paste it below.'
+                                ? 'No email found on their website. Try the links '
+                                    'below and paste one here.'
                                 : 'Still looking for an email on their website. '
                                     'Check back in a few minutes, or paste one below.',
                             style: const TextStyle(
@@ -128,23 +126,8 @@ class PassOnCard extends StatelessWidget {
                       decoration:
                           const InputDecoration(labelText: 'Send it to'),
                     ),
-                    if (website.isNotEmpty || instagram.isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      Wrap(spacing: 4, children: [
-                        if (website.isNotEmpty)
-                          TextButton.icon(
-                              onPressed: () => _open(website),
-                              icon: const Icon(Icons.language, size: 16),
-                              label: const Text('Their website')),
-                        if (instagram.isNotEmpty)
-                          TextButton.icon(
-                              onPressed: () => _open(instagram.startsWith('http')
-                                  ? instagram
-                                  : 'https://instagram.com/${instagram.replaceAll('@', '')}'),
-                              icon: const Icon(Icons.camera_alt_outlined, size: 16),
-                              label: const Text('Instagram')),
-                      ]),
-                    ],
+                    const SizedBox(height: 6),
+                    SpaceLinks(e: e),
                     const SizedBox(height: 4),
                     CheckboxListTile(
                       value: tell,
@@ -428,6 +411,51 @@ List<String> passOnSuggestions(Map<String, dynamic> e) => <String>[
         if ('$s'.contains('@')) '$s'.trim().toLowerCase(),
     ].toSet().toList();
 
+/// Quick links for finding a space's contact details by hand: its
+/// Google listing (phone, website, opening hours), its website and
+/// Instagram. Jonathan, 22 Oct 2026: for spaces with no email found.
+class SpaceLinks extends StatelessWidget {
+  final Map<String, dynamic> e;
+  const SpaceLinks({super.key, required this.e});
+
+  static Future<void> _open(String url) async {
+    var u = url.trim();
+    if (u.isEmpty) return;
+    if (!u.startsWith('http')) u = 'https://$u';
+    await launchUrl(Uri.parse(u), mode: LaunchMode.externalApplication);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final name = (e['venue_name'] ?? '').toString().trim();
+    final city = (e['city'] ?? '').toString().trim();
+    final website = (e['website'] ?? '').toString().trim();
+    final instagram = (e['instagram'] ?? '').toString().trim();
+    final query = [name, city].where((x) => x.isNotEmpty).join(' ');
+    Widget link(IconData icon, String label, String url) => TextButton.icon(
+          onPressed: () => _open(url),
+          style: TextButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.symmetric(horizontal: 8)),
+          icon: Icon(icon, size: 16),
+          label: Text(label, style: const TextStyle(fontSize: 13)),
+        );
+    return Wrap(spacing: 2, runSpacing: 0, children: [
+      if (query.isNotEmpty)
+        link(Icons.place_outlined, 'Google listing',
+            'https://www.google.com/maps/search/?api=1&query=${Uri.encodeQueryComponent(query)}'),
+      if (website.isNotEmpty) link(Icons.language, 'Website', website),
+      if (instagram.isNotEmpty)
+        link(
+            Icons.camera_alt_outlined,
+            'Instagram',
+            instagram.startsWith('http')
+                ? instagram
+                : 'https://instagram.com/${instagram.replaceAll('@', '')}'),
+    ]);
+  }
+}
+
 /// Several enquiries from the same person, as one card (migration 193;
 /// Jonathan, 21 Oct 2026: Ellie, a team of two, asked six spaces in Ho
 /// Chi Minh City in one evening). One press passes it on to every
@@ -534,7 +562,7 @@ class PassOnGroupCard extends StatelessWidget {
                                     helperText: passOnSuggestions(matched[i])
                                             .isEmpty
                                         ? (matched[i]['contact_checked'] == true
-                                            ? 'No email on their website: paste one, or leave it out'
+                                            ? 'No email on their website: try the links below, or leave it out'
                                             : 'Still looking on their website: paste one, or leave it out')
                                         : null),
                               ),
@@ -557,6 +585,8 @@ class PassOnGroupCard extends StatelessWidget {
                                       ),
                                   ]),
                                 ),
+                              const SizedBox(height: 2),
+                              SpaceLinks(e: matched[i]),
                             ]),
                       ),
                     ],
