@@ -4813,3 +4813,50 @@ for phone numbers.
 - Step 1 has a "Phone or WhatsApp (optional)" box under each space,
   with its own "Save to Outreach" button. It saves the number only;
   nothing is sent. A different number already there goes in the notes.
+
+## 22 Oct 2026: the website chat asks for the best way to reach someone (migration 200)
+
+Jonathan, on a test chat: the assistant only ever asked for an email.
+People may prefer WhatsApp or another way. Now the assistant (and the
+holding message) asks for "the best way to reach you: an email
+address, or a WhatsApp number", and accepts either. A number is kept
+on the chat (visitor_phone). In Chats the header shows it with an
+Open WhatsApp button, and "Contact details" edits the email and the
+number by hand. Replies are still emailed when they gave an email and
+left the site; with only a number, Jonathan writes on WhatsApp himself.
+
+## 22 Oct 2026: WhatsApp numbers open with one press (migration 201)
+
+Jonathan: a visitor's WhatsApp number should be a button that opens
+WhatsApp, whatever format they typed it in. WhatsApp links need the
+country code. Open WhatsApp now reads "+44 7591 915767", "+44 (0)
+7591 915767", "0044 7591 915767", "+44-7591-915767" and "+44 07591
+915767" alike. A number with no country code ("07591 915767") asks
+"Which country is this number from?", shows the number as it will be
+saved, then opens WhatsApp and saves it fixed, so next time it is one
+press. The assistant now writes numbers with + and the country code
+when it knows the country, and asks for the country when it cannot
+tell.
+
+## 22 Oct 2026: reloading the control centre stays in the control centre
+
+Jonathan: pressing the browser's reload in the admin took him to the
+map, because the control centre opened from the map kept the map's
+address (nomadmaps.io). The address now follows the screen: ?admin
+for the control centre, ?admin=<tool>&menu for a tool beside the menu
+(Chats, Outreach, Quality, Sequences...), so a reload opens the same
+place. Plain ?admin=chats is still the phone's Chats on its own. Back
+on the map, the address is the map's again.
+
+## 22 Oct 2026: owner chats have Open and Done (migration 202)
+
+Jonathan: on Chats, Owners, "an open and done, similar to website", so
+it reads like an inbox of what is not closed, with the spaces that
+have no messages yet still there but tucked away. Now:
+- Open and Done chips above the list. Open shows owners in their
+  Owner account now, then Waiting for you, then the other chats not
+  marked done. "No messages yet (N)" is folded at the bottom; tap it
+  to show them and write first.
+- Mark done / Reopen in an open chat (a tick at the top on a phone).
+  A new message from either side reopens it by itself.
+- Searching looks through everything, done and not yet written to.

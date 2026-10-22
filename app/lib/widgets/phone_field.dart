@@ -48,6 +48,14 @@ class PhoneField extends StatefulWidget {
     return null;
   }
 
+  static String? nameFor(String? iso) {
+    if (iso == null) return null;
+    for (final (name, i, _) in dialCodes) {
+      if (i == iso) return name;
+    }
+    return null;
+  }
+
   static int? dialFor(String? iso) {
     if (iso == null) return null;
     for (final (_, i, code) in dialCodes) {
@@ -67,6 +75,52 @@ class PhoneField extends StatefulWidget {
     if (digits.startsWith('00$code')) digits = digits.substring(2 + '$code'.length);
     if (iso != 'IT' && digits.startsWith('0')) digits = digits.substring(1);
     return '+$code $digits';
+  }
+
+  /// The searchable list of countries; the chosen ISO code, or null.
+  static Future<String?> pickCountry(BuildContext context) =>
+      showModalBottomSheet<String>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Brand.surface,
+        shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(18))),
+        builder: (_) => const _DialPicker(),
+      );
+
+  /// A number as typed by anyone, in international digits for a
+  /// WhatsApp link (447591915767), or null when it has no country code
+  /// we can be sure of. "+44 (0) 7591 915767", "0044 7591 915767" and
+  /// "+44-7591-915767" all work; "07591 915767" needs the country.
+  static String? whatsAppDigits(String phone) {
+    var p = phone.trim().replaceAll(RegExp(r'\(\s*0\s*\)'), '');
+    if (p.startsWith('00')) p = '+${p.substring(2)}';
+    var digits = p.replaceAll(RegExp(r'\D'), '');
+    if (!p.startsWith('+')) return null;
+    // "+44 07591 915767": the national 0 after the country code goes
+    // (not in Italy, where it belongs to the number).
+    var code = 0;
+    for (final (_, _, c) in dialCodes) {
+      if (digits.startsWith('$c') && '$c'.length > '$code'.length) code = c;
+    }
+    if (code != 0 && code != 39 && digits.length > '$code'.length &&
+        digits['$code'.length] == '0') {
+      digits = digits.replaceRange('$code'.length, '$code'.length + 1, '');
+    }
+    if (digits.length < 7 || digits.length > 15) return null;
+    return digits;
+  }
+
+  /// [phone] with the country [iso] put in front, as "+44 7591915767".
+  /// A number that already starts with that country's code (447591...)
+  /// is not given it twice.
+  static String withCountry(String? iso, String phone) {
+    final code = dialFor(iso);
+    final digits = phone.replaceAll(RegExp(r'\D'), '');
+    if (code != null && digits.startsWith('$code') && digits.length >= 11) {
+      return '+$code ${digits.substring('$code'.length)}';
+    }
+    return compose(iso, phone);
   }
 
   /// Null when fine, or what is wrong, in plain words.

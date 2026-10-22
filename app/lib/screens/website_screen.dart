@@ -10,6 +10,8 @@ import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/venue.dart';
+import '../services/address_stub.dart'
+    if (dart.library.html) '../services/address_web.dart' as addr;
 import '../services/places_service.dart';
 import '../services/supabase_service.dart';
 import '../theme.dart';
@@ -243,6 +245,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     _load();
     _loadCandidateCount();
     _loadNextUp();
+    _markAddress(widget.openTool);
     if (widget.openTool != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _showTool(widget.openTool);
@@ -250,8 +253,23 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     }
   }
 
+  /// The browser's address says which screen is open, so a reload
+  /// comes back to it instead of the map (Jonathan, 22 Oct 2026).
+  /// ?admin is the control centre; ?admin=<tool>&menu a tool beside
+  /// the menu (plain ?admin=chats stays the phone's Chats on its own).
+  void _markAddress(String? tool) {
+    if (tool == null) {
+      addr.setAddress('/?admin');
+    } else {
+      addr.setAddress('/?admin=$tool&menu');
+    }
+  }
+
   @override
   void dispose() {
+    // Opened from the map (not from nomadmaps.io/admin): back on the
+    // map, the address is the map's again.
+    if (!widget.standalone) addr.setAddress('/');
     _searchTimer?.cancel();
     _searchCtl.dispose();
     _cleanCtl.dispose();
@@ -1371,6 +1389,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     if (home != null) nav.popUntil((r) => r == home || r.isFirst);
     if (k == null) {
       if (_upgradesOpen) setState(() => _upgradesOpen = false);
+      _markAddress(null);
       _loadNextUp();
       return;
     }
@@ -1379,6 +1398,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       _showUpgrades(k == 'prices' ? 'prices' : null);
       return;
     }
+    _markAddress(k);
     // Keyed, so the tool is not started afresh when the window is
     // widened or narrowed past the width where the menu appears.
     final toolKey = GlobalKey();
@@ -1398,7 +1418,13 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         // back at the control centre: a Go given in a tool changes
         // what is next
         .then((_) {
-      if (mounted) _loadNextUp();
+      if (!mounted) return;
+      if (ModalRoute.of(context)?.isCurrent == true) {
+        _markAddress(_upgradesOpen
+            ? (_upgradesPart == 'prices' ? 'prices' : 'upgrades')
+            : null);
+      }
+      _loadNextUp();
     });
   }
 
@@ -2208,11 +2234,18 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       _showUpgrades(k == 'prices' ? 'prices' : null);
       return;
     }
+    _markAddress(k);
     Navigator.push(
             context, MaterialPageRoute(builder: (_) => _toolScreen(k)))
         // back from a tool: what is waiting may have changed
         .then((_) {
-      if (mounted) _loadNextUp();
+      if (!mounted) return;
+      if (ModalRoute.of(context)?.isCurrent == true) {
+        _markAddress(_upgradesOpen
+            ? (_upgradesPart == 'prices' ? 'prices' : 'upgrades')
+            : null);
+      }
+      _loadNextUp();
     });
   }
 
@@ -2321,6 +2354,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                           : 'suggest');
       if (group != null) _cleanKey = group;
     });
+    _markAddress(_upgradesPart == 'prices' ? 'prices' : 'upgrades');
     _loadNextUp();
   }
 
@@ -2328,6 +2362,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   void _leaveUpgrades() {
     if (!mounted || !_upgradesOpen) return;
     setState(() => _upgradesOpen = false);
+    _markAddress(null);
     _loadNextUp();
   }
 
@@ -2404,6 +2439,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                 onTap: () {
                   if (key != _upgradesPart) {
                     setState(() => _upgradesPart = key);
+                    _markAddress(key == 'prices' ? 'prices' : 'upgrades');
                   }
                 },
                 child: Container(

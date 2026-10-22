@@ -90,11 +90,20 @@ class _AdminGateState extends State<AdminGate> {
       final s = widget.section;
       const tools = {
         'analytics', 'users', 'pricing', 'outreach', 'upgrades', 'prices',
+        'chats', 'sequences',
       };
       // ?admin=chats (nomadmaps.io/chats, the icon on a founder's
       // phone): the chats and nothing else, so it opens at once
-      // without the control centre loading underneath.
-      if (s == 'chats') return const AdminChatsScreen(standalone: true);
+      // without the control centre loading underneath. With &menu
+      // (a reload of Chats opened from the control centre's menu):
+      // Chats beside the menu, as it was.
+      var menu = false;
+      try {
+        menu = Uri.base.queryParameters.containsKey('menu');
+      } catch (_) {}
+      if (s == 'chats' && !menu) {
+        return const AdminChatsScreen(standalone: true);
+      }
       return WebsiteScreen(
           standalone: true, openTool: tools.contains(s) ? s : null);
     }

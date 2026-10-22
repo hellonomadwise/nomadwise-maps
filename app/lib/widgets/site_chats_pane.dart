@@ -8,6 +8,7 @@ import '../screens/site_chat_blog_pages_screen.dart';
 import '../services/supabase_service.dart';
 import '../theme.dart';
 import 'chat_thread.dart';
+import 'phone_field.dart';
 
 /// The chats from the chat box on nomadwise.io (migration 190), on the
 /// Chats screen's Website tab. Jonathan, 20 Oct 2026: "A Chats inbox
@@ -106,10 +107,14 @@ class _SiteChatsPaneState extends State<SiteChatsPane> {
   }
 
   Future<void> _set(String id,
-      {String? mode, String? status, String? email, String? toast}) async {
+      {String? mode,
+      String? status,
+      String? email,
+      String? phone,
+      String? toast}) async {
     try {
       final r = await _supabase.adminSiteChatSet(id,
-          mode: mode, status: status, email: email);
+          mode: mode, status: status, email: email, phone: phone);
       if (!mounted) return;
       _setMeta(id, Map<String, dynamic>.from((r['chat'] as Map?) ?? const {}));
       if (toast != null) _snack(toast);
@@ -119,31 +124,138 @@ class _SiteChatsPaneState extends State<SiteChatsPane> {
     }
   }
 
-  Future<void> _askEmail(String id, String? current) async {
-    final ctl = TextEditingController(text: current ?? '');
-    final email = await showDialog<String>(
+  /// Their email and their WhatsApp or phone number, by hand
+  /// (migration 200: the assistant asks for the best way to reach
+  /// them, and either is fine).
+  Future<void> _askContact(String id, String? email, String? phone) async {
+    final em = TextEditingController(text: email ?? '');
+    final ph = TextEditingController(text: phone ?? '');
+    final ok = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-              title: const Text('Their email'),
-              content: TextField(
-                  controller: ctl,
-                  autofocus: true,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                      hintText: 'name@example.com',
-                      helperText: 'Your replies are emailed here once '
-                          'they have left the site.')),
+              title: const Text('How to reach them'),
+              content: SizedBox(
+                width: 420,
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  TextField(
+                      controller: em,
+                      autofocus: true,
+                      keyboardType: TextInputType.emailAddress,
+                      decoration: const InputDecoration(
+                          labelText: 'Email',
+                          hintText: 'name@example.com',
+                          helperText: 'Your replies are emailed here once '
+                              'they have left the site.')),
+                  const SizedBox(height: 12),
+                  TextField(
+                      controller: ph,
+                      keyboardType: TextInputType.phone,
+                      decoration: const InputDecoration(
+                          labelText: 'WhatsApp or phone',
+                          hintText: '+44 7700 900123',
+                          helperText: 'With the country code. Nothing is sent '
+                              'to it automatically: Open WhatsApp to write.')),
+                ]),
+              ),
               actions: [
                 TextButton(
-                    onPressed: () => Navigator.pop(ctx),
+                    onPressed: () => Navigator.pop(ctx, false),
                     child: const Text('Cancel')),
                 FilledButton(
-                    onPressed: () => Navigator.pop(ctx, ctl.text.trim()),
+                    onPressed: () => Navigator.pop(ctx, true),
                     child: const Text('Save')),
               ],
             ));
-    if (email == null) return;
-    await _set(id, email: email, toast: email.isEmpty ? 'Email removed.' : 'Email saved.');
+    final e = em.text.trim();
+    final p = ph.text.trim();
+    // after the dialog has finished closing
+    Future.delayed(const Duration(milliseconds: 500), () {
+      em.dispose();
+      ph.dispose();
+    });
+    if (ok != true) return;
+    await _set(id, email: e, phone: p, toast: 'Saved.');
+  }
+
+  /// A WhatsApp chat with this number, in a new tab (migration 201).
+  /// A number without a country code (07591 915767) asks which country
+  /// it is from first, and is saved with the code, so next time it is
+  /// one press.
+  Future<void> _openWhatsApp(String id, String phone) async {
+    var digits = PhoneField.whatsAppDigits(phone);
+    String? fixed;
+    if (digits == null) {
+      fixed = await _askCountry(phone);
+      if (fixed == null) return;
+      digits = PhoneField.whatsAppDigits(fixed);
+      if (digits == null) return;
+    }
+    // Opened first: a browser may block a new tab opened after a wait.
+    await launchUrl(Uri.parse('https://wa.me/$digits'),
+        mode: LaunchMode.externalApplication);
+    if (fixed != null) await _set(id, phone: fixed, toast: 'Saved as $fixed.');
+  }
+
+  /// "Which country is this number from?", with the number as it will
+  /// be saved shown before anything happens.
+  Future<String?> _askCountry(String phone) async {
+    String? iso;
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(builder: (ctx, setD) {
+        final code = PhoneField.dialFor(iso);
+        final result = iso == null ? null : PhoneField.withCountry(iso, phone);
+        return AlertDialog(
+          title: const Text('Which country is this number from?'),
+          content: SizedBox(
+            width: 420,
+            child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('They wrote: $phone',
+                      style: const TextStyle(
+                          fontSize: 14, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 6),
+                  const Text(
+                      'WhatsApp needs the country code. Choose the country and '
+                      'the number is saved with it, so next time it opens '
+                      'straight away.',
+                      style: TextStyle(
+                          fontSize: 12.5,
+                          height: 1.45,
+                          color: Brand.inkSecondary)),
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      final c = await PhoneField.pickCountry(ctx);
+                      if (c != null) setD(() => iso = c);
+                    },
+                    icon: const Icon(Icons.public, size: 16),
+                    label: Text(code == null
+                        ? 'Choose the country'
+                        : '${PhoneField.nameFor(iso) ?? iso} (+$code)'),
+                  ),
+                  if (result != null) ...[
+                    const SizedBox(height: 10),
+                    Text('It will be saved as $result',
+                        style: const TextStyle(
+                            fontSize: 13, color: Brand.inkSecondary)),
+                  ],
+                ]),
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel')),
+            FilledButton(
+                onPressed:
+                    result == null ? null : () => Navigator.pop(ctx, result),
+                child: const Text('Save and open WhatsApp')),
+          ],
+        );
+      }),
+    );
   }
 
   static String _short(DateTime at) {
@@ -159,8 +271,10 @@ class _SiteChatsPaneState extends State<SiteChatsPane> {
   static String _title(Map<String, dynamic> c) {
     final name = '${c['visitor_name'] ?? ''}'.trim();
     final email = '${c['visitor_email'] ?? ''}'.trim();
+    final phone = '${c['visitor_phone'] ?? ''}'.trim();
     if (name.isNotEmpty) return name;
     if (email.isNotEmpty) return email;
+    if (phone.isNotEmpty) return phone;
     return c['who'] == 'owner' ? 'A space owner' : 'A visitor';
   }
 
@@ -222,9 +336,9 @@ class _SiteChatsPaneState extends State<SiteChatsPane> {
         return SupabaseService.siteChatRowsOf(r);
       },
       note: 'Writing here takes the chat over from the assistant. If they '
-          'are on the site they see it straight away; if they have left '
-          'and gave an email, it is emailed to them a minute after your '
-          'last message.',
+          'are on the site they see it straight away. If they have left: '
+          'with an email, it is emailed to them a minute after your last '
+          'message; with only a WhatsApp number, use Open WhatsApp.',
       emptyTitle: 'No messages yet',
       emptyText: 'Nothing has been written in this chat.',
     );
@@ -234,6 +348,7 @@ class _SiteChatsPaneState extends State<SiteChatsPane> {
     final id = '${c['id']}';
     final m = {...c, ...?_meta[id]};
     final email = '${m['visitor_email'] ?? ''}'.trim();
+    final phone = '${m['visitor_phone'] ?? ''}'.trim();
     final url = '${m['page_url'] ?? ''}'.trim();
     final team = m['mode'] == 'team';
     final done = m['status'] == 'done';
@@ -248,7 +363,9 @@ class _SiteChatsPaneState extends State<SiteChatsPane> {
                   const TextStyle(fontSize: 16.5, fontWeight: FontWeight.w800)),
           Text(
               [
-                if (email.isNotEmpty) email else 'No email yet',
+                if (email.isNotEmpty) email,
+                if (phone.isNotEmpty) phone,
+                if (email.isEmpty && phone.isEmpty) 'No contact details yet',
                 if (_page(m).isNotEmpty) 'on ${_page(m)}',
               ].join('  ·  '),
               maxLines: 2,
@@ -273,10 +390,18 @@ class _SiteChatsPaneState extends State<SiteChatsPane> {
                       toast: 'Taken over: the assistant stops here.'),
                   icon: const Icon(Icons.front_hand_outlined, size: 16),
                   label: const Text('Take over')),
+            if (phone.replaceAll(RegExp(r'[^0-9]'), '').length >= 7)
+              OutlinedButton.icon(
+                  onPressed: () => _openWhatsApp(id, phone),
+                  icon: const Icon(Icons.chat_outlined, size: 16),
+                  label: const Text('Open WhatsApp')),
             OutlinedButton.icon(
-                onPressed: () => _askEmail(id, email.isEmpty ? null : email),
-                icon: const Icon(Icons.alternate_email, size: 16),
-                label: Text(email.isEmpty ? 'Add their email' : 'Change email')),
+                onPressed: () => _askContact(id, email.isEmpty ? null : email,
+                    phone.isEmpty ? null : phone),
+                icon: const Icon(Icons.contact_mail_outlined, size: 16),
+                label: Text(email.isEmpty && phone.isEmpty
+                    ? 'Add contact details'
+                    : 'Contact details')),
             // Only for someone who runs a space: a visitor's chat was
             // started on a page that is not theirs (Jonathan, 20 Oct
             // 2026: "Their page isn't relevant if it's a user").

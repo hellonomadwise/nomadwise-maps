@@ -35,6 +35,14 @@ class _AdminChatsScreenState extends State<AdminChatsScreen> {
   String? _error;
   String? _open; // the space whose chat is beside the list (wide)
 
+  // Owners (migration 202): Open (anything not marked done) or Done,
+  // as on the Website tab. The spaces with no messages yet are kept
+  // folded away at the bottom of Open (Jonathan, 22 Oct 2026).
+  bool _doneView = false;
+  bool _showQuiet = false;
+
+  static bool _isDone(Map<String, dynamic> c) => c['done'] == true;
+
   // The phone notice that an owner is in their Owner account opens
   // /chats/#space-<id>, which arrives here as ?space=<id> (migration
   // 198): that chat opens once the list is in.
@@ -239,6 +247,34 @@ class _AdminChatsScreenState extends State<AdminChatsScreen> {
     );
   }
 
+  Future<void> _setDone(Map<String, dynamic> c, bool done) async {
+    final id = '${c['venue_id']}';
+    try {
+      await _supabase.adminChatDone(id, done);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(done
+              ? 'Done. A new message reopens it.'
+              : 'Reopened.')));
+      await _load();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('That did not save: $e'),
+          backgroundColor: Brand.red));
+    }
+  }
+
+  /// Mark done / Reopen, for a chat with messages.
+  Widget? _doneButton(Map<String, dynamic> c) {
+    if (c['last_at'] == null) return null;
+    final done = _isDone(c);
+    return TextButton.icon(
+        onPressed: () => _setDone(c, !done),
+        icon: Icon(done ? Icons.undo : Icons.check, size: 16),
+        label: Text(done ? 'Reopen' : 'Mark done'));
+  }
+
   Widget _header(Map<String, dynamic> c) {
     final email = '${c['owner_email'] ?? ''}'.trim();
     final who = _who(c);
@@ -276,7 +312,17 @@ class _AdminChatsScreenState extends State<AdminChatsScreen> {
       MaterialPageRoute<void>(
         builder: (_) => Scaffold(
           backgroundColor: Brand.surface,
-          appBar: AppBar(titleSpacing: 0, title: _header(c)),
+          appBar: AppBar(titleSpacing: 0, title: _header(c), actions: [
+            if (c['last_at'] != null)
+              IconButton(
+                  tooltip: _isDone(c) ? 'Reopen' : 'Mark done',
+                  onPressed: () async {
+                    await _setDone(c, !_isDone(c));
+                    // back to the list, which now shows it in its place
+                    if (mounted) Navigator.of(context).maybePop();
+                  },
+                  icon: Icon(_isDone(c) ? Icons.undo : Icons.check)),
+          ]),
           body: SafeArea(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(12, 4, 12, 10),
@@ -397,27 +443,80 @@ class _AdminChatsScreenState extends State<AdminChatsScreen> {
             .toLowerCase()
             .contains(q);
     final everyone = _chats.where(hit).toList();
-    // In their Owner account now (migration 198): first, whatever else.
+    final searching = q.isNotEmpty;
+    Widget chip(String text, bool on, VoidCallback tap) => ChoiceChip(
+        label: Text(text,
+            style: TextStyle(
+                fontWeight: on ? FontWeight.w700 : FontWeight.w500,
+                color: on ? Colors.white : Brand.ink)),
+        selected: on,
+        showCheckmark: false,
+        selectedColor: Brand.ink,
+        backgroundColor: Brand.surface,
+        onSelected: (_) => tap());
+    final doneCount = everyone.where(_isDone).length;
+    final filters = Padding(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+      child: Wrap(spacing: 6, children: [
+        chip('Open', !_doneView, () {
+          if (_doneView) setState(() => _doneView = false);
+        }),
+        chip(doneCount > 0 ? 'Done ($doneCount)' : 'Done', _doneView, () {
+          if (!_doneView) setState(() => _doneView = true);
+        }),
+      ]),
+    );
+    final searchBox = Padding(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 2),
+      child: TextField(
+        controller: _search,
+        onChanged: (_) => setState(() {}),
+        decoration: const InputDecoration(
+            prefixIcon: Icon(Icons.search, size: 20),
+            hintText: 'Search by space or owner',
+            isDense: true,
+            border: OutlineInputBorder()),
+      ),
+    );
+
+    // Done: the chats marked done (newest first), nothing else.
+    if (_doneView && !searching) {
+      final done = everyone.where(_isDone).toList()
+        ..sort((a, b) => '${b['done_at'] ?? ''}'.compareTo('${a['done_at'] ?? ''}'));
+      return ListView(padding: const EdgeInsets.only(bottom: 24), children: [
+        filters,
+        searchBox,
+        if (done.isEmpty)
+          const Padding(
+            padding: EdgeInsets.all(24),
+            child: Text(
+                'Nothing marked done yet. Open a chat and press Mark done '
+                'when it needs nothing more; a new message brings it back.',
+                style: TextStyle(color: Brand.inkSecondary, height: 1.45)),
+          )
+        else ...[
+          _heading('DONE'),
+          for (final c in done) _row(c, wide),
+        ],
+      ]);
+    }
+
+    // Open (or a search, which looks through everything).
+    // Online now shows even a chat marked done: that is when a hello
+    // is most natural.
     final here = everyone.where((c) => c['here'] == true).toList();
-    final all = everyone.where((c) => c['here'] != true).toList();
-    final waiting = all.where((c) => c['waiting'] == true).toList();
-    final going = all
+    final rest = everyone
+        .where((c) => c['here'] != true && (searching || !_isDone(c)))
+        .toList();
+    final waiting = rest.where((c) => c['waiting'] == true).toList();
+    final going = rest
         .where((c) => c['waiting'] != true && c['last_at'] != null)
         .toList();
-    final quiet = all.where((c) => c['last_at'] == null).toList();
+    final quiet = rest.where((c) => c['last_at'] == null).toList();
+    final showQuiet = _showQuiet || searching;
     return ListView(padding: const EdgeInsets.only(bottom: 24), children: [
-      Padding(
-        padding: const EdgeInsets.fromLTRB(12, 10, 12, 2),
-        child: TextField(
-          controller: _search,
-          onChanged: (_) => setState(() {}),
-          decoration: const InputDecoration(
-              prefixIcon: Icon(Icons.search, size: 20),
-              hintText: 'Search by space or owner',
-              isDense: true,
-              border: OutlineInputBorder()),
-        ),
-      ),
+      filters,
+      searchBox,
       if (everyone.isEmpty)
         Padding(
           padding: const EdgeInsets.all(24),
@@ -429,6 +528,12 @@ class _AdminChatsScreenState extends State<AdminChatsScreen> {
                       'their Owner account, or you write first.',
               style: const TextStyle(
                   color: Brand.inkSecondary, height: 1.45)),
+        )
+      else if (here.isEmpty && waiting.isEmpty && going.isEmpty && !searching)
+        const Padding(
+          padding: EdgeInsets.fromLTRB(24, 18, 24, 6),
+          child: Text('All caught up: no open chats.',
+              style: TextStyle(color: Brand.inkSecondary, height: 1.45)),
         ),
       if (here.isNotEmpty) ...[
         _heading('IN THEIR OWNER ACCOUNT NOW'),
@@ -446,9 +551,34 @@ class _AdminChatsScreenState extends State<AdminChatsScreen> {
                 : 'CHATS'),
         for (final c in going) _row(c, wide),
       ],
+      // The spaces with an owner and no messages yet: folded away, to
+      // write first when wanted.
       if (quiet.isNotEmpty) ...[
-        _heading('NO MESSAGES YET'),
-        for (final c in quiet) _row(c, wide),
+        if (!searching)
+          InkWell(
+            onTap: () => setState(() => _showQuiet = !_showQuiet),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 16, 12, 6),
+              child: Row(children: [
+                Text('NO MESSAGES YET (${quiet.length})',
+                    style: const TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: .8,
+                        color: Brand.inkMuted)),
+                const SizedBox(width: 4),
+                Icon(_showQuiet ? Icons.expand_less : Icons.expand_more,
+                    size: 18, color: Brand.inkMuted),
+                const Spacer(),
+                Text(_showQuiet ? 'Hide' : 'Show, to write first',
+                    style: const TextStyle(
+                        fontSize: 12, color: Brand.inkMuted)),
+              ]),
+            ),
+          )
+        else
+          _heading('NO MESSAGES YET'),
+        if (showQuiet) for (final c in quiet) _row(c, wide),
       ],
     ]);
   }
@@ -504,7 +634,14 @@ class _AdminChatsScreenState extends State<AdminChatsScreen> {
                             child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
-                                  _header(open),
+                                  Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Expanded(child: _header(open)),
+                                        if (_doneButton(open) != null)
+                                          _doneButton(open)!,
+                                      ]),
                                   const Divider(height: 18, color: Brand.hairline),
                                   Expanded(child: _thread(open)),
                                 ]),

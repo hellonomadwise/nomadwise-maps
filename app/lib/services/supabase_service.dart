@@ -1741,6 +1741,12 @@ class SupabaseService {
 
   /// The founders' side: every space with an owner, the chats waiting
   /// for an answer first.
+  /// Mark an owner chat done, or reopen it (migration 202). A new
+  /// message from either side reopens it by itself.
+  Future<void> adminChatDone(String venueId, bool done) async {
+    await _db.rpc('admin_chat_done', params: {'p_venue': venueId, 'p_done': done});
+  }
+
   Future<List<Map<String, dynamic>>> adminChats() async {
     final r = await _db.rpc('admin_chats');
     return [
@@ -1810,15 +1816,21 @@ class SupabaseService {
   }
 
   /// Take over or hand back ('team' / 'bot'), done or reopen
-  /// ('done' / 'open'), or set their email or name by hand.
+  /// ('done' / 'open'), or set their email, WhatsApp or phone number
+  /// (migration 200) or name by hand.
   Future<Map<String, dynamic>> adminSiteChatSet(String id,
-      {String? mode, String? status, String? email, String? name}) async {
+      {String? mode,
+      String? status,
+      String? email,
+      String? name,
+      String? phone}) async {
     final r = await _db.rpc('admin_site_chat_set', params: {
       'p_id': id,
       'p_mode': mode,
       'p_status': status,
       'p_email': email,
       'p_name': name,
+      if (phone != null) 'p_phone': phone,
     });
     return Map<String, dynamic>.from(r as Map);
   }
