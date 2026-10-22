@@ -4905,3 +4905,16 @@ account holding all its spaces, so a space now counts as signed in
 when its owner has signed in to, or opened, the account for any of
 their other spaces. It shows under "Left or switched off". A new
 location claimed with a different email still gets the reminders.
+
+## 22 Oct 2026: Germany, not Deutschland (migration 205)
+
+Pricing listed "Deutschland" as a country name not recognised: Cafe
+AMANO (Berlin), added through the claim form, got its country from
+Google in the language of the owner's browser, and its page address
+became deutschland-berlin-cafe-amano. Fixed:
+- The app asks Google for English (languageCode en) on every Places
+  call, as the server's enrichment already did.
+- Migration 205: the space's country is Germany (venue, claim,
+  Outreach contact), and its address germany-berlin-cafe-amano.
+- Webflow, with Jonathan's Go: the item's slug renamed and published.
+  By hand: a 301 redirect from the old address, and the sitemap entry.

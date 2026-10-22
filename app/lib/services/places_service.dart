@@ -182,7 +182,7 @@ class PlacesService {
     }
     try {
       final resp = await GoogleMeter.client.get(
-        Uri.parse('https://places.googleapis.com/v1/places/$placeId'),
+        Uri.parse('https://places.googleapis.com/v1/places/$placeId?languageCode=en'),
         headers: {
           'X-Goog-Api-Key': AppConfig.googlePlacesKey,
           'X-Goog-FieldMask': _fields.join(','),
@@ -255,6 +255,9 @@ class PlacesService {
           'X-Goog-FieldMask': _searchFieldMask,
         },
         body: jsonEncode({
+          // English names (country "Germany", not "Deutschland"),
+          // whatever the browser's language (22 Oct 2026).
+          'languageCode': 'en',
           'includedTypes': ['cafe', 'coffee_shop'],
           'maxResultCount': 20,
           'locationRestriction': {
@@ -288,6 +291,9 @@ class PlacesService {
           'X-Goog-FieldMask': _searchFieldMask,
         },
         body: jsonEncode({
+          // English names (country "Germany", not "Deutschland"),
+          // whatever the browser's language (22 Oct 2026).
+          'languageCode': 'en',
           'textQuery': 'coworking space',
           'maxResultCount': 10,
           'locationBias': {
@@ -339,7 +345,13 @@ class PlacesService {
           'X-Goog-FieldMask':
               'places.displayName,places.formattedAddress,places.location',
         },
-        body: jsonEncode({'textQuery': q, 'maxResultCount': 1}),
+        body: jsonEncode({
+          // English names (country "Germany", not "Deutschland"),
+          // whatever the browser's language (22 Oct 2026).
+          'languageCode': 'en',
+          'textQuery': q,
+          'maxResultCount': 1,
+        }),
       );
       if (resp.statusCode != 200) return null;
       final places = (jsonDecode(resp.body)['places'] as List?) ?? [];
@@ -367,7 +379,7 @@ class PlacesService {
     if (hit != null) return hit;
     try {
       final resp = await GoogleMeter.client.get(
-        Uri.parse('https://places.googleapis.com/v1/places/$placeId'),
+        Uri.parse('https://places.googleapis.com/v1/places/$placeId?languageCode=en'),
         headers: {
           'X-Goog-Api-Key': AppConfig.googlePlacesKey,
           'X-Goog-FieldMask': 'photos',
@@ -447,7 +459,7 @@ class PlacesService {
   Future<List<String>> _fetchReviewTexts(String placeId) async {
     try {
       final resp = await GoogleMeter.client.get(
-        Uri.parse('https://places.googleapis.com/v1/places/$placeId'),
+        Uri.parse('https://places.googleapis.com/v1/places/$placeId?languageCode=en'),
         headers: {
           'X-Goog-Api-Key': AppConfig.googlePlacesKey,
           'X-Goog-FieldMask': 'reviews',
@@ -552,6 +564,9 @@ class PlacesService {
           'Content-Type': 'application/json',
         },
         body: jsonEncode({
+          // English names (country "Germany", not "Deutschland"),
+          // whatever the browser's language (22 Oct 2026).
+          'languageCode': 'en',
           'input': input,
           if (types != null) 'includedPrimaryTypes': types,
           if (nearLat != null && nearLng != null)
