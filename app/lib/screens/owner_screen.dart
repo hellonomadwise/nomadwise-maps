@@ -71,6 +71,14 @@ class _OwnerScreenState extends State<OwnerScreen> {
   // the number appears while the account is open on another tab.
   Map<String, int> _chatUnread = const {};
   Timer? _chatTimer;
+  // "Still here", every minute while the account is on screen
+  // (migration 198), so the founders can see the owner is in.
+  Timer? _hereTimer;
+  // Our newest unread message, shown in a small card in the corner
+  // while they are elsewhere in the account (migration 198); each
+  // message pops up once.
+  Map<String, dynamic>? _pop;
+  final Set<String> _popSeen = {};
   // The space the email's button names (?chat=<space>), opened once.
   String? _chatSpace = Uri.base.queryParameters['chat'];
 
@@ -288,6 +296,147 @@ class _OwnerScreenState extends State<OwnerScreen> {
     final m = await _supabase.ownerChatUnread();
     if (!mounted) return;
     if ('$m' != '$_chatUnread') setState(() => _chatUnread = m);
+    if (m.values.any((n) => n > 0)) _checkPop();
+  }
+
+  bool get _onScreen {
+    final life = WidgetsBinding.instance.lifecycleState;
+    return life != AppLifecycleState.hidden &&
+        life != AppLifecycleState.paused &&
+        life != AppLifecycleState.detached;
+  }
+
+  void _beat() {
+    if (_isPreview || !_supabase.signedIn || _venues.isEmpty) return;
+    if (_onScreen) _supabase.ownerHere();
+  }
+
+  /// A message from us they have not read: shown once in the corner,
+  /// unless they are already in that space's inbox.
+  Future<void> _checkPop() async {
+    if (_isPreview || _pop != null || !_onScreen) return;
+    final list = await _supabase.ownerChatWaiting();
+    if (!mounted || _pop != null) return;
+    final here = '${_venue?['id']}';
+    for (final x in list) {
+      final id = '${x['id']}';
+      if (_popSeen.contains(id)) continue;
+      if (_tab == _Tab.chat && '${x['venue_id']}' == here) continue;
+      _popSeen.add(id);
+      setState(() => _pop = x);
+      return;
+    }
+  }
+
+  void _goTab(_Tab t) => setState(() {
+        _tab = t;
+        // opening that inbox reads the message: the card goes
+        if (t == _Tab.chat && '${_pop?['venue_id']}' == '${_venue?['id']}') {
+          _pop = null;
+        }
+      });
+
+  void _openPop() {
+    final x = _pop;
+    if (x == null) return;
+    final i = _venues.indexWhere((r) => '${r['id']}' == '${x['venue_id']}');
+    final other = i >= 0 && i != _current;
+    setState(() {
+      if (other) _current = i;
+      _tab = _Tab.chat;
+      _pop = null;
+    });
+    if (other) _fillEditor();
+  }
+
+  Widget _popCard(bool wide) {
+    final x = _pop!;
+    final who = '${x['author'] ?? ''}'.trim();
+    final name = who.isEmpty ? 'Nomadwise' : '$who from Nomadwise';
+    final more = ((x['unread'] as num?) ?? 1).toInt() - 1;
+    final space = '${x['venue_name'] ?? ''}'.trim();
+    return TweenAnimationBuilder<double>(
+      key: ValueKey('pop-${x['id']}'),
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeOutCubic,
+      builder: (_, t, child) => Opacity(
+          opacity: t,
+          child: Transform.translate(offset: Offset(0, 24 * (1 - t)), child: child)),
+      child: Material(
+        color: Colors.white,
+        elevation: 10,
+        shadowColor: Colors.black26,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          width: wide ? 360 : double.infinity,
+          padding: const EdgeInsets.fromLTRB(16, 14, 8, 10),
+          decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Brand.hairline)),
+          child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  CircleAvatar(
+                    radius: 18,
+                    backgroundColor: Brand.red,
+                    child: Text(who.isEmpty ? 'N' : who[0].toUpperCase(),
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 15)),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(name,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w700, fontSize: 14)),
+                          if (_venues.length > 1 && space.isNotEmpty)
+                            Text('About $space',
+                                style: const TextStyle(
+                                    fontSize: 12, color: Brand.inkMuted)),
+                        ]),
+                  ),
+                  IconButton(
+                      tooltip: 'Close',
+                      visualDensity: VisualDensity.compact,
+                      onPressed: () => setState(() => _pop = null),
+                      icon: const Icon(Icons.close, size: 18)),
+                ]),
+                const SizedBox(height: 8),
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: Text('${x['body'] ?? ''}'.trim(),
+                      maxLines: 5,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 14, height: 1.45)),
+                ),
+                if (more > 0)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                        more == 1 ? 'and 1 more message' : 'and $more more messages',
+                        style: const TextStyle(
+                            fontSize: 12, color: Brand.inkMuted)),
+                  ),
+                const SizedBox(height: 6),
+                Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+                  TextButton(
+                      onPressed: () => setState(() => _pop = null),
+                      child: const Text('Later')),
+                  const SizedBox(width: 4),
+                  FilledButton(onPressed: _openPop, child: const Text('Reply')),
+                  const SizedBox(width: 8),
+                ]),
+              ]),
+        ),
+      ),
+    );
   }
 
   /// Unread messages from Nomadwise for the space on screen.
@@ -302,6 +451,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
     _auth?.cancel();
     _poll?.cancel();
     _chatTimer?.cancel();
+    _hereTimer?.cancel();
     _autoTimer?.cancel();
     for (final (h, b) in _sections) {
       h.dispose();
@@ -367,7 +517,10 @@ class _OwnerScreenState extends State<OwnerScreen> {
       if (rows.isNotEmpty) {
         _loadChatUnread();
         _chatTimer ??= Timer.periodic(
-            const Duration(seconds: 45), (_) => _loadChatUnread());
+            const Duration(seconds: 20), (_) => _loadChatUnread());
+        _beat();
+        _hereTimer ??=
+            Timer.periodic(const Duration(seconds: 60), (_) => _beat());
       }
     } catch (e) {
       if (mounted) {
@@ -1004,7 +1157,25 @@ class _OwnerScreenState extends State<OwnerScreen> {
           const SizedBox(width: 8),
         ],
       ),
-      body: LayoutBuilder(builder: (context, box) {
+      body: Stack(children: [
+        Positioned.fill(child: _pageBody()),
+        if (_pop != null && _supabase.signedIn && !_isPreview)
+          Positioned.fill(child: LayoutBuilder(builder: (context, box) {
+            final wide = box.maxWidth >= _wideAt;
+            return Align(
+              alignment: wide ? Alignment.bottomRight : Alignment.bottomCenter,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: SafeArea(child: _popCard(wide)),
+              ),
+            );
+          })),
+      ]),
+    );
+  }
+
+  Widget _pageBody() {
+    return LayoutBuilder(builder: (context, box) {
         final wide = box.maxWidth >= _wideAt;
         if (_loading) {
           return const Center(
@@ -1032,8 +1203,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
         if (_venues.isEmpty && _pending.isNotEmpty) return _pendingView(wide);
         if (_venues.isEmpty) return _noSpaces(wide);
         return _account(wide);
-      }),
-    );
+      });
   }
 
   Widget _frame(bool wide, Widget child, {double maxWidth = 1100}) =>
@@ -1648,7 +1818,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
       final on = _tab == it.$1;
       return InkWell(
         borderRadius: BorderRadius.circular(8),
-        onTap: () => setState(() => _tab = it.$1),
+        onTap: () => _goTab(it.$1),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
@@ -1683,7 +1853,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
           child: Row(children: [
             for (final it in items)
               InkWell(
-                onTap: () => setState(() => _tab = it.$1),
+                onTap: () => _goTab(it.$1),
                 child: Container(
                   padding: const EdgeInsets.fromLTRB(4, 10, 4, 9),
                   margin: const EdgeInsets.only(right: 18),

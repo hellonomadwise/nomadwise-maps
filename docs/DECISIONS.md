@@ -4779,3 +4779,37 @@ Jonathan, Nomadwise" sign-off gets the same styling.
 Jonathan: the customer email now says "Their replies will come
 straight to your email address" (was "this email address"), and for
 one space "their reply will come straight to your email address".
+
+## 22 Oct 2026: talking to owners while they are there (migration 198)
+
+Jonathan: owners sign in or make changes (Sierra Cartel changed their
+photos and he WhatsApped them by hand). He wants to be there for
+questions in a natural, human way, but only when he sees they are
+online and he is free; never promising to be always available.
+Chosen (an "I'm available" switch was offered and left out):
+- Online now. The Owner account says "still here" every minute while
+  it is on screen. Chats shows "In their Owner account now" with a
+  green dot, those owners first. The phones get one notice when an
+  owner arrives (at most once in 6 hours per space); tapping it opens
+  that space's chat.
+- Say hello. In a chat, "Say hello" puts a first line in the box (one
+  about their recent changes when they made some in the last two
+  days). He edits it and presses Send; pressing again gives another.
+- Our message pops up for them. If they are in their Owner account
+  but not in Inbox & support, a small card shows the message with
+  Reply and Later. Each message pops up once. If they never open it,
+  the email still goes, as before.
+
+## 22 Oct 2026: addresses and numbers added by hand reach Outreach (migration 199)
+
+Jonathan, on Pass on (Step 1): an email address he types by hand and
+sends to should be kept in the "CRM" for that listing, and the same
+for phone numbers.
+- Pass on now keeps the address it went to on the space's contact in
+  Outreach (as well as on the space, as before). No contact yet: one
+  is made. A different address already there: the new one becomes the
+  main one and the old one goes in the notes, nothing is lost. An
+  address another space's contact already has goes in the notes.
+- Step 1 has a "Phone or WhatsApp (optional)" box under each space,
+  with its own "Save to Outreach" button. It saves the number only;
+  nothing is sent. A different number already there goes in the notes.

@@ -194,6 +194,30 @@ class SupabaseService {
     } catch (_) {}
   }
 
+  /// The Owner account is on screen (migration 198): said every minute,
+  /// so Chats can show the owner is here now. Failures are swallowed.
+  Future<void> ownerHere() async {
+    try {
+      await _db.rpc('owner_here');
+    } catch (_) {}
+  }
+
+  /// Per space, our newest message the owner has not read (migration
+  /// 198): {id, venue_id, venue_name, author, body, at, unread}. Does
+  /// not mark anything as read. Empty when nothing waits.
+  Future<List<Map<String, dynamic>>> ownerChatWaiting() async {
+    try {
+      final r = await _db.rpc('owner_chat_waiting');
+      return [
+        if (r is List)
+          for (final x in r)
+            if (x is Map) Map<String, dynamic>.from(x)
+      ];
+    } catch (_) {
+      return const [];
+    }
+  }
+
   /// Admin only: any listing's Owner account data (same shape as
   /// ownerVenues), by venue id or page slug, for the preview.
   Future<Map<String, dynamic>?> adminOwnerView(String key) async {
@@ -962,6 +986,19 @@ class SupabaseService {
   /// subject, body}], nomad: {to, subject, body}}.
   Future<Map<String, dynamic>> enquiryDrafts(List<String> ids) async {
     final r = await _db.rpc('admin_enquiry_drafts', params: {'p_ids': ids});
+    return r is Map ? Map<String, dynamic>.from(r) : {};
+  }
+
+  /// Admin: keep an email address or phone number on a space's contact
+  /// in Outreach (migration 199). Nothing is sent. Throws with a plain
+  /// message when it is neither.
+  Future<Map<String, dynamic>> rememberContact(String venueId,
+      {String? email, String? phone}) async {
+    final r = await _db.rpc('admin_contact_remember', params: {
+      'p_venue': venueId,
+      'p_email': email,
+      'p_phone': phone,
+    });
     return r is Map ? Map<String, dynamic>.from(r) : {};
   }
 

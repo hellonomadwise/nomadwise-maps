@@ -128,6 +128,11 @@ class PassOnCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     SpaceLinks(e: e),
+                    if (_matched) ...[
+                      const SizedBox(height: 4),
+                      ContactPhoneBox(
+                          venueId: '${e['venue_id']}', supabase: supabase),
+                    ],
                     const SizedBox(height: 4),
                     CheckboxListTile(
                       value: tell,
@@ -456,6 +461,105 @@ class SpaceLinks extends StatelessWidget {
   }
 }
 
+/// A phone or WhatsApp number for a space, kept in Outreach with its
+/// own button (migration 199; Jonathan, 22 Oct 2026: numbers he finds
+/// by hand should be kept on the space's record). Nothing is sent.
+class ContactPhoneBox extends StatefulWidget {
+  final String venueId;
+  final SupabaseService supabase;
+  const ContactPhoneBox(
+      {super.key, required this.venueId, required this.supabase});
+
+  @override
+  State<ContactPhoneBox> createState() => _ContactPhoneBoxState();
+}
+
+class _ContactPhoneBoxState extends State<ContactPhoneBox> {
+  final _ctl = TextEditingController();
+  bool _saving = false;
+  String? _saved; // the number as kept
+  String? _error;
+
+  @override
+  void dispose() {
+    _ctl.dispose();
+    super.dispose();
+  }
+
+  bool get _looksLikeNumber =>
+      _ctl.text.replaceAll(RegExp(r'[^0-9]'), '').length >= 7;
+
+  Future<void> _save() async {
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      final r = await widget.supabase
+          .rememberContact(widget.venueId, phone: _ctl.text.trim());
+      if (!mounted) return;
+      setState(() => _saved = '${r['phone'] ?? _ctl.text.trim()}');
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = '$e'.contains('phone number')
+          ? 'That does not look like a phone number.'
+          : 'Could not save it. Try again.');
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final saved = _saved != null && _saved == _ctl.text.trim();
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+        Expanded(
+          child: TextField(
+            controller: _ctl,
+            keyboardType: TextInputType.phone,
+            onChanged: (_) => setState(() => _error = null),
+            decoration: const InputDecoration(
+                isDense: true,
+                labelText: 'Phone or WhatsApp (optional)',
+                hintText: '+84 90 123 4567'),
+          ),
+        ),
+        const SizedBox(width: 8),
+        saved
+            ? const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 8),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.check_circle, size: 16, color: Brand.success),
+                  SizedBox(width: 4),
+                  Text('Saved',
+                      style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Brand.success)),
+                ]),
+              )
+            : TextButton(
+                onPressed: _looksLikeNumber && !_saving ? _save : null,
+                child: Text(_saving ? 'Saving' : 'Save to Outreach')),
+      ]),
+      Padding(
+        padding: const EdgeInsets.only(top: 4),
+        child: Text(
+            _error ??
+                (saved
+                    ? 'Kept on this space in Outreach. Nothing was sent.'
+                    : 'Kept on this space in Outreach when you press Save. '
+                        'Email addresses you send to are kept automatically.'),
+            style: TextStyle(
+                fontSize: 11.5,
+                height: 1.35,
+                color: _error != null ? Brand.red : Brand.inkMuted)),
+      ),
+    ]);
+  }
+}
+
 /// Several enquiries from the same person, as one card (migration 193;
 /// Jonathan, 21 Oct 2026: Ellie, a team of two, asked six spaces in Ho
 /// Chi Minh City in one evening). One press passes it on to every
@@ -587,6 +691,11 @@ class PassOnGroupCard extends StatelessWidget {
                                 ),
                               const SizedBox(height: 2),
                               SpaceLinks(e: matched[i]),
+                              const SizedBox(height: 4),
+                              ContactPhoneBox(
+                                  key: ValueKey('phone-${matched[i]['venue_id']}'),
+                                  venueId: '${matched[i]['venue_id']}',
+                                  supabase: supabase),
                             ]),
                       ),
                     ],

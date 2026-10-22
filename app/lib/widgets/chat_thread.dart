@@ -46,6 +46,11 @@ class ChatThread extends StatefulWidget {
   /// Called after each look, with the messages (for a badge elsewhere).
   final void Function(List<Map<String, dynamic>> messages)? onLoaded;
 
+  /// First lines to offer (the founder's side, migration 198). "Say
+  /// hello" puts one in the box to edit; pressing again gives the next.
+  /// Nothing is sent until Send.
+  final List<String> starters;
+
   const ChatThread({
     super.key,
     required this.load,
@@ -57,6 +62,7 @@ class ChatThread extends StatefulWidget {
     this.hint = 'Write your message',
     this.closedText,
     this.onLoaded,
+    this.starters = const [],
   });
 
   @override
@@ -81,10 +87,27 @@ class _ChatThreadState extends State<ChatThread> {
   int _sends = 0;
   // The first look has been made (so the next ones are quiet ones).
   bool _opened = false;
+  // The next first line "Say hello" gives.
+  int _starter = 0;
+
+  void _textChanged() {
+    if (widget.starters.isNotEmpty && mounted) setState(() {});
+  }
+
+  void _sayHello() {
+    final all = widget.starters;
+    if (all.isEmpty) return;
+    final line = all[_starter % all.length];
+    _starter++;
+    _text.value = TextEditingValue(
+        text: line, selection: TextSelection.collapsed(offset: line.length));
+    _focus.requestFocus();
+  }
 
   @override
   void initState() {
     super.initState();
+    _text.addListener(_textChanged);
     _look();
     _timer = Timer.periodic(const Duration(seconds: 8), (_) => _look());
   }
@@ -379,6 +402,29 @@ class _ChatThreadState extends State<ChatThread> {
         ]),
       ),
       if (closed == null) ...[
+        if (widget.starters.isNotEmpty &&
+            (_text.text.trim().isEmpty ||
+                widget.starters.contains(_text.text)))
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 6,
+                children: [
+                  TextButton.icon(
+                    onPressed: _sayHello,
+                    icon: const Icon(Icons.waving_hand_outlined, size: 17),
+                    label: Text(_text.text.trim().isEmpty
+                        ? 'Say hello'
+                        : 'Another first line'),
+                  ),
+                  const Text(
+                      'Puts a first line in the box. Change it as you '
+                      'like; nothing is sent until you press Send.',
+                      style: TextStyle(
+                          fontSize: 12, height: 1.35, color: Brand.inkMuted)),
+                ]),
+          ),
         const SizedBox(height: 8),
         Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
           Expanded(

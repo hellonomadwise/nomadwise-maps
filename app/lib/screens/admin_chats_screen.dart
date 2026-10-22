@@ -35,6 +35,20 @@ class _AdminChatsScreenState extends State<AdminChatsScreen> {
   String? _error;
   String? _open; // the space whose chat is beside the list (wide)
 
+  // The phone notice that an owner is in their Owner account opens
+  // /chats/#space-<id>, which arrives here as ?space=<id> (migration
+  // 198): that chat opens once the list is in.
+  String? _wantSpace = _startSpace();
+
+  static String? _startSpace() {
+    try {
+      final s = (Uri.base.queryParameters['space'] ?? '').trim();
+      return s.isEmpty ? null : s;
+    } catch (_) {
+      return null;
+    }
+  }
+
   // Owners (migration 161) or Website (the chat box on nomadwise.io,
   // migration 190). A phone notice about a website chat opens
   // /chats/#site, which lands on the Website tab.
@@ -109,6 +123,17 @@ class _AdminChatsScreenState extends State<AdminChatsScreen> {
         _loading = false;
         _error = null;
       });
+      final want = _wantSpace;
+      if (want != null) {
+        _wantSpace = null;
+        final c = rows.where((x) => '${x['venue_id']}' == want).firstOrNull;
+        if (c != null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            _openChat(c, MediaQuery.sizeOf(context).width >= _wideFrom);
+          });
+        }
+      }
     } catch (e) {
       if (!mounted) return;
       // only the first failure is worth a word; the next look is near
@@ -143,6 +168,46 @@ class _AdminChatsScreenState extends State<AdminChatsScreen> {
         .join(' · ');
   }
 
+  /// First lines for "Say hello" (migration 198), the best fit first:
+  /// after a change they made, while they are here, or just checking in.
+  static List<String> _starters(Map<String, dynamic> c) {
+    final first = '${c['owner_name'] ?? ''}'.trim().split(' ').first;
+    final hi = first.isEmpty ? 'Hi there' : 'Hi $first';
+    final changed = DateTime.tryParse('${c['changed_at'] ?? ''}');
+    final recent = changed != null &&
+        DateTime.now().toUtc().difference(changed.toUtc()).inHours < 48;
+    final lines = <String>[
+      if (recent)
+        "$hi, I hope you're having a good day. I just saw that you made some "
+            'updates to your listing. Is everything okay, and is there '
+            'anything you need?',
+      "$hi, I hope you're having a good day. I'm around now if you have "
+          'any questions about your Owner account or your page.',
+      '$hi, I hope all is well. Just checking in: is there anything we can '
+          'help with on your Nomadwise page?',
+    ];
+    return lines;
+  }
+
+  static const _hereColor = Color(0xFF1E8E3E);
+
+  static Widget _hereLine({double size = 12}) => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+              width: 8,
+              height: 8,
+              decoration: const BoxDecoration(
+                  color: _hereColor, shape: BoxShape.circle)),
+          const SizedBox(width: 6),
+          Text('In their Owner account now',
+              style: TextStyle(
+                  fontSize: size,
+                  fontWeight: FontWeight.w600,
+                  color: _hereColor)),
+        ],
+      );
+
   Widget _thread(Map<String, dynamic> c) {
     final id = '${c['venue_id']}';
     final owner = '${c['owner_name'] ?? ''}'.trim();
@@ -170,6 +235,7 @@ class _AdminChatsScreenState extends State<AdminChatsScreen> {
       closedText: hasOwner
           ? null
           : 'This space has no owner any more, so nothing can be sent.',
+      starters: hasOwner ? _starters(c) : const [],
     );
   }
 
@@ -184,6 +250,10 @@ class _AdminChatsScreenState extends State<AdminChatsScreen> {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(fontSize: 16.5, fontWeight: FontWeight.w800)),
+      if (c['here'] == true)
+        Padding(
+            padding: const EdgeInsets.only(top: 2, bottom: 1),
+            child: _hereLine(size: 12.5)),
       if (who.isNotEmpty || email.isNotEmpty)
         Text([if (who.isNotEmpty) who, if (email.isNotEmpty) email].join('  '),
             maxLines: 1,
@@ -245,6 +315,10 @@ class _AdminChatsScreenState extends State<AdminChatsScreen> {
                           fontSize: 14.5,
                           fontWeight:
                               unread > 0 ? FontWeight.w800 : FontWeight.w700)),
+                  if (c['here'] == true)
+                    Padding(
+                        padding: const EdgeInsets.only(top: 1, bottom: 1),
+                        child: _hereLine()),
                   if (who.isNotEmpty)
                     Text(who,
                         maxLines: 1,
@@ -322,7 +396,10 @@ class _AdminChatsScreenState extends State<AdminChatsScreen> {
                 '${c['country'] ?? ''}'
             .toLowerCase()
             .contains(q);
-    final all = _chats.where(hit).toList();
+    final everyone = _chats.where(hit).toList();
+    // In their Owner account now (migration 198): first, whatever else.
+    final here = everyone.where((c) => c['here'] == true).toList();
+    final all = everyone.where((c) => c['here'] != true).toList();
     final waiting = all.where((c) => c['waiting'] == true).toList();
     final going = all
         .where((c) => c['waiting'] != true && c['last_at'] != null)
@@ -341,7 +418,7 @@ class _AdminChatsScreenState extends State<AdminChatsScreen> {
               border: OutlineInputBorder()),
         ),
       ),
-      if (all.isEmpty)
+      if (everyone.isEmpty)
         Padding(
           padding: const EdgeInsets.all(24),
           child: Text(
@@ -353,12 +430,20 @@ class _AdminChatsScreenState extends State<AdminChatsScreen> {
               style: const TextStyle(
                   color: Brand.inkSecondary, height: 1.45)),
         ),
+      if (here.isNotEmpty) ...[
+        _heading('IN THEIR OWNER ACCOUNT NOW'),
+        for (final c in here) _row(c, wide),
+      ],
       if (waiting.isNotEmpty) ...[
         _heading('WAITING FOR YOU'),
         for (final c in waiting) _row(c, wide),
       ],
       if (going.isNotEmpty) ...[
-        _heading(waiting.isEmpty ? 'CHATS' : 'ANSWERED'),
+        _heading(waiting.isNotEmpty
+            ? 'ANSWERED'
+            : here.isNotEmpty
+                ? 'OTHER CHATS'
+                : 'CHATS'),
         for (final c in going) _row(c, wide),
       ],
       if (quiet.isNotEmpty) ...[

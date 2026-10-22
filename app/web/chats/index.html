@@ -24,8 +24,12 @@
   } else {
     // #site (the phone notice about a website chat, migration 190)
     // opens the Website tab; the app keeps a query, not a #.
+    // #space-<id> (the notice that an owner is in their Owner
+    // account, migration 198) opens that space's chat.
+    var h = location.hash;
+    var m = /^#space-([0-9a-fA-F-]{36})$/.exec(h);
     location.replace('/?admin=chats' +
-        (location.hash === '#site' ? '&tab=site' : location.hash));
+        (h === '#site' ? '&tab=site' : m ? '&space=' + m[1] : h));
   }
 </script>
 <style>
