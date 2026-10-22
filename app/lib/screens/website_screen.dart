@@ -4783,50 +4783,70 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
 
   /// One step on a retired card: a tick, what it is, and anything
   /// worth copying for it.
+  /// One step on a retired card: what it is, what to copy, and a
+  /// button to confirm it is done, like "Mark as added to the sitemap"
+  /// for a new page (Jonathan, 22 Oct 2026: "a button ... where I have
+  /// to physically click to confirm that I've removed it from the
+  /// sitemap"). Once confirmed: a green tick, with Undo.
   Widget _retireStep(Map<String, dynamic> v, String key,
       {required String title,
       required String detail,
+      required String confirmLabel,
       List<Widget> actions = const []}) {
     final note = (v['website_retire_note'] as Map?) ?? const {};
     final on = note[key] == true;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      decoration: BoxDecoration(
+          color: on ? Brand.successTint : Brand.surface,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: on ? Brand.successTint : Brand.border)),
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        SizedBox(
-          width: 32,
-          height: 32,
-          child: Checkbox(
-              value: on,
-              activeColor: Brand.success,
-              onChanged: (x) => _retireTick(v, key, x ?? false)),
+        Padding(
+          padding: const EdgeInsets.only(top: 1),
+          child: Icon(on ? Icons.check_circle : Icons.radio_button_unchecked,
+              size: 20, color: on ? Brand.success : Brand.inkMuted),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 10),
         Expanded(
           child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                InkWell(
-                  onTap: () => _retireTick(v, key, !on),
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 6, bottom: 2),
-                    child: Text(title,
-                        style: TextStyle(
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w700,
-                            decoration:
-                                on ? TextDecoration.lineThrough : null,
-                            color: on ? Brand.inkMuted : Brand.ink)),
-                  ),
-                ),
+                Text(title,
+                    style: TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w700,
+                        color: on ? Brand.success : Brand.ink)),
+                const SizedBox(height: 2),
                 Text(detail,
                     style: const TextStyle(
                         fontSize: 12.5,
                         height: 1.4,
                         color: Brand.inkSecondary)),
-                if (actions.isNotEmpty) ...[
-                  const SizedBox(height: 6),
-                  Wrap(spacing: 8, runSpacing: 6, children: actions),
-                ],
+                const SizedBox(height: 8),
+                Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: on
+                        ? [
+                            const Text('Confirmed',
+                                style: TextStyle(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: Brand.success)),
+                            TextButton(
+                                onPressed: () => _retireTick(v, key, false),
+                                child: const Text('Undo')),
+                          ]
+                        : [
+                            ...actions,
+                            ElevatedButton.icon(
+                                onPressed: () => _retireTick(v, key, true),
+                                icon: const Icon(Icons.check, size: 18),
+                                label: Text(confirmLabel)),
+                          ]),
               ]),
         ),
       ]),
@@ -4936,20 +4956,24 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
               style: const TextStyle(fontSize: 13, height: 1.4)),
           const SizedBox(height: 4),
           const Text(
-              'Two steps are left for you. Tick each one when it is done, '
-              'then mark the card as complete and it leaves this list.',
+              'Two steps are left for you. Confirm each one when it is '
+              'done, then mark the card as complete and it leaves this list.',
               style: TextStyle(fontSize: 12.5, height: 1.4)),
           const SizedBox(height: 10),
           _retireStep(v, 'redirect_done',
+              confirmLabel: redirectAdded
+                  ? 'Mark as published'
+                  : 'Mark as redirected and published',
               title: redirectAdded
                   ? 'Site published, so the redirect is live'
                   : 'Redirect added in Webflow and the site published',
               detail: redirectAdded
                   ? 'Webflow accepted the redirect from $from to $to. It '
                       'goes live when the site is next published.'
-                  : 'Webflow did not add this one automatically. Add it '
-                      'under Site settings, Publishing, 301 redirects: old '
-                      'path $from, redirect to $to. Then publish the site.',
+                  : 'Add it by hand (Webflow only lets apps add redirects '
+                      'on Enterprise plans): Site settings, Publishing, 301 '
+                      'redirects. Old path $from, redirect to $to. Then '
+                      'publish the site.',
               actions: [
                 if (!redirectAdded) ...[
                   OutlinedButton.icon(
@@ -4963,6 +4987,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                 ],
               ]),
           _retireStep(v, 'sitemap_done',
+              confirmLabel: 'Mark as removed from the sitemap',
               title: 'Removed from the custom sitemap',
               detail: 'https://www.nomadwise.io$from',
               actions: [
@@ -4983,7 +5008,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                     icon: const Icon(Icons.check, size: 18),
                     label: const Text('Mark as complete')),
                 if (!stepsDone)
-                  const Text('Tick both steps first.',
+                  const Text('Confirm both steps first.',
                       style: TextStyle(
                           fontSize: 12.5, color: Brand.inkMuted)),
               ]),

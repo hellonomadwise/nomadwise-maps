@@ -4682,3 +4682,15 @@ any of the details".
   enquiry_nomad_email); admin_enquiry_drafts and admin_email_preview
   serve the screen; admin_enquiry_pass_on and admin_enquiries_tell_nomad
   take the edited subject and words.
+
+## 22 Oct 2026: retiring a page, confirm buttons
+
+Leonie's concern (Retire looks like one click but has manual steps) was
+already met: a retired card stays on Closed until both steps are
+confirmed and Mark as complete is pressed. Jonathan asked for a button
+to press for each step, like "Mark as added to the sitemap" for a new
+page. The two tick boxes are now steps with a button each ("Mark as
+redirected and published", "Mark as removed from the sitemap"); a
+confirmed step turns green with Undo. The redirect itself stays manual:
+Webflow's redirects API is for Enterprise sites only, so the sync's
+attempt is refused and the card gives the two paths to copy.
