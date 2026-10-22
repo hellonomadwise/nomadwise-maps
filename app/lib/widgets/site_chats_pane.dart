@@ -413,9 +413,11 @@ class _SiteChatsPaneState extends State<SiteChatsPane> {
             TextButton.icon(
                 onPressed: () => _set(id,
                     status: done ? 'open' : 'done',
-                    toast: done ? 'Reopened.' : 'Done.'),
-                icon: Icon(done ? Icons.undo : Icons.check, size: 16),
-                label: Text(done ? 'Reopen' : 'Mark done')),
+                    toast: done
+                        ? 'Chat reopened.'
+                        : 'Chat closed. A new message reopens it.'),
+                icon: Icon(done ? Icons.undo : Icons.check_circle_outline, size: 16),
+                label: Text(done ? 'Reopen chat' : 'Close chat')),
           ]),
         ]);
   }
@@ -530,11 +532,13 @@ class _SiteChatsPaneState extends State<SiteChatsPane> {
                         fontWeight: FontWeight.w800)),
               ),
             IconButton(
-                tooltip: done ? 'Reopen' : 'Mark done',
+                tooltip: done ? 'Reopen chat' : 'Close chat',
                 visualDensity: VisualDensity.compact,
                 onPressed: () => _set(id,
                     status: done ? 'open' : 'done',
-                    toast: done ? 'Reopened.' : 'Done.'),
+                    toast: done
+                        ? 'Chat reopened.'
+                        : 'Chat closed. A new message reopens it.'),
                 icon: Icon(
                     done ? Icons.undo : Icons.check_circle_outline,
                     size: 22,
@@ -565,7 +569,7 @@ class _SiteChatsPaneState extends State<SiteChatsPane> {
           Expanded(
             child: Wrap(spacing: 6, children: [
           ChoiceChip(
-              label: Text('Open',
+              label: Text('Open chats',
                   style: TextStyle(
                       fontWeight: !_done ? FontWeight.w700 : FontWeight.w500,
                       color: !_done ? Colors.white : Brand.ink)),
@@ -583,7 +587,7 @@ class _SiteChatsPaneState extends State<SiteChatsPane> {
                 _load();
               }),
           ChoiceChip(
-              label: Text('Done',
+              label: Text('Closed chats',
                   style: TextStyle(
                       fontWeight: _done ? FontWeight.w700 : FontWeight.w500,
                       color: _done ? Colors.white : Brand.ink)),
@@ -624,7 +628,7 @@ class _SiteChatsPaneState extends State<SiteChatsPane> {
           padding: const EdgeInsets.all(24),
           child: Text(
               _done
-                  ? 'Nothing marked done yet.'
+                  ? 'No closed chats yet.'
                   : 'No open chats. When someone writes in the chat box on '
                       'nomadwise.io, it appears here and your phone is told.',
               style: const TextStyle(color: Brand.inkSecondary, height: 1.45)),
@@ -636,7 +640,7 @@ class _SiteChatsPaneState extends State<SiteChatsPane> {
         ],
         if (rest.isNotEmpty) ...[
           _heading(_done
-              ? 'DONE'
+              ? 'CLOSED FOR NOW'
               : waiting.isEmpty
                   ? 'OPEN CHATS'
                   : 'THE ASSISTANT HAS THESE'),

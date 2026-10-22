@@ -16,6 +16,8 @@ import '../services/places_service.dart';
 import '../services/supabase_service.dart';
 import '../theme.dart';
 import '../widgets/candidates_tab.dart';
+import '../widgets/email_html_stub.dart'
+    if (dart.library.html) '../widgets/email_html_web.dart';
 import '../widgets/no_location_tab.dart';
 import '../widgets/control_extras.dart';
 import '../widgets/pass_on.dart';
@@ -1621,19 +1623,9 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       tool('outreach', Icons.mail_outline, 'Outreach'),
       tool('chats', Icons.forum_outlined, 'Chats'),
       tool('sequences', Icons.timeline_outlined, 'Sequences'),
-      heading('CREATE ON NOMADWISE.IO'),
-      item(Icons.public, 'Country page', () {
-        if (mounted) _newCountry();
-      }),
-      item(Icons.location_city_outlined, 'City page', () {
-        if (mounted) _newRegion();
-      }),
-      item(Icons.place_outlined, 'Area page', () {
-        if (mounted) _newLocation();
-      }),
-      item(Icons.refresh, 'Refresh from Webflow', () {
-        if (mounted) _refreshFromWebflow();
-      }),
+      // Creating Country, City and Area pages moved to the Create
+      // button at the top right of the control centre (Jonathan,
+      // 22 Oct 2026: needed only from there, now and then).
     ];
     // Seldom used (Jonathan, 6 Oct 2026): at the bottom, smaller.
     final bottom = <Widget>[
@@ -1730,10 +1722,11 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
           // The site's taxonomy, made from here: a Region (city page) or
           // a Location (neighbourhood page), built and published by the
           // sync within a minute or two, then in every picker.
-          if (!wide)
+          // On every screen size since 22 Oct 2026 (it left the menu
+          // down the left): a labelled button on a laptop.
           PopupMenuButton<String>(
             tooltip: 'Create on nomadwise.io',
-            icon: const Icon(Icons.add_location_alt_outlined),
+            icon: wide ? null : const Icon(Icons.add_location_alt_outlined),
             onSelected: (k) => k == 'region'
                 ? _newRegion()
                 : k == 'location'
@@ -1741,6 +1734,27 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                     : k == 'country'
                         ? _newCountry()
                         : _refreshFromWebflow(),
+            child: wide
+                ? Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 6),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(color: Brand.border)),
+                    child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(Icons.add_location_alt_outlined,
+                          size: 18, color: Brand.ink),
+                      SizedBox(width: 6),
+                      Text('Create',
+                          style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Brand.ink)),
+                      Icon(Icons.arrow_drop_down, size: 20, color: Brand.ink),
+                    ]),
+                  )
+                : null,
             itemBuilder: (_) => const [
               PopupMenuItem(
                   value: 'country',
@@ -3847,8 +3861,8 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   /// The "Did you find a place?" email (migration 193): a few days after
   /// an enquiry is passed on, the customer is asked once where they
   /// went. Off until Leonie has approved the wording.
+  /// The words as plain text, shown if the styled preview cannot load.
   static const _followupWords =
-      'Subject: Did you find a place to work?\n\n'
       'Hi Ellie,\n\n'
       'A few days ago you asked Xom Space, The Sentry C and 4 other spaces '
       'on nomadwise.io about working there. Did you find a place?\n\n'
@@ -3856,9 +3870,8 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       'we can point other remote workers the right way.\n\n'
       'If you are still looking, reply to this email and I will help you '
       'find somewhere.\n\n'
-      'Kind regards,\nJonathan\nNomadwise\n\n'
-      '[Tell us where you went]  (opens a page with the spaces they asked, '
-      'plus "Still looking" and "Somewhere else")';
+      '[Tell us where you went]\n\n'
+      'Kind regards,\nJonathan Heavens\nCo-founder, Nomadwise';
 
   Widget _followupLine() => Padding(
         padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
@@ -3888,12 +3901,14 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       );
 
   Future<void> _followupDialog() async {
+    // asked once, so redrawing the dialog does not load it again
+    final preview = _supabase.followupPreview();
     final on = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('"Did you find a place?"'),
         content: SizedBox(
-          width: 520,
+          width: 620,
           child: SingleChildScrollView(
             child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -3910,14 +3925,60 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                           height: 1.45,
                           color: Brand.inkSecondary)),
                   const SizedBox(height: 12),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                        color: Brand.field,
-                        borderRadius: BorderRadius.circular(8)),
-                    child: const SelectableText(_followupWords,
-                        style: TextStyle(fontSize: 13, height: 1.5)),
+                  // As the customer gets it (migration 203): the same
+                  // template and words the daily send uses, with
+                  // example names.
+                  FutureBuilder<Map<String, dynamic>>(
+                    future: preview,
+                    builder: (ctx, snap) {
+                      if (snap.connectionState != ConnectionState.done) {
+                        return const Padding(
+                          padding: EdgeInsets.all(30),
+                          child: Center(
+                              child: CircularProgressIndicator(
+                                  color: Brand.red)),
+                        );
+                      }
+                      final p = snap.data ?? const {};
+                      final html = '${p['html'] ?? ''}';
+                      final text = '${p['text'] ?? _followupWords}';
+                      return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text.rich(TextSpan(children: [
+                              const TextSpan(
+                                  text: 'Subject  ',
+                                  style: TextStyle(color: Brand.inkMuted)),
+                              TextSpan(
+                                  text: '${p['subject'] ?? 'Did you find a place to work?'}',
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w600)),
+                            ]),
+                                style: const TextStyle(fontSize: 13)),
+                            const SizedBox(height: 8),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(10),
+                              child: html.isEmpty
+                                  ? Container(
+                                      width: double.infinity,
+                                      color: Brand.field,
+                                      padding: const EdgeInsets.all(12),
+                                      child: SelectableText(text,
+                                          style: const TextStyle(
+                                              fontSize: 13, height: 1.5)))
+                                  : EmailHtmlView(html: html, text: text),
+                            ),
+                            const SizedBox(height: 8),
+                            const Text(
+                                'The button opens a page with the spaces they '
+                                'asked, plus "Still looking" and "Somewhere '
+                                'else". The names here are an example.',
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    height: 1.4,
+                                    color: Brand.inkMuted)),
+                          ]);
+                    },
                   ),
                 ]),
           ),

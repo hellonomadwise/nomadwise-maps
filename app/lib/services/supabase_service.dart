@@ -1026,6 +1026,13 @@ class SupabaseService {
 
   /// Admin: the "Did you find a place?" email on or off (migration 193;
   /// on once Leonie has approved the wording).
+  /// Admin: the "Did you find a place?" email with example names, as
+  /// the customer gets it (migration 203): {subject, text, html}.
+  Future<Map<String, dynamic>> followupPreview() async {
+    final r = await _db.rpc('admin_followup_preview');
+    return r is Map ? Map<String, dynamic>.from(r) : {};
+  }
+
   Future<bool> setEnquiryFollowup(bool on) async {
     final r = await _db.rpc('admin_enquiry_followup_set', params: {'p_on': on});
     return r == true;

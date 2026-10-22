@@ -84,30 +84,76 @@ class _AdminChatsScreenState extends State<AdminChatsScreen> {
     });
   }
 
-  // Colours set here: left to the theme, the chosen chip was dark text
-  // on a dark chip and could not be read (seen on a phone, 20 Oct).
-  static Widget _chip(String text, bool on, VoidCallback tap) => ChoiceChip(
-      label: Text(text,
-          style: TextStyle(
-              fontSize: 13.5,
-              fontWeight: on ? FontWeight.w700 : FontWeight.w500,
-              color: on ? Colors.white : Brand.ink)),
-      selected: on,
-      showCheckmark: false,
-      selectedColor: Brand.ink,
-      backgroundColor: Brand.surface,
-      onSelected: (_) => tap());
-
-  Widget _tabs() => Padding(
-        padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-        child: Row(children: [
-          _chip('Owners', _tab == 'owners',
-              () => setState(() => _tab = 'owners')),
-          const SizedBox(width: 8),
-          _chip(_siteWaiting > 0 ? 'Website ($_siteWaiting)' : 'Website',
-              _tab == 'site', () => setState(() => _tab = 'site')),
-        ]),
+  /// Owners | Website: a segmented switch with room above it, so it
+  /// does not sit on the bar's line, and looks different from the
+  /// Open / Done filters under it (Jonathan, 22 Oct 2026).
+  Widget _tabs() {
+    Widget seg(String text, String key, {int count = 0}) {
+      final on = _tab == key;
+      return GestureDetector(
+        onTap: () => setState(() => _tab = key),
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+            decoration: BoxDecoration(
+              color: on ? Colors.white : Colors.transparent,
+              borderRadius: BorderRadius.circular(999),
+              boxShadow: on
+                  ? const [
+                      BoxShadow(
+                          color: Color(0x1F142032),
+                          blurRadius: 6,
+                          offset: Offset(0, 1)),
+                    ]
+                  : null,
+            ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Text(text,
+                  style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: on ? FontWeight.w700 : FontWeight.w600,
+                      color: on ? Brand.ink : Brand.inkSecondary)),
+              if (count > 0) ...[
+                const SizedBox(width: 6),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                  decoration: BoxDecoration(
+                      color: Brand.red,
+                      borderRadius: BorderRadius.circular(10)),
+                  child: Text('$count',
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800)),
+                ),
+              ],
+            ]),
+          ),
+        ),
       );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 16, 12, 6),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Container(
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+              color: Brand.field,
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: Brand.border)),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            seg('Owners', 'owners'),
+            seg('Website', 'site', count: _siteWaiting),
+          ]),
+        ),
+      ),
+    );
+  }
 
   @override
   void dispose() {
@@ -254,8 +300,8 @@ class _AdminChatsScreenState extends State<AdminChatsScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(done
-              ? 'Done. A new message reopens it.'
-              : 'Reopened.')));
+              ? 'Chat closed. A new message reopens it.'
+              : 'Chat reopened.')));
       await _load();
     } catch (e) {
       if (!mounted) return;
@@ -271,8 +317,8 @@ class _AdminChatsScreenState extends State<AdminChatsScreen> {
     final done = _isDone(c);
     return TextButton.icon(
         onPressed: () => _setDone(c, !done),
-        icon: Icon(done ? Icons.undo : Icons.check, size: 16),
-        label: Text(done ? 'Reopen' : 'Mark done'));
+        icon: Icon(done ? Icons.undo : Icons.check_circle_outline, size: 16),
+        label: Text(done ? 'Reopen chat' : 'Close chat'));
   }
 
   Widget _header(Map<String, dynamic> c) {
@@ -315,7 +361,7 @@ class _AdminChatsScreenState extends State<AdminChatsScreen> {
           appBar: AppBar(titleSpacing: 0, title: _header(c), actions: [
             if (c['last_at'] != null)
               IconButton(
-                  tooltip: _isDone(c) ? 'Reopen' : 'Mark done',
+                  tooltip: _isDone(c) ? 'Reopen chat' : 'Close chat',
                   onPressed: () async {
                     await _setDone(c, !_isDone(c));
                     // back to the list, which now shows it in its place
@@ -458,10 +504,11 @@ class _AdminChatsScreenState extends State<AdminChatsScreen> {
     final filters = Padding(
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
       child: Wrap(spacing: 6, children: [
-        chip('Open', !_doneView, () {
+        chip('Open chats', !_doneView, () {
           if (_doneView) setState(() => _doneView = false);
         }),
-        chip(doneCount > 0 ? 'Done ($doneCount)' : 'Done', _doneView, () {
+        chip(doneCount > 0 ? 'Closed chats ($doneCount)' : 'Closed chats',
+            _doneView, () {
           if (!_doneView) setState(() => _doneView = true);
         }),
       ]),
@@ -490,12 +537,12 @@ class _AdminChatsScreenState extends State<AdminChatsScreen> {
           const Padding(
             padding: EdgeInsets.all(24),
             child: Text(
-                'Nothing marked done yet. Open a chat and press Mark done '
+                'No closed chats yet. Open a chat and press Close chat '
                 'when it needs nothing more; a new message brings it back.',
                 style: TextStyle(color: Brand.inkSecondary, height: 1.45)),
           )
         else ...[
-          _heading('DONE'),
+          _heading('CLOSED FOR NOW'),
           for (final c in done) _row(c, wide),
         ],
       ]);

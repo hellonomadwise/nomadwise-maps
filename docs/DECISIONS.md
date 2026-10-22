@@ -4860,3 +4860,48 @@ have no messages yet still there but tucked away. Now:
 - Mark done / Reopen in an open chat (a tick at the top on a phone).
   A new message from either side reopens it by itself.
 - Searching looks through everything, done and not yet written to.
+
+## 22 Oct 2026: Chats, Owners | Website as a switch with room above it
+
+Jonathan: the Owners and Website buttons sat right on the header's
+line. They are now a segmented switch (a light track, the chosen side
+white) with space above it, so they read as the two inboxes and look
+different from the Open / Done filters under them. Website's number
+is a small red badge.
+
+## 22 Oct 2026: Open chats and Closed chats
+
+Jonathan: "instead of Done, it should be Open Chats, and Closed
+Chats", so it is clear which chats may need something and which are
+closed for now. On both tabs (Owners and Website) the filters read
+"Open chats" and "Closed chats (N)", the button in a chat reads
+"Close chat" / "Reopen chat", and the list heading is "Closed for
+now". A new message still reopens a closed chat by itself.
+
+## 22 Oct 2026: "Did you find a place?" previewed as it arrives (migration 203)
+
+Jonathan: in Enquiries, the "Did you find a place?" dialog showed the
+words as plain text; he wants to see the email as the customer gets
+it. The words now live in one function (enquiry_followup_text) used by
+the daily send and by admin_followup_preview, so the dialog shows the
+real styled email (customer template, "Tell us where you went"
+button) with example names. The sign-off now matches the other
+customer emails: "Jonathan Heavens", "Co-founder, Nomadwise".
+
+## 22 Oct 2026: Create pages moved to the control centre's top right
+
+Jonathan: "Create on nomadwise.io" (Country, City and Area page,
+Refresh from Webflow) is needed now and then, only from the control
+centre, so it left the menu down the left. It is a "Create" button at
+the top right of the control centre (an icon on a phone), with the
+same four choices.
+
+## 22 Oct 2026: no sign-in reminders for an owner already using the account (migration 204)
+
+Jonathan, on Sequences: Sierra Cartel's new location (Indiranagar),
+claimed with the same email, was in the sign-in reminder sequence,
+though they use the Owner account every day. One email is one Owner
+account holding all its spaces, so a space now counts as signed in
+when its owner has signed in to, or opened, the account for any of
+their other spaces. It shows under "Left or switched off". A new
+location claimed with a different email still gets the reminders.
