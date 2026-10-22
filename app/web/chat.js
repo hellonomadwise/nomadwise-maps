@@ -15,9 +15,11 @@
  * Website).
  *
  * A returning visitor starts afresh (migration 206): when the last chat
- * has been quiet for 12 hours, or they press "New chat", the box begins
+ * has been quiet for 30 minutes, or they press "New chat", the box begins
  * again ("Welcome back!") and the old chat stays in Nomad Maps, linked
- * to the new one, which keeps how to reach them.
+ * to the new one, which keeps how to reach them. A new chat is the
+ * default (Jonathan, 22 Oct 2026): someone reading a few articles in a
+ * row keeps the same chat, someone coming back later starts over.
  *
  * Light on the database: nothing is asked until the visitor writes;
  * then the box looks for an answer every 2 seconds while one is on its
@@ -50,7 +52,7 @@
   var pollTimer = null, waitingSince = 0, lastActivity = Date.now();
   var shown = {};
 
-  var FRESH_AFTER = 12 * 3600000; // quiet this long: a new chat
+  var FRESH_AFTER = 30 * 60000; // quiet this long: a new chat
   function load() {
     try {
       var s = JSON.parse(localStorage.getItem(STORE) || '{}');

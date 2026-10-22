@@ -4938,3 +4938,27 @@ go to ntfy with high priority: sound, vibration, shown on top. Chats
 has a bell button that sends one test notice; if nothing arrives, the
 ntfy app needs to be subscribed to the topic with notifications and
 sound allowed.
+
+## 22 Oct 2026: a new chat is the default (30 minutes)
+
+Jonathan: "the default should be a new chat for users". Chosen: the
+website chat starts again when the last chat has been quiet for 30
+minutes (was 12 hours). Someone reading a few articles in a row keeps
+the same chat; someone who comes back later gets "Welcome back!" and a
+blank box. The old chat stays in Nomad Maps, linked to the new one. A
+reply sent after they have gone reaches them through the contact
+details the chat asks for (migration 200), not on the website.
+
+## 22 Oct 2026: booking questions come to us (migration 208)
+
+On Nomio Coworking Lounge's page the assistant told a visitor to use
+Send an enquiry or the space's website, and linked to the page they
+were already on. Jonathan: that should come to him. Now, when someone
+wants to book, check availability, get a day pass or membership, asks
+something the page does not answer, or wants to contact a place, the
+assistant says: leave us a message about what you are looking for, or
+your question, and the best way to reach you, and we will be in touch.
+The chat is handed to Jonathan (his phone rings). Prices and hours on
+the page it can still give. Someone who runs or looks after a space
+gets the claim link instead. It never links to the page the visitor
+is on.
