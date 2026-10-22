@@ -4710,3 +4710,20 @@ The buttons are now "Review and send" / "Review and send to all", with
 email as it will arrive, and only Send sends them." under them, and the
 two screens are titled "Step 1 of 2: who it goes to" and "Step 2 of 2:
 check and send".
+
+## 22 Oct 2026: standing rule for every admin action
+
+Jonathan: "this should be echoed generally within the admin area". For
+every button in Nomad Maps' admin, new or touched later:
+1. Its name says what it does ("Review and send", not "Send", when it
+   opens a review).
+2. A short muted line beside anything with consequences says what will
+   and will not happen ("Nothing is sent yet ...").
+3. Multi-step flows are numbered ("Step 1 of 2 ...").
+4. Only the last button acts, and says exactly what ("Send 7 emails");
+   Cancel or Back always does nothing.
+5. Anything sent out is previewed as it arrives, and editable.
+6. Manual follow-ups get a confirm button each, green with Undo once
+   confirmed; the item leaves the list only when all are confirmed.
+7. Irreversible actions confirm first, naming the thing and the result.
+(Also in the Nomadwise project: workflows/admin-ux-principles.md.)
