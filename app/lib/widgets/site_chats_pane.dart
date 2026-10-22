@@ -344,6 +344,16 @@ class _SiteChatsPaneState extends State<SiteChatsPane> {
     );
   }
 
+  /// "Returning visitor: earlier chat on 20 Oct (6 messages, closed)".
+  static String _returning(Map<String, dynamic> p) {
+    final at = DateTime.tryParse('${p['started_at'] ?? ''}')?.toLocal();
+    final n = ((p['messages'] as num?) ?? 0).toInt();
+    final when = at == null ? '' : ' on ${DateFormat('d MMM').format(at)}';
+    final state = p['status'] == 'done' ? 'closed' : 'still open';
+    return 'Returning visitor: earlier chat$when '
+        '($n message${n == 1 ? '' : 's'}, $state)';
+  }
+
   Widget _header(Map<String, dynamic> c) {
     final id = '${c['id']}';
     final m = {...c, ...?_meta[id]};
@@ -374,6 +384,17 @@ class _SiteChatsPaneState extends State<SiteChatsPane> {
                   fontSize: 12.5,
                   fontWeight: FontWeight.w400,
                   color: Brand.inkSecondary)),
+          // A returning visitor (migration 206): when their last chat was.
+          if (m['previous'] is Map)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                  _returning(Map<String, dynamic>.from(m['previous'] as Map)),
+                  style: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      color: Brand.violet)),
+            ),
           const SizedBox(height: 6),
           Wrap(spacing: 6, runSpacing: 4, children: [
             if (team)

@@ -642,6 +642,28 @@ class _AdminChatsScreenState extends State<AdminChatsScreen> {
         appBar: AppBar(
           title: const Text('Chats'),
           actions: [
+            // Do chat notices reach the phone, with a sound? One test
+            // notice (migration 207).
+            IconButton(
+                tooltip: 'Send a test notice to my phone',
+                onPressed: () async {
+                  final m = ScaffoldMessenger.of(context);
+                  try {
+                    await _supabase.adminNotifyTest();
+                    m.showSnackBar(const SnackBar(
+                        duration: Duration(seconds: 8),
+                        content: Text('Test notice sent. It should arrive on '
+                            'your phone within a few seconds, with a sound. '
+                            'Nothing? Open the ntfy app and check it is '
+                            'subscribed to nomadmaps-83076iwunm, with '
+                            'notifications and sound allowed.')));
+                  } catch (e) {
+                    m.showSnackBar(SnackBar(
+                        content: Text('Could not send it: $e'),
+                        backgroundColor: Brand.red));
+                  }
+                },
+                icon: const Icon(Icons.notifications_active_outlined)),
             IconButton(
                 tooltip: 'Look again',
                 onPressed: _load,

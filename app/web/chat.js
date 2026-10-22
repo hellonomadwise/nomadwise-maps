@@ -14,6 +14,11 @@
  * from Jonathan once he takes a chat over in Nomad Maps (Chats,
  * Website).
  *
+ * A returning visitor starts afresh (migration 206): when the last chat
+ * has been quiet for 12 hours, or they press "New chat", the box begins
+ * again ("Welcome back!") and the old chat stays in Nomad Maps, linked
+ * to the new one, which keeps how to reach them.
+ *
  * Light on the database: nothing is asked until the visitor writes;
  * then the box looks for an answer every 2 seconds while one is on its
  * way, every 10 seconds while the box is open, and stops when it is
@@ -45,10 +50,18 @@
   var pollTimer = null, waitingSince = 0, lastActivity = Date.now();
   var shown = {};
 
+  var FRESH_AFTER = 12 * 3600000; // quiet this long: a new chat
   function load() {
     try {
       var s = JSON.parse(localStorage.getItem(STORE) || '{}');
-      if (s && s.token) return s;
+      if (s && s.token) {
+        var last = s.last || s.at || 0;
+        if (Date.now() - last > FRESH_AFTER) {
+          return { token: null, after: 0, msgs: [], prev: s.token };
+        }
+        return s;
+      }
+      if (s && s.prev) return { token: null, after: 0, msgs: [], prev: s.prev };
     } catch (e) {}
     return { token: null, after: 0, msgs: [] };
   }
@@ -56,9 +69,26 @@
     try {
       localStorage.setItem(STORE, JSON.stringify({
         token: state.token, after: state.after,
-        msgs: state.msgs.slice(-60), at: Date.now()
+        msgs: state.msgs.slice(-60), at: Date.now(),
+        last: state.last || Date.now(), prev: state.prev || null
       }));
     } catch (e) {}
+  }
+  // "New chat": the conversation so far stays with us; the box begins
+  // again.
+  function fresh() {
+    if (busy) return;
+    if (!state.token && !state.msgs.length) return;
+    if (pollTimer) clearTimeout(pollTimer);
+    pollTimer = null;
+    state = { token: null, after: 0, msgs: [], prev: state.token || state.prev };
+    shown = {};
+    mode = 'bot';
+    typing = false;
+    waitingSince = 0;
+    save();
+    render();
+    try { input.focus(); } catch (e) {}
   }
   function uuid() {
     if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
@@ -141,7 +171,9 @@
     '.panel.on{display:flex}' +
     '.head{background:' + INK + ';color:#fff;padding:14px 16px;display:flex;align-items:center;gap:10px}' +
     '.head b{font-size:16px;display:block}.head span{font-size:12px;opacity:.8}' +
-    '.x{margin-left:auto;background:none;border:0;color:#fff;font-size:24px;cursor:pointer;line-height:1;padding:0 4px}' +
+    '.x{background:none;border:0;color:#fff;font-size:24px;cursor:pointer;line-height:1;padding:0 4px}' +
+    '.new{margin-left:auto;background:rgba(255,255,255,.12);border:0;color:#fff;font-size:12px;font-weight:600;border-radius:12px;padding:5px 10px;cursor:pointer;display:none}' +
+    '.new:hover{background:rgba(255,255,255,.22)}' +
     '.list{flex:1;overflow-y:auto;padding:14px;background:' + BG + '}' +
     '.m{max-width:85%;margin:0 0 10px;padding:9px 12px;border-radius:14px;font-size:14px;line-height:1.45;white-space:pre-wrap;word-wrap:break-word}' +
     '.them{background:#fff;border:1px solid rgba(20,32,50,.08);border-bottom-left-radius:4px}' +
@@ -165,7 +197,7 @@
     '<div class="panel" role="dialog" aria-label="Chat with Nomadwise">' +
     '<div class="head"><div><b>Nomadwise</b><span>' +
     (BLOG ? 'Questions about this article? Ask us' : 'Ask us about places to work, or your listing') +
-    '</span></div><button class="x" aria-label="Close">&times;</button></div>' +
+    '</span></div><button class="new" aria-label="Start a new chat">New chat</button><button class="x" aria-label="Close">&times;</button></div>' +
     '<div class="list"></div>' +
     '<div class="err"></div>' +
     '<div class="foot"><textarea rows="1" maxlength="800" placeholder="Write a message"></textarea><button class="send">Send</button></div>' +
@@ -173,6 +205,7 @@
     '</div>';
   var $ = function (s) { return root.querySelector(s); };
   var btn = $('.btn'), dot = $('.dot'), panel = $('.panel'), list = $('.list');
+  var newBtn = $('.new');
   var input = $('textarea'), sendBtn = $('.send'), err = $('.err');
 
   function esc(t) {
@@ -197,9 +230,13 @@
 
   function render() {
     list.innerHTML = '';
+    newBtn.style.display = state.msgs.length ? 'block' : 'none';
+    var back = !!state.prev && !state.msgs.length;
     list.appendChild(bubble('bot', null, BLOG
-      ? 'Need a hand with anything, or have a question about this article?'
-      : 'Hi! I am Nomadwise\'s assistant. Looking for a good place to work, or do you run a cafe or coworking space?'));
+      ? (back ? 'Welcome back! Need a hand with anything, or have a question about this article?'
+              : 'Need a hand with anything, or have a question about this article?')
+      : (back ? 'Welcome back! Looking for a good place to work, or is it about your cafe or coworking space?'
+              : 'Hi! I am Nomadwise\'s assistant. Looking for a good place to work, or do you run a cafe or coworking space?')));
     if (!state.msgs.length) {
       var chips = document.createElement('div');
       chips.className = 'chips';
@@ -236,6 +273,7 @@
     });
     if (fresh) {
       lastActivity = Date.now();
+      state.last = Date.now();
       if (!open) dot.style.display = 'block';
     }
     save();
@@ -258,11 +296,19 @@
     state.msgs.push(temp);
     typing = true;
     render();
-    rpc('site_chat_send', {
+    state.last = Date.now();
+    var args = {
       p_token: state.token, p_body: text,
       p_page: location.href.slice(0, 500), p_title: document.title.slice(0, 200),
       p_after: state.after, p_outline: outline()
-    }).then(function (view) {
+    };
+    // The first message of a returning visitor's new chat: the last
+    // chat's key, so the two are linked in Nomad Maps.
+    if (state.prev && !state.after) args.p_prev = state.prev;
+    var mine = state;
+    rpc('site_chat_send', args).then(function (view) {
+      if (state !== mine) return; // a new chat was started meanwhile
+      state.prev = null;
       state.msgs = state.msgs.filter(function (m) { return m !== temp; });
       input.value = '';
       input.style.height = '';
@@ -271,6 +317,7 @@
       take(view);
       schedule();
     }).catch(function (e) {
+      if (state !== mine) return;
       state.msgs = state.msgs.filter(function (m) { return m !== temp; });
       typing = false;
       render();
@@ -286,8 +333,10 @@
   function poll() {
     pollTimer = null;
     if (!state.token || document.hidden) return schedule();
+    var tok = state.token;
     rpc('site_chat_poll', { p_token: state.token, p_after: state.after })
-      .then(function (view) { take(view); })
+      // dropped if a new chat was started while it was on its way
+      .then(function (view) { if (state.token === tok) take(view); })
       .catch(function () {})
       .then(schedule);
   }
@@ -322,6 +371,7 @@
 
   btn.onclick = function () { toggle(!open); };
   $('.x').onclick = function () { toggle(false); };
+  newBtn.onclick = fresh;
   sendBtn.onclick = function () { send(input.value); };
   input.addEventListener('keydown', function (e) {
     if (e.key === 'Enter' && !e.shiftKey) {

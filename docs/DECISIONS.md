@@ -4918,3 +4918,23 @@ became deutschland-berlin-cafe-amano. Fixed:
   Outreach contact), and its address germany-berlin-cafe-amano.
 - Webflow, with Jonathan's Go: the item's slug renamed and published.
   By hand: a 301 redirect from the old address, and the sitemap entry.
+
+## 22 Oct 2026: a returning visitor starts a fresh chat (migration 206)
+
+Jonathan, opening a blog article: the chat box still showed his old
+conversation, which had been handed to a person, so "hello" got no
+greeting. Now the box starts again ("Welcome back!") when the last
+chat has been quiet for 12 hours, and the header has a "New chat"
+button. The old chat stays in Nomad Maps; the new one is linked to it
+(Chats shows "Returning visitor: earlier chat on 20 Oct (6 messages,
+closed)") and starts with their email, number and name already known.
+The phone notice says "A returning visitor started a chat".
+
+## 22 Oct 2026: chat notices ring (migration 207)
+
+Jonathan was unsure the phone notices arrive and wanted a sound. Chat
+notices (website chats, owner chats, an owner in their Owner account)
+go to ntfy with high priority: sound, vibration, shown on top. Chats
+has a bell button that sends one test notice; if nothing arrives, the
+ntfy app needs to be subscribed to the topic with notifications and
+sound allowed.

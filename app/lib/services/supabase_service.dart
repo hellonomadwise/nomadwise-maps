@@ -1754,6 +1754,12 @@ class SupabaseService {
     await _db.rpc('admin_chat_done', params: {'p_venue': venueId, 'p_done': done});
   }
 
+  /// Admin: one test notice to the founders' phones, the way chat
+  /// notices go (migration 207).
+  Future<void> adminNotifyTest() async {
+    await _db.rpc('admin_notify_test');
+  }
+
   Future<List<Map<String, dynamic>>> adminChats() async {
     final r = await _db.rpc('admin_chats');
     return [
