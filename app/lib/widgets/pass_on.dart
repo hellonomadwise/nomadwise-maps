@@ -80,7 +80,7 @@ class PassOnCard extends StatelessWidget {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setD) => AlertDialog(
-          title: Text('Pass on to ${e['venue_name'] ?? 'the space'}'),
+          title: Text('Step 1 of 2: send to ${e['venue_name'] ?? 'the space'}'),
           content: SizedBox(
             width: 460,
             child: SingleChildScrollView(
@@ -368,8 +368,8 @@ class PassOnCard extends StatelessWidget {
                 if (_matched)
                   FilledButton.icon(
                       onPressed: () => _passOn(context),
-                      icon: const Icon(Icons.send_rounded, size: 16),
-                      label: const Text('Pass on'))
+                      icon: const Icon(Icons.rate_review_outlined, size: 16),
+                      label: const Text('Review and send'))
                 else
                   FilledButton.icon(
                       onPressed: () => _attach(context),
@@ -402,6 +402,17 @@ class PassOnCard extends StatelessWidget {
                   ),
                 ),
               ]),
+          if (_matched)
+          // Nothing goes out from here (Jonathan, 22 Oct 2026: "it looks
+          // like it will do an action that is irreversible").
+            const Padding(
+            padding: EdgeInsets.only(top: 6),
+            child: Text(
+                'Nothing is sent yet. Next you choose the addresses, then see '
+                'every email as it will arrive, and only Send sends them.',
+                style: TextStyle(
+                    fontSize: 12, height: 1.4, color: Brand.inkMuted)),
+          ),
         ]),
       ),
     );
@@ -475,7 +486,7 @@ class PassOnGroupCard extends StatelessWidget {
             if (include[i] && ctls[i].text.contains('@')) i
         ].length;
         return AlertDialog(
-          title: Text('Pass on ${_first['name'] ?? 'their'} enquiry'),
+          title: const Text('Step 1 of 2: who it goes to'),
           content: SizedBox(
             width: 520,
             child: SingleChildScrollView(
@@ -763,8 +774,8 @@ class PassOnGroupCard extends StatelessWidget {
                     onPressed: items.any((e) => e['venue_id'] != null)
                         ? () => _passOnAll(context)
                         : null,
-                    icon: const Icon(Icons.send_rounded, size: 16),
-                    label: const Text('Pass on to all')),
+                    icon: const Icon(Icons.rate_review_outlined, size: 16),
+                    label: const Text('Review and send to all')),
                 PopupMenuButton<String>(
                   tooltip: 'More',
                   onSelected: (r) => _closeAll(context, r),
@@ -783,6 +794,16 @@ class PassOnGroupCard extends StatelessWidget {
                   ),
                 ),
               ]),
+          // Nothing goes out from here (Jonathan, 22 Oct 2026: "it looks
+          // like it will do an action that is irreversible").
+          const Padding(
+            padding: EdgeInsets.only(top: 6),
+            child: Text(
+                'Nothing is sent yet. Next you choose the addresses, then see '
+                'every email as it will arrive, and only Send sends them.',
+                style: TextStyle(
+                    fontSize: 12, height: 1.4, color: Brand.inkMuted)),
+          ),
         ]),
       ),
     );

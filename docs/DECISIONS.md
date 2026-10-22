@@ -4694,3 +4694,19 @@ redirected and published", "Mark as removed from the sitemap"); a
 confirmed step turns green with Undo. The redirect itself stays manual:
 Webflow's redirects API is for Enterprise sites only, so the sync's
 attempt is refused and the card gives the two paths to copy.
+
+## 22 Oct 2026: no advice in the customer's email (migration 195)
+
+Jonathan: "I don't want us to be giving advice." The "your enquiry has
+been sent" email now closes with "If you have any further questions,
+simply reply to this email." instead of offering help comparing
+options or finding a space.
+
+## 22 Oct 2026: Pass on says what it does
+
+Jonathan: "it looks like it will do an action that is irreversible".
+The buttons are now "Review and send" / "Review and send to all", with
+"Nothing is sent yet. Next you choose the addresses, then see every
+email as it will arrive, and only Send sends them." under them, and the
+two screens are titled "Step 1 of 2: who it goes to" and "Step 2 of 2:
+check and send".

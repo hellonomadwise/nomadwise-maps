@@ -183,7 +183,7 @@ class _EnquiryReviewScreenState extends State<EnquiryReviewScreen> {
     return Scaffold(
       backgroundColor: Brand.bg,
       appBar: AppBar(
-        title: const Text('Check before sending'),
+        title: const Text('Step 2 of 2: check and send'),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 12),
