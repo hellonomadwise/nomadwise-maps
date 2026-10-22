@@ -4773,3 +4773,9 @@ customer's details; and a better sign-off. Now:
   Owner account. That includes "Did you find a place?".
 Other owner emails look the same, except that a "Kind regards,
 Jonathan, Nomadwise" sign-off gets the same styling.
+
+## 22 Oct 2026: "straight to your email address" (migration 197)
+
+Jonathan: the customer email now says "Their replies will come
+straight to your email address" (was "this email address"), and for
+one space "their reply will come straight to your email address".
