@@ -966,8 +966,11 @@ class SupabaseService {
   }
 
   /// Admin: an email's words as the styled email they are sent as.
-  Future<String> emailPreview(String text) async {
-    final r = await _db.rpc('admin_email_preview', params: {'p_text': text});
+  /// [forSpaces] false: the email to the customer (no "For spaces" tag,
+  /// migration 196).
+  Future<String> emailPreview(String text, {bool forSpaces = true}) async {
+    final r = await _db.rpc('admin_email_preview',
+        params: {'p_text': text, 'p_for_spaces': forSpaces});
     return r is String ? r : '';
   }
 

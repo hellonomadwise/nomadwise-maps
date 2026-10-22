@@ -270,7 +270,8 @@ class _EmailCardState extends State<_EmailCard> {
     final text = widget.draft.body.text;
     if (text == _htmlOf && _html != null) return;
     try {
-      final h = await widget.supabase.emailPreview(text);
+      final h = await widget.supabase
+          .emailPreview(text, forSpaces: widget.draft.enquiryId != null);
       if (!mounted) return;
       setState(() {
         _html = h;

@@ -4747,3 +4747,29 @@ under each space's address box, where we have them. The Google link
 searches Google Maps for the space's name and city, which opens its
 listing (phone number, website, hours). Nothing is sent by these
 links; they only open the page.
+
+## 22 Oct 2026: email previews can be selected and clicked
+
+Jonathan could not select words or click the link in the Step 2 email
+preview: the preview was made untouchable so the page would scroll
+over it. Now, with a mouse, the preview is live (select and copy
+words, links open in a new tab) and the mouse wheel is handed on to
+the page, so scrolling still works. On a phone or tablet it stays
+untouchable, so a swipe always scrolls; use Edit there to see or copy
+the words.
+
+## 22 Oct 2026: enquiry emails read as a letter from the founder (migration 196)
+
+Jonathan, on the Step 2 preview: "About your listing" should be
+clearer, and what Nomadwise offers should look separate from the
+customer's details; and a better sign-off. Now:
+- "About your listing" is a light grey panel with a bold heading, and
+  its link is a button ("Claim your page", "See Verified" or "Open
+  your Owner account"). The plain-text version keeps the address.
+- The sign-off is "Kind regards," then "Jonathan Heavens" in bold and
+  "Co-founder, Nomadwise" (Nomadwise in red, linked). Kept short for
+  now; links (website, email, Instagram) can be added later.
+- Emails to the customer no longer say "FOR SPACES" or link to the
+  Owner account. That includes "Did you find a place?".
+Other owner emails look the same, except that a "Kind regards,
+Jonathan, Nomadwise" sign-off gets the same styling.
