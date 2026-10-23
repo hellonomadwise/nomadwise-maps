@@ -5074,3 +5074,19 @@ they are typed. Buttons are 40px tall and never wrap. The name is not
 editable here (it comes from Google; owners ask in Inbox & support).
 Next steps: the locked Plus parts and the Get Plus window (step 2),
 then promotions and events on the live page (step 3).
+
+## 23 Oct 2026: Owner account, locked Plus parts (CR-22, step 2)
+
+On a free page the Plus parts show in the page view greyed, with a lock:
+the Verified badge (next to the place and country), Instagram and
+WhatsApp (in the links, and in the links form), Promotions and events
+(in the sidebar), and the advert in grey with a red Remove ad. Pressing
+one opens the Get Plus window: a heading and line for what was pressed,
+"Everything in Free, plus:" with the six Plus lines, "Plus: about the
+price of a day pass a month / Monthly or yearly subscription, cancel any
+time", "Nothing is charged until you confirm", and Not now / See the
+Plus plan (opens Plan & billing). "Get unlimited enquiries" under the
+free enquiries left opens it too. Every page shows Send an enquiry. A
+Plus page shows the Verified by Nomadwise badge, its Instagram and
+WhatsApp, its Promotions and events with Edit (Your message tab), and no
+advert. The Instagram check on saving applies to Plus pages only.

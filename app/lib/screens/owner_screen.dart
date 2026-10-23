@@ -718,7 +718,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
                 fontSize: 13, height: 1.45, color: Brand.inkSecondary)),
         const SizedBox(height: 8),
         TextButton(
-            onPressed: () => setState(() => _tab = _Tab.membership),
+            onPressed: () => _getPlus('enquiry'),
             style: TextButton.styleFrom(
                 padding: EdgeInsets.zero, foregroundColor: Brand.red),
             child: const Text('Get unlimited enquiries', softWrap: false)),
@@ -1025,7 +1025,8 @@ class _OwnerScreenState extends State<OwnerScreen> {
           'owner this would ${submit ? 'send the changes to you for review' : 'save a draft'}.');
       return;
     }
-    if (submit && _igHandle(_instagram.text) == null) {
+    // (Instagram is a Plus part: a free page has no field to fix it in.)
+    if (submit && _verified && _igHandle(_instagram.text) == null) {
       setState(() => _savedNote = 'That Instagram handle does not look '
           'right: letters, numbers, dots and underscores only, like '
           '@yourspace.');
@@ -2711,6 +2712,379 @@ class _OwnerScreenState extends State<OwnerScreen> {
           ),
       ]);
 
+  // ------------------------------------------- locked Plus parts (step 2)
+  // CR-22 step 2: on a free page the Plus parts show greyed with a lock
+  // (the Verified badge, Instagram and WhatsApp, Promotions and events,
+  // the advert with Remove ad). Pressing one opens the Get Plus window,
+  // in the words agreed on 23 Oct (CR-29).
+
+  static const _lockBorder = Color(0xFFAEB7C1);
+  static const _lockFill = Color(0xFFF1F3F5);
+
+  static const _plusWhy = {
+    'social': (
+      'Add your Instagram and WhatsApp',
+      'Free pages show your website and directions. With Nomadwise Plus, '
+          'nomads can also reach you on Instagram and WhatsApp straight from '
+          'your page.'
+    ),
+    'ad': (
+      'Remove the ad from your page',
+      'With Nomadwise Plus, the advert on your page goes, and your own '
+          'events and offers can take its place.'
+    ),
+    'promo': (
+      'Promote your events and offers',
+      'With Nomadwise Plus, your next event, an offer or your news takes '
+          'the place of the advert on your page.'
+    ),
+    'enquiry': (
+      'Unlimited enquiries from nomads',
+      'Your free page includes 2 enquiries from nomads. With Nomadwise '
+          'Plus, you can receive an unlimited number of enquiries straight '
+          'to your inbox.'
+    ),
+    'badge': (
+      'Get the Verified by Nomadwise badge',
+      'Nomadwise Plus pages carry the Verified by Nomadwise badge, on the '
+          'page and in every list.'
+    ),
+  };
+
+  static const _plusPerks = [
+    'Verified by Nomadwise badge on your page',
+    "Top positioning on your region's page",
+    'Promote your events and offers on your page',
+    'Unlimited enquiries from nomads, straight to your inbox',
+    'Your Instagram and WhatsApp on your page',
+    'Remove ads from your page',
+  ];
+
+  /// The Get Plus window. "See the Plus plan" opens Plan & billing,
+  /// where the price for their country is shown before anything is
+  /// charged.
+  Future<void> _getPlus(String why) {
+    final (title, rawLead) = _plusWhy[why] ?? _plusWhy['promo']!;
+    // The free limit as set (migration 212), not a fixed 2.
+    final limit = (_allow?['limit'] as num?)?.toInt() ?? 2;
+    final lead = rawLead.replaceFirst('includes 2 enquiries',
+        'includes $limit ${limit == 1 ? 'enquiry' : 'enquiries'}');
+    Analytics.capture('owner_plus_window', {'why': why});
+    return showDialog<void>(
+      context: context,
+      builder: (ctx) => Dialog(
+        insetPadding: const EdgeInsets.all(16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
+            child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                          color: const Color(0xFFFFECED),
+                          borderRadius: BorderRadius.circular(12)),
+                      child: const Icon(Icons.lock_outline,
+                          color: Color(0xFFC4222E), size: 22),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                        tooltip: 'Close',
+                        onPressed: () => Navigator.of(ctx).pop(),
+                        icon: const Icon(Icons.close)),
+                  ]),
+                  const SizedBox(height: 12),
+                  Text(title,
+                      style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                          height: 1.25,
+                          color: _edInk)),
+                  const SizedBox(height: 6),
+                  Text(lead,
+                      style: const TextStyle(
+                          fontSize: 15, height: 1.5, color: Color(0xFF3F4954))),
+                  const SizedBox(height: 16),
+                  const Text('Everything in Free, plus:',
+                      style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF3F4954))),
+                  const SizedBox(height: 8),
+                  for (final t in _plusPerks)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Padding(
+                              padding: EdgeInsets.only(top: 2),
+                              child: Icon(Icons.check,
+                                  size: 18, color: Color(0xFF22663A)),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                                child: Text(t,
+                                    style: const TextStyle(
+                                        fontSize: 15, color: _edInk))),
+                          ]),
+                    ),
+                  Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.only(top: 8, bottom: 6),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                        color: const Color(0xFFF7F7F7),
+                        borderRadius: BorderRadius.circular(10)),
+                    child: const Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Plus: about the price of a day pass a month',
+                              style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  color: _edInk)),
+                          SizedBox(height: 2),
+                          Text(
+                              'Monthly or yearly subscription, cancel any '
+                              'time. See your price on the next page.',
+                              style: TextStyle(fontSize: 13, color: _edMuted)),
+                        ]),
+                  ),
+                  const Text(
+                      'Nothing is charged until you confirm. Your free page '
+                      'stays as it is if you do not.',
+                      style: TextStyle(fontSize: 12.5, color: _edMuted)),
+                  const SizedBox(height: 18),
+                  Wrap(
+                      alignment: WrapAlignment.end,
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        OutlinedButton(
+                          onPressed: () => Navigator.of(ctx).pop(),
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size(0, 44),
+                            padding: const EdgeInsets.symmetric(horizontal: 18),
+                            foregroundColor: _edInk,
+                            side: const BorderSide(color: _edBorder),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8)),
+                          ),
+                          child: const Text('Not now', softWrap: false),
+                        ),
+                        FilledButton(
+                          onPressed: () {
+                            Navigator.of(ctx).pop();
+                            _goTab(_Tab.membership);
+                          },
+                          style: FilledButton.styleFrom(
+                            minimumSize: const Size(0, 44),
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            backgroundColor: _edRed,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8)),
+                            textStyle: const TextStyle(
+                                fontSize: 15, fontWeight: FontWeight.w600),
+                          ),
+                          child:
+                              const Text('See the Plus plan', softWrap: false),
+                        ),
+                      ]),
+                ]),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// A greyed part with a lock: pressing it opens the Get Plus window.
+  Widget _lockedChip(String label, String why, {IconData icon = Icons.lock_outline}) =>
+      Semantics(
+        button: true,
+        label: '$label, locked. See what Plus adds',
+        child: InkWell(
+          onTap: () => _getPlus(why),
+          borderRadius: BorderRadius.circular(6),
+          child: Container(
+            height: 30,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+                color: _lockFill,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: _lockBorder)),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(icon, size: 14, color: _edMuted),
+              const SizedBox(width: 6),
+              Text(label,
+                  softWrap: false,
+                  style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: _edMuted)),
+            ]),
+          ),
+        ),
+      );
+
+  /// Promotions and events in the sidebar: locked on a free page; on a
+  /// Plus page the message as it shows, with Edit (Your message tab).
+  Widget _promoPart() {
+    if (!_verified) {
+      return Semantics(
+        button: true,
+        label: 'Promotions and events, locked. See what Plus adds',
+        child: InkWell(
+          onTap: () => _getPlus('promo'),
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+            decoration: BoxDecoration(
+                color: _lockFill,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: _lockBorder, width: 1.5)),
+            child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(children: [
+                    Icon(Icons.lock_outline, size: 18, color: _edInk),
+                    SizedBox(width: 8),
+                    Text('Promotions and events',
+                        style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: _edInk)),
+                  ]),
+                  SizedBox(height: 6),
+                  Text(
+                      'Show your next event, an offer or news here, in place '
+                      'of the advert below.',
+                      style: TextStyle(
+                          fontSize: 14, height: 1.45, color: Color(0xFF3F4954))),
+                  SizedBox(height: 10),
+                  Text('See what Plus adds',
+                      style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFFC4222E))),
+                ]),
+          ),
+        ),
+      );
+    }
+    final has = _mentionTitle.text.trim().isNotEmpty;
+    final edit = OutlinedButton.icon(
+      onPressed: () => _goTab(_Tab.message),
+      style: OutlinedButton.styleFrom(
+        minimumSize: const Size(0, 40),
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        foregroundColor: _edInk,
+        backgroundColor: Colors.white,
+        side: const BorderSide(color: _edBorder),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+      ),
+      icon: Icon(has ? Icons.edit_outlined : Icons.add, size: 15),
+      label: Text(has ? 'Edit' : 'Add one', softWrap: false),
+    );
+    return _liveCard(
+        Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Row(children: [
+            const Expanded(
+              child: Text('Promotions and events',
+                  style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: _pageInk)),
+            ),
+            edit,
+          ]),
+          const SizedBox(height: 10),
+          if (has)
+            _mentionCard()
+          else
+            const Text(
+                'Show your next event, an offer or news here. It shows on '
+                'your page in place of an advert.',
+                style: TextStyle(fontSize: 14, height: 1.45, color: _edMuted)),
+        ]),
+        pad: const EdgeInsets.fromLTRB(20, 18, 20, 18));
+  }
+
+  /// The advert as it shows on a free page, in grey, with Remove ad.
+  Widget _greyAdvert() => ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          decoration: BoxDecoration(
+              border: Border.all(color: const Color(0xFFD5DAE0)),
+              borderRadius: BorderRadius.circular(16)),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Container(
+              constraints: const BoxConstraints(minHeight: 200),
+              color: const Color(0xFFE3E7EB),
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+              child: const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('ADVERT',
+                        style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: .8,
+                            color: _edMuted)),
+                    SizedBox(height: 8),
+                    Text('A partner advert, for example an eSIM for travellers',
+                        style: TextStyle(
+                            fontSize: 19,
+                            fontWeight: FontWeight.w800,
+                            height: 1.2,
+                            color: Color(0xFF4A5562))),
+                    SizedBox(height: 8),
+                    Text(
+                        'Shown in grey here. On your live page it shows in '
+                        'full colour.',
+                        style: TextStyle(fontSize: 13, color: _edMuted)),
+                  ]),
+            ),
+            Container(
+              color: Colors.white,
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+              child: Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 10,
+                  runSpacing: 8,
+                  children: [
+                    const Text('This advert shows on your page.',
+                        style: TextStyle(
+                            fontSize: 13, color: Color(0xFF3F4954))),
+                    FilledButton.icon(
+                      onPressed: () => _getPlus('ad'),
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size(0, 40),
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                        backgroundColor: _edRed,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8)),
+                        textStyle: const TextStyle(
+                            fontSize: 14, fontWeight: FontWeight.w600),
+                      ),
+                      icon: const Icon(Icons.close, size: 16),
+                      label: const Text('Remove ad', softWrap: false),
+                    ),
+                  ]),
+            ),
+          ]),
+        ),
+      );
+
   Widget _listingTab(bool wide) {
     final v = _venue!;
     final area = [v['neighbourhood'], v['city']]
@@ -2938,6 +3312,25 @@ class _OwnerScreenState extends State<OwnerScreen> {
                           fontSize: 16,
                           fontWeight: FontWeight.w500,
                           color: _pageInk)),
+                if (_verified)
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                        color: const Color(0xFFE4F2EA),
+                        borderRadius: BorderRadius.circular(6)),
+                    child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(Icons.verified, size: 15, color: Color(0xFF1F6B41)),
+                      SizedBox(width: 5),
+                      Text('Verified by Nomadwise',
+                          style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF1F6B41))),
+                    ]),
+                  )
+                else
+                  _lockedChip('Verified badge', 'badge'),
               ]),
           const SizedBox(height: 10),
           Wrap(spacing: 20, runSpacing: 8, children: [
@@ -3032,6 +3425,24 @@ class _OwnerScreenState extends State<OwnerScreen> {
               border: Border.all(color: const Color(0xFFE0E0E0))),
           child: Icon(icon, size: 20, color: color),
         );
+    Widget lockedCircle(IconData icon, String what) => Semantics(
+          button: true,
+          label: '$what link, locked. See what Plus adds',
+          child: InkWell(
+            onTap: () => _getPlus('social'),
+            customBorder: const CircleBorder(),
+            child: Container(
+              width: 44,
+              height: 44,
+              margin: const EdgeInsets.only(right: 10),
+              decoration: BoxDecoration(
+                  color: _lockFill,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: _lockBorder)),
+              child: Icon(icon, size: 19, color: const Color(0xFF8A94A0)),
+            ),
+          ),
+        );
     final linksPart = _editing == 'links'
         ? _editFrame(
             'Links and contact',
@@ -3041,24 +3452,59 @@ class _OwnerScreenState extends State<OwnerScreen> {
                   child: TextField(
                       controller: _website,
                       decoration: _dec('Website', hint: 'yourspace.com'))),
-              SizedBox(
-                  width: 260,
-                  child: TextField(
-                      controller: _instagram,
-                      decoration: _dec('Instagram handle', hint: 'yourspace')
-                          .copyWith(
-                              prefixText: '@',
-                              helperText: 'Just the handle, like @kelp.cowork',
-                              errorText: _igHandle(_instagram.text) == null
-                                  ? 'Letters, numbers, dots and underscores only'
-                                  : null))),
-              SizedBox(
+              if (_verified) ...[
+                SizedBox(
+                    width: 260,
+                    child: TextField(
+                        controller: _instagram,
+                        decoration: _dec('Instagram handle', hint: 'yourspace')
+                            .copyWith(
+                                prefixText: '@',
+                                helperText:
+                                    'Just the handle, like @kelp.cowork',
+                                errorText: _igHandle(_instagram.text) == null
+                                    ? 'Letters, numbers, dots and underscores only'
+                                    : null))),
+                SizedBox(
+                    width: 420,
+                    child: PhoneField(
+                        number: _whatsapp,
+                        country: _waCountry,
+                        label: 'WhatsApp (optional)',
+                        helper: 'Leave empty if you do not use WhatsApp.')),
+              ] else
+                // Agreed 23 Oct: Instagram and WhatsApp come with Plus.
+                SizedBox(
                   width: 420,
-                  child: PhoneField(
-                      number: _whatsapp,
-                      country: _waCountry,
-                      label: 'WhatsApp (optional)',
-                      helper: 'Leave empty if you do not use WhatsApp.')),
+                  child: InkWell(
+                    onTap: () => _getPlus('social'),
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                          color: _lockFill,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: _lockBorder)),
+                      child: const Row(children: [
+                        Icon(Icons.lock_outline, size: 18, color: _edMuted),
+                        SizedBox(width: 10),
+                        Expanded(
+                          child: Text.rich(TextSpan(children: [
+                            TextSpan(
+                                text: 'Instagram and WhatsApp\n',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    color: _edInk)),
+                            TextSpan(
+                                text: 'Come with Plus. See what Plus adds',
+                                style: TextStyle(fontSize: 13)),
+                          ]), style: TextStyle(
+                              fontSize: 14, color: Color(0xFF3F4954))),
+                        ),
+                      ]),
+                    ),
+                  ),
+                ),
               if (_verified || _allow?['on'] == true)
                 SizedBox(
                     width: 260,
@@ -3082,10 +3528,14 @@ class _OwnerScreenState extends State<OwnerScreen> {
                   if (_website.text.trim().isNotEmpty)
                     circle(Icons.link, _pageInk),
                   circle(Icons.location_on, _pageRed),
-                  if (_instagram.text.trim().isNotEmpty)
+                  if (_verified && _instagram.text.trim().isNotEmpty)
                     circle(Icons.camera_alt_outlined, const Color(0xFFD62976)),
-                  if (_whatsapp.text.trim().isNotEmpty)
+                  if (_verified && _whatsapp.text.trim().isNotEmpty)
                     circle(Icons.chat_outlined, const Color(0xFF25D366)),
+                  if (!_verified) ...[
+                    lockedCircle(Icons.camera_alt_outlined, 'Instagram'),
+                    lockedCircle(Icons.chat_outlined, 'WhatsApp'),
+                  ],
                   const SizedBox(width: 6),
                   _editButton('links'),
                 ]),
@@ -3097,16 +3547,21 @@ class _OwnerScreenState extends State<OwnerScreen> {
       if (_sent('hours')) _waitingChip(),
       const SizedBox(height: 16),
       linksPart,
-      if (_verified) ...[
-        const SizedBox(height: 16),
-        _pageButton('Send an enquiry', wide: true),
-      ],
+      // Every page has Send an enquiry; a free one shows how many of its
+      // free enquiries are left under it (CR-31).
+      const SizedBox(height: 16),
+      _pageButton('Send an enquiry', wide: true),
       if (_allowanceLine() != null) ...[
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         _allowanceLine()!,
       ],
       const SizedBox(height: 16),
-      _advertSlot(),
+      _promoPart(),
+      // A Plus page shows no adverts.
+      if (!_verified) ...[
+        const SizedBox(height: 16),
+        _greyAdvert(),
+      ],
     ]);
 
     final help = Padding(
@@ -3901,9 +4356,10 @@ class _OwnerScreenState extends State<OwnerScreen> {
       Row(children: [
         if (_website.text.trim().isNotEmpty) circle(Icons.link, _pageInk),
         circle(Icons.location_on, _pageRed),
-        if (_instagram.text.trim().isNotEmpty)
+        // Instagram shows on Plus pages only (agreed 23 Oct).
+        if (_verified && _instagram.text.trim().isNotEmpty)
           circle(Icons.camera_alt_outlined, const Color(0xFFD62976)),
-        if (_instagram.text.trim().isNotEmpty)
+        if (_verified && _instagram.text.trim().isNotEmpty)
           Flexible(
             child: Text(_igShown(_instagram.text),
                 overflow: TextOverflow.ellipsis,
