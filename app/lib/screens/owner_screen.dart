@@ -2005,31 +2005,39 @@ class _OwnerScreenState extends State<OwnerScreen> {
     final unsent = status != 'submitted' &&
         status != 'declined' &&
         status != 'applied';
+    // My listing has no Submit button any more: a draft left without
+    // Save change can be sent from here. On a phone the button goes
+    // under the words, so they keep the full width.
+    final send = unsent && _tab == _Tab.listing && _editing == null
+        ? FilledButton(
+            onPressed: _saving ? null : () => _save(submit: true),
+            style: FilledButton.styleFrom(
+                backgroundColor: Brand.red, minimumSize: const Size(0, 40)),
+            child: Text(_saving ? 'Sending' : 'Send my changes',
+                softWrap: false))
+        : null;
+    final narrow = MediaQuery.sizeOf(context).width < 600;
+    final words = Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Icon(icon, size: 18, color: color),
+      const SizedBox(width: 10),
+      Expanded(
+          child: Text(text,
+              style: TextStyle(fontSize: 13, height: 1.45, color: color))),
+      if (send != null && !narrow) ...[const SizedBox(width: 10), send],
+    ]);
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
           color: color.withValues(alpha: .08),
           borderRadius: BorderRadius.circular(8)),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Icon(icon, size: 18, color: color),
-        const SizedBox(width: 10),
-        Expanded(
-            child: Text(text,
-                style: TextStyle(fontSize: 13, height: 1.45, color: color))),
-        // My listing has no Submit button any more: a draft left
-        // without Save change can be sent from here.
-        if (unsent && _tab == _Tab.listing && _editing == null) ...[
-          const SizedBox(width: 10),
-          FilledButton(
-              onPressed: _saving ? null : () => _save(submit: true),
-              style: FilledButton.styleFrom(
-                  backgroundColor: Brand.red,
-                  minimumSize: const Size(0, 36)),
-              child: Text(_saving ? 'Sending' : 'Send my changes',
-                  softWrap: false)),
-        ],
-      ]),
+      child: send != null && narrow
+          ? Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              words,
+              const SizedBox(height: 10),
+              Padding(padding: const EdgeInsets.only(left: 28), child: send),
+            ])
+          : words,
     );
   }
 
@@ -2512,7 +2520,23 @@ class _OwnerScreenState extends State<OwnerScreen> {
       _editing = part;
       _savedNote = null;
     });
+    // On a phone the form can open partly off screen: bring its top
+    // into view.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final c = _partKeys[part]?.currentContext;
+      if (c != null && mounted) {
+        Scrollable.ensureVisible(c,
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeOut,
+            alignment: 0.02,
+            alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtStart);
+      }
+    });
   }
+
+  final _partKeys = <String, GlobalKey>{};
+  Widget _keyed(String part, Widget child) => KeyedSubtree(
+      key: _partKeys.putIfAbsent(part, () => GlobalKey()), child: child);
 
   void _cancelEdit() {
     final part = _editing;
@@ -2607,9 +2631,10 @@ class _OwnerScreenState extends State<OwnerScreen> {
         !_savedNote!.startsWith('Sent') &&
         !_savedNote!.startsWith('Draft') &&
         !_savedNote!.startsWith('Preview');
+    final narrow = MediaQuery.sizeOf(context).width < 600;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(18),
+      padding: EdgeInsets.all(narrow ? 14 : 18),
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border.all(color: _edRed, width: 2),
@@ -3139,10 +3164,17 @@ class _OwnerScreenState extends State<OwnerScreen> {
                   'main one.',
                   style: muted),
               const SizedBox(height: 12),
-              Wrap(spacing: 10, runSpacing: 10, children: [
-                for (var i = 0; i < _photos.length; i++) _photoSlot(i),
-                if (_photos.length < 5) _addPhotoSlot(),
-              ]),
+              // Two across on a phone, so five photos are not a long
+              // column of one each.
+              LayoutBuilder(builder: (context, box) {
+                final w = box.maxWidth < 2 * _slotW + 10
+                    ? (box.maxWidth - 10) / 2
+                    : _slotW;
+                return Wrap(spacing: 10, runSpacing: 10, children: [
+                  for (var i = 0; i < _photos.length; i++) _photoSlot(i, w: w),
+                  if (_photos.length < 5) _addPhotoSlot(w: w),
+                ]);
+              }),
             ]))
         : Stack(children: [
             _photoGrid(photos, height: wide ? 320 : 200),
@@ -3350,14 +3382,14 @@ class _OwnerScreenState extends State<OwnerScreen> {
               'nomads. To change your name, write to us in Inbox & support.',
               style: TextStyle(fontSize: 12, color: Brand.inkMuted)),
           const SizedBox(height: 18),
-          photosPart,
+          _keyed('photos', photosPart),
           if (_sent('photos')) _waitingChip(),
           const SizedBox(height: 22),
-          tagsPart,
+          _keyed('tags', tagsPart),
           const SizedBox(height: 28),
-          aboutPart,
+          _keyed('about', aboutPart),
           const SizedBox(height: 28),
-          pricesPart,
+          _keyed('prices', pricesPart),
           const SizedBox(height: 28),
           _mapBlock(v, area),
         ]),
@@ -3543,10 +3575,10 @@ class _OwnerScreenState extends State<OwnerScreen> {
           ]);
 
     final side = Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      hoursPart,
+      _keyed('hours', hoursPart),
       if (_sent('hours')) _waitingChip(),
       const SizedBox(height: 16),
-      linksPart,
+      _keyed('links', linksPart),
       // Every page has Send an enquiry; a free one shows how many of its
       // free enquiries are left under it (CR-31).
       const SizedBox(height: 16),
@@ -4120,21 +4152,22 @@ class _OwnerScreenState extends State<OwnerScreen> {
 
   /// One photo in the editor: the picture, "Main photo" on the first,
   /// and Replace, Make main and Remove under it.
-  Widget _photoSlot(int i) {
+  Widget _photoSlot(int i, {double w = _slotW}) {
     final p = _photos[i];
+    final h = w * _slotH / _slotW;
     return SizedBox(
-      width: _slotW,
+      width: w,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Stack(children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
             child: Image.network(p,
-                width: _slotW,
-                height: _slotH,
+                width: w,
+                height: h,
                 fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) => Container(
-                    width: _slotW,
-                    height: _slotH,
+                    width: w,
+                    height: h,
                     color: Brand.field,
                     child: const Icon(Icons.broken_image_outlined))),
           ),
@@ -4200,13 +4233,13 @@ class _OwnerScreenState extends State<OwnerScreen> {
   }
 
   /// The free space after the photos: tap to add one or more.
-  Widget _addPhotoSlot() => SizedBox(
-        width: _slotW,
+  Widget _addPhotoSlot({double w = _slotW}) => SizedBox(
+        width: w,
         child: InkWell(
           borderRadius: BorderRadius.circular(10),
           onTap: _saving ? null : _addPhotos,
           child: Container(
-            height: _slotH,
+            height: w * _slotH / _slotW,
             decoration: BoxDecoration(
               color: Brand.field,
               borderRadius: BorderRadius.circular(10),

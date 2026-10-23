@@ -5090,3 +5090,12 @@ free enquiries left opens it too. Every page shows Send an enquiry. A
 Plus page shows the Verified by Nomadwise badge, its Instagram and
 WhatsApp, its Promotions and events with Edit (Your message tab), and no
 advert. The Instagram check on saving applies to Plus pages only.
+
+## 23 Oct 2026: Owner account on a phone
+
+Jonathan asked for the phone layout to be better. Pressing Edit now
+scrolls the part's form into view (it could open below the screen).
+Photos in the photos form sit two across on a phone, not one long
+column. The red frame has a little less padding on a phone, so the
+fields keep their width. "Send my changes" goes under the words of the
+banner on a phone instead of squeezing them into a narrow column.
