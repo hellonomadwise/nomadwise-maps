@@ -21,7 +21,6 @@ import '../widgets/email_html_stub.dart'
 import '../widgets/no_location_tab.dart';
 import '../widgets/control_extras.dart';
 import '../widgets/pass_on.dart';
-import '../widgets/pricing_picker.dart';
 import '../widgets/reply_suggestions.dart';
 import '../widgets/phone_field.dart';
 import '../widgets/resubmit_changes.dart';
@@ -197,6 +196,9 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   List<Map<String, dynamic>> _orders = [];
   // Enquiries waiting to be passed on to a space (migration 113).
   List<Map<String, dynamic>> _passOn = [];
+  // Enquiries held for Plus (migration 212) and the free limit.
+  List<Map<String, dynamic>> _heldEnq = [];
+  int _freeLimit = 2;
   int _passed30 = 0;
   int _direct30 = 0;
 
@@ -284,6 +286,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     final firstLoad = _inbox == null;
     try {
       final passOnF = _supabase.enquiriesToPassOn();
+      final heldEnqF = _supabase.enquiriesHeld();
       final releasedTotalF = _supabase.websiteReleasedCount();
       final signupsF = _supabase.candidateSignups();
       final results = await Future.wait([
@@ -310,6 +313,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         _supabase.listingUpdates(),
       ]);
       final passOn = await passOnF;
+      final heldEnq = await heldEnqF;
       final releasedTotal = await releasedTotalF;
       final signups = await signupsF;
       if (!mounted) return;
@@ -318,6 +322,11 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
           for (final r in (passOn['waiting'] as List? ?? const []))
             if (r is Map) Map<String, dynamic>.from(r),
         ];
+        _heldEnq = [
+          for (final r in (heldEnq['held'] as List? ?? const []))
+            if (r is Map) Map<String, dynamic>.from(r),
+        ];
+        _freeLimit = (heldEnq['limit'] as num?)?.toInt() ?? 2;
         _passed30 = (passOn['passed_30d'] as num?)?.toInt() ?? 0;
         _direct30 = (passOn['direct_30d'] as num?)?.toInt() ?? 0;
         _booked30 = (passOn['booked_30d'] as num?)?.toInt() ?? 0;
@@ -2798,11 +2807,14 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       if (_signups.isNotEmpty)
         _NextJob(
             'signups',
-            'Decide a sign-up: ${_signups.first['name'] ?? 'a space'}',
-            '${n(_signups.length, 'space', 'spaces')} signed up through our '
-                'old forms and ${_signups.length == 1 ? 'is' : 'are'} not on '
-                'the site yet. They asked to be listed, so they come first: '
-                'find each on Google and queue it, or say why not.',
+            _signups.first['form'] == 'Suggested by a visitor'
+                ? 'Decide a suggestion: ${_signups.first['name'] ?? 'a place'}'
+                : 'Decide a sign-up: ${_signups.first['name'] ?? 'a space'}',
+            '${n(_signups.length, 'place', 'places')} asked to be listed or '
+                '${_signups.length == 1 ? 'was' : 'were'} suggested by a '
+                'traveller, and ${_signups.length == 1 ? 'is' : 'are'} not on '
+                'the site yet: find each on Google and queue it, or say why '
+                'not.',
             'Open the list',
             () => _nextUpHere('signups', 'candidates')),
       if (_updates.isNotEmpty)
@@ -3545,7 +3557,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
               padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
               child: Text(
                   'Last 30 days: $_passed30 passed on, $_direct30 sent '
-                  'straight to Verified spaces'
+                  'straight to spaces'
                   '${_booked30 > 0 ? ', $_booked30 booked (customers told us)' : ''}.',
                   style: const TextStyle(
                       fontSize: 12.5, color: Brand.inkSecondary)),
@@ -3571,6 +3583,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                 onDone: _load,
                 chooseSpace: _chooseEnquirySpace,
               ),
+          if (_heldEnq.isNotEmpty) _heldEnquiriesCard(),
           if (_answers.isNotEmpty) _answersCard(),
         ],
       'ready' => g.ready.map(_readyCard).toList(),
@@ -3868,8 +3881,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       'on nomadwise.io about working there. Did you find a place?\n\n'
       'It takes one tap to tell us. It helps us know which spaces reply, so '
       'we can point other remote workers the right way.\n\n'
-      'If you are still looking, reply to this email and I will help you '
-      'find somewhere.\n\n'
+      'If you have any questions, simply reply to this email.\n\n'
       '[Tell us where you went]\n\n'
       'Kind regards,\nJonathan Heavens\nCo-founder, Nomadwise';
 
@@ -4008,6 +4020,95 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
           : 'Off. No more "Did you find a place?" emails.');
     } catch (e) {
       _nextUpSay('That did not save: $e', bad: true);
+    }
+  }
+
+  /// Enquiries held for Plus (migration 212): the space used its free
+  /// ones. The owner was told one is waiting; going on Plus sends them.
+  /// "Move to pass on" puts one on the list above, to send by hand.
+  Widget _heldEnquiriesCard() => Card(
+        margin: const EdgeInsets.only(bottom: 12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Held for Plus (${_heldEnq.length})',
+                style:
+                    const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+            const SizedBox(height: 4),
+            Text(
+                'These spaces have used their $_freeLimit free enquiries. '
+                'Each owner was emailed that one is waiting; if they go on '
+                'Plus, it is sent to them and the nomad is told. Move to '
+                'pass on only if you want it sent now.',
+                style: const TextStyle(
+                    fontSize: 12.5, height: 1.45, color: Brand.inkSecondary)),
+            const SizedBox(height: 10),
+            for (final e in _heldEnq)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                  '${e['venue_name'] ?? 'A space'}'
+                                  '${(e['city'] ?? '').toString().isEmpty ? '' : ', ${e['city']}'}',
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13.5)),
+                              Text(
+                                  '${e['name'] ?? 'Someone'}: '
+                                  '${(e['message'] ?? '').toString().trim().isEmpty ? '(no message)' : e['message']}',
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                      fontSize: 12.5,
+                                      color: Brand.inkSecondary)),
+                            ]),
+                      ),
+                      const SizedBox(width: 10),
+                      OutlinedButton(
+                          onPressed: () => _unhold(e),
+                          child: const Text('Move to pass on',
+                              softWrap: false)),
+                    ]),
+              ),
+          ]),
+        ),
+      );
+
+  Future<void> _unhold(Map<String, dynamic> e) async {
+    final go = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Move to pass on?'),
+        content: Text(
+            'The enquiry from ${e['name'] ?? 'this nomad'} to '
+            '${e['venue_name'] ?? 'this space'} joins the pass-on list, '
+            'where you can send it to the space by hand. Nothing is sent '
+            'yet.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Move to pass on')),
+        ],
+      ),
+    );
+    if (go != true) return;
+    try {
+      await _supabase.enquiryUnhold('${e['id']}');
+      await _load();
+    } catch (err) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('That did not go through: $err')));
     }
   }
 
@@ -8464,107 +8565,6 @@ class _ListingPlanPageState extends State<_ListingPlanPage> {
   late DateTime? _renews = _parse(widget.venue['listing_renews_at']);
   bool _busy = false;
 
-  // What Verified costs for this space's country (migration 115).
-  PricingChoice? _pricing;
-
-  @override
-  void initState() {
-    super.initState();
-    widget.supabase.pricingFor('${widget.venue['country'] ?? ''}').then((p) {
-      if (mounted && p != null) setState(() => _pricing = PricingChoice(p));
-    });
-  }
-
-  /// The claim page for this space: it shows the price for its country,
-  /// monthly or yearly, and takes the owner to Stripe. The owner's
-  /// email is pre-filled when known.
-  String get _payLink {
-    final v = widget.venue;
-    final email = _ownerEmail.text.trim();
-    return 'https://nomadmaps.io/?claim='
-        '${Uri.encodeQueryComponent('${v['webflow_slug'] ?? v['name'] ?? ''}')}'
-        '${email.contains('@') ? '&email=${Uri.encodeQueryComponent(email)}' : ''}';
-  }
-
-  /// "€10 a month or €99 a year", for the offer email. Prices are
-  /// written with the currency sign, never "EUR".
-  String get _priceWords {
-    final p = _pricing;
-    if (p == null || p.monthly == null || p.yearly == null) {
-      return '€99 a year';
-    }
-    return '${formatMoney(p.monthly!, p.currency)} a month or '
-        '${formatMoney(p.yearly!, p.currency)} a year';
-  }
-
-  /// The Verified offer, ready to paste into Gmail. It says what the
-  /// claim page says (Free keeps its own photos, words and passed-on
-  /// enquiries; Verified adds four things), so it reads right to an
-  /// owner who has already claimed for free as well as to one who has
-  /// not. The page is linked only once it is live (the same rule as
-  /// the owner emails, migration 108): a draft's address opens nothing.
-  /// Body text says "Nomadwise", never the web address, which mail
-  /// apps would turn into a link to the homepage (EMAIL_STYLE.md).
-  String get _offerEmail {
-    final v = widget.venue;
-    final name = v['name'] ?? 'your space';
-    final city = (v['city'] ?? '').toString().trim();
-    final hood = (v['neighbourhood'] ?? '').toString().trim();
-    final slug = (v['webflow_slug'] ?? '').toString().trim();
-    final page = slug.isNotEmpty && v['website_status'] == 'released'
-        ? 'https://www.nomadwise.io/coworking/$slug'
-        : null;
-    final who = _ownerName.text.trim().isEmpty ? 'there' : _ownerName.text.trim();
-    final where = city.isEmpty
-        ? 'your city'
-        : (hood.isEmpty || hood.toLowerCase() == city.toLowerCase())
-            ? city
-            : '$hood and across $city';
-    final months = _pricing?.monthsFree.round() ?? 0;
-    final saving =
-        months >= 1 ? ' ($months month${months == 1 ? '' : 's'} free)' : '';
-    return [
-      'Subject: $name on Nomadwise',
-      '',
-      'Hi $who,',
-      '',
-      if (page != null)
-        '$name has a free page on Nomadwise: $page'
-      else
-        '$name has a free page on Nomadwise. It is being built now, and '
-            'the link follows as soon as it is live.',
-      '',
-      'The free page stays free. Through your Owner account you can '
-          "update your listing's details and add or change your own "
-          'photos and description, and we pass on any enquiries that '
-          'come in.',
-      '',
-      'Verified adds four things:',
-      '',
-      '- The green Verified badge on your page and in every list',
-      '- A place above every free space in $where',
-      '- Enquiries straight to your inbox from the button on your '
-          'page, with no commission',
-      '- Your own event or offer in the advert slot on your page',
-      '',
-      'It is $_priceWords$saving. Cancel any time.',
-      '',
-      'Get Verified: $_payLink',
-      '',
-      'Any questions, just reply to this email.',
-      '',
-      'Jonathan',
-      'Nomadwise',
-    ].join('\n');
-  }
-
-  Future<void> _copy(String text, String toast) async {
-    await Clipboard.setData(ClipboardData(text: text));
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(toast), duration: const Duration(seconds: 2)));
-  }
-
   static DateTime? _parse(String? s) => s == null ? null : DateTime.tryParse(s);
   static String _fmt(DateTime? d) =>
       d == null ? 'Not set' : DateFormat('d MMM yyyy').format(d);
@@ -8826,31 +8826,6 @@ class _ListingPlanPageState extends State<_ListingPlanPage> {
                 onPressed: _busy ? null : _save,
                 icon: const Icon(Icons.check, size: 18),
                 label: Text(_busy ? 'Saving' : 'Save plan')),
-            if (_tier != 'verified') ...[
-              const SizedBox(height: 28),
-              const SectionLabel('Sell Verified'),
-              const SizedBox(height: 6),
-              Text(
-                  'The claim link opens this space\'s claim page, which shows '
-                  'the price for its country'
-                  '${_pricing != null ? ' (group ${_pricing!.pricing['group']}, $_priceWords)' : ''}'
-                  ', monthly or yearly, and takes the owner to payment. '
-                  'The offer email has the name, city and link filled in; '
-                  'paste it into Gmail and send.',
-                  style: TextStyle(
-                      fontSize: 12.5, height: 1.45, color: Brand.inkSecondary)),
-              const SizedBox(height: 10),
-              Wrap(spacing: 8, runSpacing: 8, children: [
-                OutlinedButton.icon(
-                    onPressed: () => _copy(_payLink, 'Claim link copied'),
-                    icon: const Icon(Icons.link, size: 16),
-                    label: const Text('Copy claim link')),
-                OutlinedButton.icon(
-                    onPressed: () => _copy(_offerEmail, 'Offer email copied'),
-                    icon: const Icon(Icons.mail_outline, size: 16),
-                    label: const Text('Copy offer email')),
-              ]),
-            ],
             if (hasOwner) ...[
               const SizedBox(height: 28),
               const SectionLabel('Remove owner'),

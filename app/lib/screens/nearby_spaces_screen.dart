@@ -68,6 +68,13 @@ class _NearbySpacesScreenState extends State<NearbySpacesScreen> {
   String? _pickedNew;
   final _reason = TextEditingController();
 
+  // "Something else" (Jonathan, 23 Oct 2026: "there should be a choose
+  // alternative, and the why this choice, as well, so it learns from me
+  // overriding"): a new Location typed by hand, when none of Claude's
+  // options is right. _ownOn: the typed name is the choice.
+  final _own = TextEditingController();
+  bool _ownOn = false;
+
   // One dot per colour, drawn once.
   final Map<int, BitmapDescriptor> _dots = {};
   BitmapDescriptor? _here;
@@ -97,6 +104,7 @@ class _NearbySpacesScreenState extends State<NearbySpacesScreen> {
   @override
   void dispose() {
     _reason.dispose();
+    _own.dispose();
     super.dispose();
   }
 
@@ -108,6 +116,7 @@ class _NearbySpacesScreenState extends State<NearbySpacesScreen> {
       _askError = null;
       _answer = null;
       _pickedNew = null;
+      _ownOn = false;
     });
     try {
       final id = await _supabase.locationAsk(widget.venueId,
@@ -223,6 +232,7 @@ class _NearbySpacesScreenState extends State<NearbySpacesScreen> {
   void _pick(String? id) => setState(() {
         _picked = id;
         _pickedNew = null;
+        _ownOn = false;
         _pickedByHand = true;
       });
 
@@ -671,6 +681,7 @@ class _NearbySpacesScreenState extends State<NearbySpacesScreen> {
             borderRadius: BorderRadius.circular(10),
             onTap: () => setState(() {
               _pickedByHand = true;
+              _ownOn = false;
               if (isNew) {
                 _picked = null;
                 _pickedNew = name;
@@ -705,6 +716,87 @@ class _NearbySpacesScreenState extends State<NearbySpacesScreen> {
           ),
         ),
       );
+    }
+
+    // "Something else": a new Location typed by hand. An existing one
+    // is chosen by tapping it on the map's list above.
+    Widget other() {
+      final on = _ownOn && _own.text.trim().isNotEmpty;
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 6),
+        child: Material(
+          color: on ? Brand.logoTealTint : Brand.surface,
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+              side: BorderSide(color: on ? Brand.logoNavy : Brand.border)),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Icon(on ? Icons.radio_button_checked : Icons.radio_button_off,
+                  size: 18, color: on ? Brand.logoNavy : Brand.inkMuted),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Something else',
+                          style: TextStyle(
+                              fontSize: 13, fontWeight: FontWeight.w700)),
+                      const Text(
+                          'Tap another Location in the list above, or type '
+                          'a new one here.',
+                          style: small),
+                      const SizedBox(height: 6),
+                      TextField(
+                        controller: _own,
+                        maxLength: 80,
+                        style: const TextStyle(fontSize: 13),
+                        decoration: const InputDecoration(
+                            isDense: true,
+                            counterText: '',
+                            hintText: 'New Location, for example HRBR Layout',
+                            border: OutlineInputBorder()),
+                        onChanged: (v) => setState(() {
+                          final t = v.trim();
+                          _pickedByHand = true;
+                          if (t.isNotEmpty) {
+                            _ownOn = true;
+                            _picked = null;
+                            _pickedNew = t;
+                          } else if (_ownOn) {
+                            _ownOn = false;
+                            _pickedNew = null;
+                          }
+                        }),
+                      ),
+                    ]),
+              ),
+            ]),
+          ),
+        ),
+      );
+    }
+
+    // The choice, when it is none of Claude's options: said in so
+    // many words, so the reason box is not overlooked.
+    String? overrideName;
+    if (answer != null) {
+      final newNames = {
+        for (final o in options)
+          if (o['kind'] == 'new') '${o['name'] ?? ''}'.trim().toLowerCase()
+      };
+      final ids = {
+        for (final o in options)
+          if (o['kind'] != 'new') '${o['location_id'] ?? ''}'
+      };
+      final pn = (_pickedNew ?? '').trim();
+      if (pn.isNotEmpty && !newNames.contains(pn.toLowerCase())) {
+        overrideName = '"$pn" (new)';
+      } else if (pn.isEmpty && _picked != null && !ids.contains(_picked)) {
+        for (final l in all) {
+          if ('${l['id']}' == _picked) overrideName = '${l['name'] ?? ''}';
+        }
+      }
     }
 
     return Container(
@@ -754,6 +846,19 @@ class _NearbySpacesScreenState extends State<NearbySpacesScreen> {
             ],
             ...options.map(option),
           ],
+          other(),
+          if (overrideName != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(2, 2, 2, 6),
+              child: Text(
+                  'You chose $overrideName, not one of Claude\'s options. '
+                  'Saying why below helps Claude get it right next time.',
+                  style: const TextStyle(
+                      fontSize: 12.5,
+                      height: 1.4,
+                      fontWeight: FontWeight.w600,
+                      color: Brand.logoNavy)),
+            ),
           const SizedBox(height: 4),
           TextField(
             controller: _reason,
@@ -764,7 +869,8 @@ class _NearbySpacesScreenState extends State<NearbySpacesScreen> {
                 isDense: true,
                 filled: true,
                 fillColor: Brand.surface,
-                hintText: 'Why this choice? (optional; Claude learns from it)',
+                hintText: 'Why this choice? (optional; Claude learns from '
+                    'it, also when you choose something else)',
                 border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
                     borderSide: BorderSide.none)),

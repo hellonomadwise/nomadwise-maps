@@ -21,6 +21,11 @@ import 'ui.dart';
 /// Approve that was always needed. "Not for the site" keeps it with a
 /// reason, as for any candidate.
 ///
+/// Since migration 210 the same list also holds places suggested by
+/// travellers on nomadmaps.io/?suggest ("Suggested by a visitor"):
+/// their name, city, a link and why they recommend it. They come after
+/// the sign-ups and are handled the same way.
+///
 /// Shows nothing at all when no sign-up waits.
 class SignupCandidates extends StatefulWidget {
   final SupabaseService supabase;
@@ -184,7 +189,7 @@ class _SignupCandidatesState extends State<SignupCandidates> {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Padding(
         padding: const EdgeInsets.fromLTRB(2, 4, 2, 4),
-        child: Text('ASKED TO BE LISTED  ·  ${_rows.length}',
+        child: Text('ASKED TO BE LISTED OR SUGGESTED  ·  ${_rows.length}',
             style: const TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
@@ -194,10 +199,10 @@ class _SignupCandidatesState extends State<SignupCandidates> {
       const Padding(
         padding: EdgeInsets.fromLTRB(2, 0, 2, 10),
         child: Text(
-            'These spaces signed up through our old forms and are not on '
-            'nomadwise.io yet, so they come first. Find each one on '
-            'Google, check it is still open, and queue it, or say why it '
-            'is not for the site.',
+            'These places are not on nomadwise.io yet: spaces that signed '
+            'up through our old forms, then places travellers suggested. '
+            'Find each one on Google, check it is still open and good to '
+            'work from, and queue it, or say why it is not for the site.',
             style: TextStyle(
                 fontSize: 12.5, height: 1.4, color: Brand.inkSecondary)),
       ),
@@ -248,6 +253,9 @@ class _SignupCandidatesState extends State<SignupCandidates> {
         .join('  ·  ');
     final wifi = num.tryParse(_s(s['wifi_mbps']));
     final flag = _s(s['flag']);
+    final suggested = form == 'Suggested by a visitor';
+    final link = _s(s['link']);
+    final from = _s(s['suggested_from']);
     return Card(
       key: ValueKey('signup-$id'),
       margin: const EdgeInsets.only(bottom: 12),
@@ -287,9 +295,9 @@ class _SignupCandidatesState extends State<SignupCandidates> {
           Wrap(spacing: 6, runSpacing: 6, children: [
             StatusChip(
                 [
-                  'Signed up',
+                  suggested ? 'Suggested by a visitor' : 'Signed up',
                   if (when != null) DateFormat('d MMM yyyy').format(when),
-                  if (form.isNotEmpty) 'via "$form"',
+                  if (form.isNotEmpty && !suggested) 'via "$form"',
                 ].join(' '),
                 dotColor: Brand.success),
             if (flag.isNotEmpty) StatusChip(flag, dotColor: Brand.gold),
@@ -313,6 +321,19 @@ class _SignupCandidatesState extends State<SignupCandidates> {
             _line(Icons.sell_outlined, _s(s['prices'])),
           if (_s(s['history']).isNotEmpty)
             _line(Icons.history, _s(s['history'])),
+          // A suggestion: why they recommend it, the link they gave
+          // (a Google Maps link is not shown above) and the page they
+          // were on.
+          if (_s(s['note']).isNotEmpty)
+            _line(Icons.format_quote_outlined, '"${_s(s['note'])}"'),
+          if (link.isNotEmpty &&
+              link != _s(s['website']) &&
+              link != _s(s['instagram']))
+            _line(Icons.map_outlined, link, onTap: () => _open(link)),
+          if (from.isNotEmpty)
+            _line(Icons.subdirectory_arrow_right,
+                'Suggested from '
+                '${from.startsWith('/') ? 'nomadwise.io$from' : from}'),
           const SizedBox(height: 6),
           Wrap(
               spacing: 4,

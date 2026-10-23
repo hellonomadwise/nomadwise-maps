@@ -164,8 +164,8 @@ class _FoundScreenState extends State<FoundScreen> {
               color: Brand.successTint, borderRadius: BorderRadius.circular(10)),
           child: Text(
               answer == 'looking'
-                  ? 'Thank you. Reply to our email and tell us what you need, '
-                      'and we will help you find somewhere.'
+                  ? 'Thank you. If you have any questions, simply reply to '
+                      'our email.'
                   : 'Thank you, that helps. Enjoy your work!',
               style: const TextStyle(
                   fontSize: 14.5, height: 1.45, color: Brand.success)),

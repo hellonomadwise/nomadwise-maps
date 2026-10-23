@@ -44,16 +44,22 @@ class _BillingPanelState extends State<BillingPanel> {
   String? _error;
   String? _busy; // which action is running
 
+  // The same lists as the claim page (Leonie's wording, 23 Oct).
+  // The paid plan is Plus; its badge is still Verified by Nomadwise.
   static const _benefits = [
-    'The green Verified badge on your page and in every list',
-    'Always shown above free spaces in your city and area',
-    'A "Send an enquiry" button that emails you directly, no commission',
-    'Your event or offer in the advert slot on your page',
+    'Verified by Nomadwise badge on your page',
+    "Top positioning on your region's page",
+    'Promote your events and offers on your page',
+    'Unlimited enquiries from nomads, straight to your inbox',
+    'Your Instagram and WhatsApp on your page',
+    'Remove ads from your page',
   ];
   static const _freeGets = [
-    'Your page on Nomadwise, optimised to be found by Google and AI assistants',
-    'Your own description, photos, prices and hours',
-    'Your Owner account to keep it up to date',
+    'Your page on Nomadwise, with your own photos and description',
+    'Your Owner account, to keep your hours, prices and contact details '
+        'up to date',
+    'Optimised to be found on Google and by AI assistants',
+    '2 free enquiries from nomads',
   ];
 
   @override
@@ -149,8 +155,8 @@ class _BillingPanelState extends State<BillingPanel> {
       await _load();
       if (mounted) {
         _say(action == 'cancel'
-            ? 'Done. Your renewal is off; you stay Verified until the end of your paid year.'
-            : 'Welcome back! Your Verified plan will renew as before.');
+            ? 'Done. Your renewal is off; you keep Plus until the end of your paid year.'
+            : 'Welcome back! Your Plus plan will renew as before.');
       }
     } catch (e) {
       _say('That did not go through. Please try again.', bad: true);
@@ -184,9 +190,9 @@ class _BillingPanelState extends State<BillingPanel> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                        'Your Verified plan will not renew. You stay Verified '
-                        'until $until; after that your page stays on Nomadwise '
-                        'as a free listing, with your description, photos and '
+                        'Your Plus plan will not renew. You keep Plus until '
+                        '$until; after that your page stays on Nomadwise on '
+                        'the free plan, with your description, photos and '
                         'details.',
                         style: const TextStyle(fontSize: 14, height: 1.5)),
                     const SizedBox(height: 12),
@@ -250,7 +256,7 @@ class _BillingPanelState extends State<BillingPanel> {
             FilledButton(
                 onPressed: () => Navigator.pop(ctx, false),
                 style: FilledButton.styleFrom(backgroundColor: Brand.red),
-                child: const Text('Keep Verified')),
+                child: const Text('Keep Plus')),
           ],
         ),
       ),
@@ -369,7 +375,7 @@ class _BillingPanelState extends State<BillingPanel> {
           ]),
           const SizedBox(height: 12),
           Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-            Text(verified ? 'Verified' : 'Free listing',
+            Text(verified ? 'Plus' : 'Free',
                 style: const TextStyle(
                     fontWeight: FontWeight.w800,
                     fontSize: 26,
@@ -395,12 +401,12 @@ class _BillingPanelState extends State<BillingPanel> {
                   ? 'Your page is on Nomadwise for free, and stays free.'
                   : trouble
                       ? 'Your last payment did not go through. Update your '
-                          'card to keep Verified.'
+                          'card to keep Plus.'
                       : ending
-                          ? 'You stay Verified until $periodEnd. After that '
-                              'your page stays on Nomadwise as a free listing.'
+                          ? 'You keep Plus until $periodEnd. After that '
+                              'your page stays on Nomadwise on the free plan.'
                           : periodEnd.isEmpty
-                              ? 'Verified is on.'
+                              ? 'Plus is on.'
                               : 'Renews on $periodEnd'
                                   '${sub != null ? ' for ${_money(sub['amount'] as num?, '${sub['currency']}')}' : ''}.'
                                   ' Change or stop it any time here.',
@@ -411,7 +417,7 @@ class _BillingPanelState extends State<BillingPanel> {
               FilledButton(
                   onPressed: widget.onGoVerified,
                   style: FilledButton.styleFrom(backgroundColor: Brand.red),
-                  child: const Text('Go Verified')),
+                  child: const Text('Get Plus')),
             if (verified && trouble && connected)
               FilledButton.icon(
                   onPressed: _busy != null ? null : () => _portal('card'),
@@ -426,7 +432,7 @@ class _BillingPanelState extends State<BillingPanel> {
                   style: FilledButton.styleFrom(backgroundColor: Brand.red),
                   child: _busy == 'resume'
                       ? _spin()
-                      : const Text('Keep Verified')),
+                      : const Text('Keep Plus')),
           ]),
         ]),
       ),
@@ -436,13 +442,13 @@ class _BillingPanelState extends State<BillingPanel> {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           _title('Plans',
               sub: 'Move between them whenever you like. Going down to free '
-                  'keeps Verified until the end of the period you paid for.'),
+                  'keeps Plus until the end of the period you paid for.'),
           LayoutBuilder(builder: (context, box) {
             final two = box.maxWidth >= 560;
             final free = _planBox(
               name: 'Free',
               price: '€0',
-              per: 'always',
+              per: '',
               lines: _freeGets,
               current: !verified || ending,
               currentLabel: ending ? 'From $periodEnd' : 'Current plan',
@@ -462,7 +468,7 @@ class _BillingPanelState extends State<BillingPanel> {
                   : null,
             );
             final paid = _planBox(
-              name: 'Verified',
+              name: 'Plus',
               price: sub == null
                   ? (_pricing?.monthly != null
                       ? formatMoney(_pricing!.monthly!, _pricing!.currency)
@@ -481,14 +487,14 @@ class _BillingPanelState extends State<BillingPanel> {
                   ? FilledButton(
                       onPressed: widget.onGoVerified,
                       style: FilledButton.styleFrom(backgroundColor: Brand.red),
-                      child: const Text('Go Verified'))
+                      child: const Text('Get Plus'))
                   : ending && connected
                       ? FilledButton(
                           onPressed:
                               _busy != null ? null : () => _action('resume'),
                           style: FilledButton.styleFrom(
                               backgroundColor: Brand.red),
-                          child: const Text('Keep Verified'))
+                          child: const Text('Keep Plus'))
                       : null,
             );
             return two

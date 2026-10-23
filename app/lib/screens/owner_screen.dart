@@ -121,6 +121,8 @@ class _OwnerScreenState extends State<OwnerScreen> {
   // the page turns into headings; owners never see the ## (S3-5).
   final List<(TextEditingController, TextEditingController)> _sections = [];
   final _enquiryEmail = TextEditingController();
+  // Free enquiries used and left (migration 212), for the space shown.
+  Map<String, dynamic>? _allow;
   final _hours = {for (final d in _days) d: TextEditingController()};
   final _facts = <String, bool?>{};
   List<String> _photos = [];
@@ -606,7 +608,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
       ('waiting_free', 'Claimed, not checked'),
       ('waiting_paid', 'Paid, not checked'),
       ('free', 'Claimed'),
-      ('verified', 'Verified'),
+      ('verified', 'Plus'),
     ];
     // One slim line: the reminder, then the states to look at, which
     // swipe sideways on a phone instead of taking two rows.
@@ -680,11 +682,57 @@ class _OwnerScreenState extends State<OwnerScreen> {
     return at != null && DateTime.now().toUtc().difference(at).inHours < 6;
   }
 
+  /// How many free enquiries the space has left. Only shown once the
+  /// rule is switched on (migration 212) and for a free page.
+  Future<void> _loadAllowance(String venueId) async {
+    final a = await _supabase.ownerEnquiryAllowance(venueId);
+    if (!mounted || '${_venue?['id']}' != venueId) return;
+    setState(() => _allow = a);
+  }
+
+  /// "1 of 2 free enquiries left", with the way to unlimited ones.
+  Widget? _allowanceLine() {
+    final a = _allow;
+    if (a == null || a['on'] != true || _verified) return null;
+    final limit = (a['limit'] as num?)?.toInt() ?? 2;
+    final left = (a['left'] as num?)?.toInt() ?? 0;
+    final held = (a['held'] as num?)?.toInt() ?? 0;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+          color: Brand.field, borderRadius: BorderRadius.circular(10)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('$left of $limit free enquiries left',
+            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+        const SizedBox(height: 4),
+        Text(
+            held > 0
+                ? '$held ${held == 1 ? 'enquiry is' : 'enquiries are'} '
+                    'waiting for you. With Plus, '
+                    '${held == 1 ? 'it comes' : 'they come'} straight to your '
+                    'inbox, and so does every enquiry after.'
+                : 'Your free enquiries go straight to your inbox. With Plus, '
+                    'every enquiry does.',
+            style: const TextStyle(
+                fontSize: 13, height: 1.45, color: Brand.inkSecondary)),
+        const SizedBox(height: 8),
+        TextButton(
+            onPressed: () => setState(() => _tab = _Tab.membership),
+            style: TextButton.styleFrom(
+                padding: EdgeInsets.zero, foregroundColor: Brand.red),
+            child: const Text('Get unlimited enquiries', softWrap: false)),
+      ]),
+    );
+  }
+
   /// The editor starts from the draft if there is one, else from what
   /// is on the page today.
   void _fillEditor() {
     final v = _venue;
     if (v == null) return;
+    _allow = null;
+    _loadAllowance('${v['id']}');
     final draft = _draft;
     final d = (draft != null && draft['status'] != 'applied')
         ? Map<String, dynamic>.from(draft['draft'] as Map? ?? {})
@@ -1377,7 +1425,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
         "We check it's you",
         (started || confirming) && verified ? _Step.todo : _Step.now
       ),
-      (verified ? 'Verified' : 'Yours to manage', _Step.todo),
+      (verified ? 'Plus is on' : 'Yours to manage', _Step.todo),
     ];
 
     return _frame(
@@ -1419,7 +1467,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
                 confirming
                     ? 'Your payment is being confirmed with Stripe. This '
                         'page updates by itself as soon as it is; then we '
-                        'check you are with the team and Verified goes on.'
+                        'check you are with the team and Plus goes on.'
                     : started && verified
                     ? 'We have not received a payment yet. If you have just '
                         'paid, it shows here as soon as Stripe confirms it; '
@@ -1748,7 +1796,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
       const SizedBox(width: 8),
       Flexible(child: name),
       const SizedBox(width: 8),
-      _chip(_verified ? 'Verified' : 'Free listing',
+      _chip(_verified ? 'Plus' : 'Free',
           _verified ? Brand.success : Brand.inkSecondary),
     ]);
     final Widget? seePage = pageLive
@@ -2487,14 +2535,27 @@ class _OwnerScreenState extends State<OwnerScreen> {
                   helper: 'Leave empty if you do not use WhatsApp. Visitors '
                       'can still find your phone number through the Google '
                       'Maps button on your page.')),
-          if (_verified)
+          // Plus pages, and free pages once the 2 free enquiries are
+          // on (migration 212): where enquiries are sent.
+          if (_verified || _allow?['on'] == true)
             SizedBox(
                 width: 260,
                 child: TextField(
                     controller: _enquiryEmail,
                     decoration: _dec('Enquiries go to',
-                        hint: 'hello@yourspace.com'))),
+                            hint: 'hello@yourspace.com')
+                        .copyWith(
+                            helperText: 'Where nomads\' enquiries are '
+                                'sent. If none is set, they go to the email '
+                                'you sign in with.',
+                            helperMaxLines: 2))),
         ]),
+        if (_allowanceLine() != null) ...[
+          const SizedBox(height: 14),
+          ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 560),
+              child: _allowanceLine()!),
+        ],
         const SizedBox(height: 22),
         if (_savedNote != null)
           Padding(
@@ -3385,7 +3446,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
             _verified
                 ? 'Your own event or offer replaces this advert. Write it '
                     'under Your message.'
-                : 'A partner advert shows here. Verified pages show their '
+                : 'A partner advert shows here. Plus pages show their '
                     'own event or offer instead.',
             style: const TextStyle(
                 fontSize: 12, height: 1.4, color: Color(0xFFDCE3E8))),
@@ -3523,12 +3584,12 @@ class _OwnerScreenState extends State<OwnerScreen> {
               style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
           const SizedBox(height: 8),
           const Text(
-              'Verified pages carry the space\'s own event, offer or '
+              'Plus pages carry the space\'s own event, offer or '
               'announcement where nomadwise.io would otherwise show an '
-              'advert. Yours shows the advert. Go Verified and this tab '
-              'opens up, along with the Verified badge, a place above '
-              'every free listing and a "Send an enquiry" button that '
-              'emails you directly.',
+              'advert. Yours shows the advert. Get Plus and this tab '
+              'opens up, along with the Verified by Nomadwise badge, top '
+              'positioning on your region\'s page and unlimited '
+              'enquiries straight to your inbox.',
               style: TextStyle(
                   fontSize: 13.5, height: 1.5, color: Brand.inkSecondary)),
           const SizedBox(height: 16),
@@ -3536,7 +3597,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
               onPressed: () => _saveThenOpen('https://nomadmaps.io/?claim='
                   '${Uri.encodeComponent('${_venue?['webflow_slug'] ?? _venue?['name'] ?? ''}')}'),
               style: FilledButton.styleFrom(backgroundColor: Brand.red),
-              child: const Text('Go Verified')),
+              child: const Text('Get Plus')),
         ]),
       );
     }

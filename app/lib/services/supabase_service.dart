@@ -968,6 +968,35 @@ class SupabaseService {
     }
   }
 
+  /// Admin: enquiries held because a free page used its 2 free ones
+  /// (migration 212), and whether that rule is switched on. Empty
+  /// before the migration exists.
+  Future<Map<String, dynamic>> enquiriesHeld() async {
+    try {
+      final r = await _db.rpc('admin_enquiries_held');
+      return r is Map ? Map<String, dynamic>.from(r) : {};
+    } catch (_) {
+      return {};
+    }
+  }
+
+  /// Admin: a held enquiry joins the pass-on list after all.
+  Future<void> enquiryUnhold(String id) async {
+    await _db.rpc('admin_enquiry_unhold', params: {'p_id': id});
+  }
+
+  /// Owner: free enquiries used and left, and how many are held
+  /// (migration 212). Null before the migration exists.
+  Future<Map<String, dynamic>?> ownerEnquiryAllowance(String venueId) async {
+    try {
+      final r = await _db
+          .rpc('owner_enquiry_allowance', params: {'p_venue': venueId});
+      return r is Map ? Map<String, dynamic>.from(r) : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Admin: sends a waiting enquiry to the space (reply-to the nomad)
   /// and, when asked, tells the nomad it went.
   Future<void> passOnEnquiry(String id, String to,
@@ -1073,6 +1102,30 @@ class SupabaseService {
       'p_note': note,
     });
     return r is Map ? Map<String, dynamic>.from(r) : null;
+  }
+
+  /// Anyone: Suggest a place (migration 210). Throws with a readable
+  /// message when something is missing or there were too many today.
+  Future<void> suggestPlace({
+    required String name,
+    required String kind,
+    required String city,
+    String? country,
+    String? link,
+    String? note,
+    String? from,
+  }) async {
+    String? blank(String? s) =>
+        (s == null || s.trim().isEmpty) ? null : s.trim();
+    await _db.rpc('site_suggest_place', params: {
+      'p_name': name,
+      'p_kind': kind,
+      'p_city': city,
+      'p_country': blank(country),
+      'p_link': blank(link),
+      'p_note': blank(note),
+      'p_from': blank(from),
+    });
   }
 
   /// Admin: closes a waiting enquiry: 'handled', 'unreachable' (the

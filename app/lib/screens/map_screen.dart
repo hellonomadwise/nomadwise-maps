@@ -1910,7 +1910,7 @@ class _MapScreenState extends State<MapScreen> {
           _menuRow(
             icon: Icons.storefront_outlined,
             label: 'Own a space?',
-            sub: 'Manage your listing on nomadwise.io, free or Verified',
+            sub: 'Manage your listing on nomadwise.io, free or with Plus',
             onTap: () {
               Navigator.pop(context);
               launchUrl(Uri.parse('https://nomadmaps.io/spaces'),

@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Suggest a place · Nomadwise Maps</title>
+<meta name="robots" content="noindex">
+<!-- nomadmaps.io/suggest forwards to the app's ?suggest door
+     (migration 210); anything after it (?from=/country/portugal) is
+     kept. -->
+<script>
+  var q = location.search ? location.search.replace(/^\?/, '&') : '';
+  location.replace('/?suggest' + q + location.hash);
+</script>
+<meta http-equiv="refresh" content="0; url=/?suggest">
+</head>
+<body>Opening the form…</body>
+</html>

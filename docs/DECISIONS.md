@@ -4962,3 +4962,92 @@ The chat is handed to Jonathan (his phone rings). Prices and hours on
 the page it can still give. Someone who runs or looks after a space
 gets the claim link instead. It never links to the page the visitor
 is on.
+
+## 23 Oct 2026: the follow-up email's last line (migration 209)
+
+The "Did you find a place?" email said "If you are still looking,
+reply to this email and I will help you find somewhere." Jonathan:
+change it to "If you have any questions, simply reply to this email."
+The same change on the ?found thank-you for "I am still looking" and
+in the plain-text preview in Enquiries.
+
+## 23 Oct 2026: Suggest a place (migration 210)
+
+Jonathan: build a "Suggest a place" page. nomadmaps.io/suggest (or
+?suggest, with &from=<nomadwise.io page>): a traveller gives a place's
+name, cafe or coworking space, the city or area, and optionally the
+country, a link (Google Maps, website or Instagram) and why they
+recommend it. No account, no email. It goes on Candidates under "Asked
+to be listed or suggested", after the old-form sign-ups, and is handled
+like a sign-up: find on Google and queue, or "Not for the site". Next
+up shows it; the phones get a notice. If a space with the same name is
+already on the site the card says "Maybe already listed". Abuse guard:
+blocked networks are ignored, 5 a day per address (a hash, not the
+address), 60 a day in all, one card per name and city. The old
+"Know an amazing spot?" link on the Country pages (removed 22 Oct) can
+point here; the Webflow links are added only with Jonathan's go.
+
+## 23 Oct 2026: choosing a Location other than Claude's options
+
+Jonathan, on Sierra Cartel Coworking Space HRBR: after Ask Claude
+"there should be a choose alternative, and the why this choice, as
+well, so it learns from me overriding". The Ask Claude box now has a
+"Something else" row under Claude's options: type a new Location, or
+tap another Location in the list above. When the choice is none of
+Claude's options the box says so ("You chose ..., not one of Claude's
+options") above the reason field. The choice and reason are kept as
+before (admin_location_ask_chosen, migration 169), and choices that
+differ from Claude's first option go with every later question.
+
+## 23 Oct 2026: Free and Plus on the claim page (CR-29, CR-23, CR-30)
+
+From Leonie's notes after the 23 Oct meeting. The paid plan is called
+Plus wherever owners see it (claim page, Owner account, Plan and
+billing); the badge it brings is still "Verified by Nomadwise". The free
+plan is called Free (Jonathan, 23 Oct; Starter was considered). Free:
+"Claim your page and make it yours"; your page with your own photos and
+description; your Owner account for hours, prices and contact details
+(WiFi left out: owners do not edit it); found on Google and by AI
+assistants; 2 free enquiries. "Free, always" and "no card, nothing to
+pay, ever" are gone; one line says "Claiming is free". Plus: "Make the
+most of Nomadwise"; Verified by Nomadwise badge, top positioning on your
+region's page, promote your events and offers, unlimited enquiries
+straight to your inbox, your Instagram and WhatsApp on your page, remove
+ads from your page; "Monthly or yearly subscription, cancel any time".
+Emails, outreach templates, the site chat and Stripe still say Verified
+until Leonie has read the new words (every changed owner email goes to
+her first).
+
+## 23 Oct 2026: Copy claim link and Copy offer email removed (CR-11)
+
+Leonie and Jonathan agreed to remove the "Sell Verified" buttons on the
+Listing plan page: every message to a space goes through Outreach, where
+it is logged on the space's card.
+
+## 23 Oct 2026: "Managed by its owner" only after a claim (migration 211)
+
+CR-25. The label showed on a page nobody had claimed: an owner email
+typed in by hand on Listing plan was enough. Now it also needs an
+approved claim for that space (free or paid), or a founder's "not a
+test" in Outreach. Plus pages always count as managed, so they never
+show "Claim this listing". The ten-minute job updates the pages.
+
+## 23 Oct 2026: 2 free enquiries, then held for Plus (migration 212)
+
+CR-31. Switched off until Leonie has read the two new emails. When on:
+a claimed free page's first 2 enquiries in total go straight to the
+space (enquiry address, else the owner's email) and the nomad is told;
+from the 3rd, the enquiry is held, the owner is emailed that one is
+waiting and that Plus brings it (Jonathan: "hold it for Plus"), and the
+phones are told. Going on Plus sends everything held, and each nomad is
+told. The founders see held enquiries under the pass-on list, with
+"Move to pass on". Pages nobody claimed wait for a founder as before.
+Counting starts when it is switched on. The Owner account shows "1 of 2
+free enquiries left" with "Get unlimited enquiries".
+
+## 23 Oct 2026: forms.app sign-ups email as a template (migration 213)
+
+CR-19. Leonie's "we've been working on something new" email is the
+Outreach template "forms.app sign-ups: we have been working on something
+new". Two words changed for the owner email rules: "Owner account" for
+"members area", and no "in the next few weeks".
