@@ -5051,3 +5051,26 @@ CR-19. Leonie's "we've been working on something new" email is the
 Outreach template "forms.app sign-ups: we have been working on something
 new". Two words changed for the owner email rules: "Owner account" for
 "members area", and no "in the next few weeks".
+
+## 23 Oct 2026: 2 free enquiries switched on (migration 215)
+
+Leonie said yes to the two emails (softened by Jonathan, migration
+214: Nomadwise Plus as the main point, "unlimited number of enquiries",
+a link to see everything Plus includes, and nothing about enquiries
+being kept back). Counting starts from this migration.
+
+## 23 Oct 2026: Owner account, edit on the page (CR-22, step 1)
+
+Leonie's idea, mockup approved 23 Oct. My listing is now the page as
+travellers see it (main card and sidebar, as on nomadwise.io), with an
+Edit button on each part: photos, tags, about, prices, opening hours,
+links. Edit opens that part's form in place, in a red frame, with
+Cancel (puts the part back as it was) and Save change (sends the
+listing to Nomadwise for review, as Submit for review did). Under the
+buttons: "Saving sends this to Nomadwise. It goes live once approved;
+until then your page stays as it is." A part sent in this visit shows
+"Waiting for Nomadwise approval". Edits are still kept as a draft as
+they are typed. Buttons are 40px tall and never wrap. The name is not
+editable here (it comes from Google; owners ask in Inbox & support).
+Next steps: the locked Plus parts and the Get Plus window (step 2),
+then promotions and events on the live page (step 3).

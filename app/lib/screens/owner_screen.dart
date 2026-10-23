@@ -515,7 +515,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
           if (i >= 0) _current = i;
         }
       });
-      _fillEditor();
+      _fillEditor(closeEditing: false);
       if (rows.isNotEmpty) {
         _loadChatUnread();
         _chatTimer ??= Timer.periodic(
@@ -728,9 +728,18 @@ class _OwnerScreenState extends State<OwnerScreen> {
 
   /// The editor starts from the draft if there is one, else from what
   /// is on the page today.
-  void _fillEditor() {
+  /// A reload in the background (sign-in refresh, payment check) leaves
+  /// a part that is open for editing as it is ([closeEditing] false);
+  /// switching space closes it.
+  void _fillEditor({bool closeEditing = true}) {
     final v = _venue;
     if (v == null) return;
+    if (closeEditing) {
+      _editing = null;
+      _snap = null;
+    } else if (_editing != null) {
+      return;
+    }
     _allow = null;
     _loadAllowance('${v['id']}');
     final draft = _draft;
@@ -1707,12 +1716,17 @@ class _OwnerScreenState extends State<OwnerScreen> {
           preview: _isPreview),
       _Tab.chat => _chatTab(wide),
     };
-    final preview = _tab == _Tab.message && _verified
-        ? _messagePreview()
-        : _preview();
+    // (My listing is the page itself: no preview beside it.)
+    final fullWidth =
+        _tab == _Tab.ideas || _tab == _Tab.chat || _tab == _Tab.listing;
+    final Widget preview = fullWidth
+        ? const SizedBox.shrink()
+        : _tab == _Tab.message && _verified
+            ? _messagePreview()
+            : _preview();
     // One quick question now and then, above the page preview (not in
     // a founder's preview: those answers would be ours).
-    final side = _isPreview
+    final side = _isPreview || fullWidth
         ? preview
         : Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             OwnerQuestionCard(
@@ -1723,12 +1737,13 @@ class _OwnerScreenState extends State<OwnerScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (_showTip && !_isPreview) _bookmarkTip(),
-          if (_tab == _Tab.listing || (_tab == _Tab.message && _verified))
-            _actionBar(wide),
+          // My listing saves part by part (Save change); the bar stays
+          // for Your message.
+          if (_tab == _Tab.message && _verified) _actionBar(wide),
           _statusBanner(),
           // Build next is a board of its own, full width; so is the
           // inbox.
-          if (_tab == _Tab.ideas || _tab == _Tab.chat)
+          if (fullWidth)
             main
           else if (wide)
             Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -1962,15 +1977,16 @@ class _OwnerScreenState extends State<OwnerScreen> {
       'submitted' => (
           Brand.goldTextDark,
           Icons.hourglass_top,
-          'Your changes are with us for review. You can keep editing; '
-              'submitting again replaces what we have.'
+          'Waiting for Nomadwise approval. Your page shows your changes '
+              'here; the live page stays as it is until we approve them. '
+              'You can keep editing: saving again replaces what we have.'
         ),
       'declined' => (
           Brand.red,
           Icons.undo,
           'We sent your last changes back'
               '${(d['review_note'] ?? '').toString().isNotEmpty ? ': ${d['review_note']}' : '.'}'
-              ' Edit and submit again when ready.'
+              ' Edit the part and press Save change when ready.'
         ),
       'applied' => (
           Brand.success,
@@ -1980,9 +1996,14 @@ class _OwnerScreenState extends State<OwnerScreen> {
       _ => (
           Brand.inkSecondary,
           Icons.edit_outlined,
-          'You have a saved draft that has not been submitted.'
+          'You have changes that are not sent yet. Your page shows them '
+              'here, but the live page stays as it is until they are sent '
+              'and approved.'
         ),
     };
+    final unsent = status != 'submitted' &&
+        status != 'declined' &&
+        status != 'applied';
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.all(12),
@@ -1995,6 +2016,18 @@ class _OwnerScreenState extends State<OwnerScreen> {
         Expanded(
             child: Text(text,
                 style: TextStyle(fontSize: 13, height: 1.45, color: color))),
+        // My listing has no Submit button any more: a draft left
+        // without Save change can be sent from here.
+        if (unsent && _tab == _Tab.listing && _editing == null) ...[
+          const SizedBox(width: 10),
+          FilledButton(
+              onPressed: _saving ? null : () => _save(submit: true),
+              style: FilledButton.styleFrom(
+                  backgroundColor: Brand.red,
+                  minimumSize: const Size(0, 36)),
+              child: Text(_saving ? 'Sending' : 'Send my changes',
+                  softWrap: false)),
+        ],
       ]),
     );
   }
@@ -2157,12 +2190,14 @@ class _OwnerScreenState extends State<OwnerScreen> {
 
   /// The description as an opening paragraph plus headed sections the
   /// owner adds, instead of typing "##" (S3-5).
-  Widget _descriptionEditor() {
+  Widget _descriptionEditor({bool heading = true}) {
     final total = _description.text.length;
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      const Text('About your space',
-          style: TextStyle(fontWeight: FontWeight.w700)),
-      const SizedBox(height: 4),
+      if (heading) ...[
+        const Text('About your space',
+            style: TextStyle(fontWeight: FontWeight.w700)),
+        const SizedBox(height: 4),
+      ],
       const Text(
           'What makes it special: the workspace, the atmosphere, the people. '
           'Plain words work best. The more detail you add, the easier it is '
@@ -2397,195 +2432,717 @@ class _OwnerScreenState extends State<OwnerScreen> {
     }
   }
 
-  Widget _listingTab(bool wide) {
-    final editor = _panel(
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('Your listing details',
-            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-        const SizedBox(height: 4),
-        const Text(
-            'What nomads read before they choose you. We read every change '
-            'before it goes on the page: the details and photos are yours, the '
-            'tone stays honest.',
-            style: TextStyle(
-                color: Brand.inkSecondary, fontSize: 12.5, height: 1.45)),
-        const SizedBox(height: 18),
-        _descriptionEditor(),
-        const SizedBox(height: 14),
-        Text(_venue?['type'] == 'cafe' ? 'Prices' : 'Passes and prices',
-            style: const TextStyle(fontWeight: FontWeight.w700)),
-        const SizedBox(height: 4),
-        Text(
-            // Jonathan, 15 Oct 2026: owners should see this is a rough
-            // guide for nomads, not their full menu or price list.
-            '${_venue?['type'] == 'cafe' ? 'A general guide, not your full '
-                'menu: nomads use a typical price or two to see roughly '
-                'what a visit costs.' : 'A general guide, not your full '
-                'price list: nomads use these to see roughly what working '
-                'here costs.'} Type the amount only, like 3.60 or 1,500. '
-            'The currency below applies to every price.',
-            style: const TextStyle(
-                color: Brand.inkMuted, fontSize: 12, height: 1.45)),
-        const SizedBox(height: 10),
-        _currencyPicker(),
-        const SizedBox(height: 12),
-        // Two boxes side by side on a phone, so the prices take half
-        // the scrolling.
-        LayoutBuilder(builder: (context, box) {
-          final w = box.maxWidth < 440 ? (box.maxWidth - 10) / 2 : 200.0;
-          return Wrap(spacing: 10, runSpacing: 10, children: [
-            if (_venue?['type'] != 'cafe') ...[
-              _priceField(_priceDay, 'Day pass', width: w),
-              _priceField(_priceWeek, 'Week pass', width: w),
-              _priceField(_priceMonth, 'Month pass', width: w),
-            ],
-            _priceField(_priceCoffee, 'Cappuccino', width: w),
-          ]);
-        }),
-        if (_pageProducts.isNotEmpty) ...[
-          const SizedBox(height: 12),
-          _pageProductsBox(),
-        ],
-        const SizedBox(height: 18),
-        const Text('Opening hours',
-            style: TextStyle(fontWeight: FontWeight.w700)),
-        const SizedBox(height: 4),
-        Text(
-            _hoursUntouched
-                ? 'These are the hours Google shows for you today, and '
-                    'what your page shows. Change any day that is wrong.'
-                : 'Pick the times for each day. "Not set" keeps what '
-                    'Google shows.',
-            style: const TextStyle(color: Brand.inkMuted, fontSize: 12)),
-        const SizedBox(height: 10),
-        for (final day in _days) _dayHours(day),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: TextButton.icon(
-              onPressed: _copyMondayHours,
-              icon: const Icon(Icons.copy_all_outlined, size: 16),
-              label: const Text('Use Monday\'s hours for every day')),
+  // ------------------------------------------------- edit on the page
+  // CR-22, 23 Oct 2026 (Leonie's idea, mockup approved): My listing is
+  // the page as travellers see it, with an Edit button on each part.
+  // Edit opens that part's form in place (a red frame); Save change
+  // sends the listing to Nomadwise for review; Cancel puts the part
+  // back as it was. Nothing on the live page changes until approved.
+
+  /// The part being edited ('photos', 'tags', 'about', 'prices',
+  /// 'hours', 'links'), and what it held when Edit was pressed.
+  String? _editing;
+  Map<String, dynamic>? _snap;
+
+  /// Parts sent for review in this visit: they show "Waiting for
+  /// Nomadwise approval" until the page reloads with the change.
+  final Set<String> _sentParts = {}; // '<space id>:<part>'
+
+  bool _sent(String part) => _sentParts.contains('${_venue?['id']}:$part');
+
+  Map<String, dynamic> _snapshot(String part) => switch (part) {
+        'photos' => {'list': List<String>.of(_photos), 'touched': _photosTouched},
+        'tags' => {'facts': Map<String, bool?>.of(_facts)},
+        'about' => {'text': _description.text},
+        'prices' => {
+            'day': _priceDay.text,
+            'week': _priceWeek.text,
+            'month': _priceMonth.text,
+            'coffee': _priceCoffee.text,
+            'currency': _currency,
+          },
+        'hours' => {for (final d in _days) d: _hours[d]!.text},
+        'links' => {
+            'web': _website.text,
+            'ig': _instagram.text,
+            'wa': _whatsapp.text,
+            'wac': _waCountry.value,
+            'enq': _enquiryEmail.text,
+          },
+        _ => const {},
+      };
+
+  void _restore(String part, Map<String, dynamic> s) {
+    switch (part) {
+      case 'photos':
+        _photos = List<String>.from(s['list'] as List);
+        _photosTouched = s['touched'] == true;
+      case 'tags':
+        _facts
+          ..clear()
+          ..addAll(Map<String, bool?>.from(s['facts'] as Map));
+      case 'about':
+        _description.text = '${s['text']}';
+        _loadSections();
+      case 'prices':
+        _priceDay.text = '${s['day']}';
+        _priceWeek.text = '${s['week']}';
+        _priceMonth.text = '${s['month']}';
+        _priceCoffee.text = '${s['coffee']}';
+        _currency = '${s['currency']}';
+      case 'hours':
+        for (final d in _days) {
+          _hours[d]!.text = '${s[d]}';
+        }
+      case 'links':
+        _website.text = '${s['web']}';
+        _instagram.text = '${s['ig']}';
+        _whatsapp.text = '${s['wa']}';
+        _waCountry.value = s['wac'] as String?;
+        _enquiryEmail.text = '${s['enq']}';
+    }
+  }
+
+  /// Edit pressed: another open part is put back first (one at a time).
+  void _startEdit(String part) {
+    if (_editing != null && _editing != part) _cancelEdit();
+    setState(() {
+      _snap = _snapshot(part);
+      _editing = part;
+      _savedNote = null;
+    });
+  }
+
+  void _cancelEdit() {
+    final part = _editing;
+    final s = _snap;
+    if (part != null && s != null) _restore(part, s);
+    setState(() {
+      _editing = null;
+      _snap = null;
+      _savedNote = null;
+      _dirty = true;
+      _editSeq++;
+      _lastEdit = DateTime.now();
+    });
+  }
+
+  /// Save change: the listing goes to Nomadwise for review (the same
+  /// as Submit for review). The part closes once it has gone.
+  Future<void> _saveEdit() async {
+    final part = _editing;
+    if (part == null) return;
+    await _save(submit: true);
+    if (!mounted) return;
+    final sent = (_savedNote ?? '').startsWith('Sent') ||
+        (_savedNote ?? '').startsWith('Preview');
+    if (sent) {
+      setState(() {
+        _sentParts.add('${_venue?['id']}:$part');
+        _editing = null;
+        _snap = null;
+      });
+    }
+  }
+
+  static const _edBorder = Color(0xFFCBD2D9);
+  static const _edInk = Color(0xFF142032);
+  static const _edMuted = Color(0xFF5C6773);
+  static const _edRed = Color(0xFFD92D38);
+
+  /// The Edit button: 40px tall, its words never wrap.
+  Widget _editButton(String part, {String label = 'Edit'}) => OutlinedButton.icon(
+        onPressed: () => _startEdit(part),
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size(0, 40),
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          foregroundColor: _edInk,
+          backgroundColor: Colors.white,
+          side: const BorderSide(color: _edBorder),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
         ),
-        const SizedBox(height: 18),
-        const Text('Work-friendly amenities',
-            style: TextStyle(fontWeight: FontWeight.w700)),
-        const SizedBox(height: 6),
-        Wrap(spacing: 4, runSpacing: 0, children: [
-          for (final (key, label) in _factLabels)
-            SizedBox(
-              width: 250,
-              child: CheckboxListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                controlAffinity: ListTileControlAffinity.leading,
-                title: Text(label, style: const TextStyle(fontSize: 13.5)),
-                value: _facts[key] == true,
-                onChanged: (x) => setState(() {
-                  _facts[key] = x == true;
-                  _dirty = true;
-                }),
-              ),
-            ),
+        icon: const Icon(Icons.edit_outlined, size: 15),
+        label: Text(label, softWrap: false),
+      );
+
+  Widget _waitingChip() => Container(
+        margin: const EdgeInsets.only(top: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+            color: const Color(0xFFFDF3DF),
+            borderRadius: BorderRadius.circular(6)),
+        child: const Text('Waiting for Nomadwise approval',
+            style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF6E5212))),
+      );
+
+  /// A part's heading on the page, with its Edit button.
+  Widget _partHead(String title, String part,
+          {double size = 22, String label = 'Edit'}) =>
+      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+          Expanded(
+            child: Text(title,
+                style: TextStyle(
+                    fontSize: size,
+                    fontWeight: FontWeight.w700,
+                    height: 1.25,
+                    color: _pageInk)),
+          ),
+          const SizedBox(width: 10),
+          _editButton(part, label: label),
         ]),
-        const SizedBox(height: 14),
-        const Text('Photos', style: TextStyle(fontWeight: FontWeight.w700)),
-        const SizedBox(height: 4),
-        Text(
-            _photosFromPage
-                ? 'These are the photos on your page now. Replace any of '
-                    'them, remove the ones you would rather not show, or add '
-                    'your own in a free space. The rest stay as they are. '
-                    'The first one is the large photo at the top of your page.'
-                : 'Up to five photos. The first one is the large photo at '
-                    'the top of your page. Changes go on the page once '
-                    'approved.',
+        if (_sent(part)) _waitingChip(),
+      ]);
+
+  /// The red frame a part's form opens in, with Cancel and Save change
+  /// and a line saying what saving does.
+  Widget _editFrame(String title, Widget form) {
+    final err = _savedNote != null &&
+        !_savedNote!.startsWith('Sent') &&
+        !_savedNote!.startsWith('Draft') &&
+        !_savedNote!.startsWith('Preview');
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: _edRed, width: 2),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Text(title,
             style: const TextStyle(
-                color: Brand.inkMuted, fontSize: 12, height: 1.45)),
-        const SizedBox(height: 10),
-        Wrap(spacing: 10, runSpacing: 10, children: [
-          for (var i = 0; i < _photos.length; i++) _photoSlot(i),
-          if (_photos.length < 5) _addPhotoSlot(),
-        ]),
-        const SizedBox(height: 18),
-        const Text('Contact', style: TextStyle(fontWeight: FontWeight.w700)),
-        const SizedBox(height: 10),
-        Wrap(spacing: 10, runSpacing: 10, children: [
-          SizedBox(
-              width: 260,
-              child: TextField(
-                  controller: _website,
-                  decoration: _dec('Website', hint: 'yourspace.com'))),
-          SizedBox(
-              width: 260,
-              child: TextField(
-                  controller: _instagram,
-                  decoration: _dec('Instagram handle', hint: 'yourspace')
-                      .copyWith(
-                          prefixText: '@',
-                          helperText: 'Just the handle, like @kelp.cowork',
-                          errorText: _igHandle(_instagram.text) == null
-                              ? 'Letters, numbers, dots and underscores only'
-                              : null))),
-          SizedBox(
-              width: 420,
-              child: PhoneField(
-                  number: _whatsapp,
-                  country: _waCountry,
-                  label: 'WhatsApp (optional)',
-                  helper: 'Leave empty if you do not use WhatsApp. Visitors '
-                      'can still find your phone number through the Google '
-                      'Maps button on your page.')),
-          // Plus pages, and free pages once the 2 free enquiries are
-          // on (migration 212): where enquiries are sent.
-          if (_verified || _allow?['on'] == true)
-            SizedBox(
-                width: 260,
-                child: TextField(
-                    controller: _enquiryEmail,
-                    decoration: _dec('Enquiries go to',
-                            hint: 'hello@yourspace.com')
-                        .copyWith(
-                            helperText: 'Where nomads\' enquiries are '
-                                'sent. If none is set, they go to the email '
-                                'you sign in with.',
-                            helperMaxLines: 2))),
-        ]),
-        if (_allowanceLine() != null) ...[
-          const SizedBox(height: 14),
-          ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 560),
-              child: _allowanceLine()!),
-        ],
-        const SizedBox(height: 22),
-        if (_savedNote != null)
+                fontSize: 16, fontWeight: FontWeight.w700, color: _edInk)),
+        const SizedBox(height: 12),
+        form,
+        const SizedBox(height: 16),
+        const Divider(height: 1, color: Color(0xFFEEF0F2)),
+        const SizedBox(height: 14),
+        if (err)
           Padding(
             padding: const EdgeInsets.only(bottom: 10),
             child: Text(_savedNote!,
-                style: TextStyle(
-                    fontSize: 13,
-                    color: _savedNote!.startsWith('That') ||
-                            _savedNote!.startsWith('The ') ||
-                            _savedNote!.startsWith('Could')
-                        ? Brand.red
-                        : Brand.success)),
+                style: const TextStyle(fontSize: 13, color: Brand.red)),
           ),
-        // Save draft and Submit also sit at the top (the action bar);
-        // this one saves scrolling back up after the last field.
-        Align(
-          alignment: Alignment.centerLeft,
-          child: FilledButton(
-              onPressed: _saving ? null : () => _save(submit: true),
-              style: FilledButton.styleFrom(backgroundColor: Brand.red),
-              child: Text(_saving ? 'One moment' : 'Submit for review')),
-        ),
-        const SizedBox(height: 8),
-        const Text(
-            'Ratings, reviews and WiFi tests come from Google and from '
-            'nomads; they stay as they are.',
-            style: TextStyle(color: Brand.inkMuted, fontSize: 12)),
+        Wrap(
+            spacing: 12,
+            runSpacing: 10,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            alignment: WrapAlignment.spaceBetween,
+            children: [
+              const ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: 360),
+                child: Text(
+                    'Saving sends this to Nomadwise. It goes live once '
+                    'approved; until then your page stays as it is.',
+                    style: TextStyle(
+                        fontSize: 12.5, height: 1.45, color: _edMuted)),
+              ),
+              Row(mainAxisSize: MainAxisSize.min, children: [
+                OutlinedButton(
+                  onPressed: _saving ? null : _cancelEdit,
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(0, 40),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    foregroundColor: _edInk,
+                    side: const BorderSide(color: _edBorder),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8)),
+                  ),
+                  child: const Text('Cancel', softWrap: false),
+                ),
+                const SizedBox(width: 8),
+                FilledButton(
+                  onPressed: _saving ? null : _saveEdit,
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(0, 40),
+                    padding: const EdgeInsets.symmetric(horizontal: 18),
+                    backgroundColor: _edRed,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8)),
+                    textStyle: const TextStyle(
+                        fontSize: 14, fontWeight: FontWeight.w600),
+                  ),
+                  child: Text(_saving ? 'Sending' : 'Save change',
+                      softWrap: false),
+                ),
+              ]),
+            ]),
       ]),
     );
-    return editor;
+  }
+
+  /// A white card like the page's own.
+  Widget _liveCard(Widget child, {EdgeInsets? pad}) => Container(
+        width: double.infinity,
+        padding: pad ?? const EdgeInsets.all(22),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: const Color(0xFFE4E6EB)),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: child,
+      );
+
+  /// The page's tags, as nomadwise.io draws them: white with a thin
+  /// border and 6px corners.
+  Widget _liveTags(List<String> tags) => Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final t in tags)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border.all(color: const Color(0xFFE4E6EB)),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(t,
+                style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF2B2F36))),
+          ),
+      ]);
+
+  Widget _listingTab(bool wide) {
+    final v = _venue!;
+    final area = [v['neighbourhood'], v['city']]
+        .where((x) => (x ?? '').toString().isNotEmpty)
+        .join(', ');
+    final country = (v['country'] ?? '').toString();
+    final title = [
+      '${v['name']}${country.isNotEmpty ? ' in $country' : ''}',
+      if ((v['neighbourhood'] ?? '').toString().isNotEmpty) v['neighbourhood'],
+    ].join(' - ');
+    final isCafe = v['type'] == 'cafe';
+    final tags = [
+      for (final (key, label) in _factLabels)
+        if (_facts[key] == true) _siteTags[key] ?? label
+    ];
+    final photos = _photos.isNotEmpty
+        ? _photos
+        : _pagePhotos.isNotEmpty
+            ? _pagePhotos
+            : List<String>.from((v['google_photos'] ?? const []) as List);
+    final prices = [
+      for (final (name, price, _) in _pageProducts) (name, price),
+      if (_priceDay.text.trim().isNotEmpty)
+        ('Day pass', Price.format(_priceDay.text, _currency).trim()),
+      if (_priceWeek.text.trim().isNotEmpty)
+        ('Week pass', Price.format(_priceWeek.text, _currency).trim()),
+      if (_priceMonth.text.trim().isNotEmpty)
+        ('Month pass', Price.format(_priceMonth.text, _currency).trim()),
+      if (_priceCoffee.text.trim().isNotEmpty)
+        ('Cappuccino', Price.format(_priceCoffee.text, _currency).trim()),
+    ];
+    const body = TextStyle(fontSize: 15, height: 1.6, color: _pageInk);
+    const muted = TextStyle(fontSize: 13, height: 1.45, color: _edMuted);
+
+    Widget stat(IconData icon, String text, {Color color = _pageInk}) =>
+        Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(width: 6),
+          Text(text,
+              style: const TextStyle(
+                  fontSize: 16, fontWeight: FontWeight.w600, color: _pageInk)),
+        ]);
+
+    // ---- photos ----
+    final photosPart = _editing == 'photos'
+        ? _editFrame(
+            'Photos',
+            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(
+                  'Up to five. The first is the large photo at the top of '
+                  'your page: press the star on another to make it the '
+                  'main one.',
+                  style: muted),
+              const SizedBox(height: 12),
+              Wrap(spacing: 10, runSpacing: 10, children: [
+                for (var i = 0; i < _photos.length; i++) _photoSlot(i),
+                if (_photos.length < 5) _addPhotoSlot(),
+              ]),
+            ]))
+        : Stack(children: [
+            _photoGrid(photos, height: wide ? 320 : 200),
+            Positioned(
+                right: 10,
+                top: 10,
+                child: _editButton('photos', label: 'Edit photos')),
+          ]);
+
+    // ---- tags ----
+    final tagsPart = _editing == 'tags'
+        ? _editFrame(
+            'What is true for your space?',
+            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text(
+                  'Each one you tick shows as a tag on your page. Tick only '
+                  'what a visitor would find true today.',
+                  style: muted),
+              const SizedBox(height: 6),
+              Wrap(spacing: 4, runSpacing: 0, children: [
+                for (final (key, label) in _factLabels)
+                  if (key != 'laptops_allowed')
+                    SizedBox(
+                      width: 280,
+                      child: CheckboxListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        controlAffinity: ListTileControlAffinity.leading,
+                        title: Text(_siteTags[key] ?? label,
+                            style: const TextStyle(
+                                fontSize: 14, fontWeight: FontWeight.w600)),
+                        subtitle: Text(_factGuide[key] ?? '',
+                            style: const TextStyle(fontSize: 12.5)),
+                        value: _facts[key] == true,
+                        onChanged: (x) => setState(() {
+                          _facts[key] = x == true;
+                          _dirty = true;
+                          _editSeq++;
+                          _lastEdit = DateTime.now();
+                        }),
+                      ),
+                    ),
+              ]),
+            ]))
+        : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  if (tags.isEmpty)
+                    const Text('No tags on your page yet.', style: muted)
+                  else
+                    _liveTags(tags),
+                  _editButton('tags', label: 'Edit tags'),
+                ]),
+            if (_sent('tags')) _waitingChip(),
+          ]);
+
+    // ---- about ----
+    final aboutPart = _editing == 'about'
+        ? _editFrame('About your space', _descriptionEditor(heading: false))
+        : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            _partHead('About ${v['name']}', 'about'),
+            const SizedBox(height: 10),
+            if (_description.text.trim().isEmpty)
+              const Text(
+                  'No description yet. Press Edit to say what makes your '
+                  'space special.',
+                  style: muted)
+            else
+              for (final line
+                  in _description.text.split('\n').map((l) => l.trim()))
+                if (line.isNotEmpty)
+                  line.startsWith('## ')
+                      ? Padding(
+                          padding: const EdgeInsets.only(top: 10, bottom: 4),
+                          child: Text(line.substring(3),
+                              style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w700,
+                                  color: _pageInk)),
+                        )
+                      : Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: Text(line, style: body),
+                        ),
+          ]);
+
+    // ---- prices ----
+    final pricesPart = _editing == 'prices'
+        ? _editFrame(
+            isCafe ? 'Prices' : 'Passes and prices',
+            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(
+                  '${isCafe ? 'A general guide, not your full menu.' : 'A general guide, not your full price list.'} '
+                  'Type the amount only, like 3.60 or 1,500.',
+                  style: muted),
+              const SizedBox(height: 12),
+              _currencyPicker(),
+              const SizedBox(height: 12),
+              LayoutBuilder(builder: (context, box) {
+                final w =
+                    box.maxWidth < 440 ? (box.maxWidth - 10) / 2 : 200.0;
+                return Wrap(spacing: 10, runSpacing: 10, children: [
+                  if (!isCafe) ...[
+                    _priceField(_priceDay, 'Day pass', width: w),
+                    _priceField(_priceWeek, 'Week pass', width: w),
+                    _priceField(_priceMonth, 'Month pass', width: w),
+                  ],
+                  _priceField(_priceCoffee, 'Cappuccino', width: w),
+                ]);
+              }),
+              if (_pageProducts.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                _pageProductsBox(),
+              ],
+            ]))
+        : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            _partHead('Prices', 'prices'),
+            const SizedBox(height: 10),
+            if (prices.isEmpty)
+              const Text('No prices yet. Press Edit to add a typical one.',
+                  style: muted)
+            else
+              for (final (name, price) in prices)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(child: Text(name, style: body)),
+                        const SizedBox(width: 12),
+                        Text(price,
+                            style: body.copyWith(fontWeight: FontWeight.w700)),
+                      ]),
+                ),
+          ]);
+
+    final main = _liveCard(
+        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(title,
+              style: TextStyle(
+                  fontSize: wide ? 30 : 24,
+                  fontWeight: FontWeight.w800,
+                  height: 1.2,
+                  color: _pageInk)),
+          const SizedBox(height: 10),
+          Wrap(
+              spacing: 18,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                if (area.isNotEmpty)
+                  Row(mainAxisSize: MainAxisSize.min, children: [
+                    const Icon(Icons.location_on, size: 18, color: _pageRed),
+                    const SizedBox(width: 4),
+                    Text(area,
+                        style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: _pageRed)),
+                  ]),
+                if (country.isNotEmpty)
+                  Text(country,
+                      style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: _pageInk)),
+              ]),
+          const SizedBox(height: 10),
+          Wrap(spacing: 20, runSpacing: 8, children: [
+            if (v['wifi_speed_mbps'] != null)
+              stat(Icons.wifi, '${v['wifi_speed_mbps']}Mbps'),
+            if (v['google_rating_snapshot'] != null)
+              stat(
+                  Icons.star,
+                  '${v['google_rating_snapshot']} '
+                  '(${v['google_reviews_snapshot'] ?? 0})',
+                  color: const Color(0xFFF4B23E)),
+            stat(Icons.laptop, isCafe ? 'Cafe' : 'Coworking Space'),
+          ]),
+          const SizedBox(height: 4),
+          const Text(
+              'Your name, ratings and WiFi tests come from Google and from '
+              'nomads. To change your name, write to us in Inbox & support.',
+              style: TextStyle(fontSize: 12, color: Brand.inkMuted)),
+          const SizedBox(height: 18),
+          photosPart,
+          if (_sent('photos')) _waitingChip(),
+          const SizedBox(height: 22),
+          tagsPart,
+          const SizedBox(height: 28),
+          aboutPart,
+          const SizedBox(height: 28),
+          pricesPart,
+          const SizedBox(height: 28),
+          _mapBlock(v, area),
+        ]),
+        pad: EdgeInsets.all(wide ? 28 : 18));
+
+    // ---- sidebar: hours, links, enquiries, advert ----
+    final days = [
+      for (final day in _days)
+        if (_hours[day]!.text.trim().isNotEmpty) day
+    ];
+    final hoursPart = _editing == 'hours'
+        ? _editFrame(
+            'Opening hours',
+            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(
+                  _hoursUntouched
+                      ? 'These are the hours Google shows for you today. '
+                          'Change any day that is wrong.'
+                      : 'Pick the times for each day. "Not set" keeps what '
+                          'Google shows.',
+                  style: muted),
+              const SizedBox(height: 10),
+              for (final day in _days) _dayHours(day),
+              TextButton.icon(
+                  onPressed: _copyMondayHours,
+                  icon: const Icon(Icons.copy_all_outlined, size: 16),
+                  label: const Text('Use Monday\'s hours for every day')),
+            ]))
+        : _liveCard(
+            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              _partHead('Opening Hours', 'hours', size: 22),
+              const SizedBox(height: 10),
+              if (days.isEmpty)
+                const Text('No opening hours yet.', style: muted)
+              else
+                for (final day in days)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Row(children: [
+                      SizedBox(
+                        width: 100,
+                        child: Text(_dayNames[day]!,
+                            style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: _pageInk)),
+                      ),
+                      Expanded(
+                        child: Text(_hours[day]!.text.trim(),
+                            style: const TextStyle(
+                                fontSize: 14, color: Color(0xFF3F4954))),
+                      ),
+                    ]),
+                  ),
+            ]),
+            pad: const EdgeInsets.fromLTRB(20, 18, 20, 18));
+
+    Widget circle(IconData icon, Color color) => Container(
+          width: 44,
+          height: 44,
+          margin: const EdgeInsets.only(right: 10),
+          decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              border: Border.all(color: const Color(0xFFE0E0E0))),
+          child: Icon(icon, size: 20, color: color),
+        );
+    final linksPart = _editing == 'links'
+        ? _editFrame(
+            'Links and contact',
+            Wrap(spacing: 10, runSpacing: 12, children: [
+              SizedBox(
+                  width: 260,
+                  child: TextField(
+                      controller: _website,
+                      decoration: _dec('Website', hint: 'yourspace.com'))),
+              SizedBox(
+                  width: 260,
+                  child: TextField(
+                      controller: _instagram,
+                      decoration: _dec('Instagram handle', hint: 'yourspace')
+                          .copyWith(
+                              prefixText: '@',
+                              helperText: 'Just the handle, like @kelp.cowork',
+                              errorText: _igHandle(_instagram.text) == null
+                                  ? 'Letters, numbers, dots and underscores only'
+                                  : null))),
+              SizedBox(
+                  width: 420,
+                  child: PhoneField(
+                      number: _whatsapp,
+                      country: _waCountry,
+                      label: 'WhatsApp (optional)',
+                      helper: 'Leave empty if you do not use WhatsApp.')),
+              if (_verified || _allow?['on'] == true)
+                SizedBox(
+                    width: 260,
+                    child: TextField(
+                        controller: _enquiryEmail,
+                        decoration: _dec('Enquiries go to',
+                                hint: 'hello@yourspace.com')
+                            .copyWith(
+                                helperText: 'Where nomads\' enquiries are '
+                                    'sent. If none is set, they go to the '
+                                    'email you sign in with.',
+                                helperMaxLines: 2))),
+            ]))
+        : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            // A Wrap: on a narrow phone with large text the Edit
+            // button moves under the circles instead of running off.
+            Wrap(
+                runSpacing: 10,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  if (_website.text.trim().isNotEmpty)
+                    circle(Icons.link, _pageInk),
+                  circle(Icons.location_on, _pageRed),
+                  if (_instagram.text.trim().isNotEmpty)
+                    circle(Icons.camera_alt_outlined, const Color(0xFFD62976)),
+                  if (_whatsapp.text.trim().isNotEmpty)
+                    circle(Icons.chat_outlined, const Color(0xFF25D366)),
+                  const SizedBox(width: 6),
+                  _editButton('links'),
+                ]),
+            if (_sent('links')) _waitingChip(),
+          ]);
+
+    final side = Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      hoursPart,
+      if (_sent('hours')) _waitingChip(),
+      const SizedBox(height: 16),
+      linksPart,
+      if (_verified) ...[
+        const SizedBox(height: 16),
+        _pageButton('Send an enquiry', wide: true),
+      ],
+      if (_allowanceLine() != null) ...[
+        const SizedBox(height: 16),
+        _allowanceLine()!,
+      ],
+      const SizedBox(height: 16),
+      _advertSlot(),
+    ]);
+
+    final help = Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Text.rich(
+          const TextSpan(children: [
+            TextSpan(text: 'This is your page as travellers see it. Press '),
+            TextSpan(
+                text: 'Edit', style: TextStyle(fontWeight: FontWeight.w700)),
+            TextSpan(
+                text: ' on any part to change it there. Nomadwise approves '
+                    'each change before it goes live.'),
+          ]),
+          style: const TextStyle(fontSize: 14, color: Color(0xFF3F4954))),
+    );
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      if (!_isPreview)
+        OwnerQuestionCard(
+            key: ValueKey('q-${v['id']}'), venueId: '${v['id']}'),
+      help,
+      LayoutBuilder(builder: (context, box) {
+        if (box.maxWidth >= 820) {
+          return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Expanded(child: main),
+            const SizedBox(width: 22),
+            SizedBox(width: 300, child: side),
+          ]);
+        }
+        return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          main,
+          const SizedBox(height: 18),
+          side,
+        ]);
+      }),
+    ]);
   }
 
   /// A plain picture of what the page will show, updated as they type.
