@@ -5372,7 +5372,21 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         v['listing_owner_email'],
     ].join('  ·  ');
     if (who.isNotEmpty) {
-      lines.add(Text('Owner: $who', style: const TextStyle(fontSize: 12.5)));
+      final email = (v['listing_owner_email'] ?? '').toString().trim();
+      // The owner's email one click away (Jonathan, 23 Oct 2026: the
+      // card's words could not be highlighted to copy them).
+      lines.add(Row(children: [
+        Flexible(
+            child: Text('Owner: $who',
+                style: const TextStyle(fontSize: 12.5))),
+        if (email.isNotEmpty)
+          IconButton(
+              tooltip: 'Copy $email',
+              visualDensity: VisualDensity.compact,
+              iconSize: 16,
+              onPressed: () => _copy(email, 'Copied $email'),
+              icon: const Icon(Icons.copy_outlined)),
+      ]));
     }
     final latest = _ownerDate(v);
     if (latest != null) {
