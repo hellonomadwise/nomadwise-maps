@@ -3807,13 +3807,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
     return _liveCard(
         Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Row(children: [
-            const Expanded(
-              child: Text('Promotions and events',
-                  style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: _pageInk)),
-            ),
+            const Expanded(child: _promoLabel),
             edit,
           ]),
           const SizedBox(height: 10),
@@ -5391,6 +5385,14 @@ class _OwnerScreenState extends State<OwnerScreen> {
     );
   }
 
+  /// The card's small grey title, as on the live page.
+  static const _promoLabel = Text('PROMOTIONS AND EVENTS',
+      style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          letterSpacing: .8,
+          color: Color(0xFF757575)));
+
   /// The owner's promotion or event as nomadwise.io draws it in the
   /// sidebar of a Plus page (the site footer snippet, 24 Oct): a small
   /// red type tag, the headline, the text and an outlined red button.
@@ -5402,7 +5404,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
         : _mentionCta.text.trim();
     final item = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Container(
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(
             color: const Color(0xFFFFF0F1),
             borderRadius: BorderRadius.circular(6)),
@@ -5412,28 +5414,31 @@ class _OwnerScreenState extends State<OwnerScreen> {
                 fontWeight: FontWeight.w600,
                 color: Color(0xFFE0353F))),
       ),
-      const SizedBox(height: 10),
+      const SizedBox(height: 8),
       Text(_mentionTitle.text.trim(),
           style: const TextStyle(
               fontSize: 17,
               fontWeight: FontWeight.w700,
-              height: 1.35,
+              height: 1.3,
               color: Color(0xFF2B2F36))),
       if (_mentionBody.text.trim().isNotEmpty)
         Padding(
           padding: const EdgeInsets.only(top: 6),
           child: Text(_mentionBody.text.trim(),
               style: const TextStyle(
-                  fontSize: 15, height: 1.55, color: Color(0xFF555555))),
+                  fontSize: 14, height: 1.5, color: Color(0xFF555555))),
         ),
       if (_mentionUrl.text.trim().isNotEmpty) ...[
         const SizedBox(height: 16),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
           decoration: BoxDecoration(
               border: Border.all(color: const Color(0xFFFF444F)),
               borderRadius: BorderRadius.circular(8)),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
+          child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
             Flexible(
               child: Text(cta,
                   style: const TextStyle(
@@ -5450,16 +5455,14 @@ class _OwnerScreenState extends State<OwnerScreen> {
     if (!card) return item;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(22, 22, 22, 20),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
           color: Colors.white,
           border: Border.all(color: const Color(0xFFE4E6EB)),
           borderRadius: BorderRadius.circular(16)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('Promotions and events',
-            style: TextStyle(
-                fontSize: 18, fontWeight: FontWeight.w700, color: _pageInk)),
-        const SizedBox(height: 14),
+        _promoLabel,
+        const SizedBox(height: 12),
         item,
       ]),
     );

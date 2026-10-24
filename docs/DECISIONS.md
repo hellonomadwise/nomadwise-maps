@@ -5183,3 +5183,9 @@ button with an arrow. It is drawn by the site footer snippet into the
 advert slot, on Plus pages only (the plus-marker), so a free page never
 shows one. The Owner account draws the same card, so the owner sees
 what nomads see. Replaces the earlier teal "From <space>" card.
+- Tidier for the narrow sidebar (Jonathan): a small grey "PROMOTIONS
+  AND EVENTS" label instead of a big heading, slightly smaller text,
+  and a full-width outlined button. On a phone (no sidebar) the card
+  sits after the booking buttons, above Overview. The Owner account
+  matches. On phones the Verified badge keeps to one line and "Managed
+  by its owner" is only as wide as its words.
