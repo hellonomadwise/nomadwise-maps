@@ -2158,7 +2158,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 14),
                 child: Text(
-                    'Enquiries go to\n${_enquiryEmail.text.trim().isNotEmpty ? _enquiryEmail.text.trim() : _signInEmail}',
+                    'Enquiries go to\n${_enquiryEmail.text.trim().isNotEmpty ? _enquiryEmail.text.trim() : _signInEmail.isNotEmpty ? _signInEmail : 'the email you sign in with'}',
                     style: const TextStyle(
                         fontSize: 11.5, color: Brand.inkMuted, height: 1.4)),
               ),
@@ -4493,7 +4493,6 @@ class _OwnerScreenState extends State<OwnerScreen> {
 
   static const _pageRed = Color(0xFFE8464E); // the site's button red
   static const _pageInk = Color(0xFF333333);
-  static const _pageTag = Color(0xFFE9E9E9);
 
   /// The listing page as nomadwise.io draws it (28 Sep screenshots of
   /// Nomio Coworking Lounge), in the order a phone shows it: the main
@@ -4818,19 +4817,38 @@ class _OwnerScreenState extends State<OwnerScreen> {
   /// three that are not, shown faintly. Tapping any of them opens the
   /// list of what a space can say about itself (Jonathan, 5 Oct 2026).
   Widget _tagsBlock(List<String> tags, {bool tappable = true}) {
-    Widget chip(String text, {bool faint = false}) => Container(
-          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-          decoration: BoxDecoration(
-              color: faint ? Colors.white : _pageTag,
-              borderRadius: BorderRadius.circular(6),
-              border: faint
-                  ? Border.all(color: const Color(0xFFCFCFCF))
-                  : null),
-          child: Text(text,
-              style: TextStyle(
-                  fontSize: 11.5,
-                  color: faint ? Brand.inkMuted : const Color(0xFF6B6B6B))),
-        );
+    // Drawn like the live page's tags (white, icon), a little smaller
+    // for this preview; a suggestion is dashed, like "Add a tag".
+    Widget chip(String text, {bool faint = false}) {
+      final row = Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(faint ? Icons.add : _tagIcon(text),
+            size: 13,
+            color: faint ? const Color(0xFF6B7280) : const Color(0xFFE0442E)),
+        const SizedBox(width: 5),
+        Text(text,
+            style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                height: 1.2,
+                color: faint
+                    ? const Color(0xFF6B7280)
+                    : const Color(0xFF2B2F36))),
+      ]);
+      const pad = EdgeInsets.fromLTRB(8, 5, 10, 5);
+      if (faint) {
+        return CustomPaint(
+            painter: _DashedBorder(),
+            child: Padding(padding: pad, child: row));
+      }
+      return Container(
+        padding: pad,
+        decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(color: const Color(0xFFE4E6EB)),
+            borderRadius: BorderRadius.circular(6)),
+        child: row,
+      );
+    }
     // "Laptop Friendly" is left out of the suggestions and of the list
     // that opens: every listing is a place to work by definition, and
     // it is not one of the tags an owner's change writes to the page.
@@ -4854,7 +4872,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
           Wrap(spacing: 6, runSpacing: 6, children: [
             for (final t in tags) chip(t),
             for (final t in missing.take(tags.isEmpty ? 3 : 2))
-              chip('+ $t', faint: true),
+              chip(t, faint: true),
           ]),
           if (missing.isNotEmpty) ...[
             const SizedBox(height: 6),

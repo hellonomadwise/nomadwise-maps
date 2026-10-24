@@ -5189,3 +5189,8 @@ what nomads see. Replaces the earlier teal "From <space>" card.
   sits after the booking buttons, above Overview. The Owner account
   matches. On phones the Verified badge keeps to one line and "Managed
   by its owner" is only as wide as its words.
+- The small page preview beside Your message and Plan & billing draws
+  the tags like the live page too (white, with icons; suggestions
+  dashed), not the old grey ones.
+- "Enquiries go to" under the menu says "the email you sign in with"
+  when no address is known, instead of being blank.
