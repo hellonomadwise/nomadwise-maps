@@ -45,6 +45,12 @@ class ResubmitChanges extends StatelessWidget {
     ('monitor', 'Monitors'),
     ('office_chairs', 'Office chairs'),
     ('cozy', 'Cozy'),
+    ('swimming_pool', 'Swimming pool'),
+    ('no_traffic_noise', 'No traffic noise'),
+    ('low_background_music', 'Low background music'),
+    ('instagramable', 'Instagramable'),
+    ('vegan_friendly', 'Vegan friendly'),
+    ('pass_required', 'Pass required'),
   ];
   static const _contact = [
     ('website', 'Website'),

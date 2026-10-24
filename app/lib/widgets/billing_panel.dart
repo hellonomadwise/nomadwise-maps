@@ -22,6 +22,10 @@ class BillingPanel extends StatefulWidget {
   final String? tierOverride;
   final VoidCallback onGoVerified;
 
+  /// Opens Inbox & support in the Owner account, for billing
+  /// questions (no email app is opened).
+  final VoidCallback? onMessage;
+
   /// The space's country, for what Verified would cost (migration 115).
   final String? country;
   const BillingPanel({
@@ -29,6 +33,7 @@ class BillingPanel extends StatefulWidget {
     required this.venueId,
     required this.venueName,
     required this.onGoVerified,
+    this.onMessage,
     this.preview = false,
     this.tierOverride,
     this.country,
@@ -605,25 +610,25 @@ class _BillingPanelState extends State<BillingPanel> {
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             _title('Card, invoices and receipts'),
             const Text(
-                'Your card, invoices and receipts will show here. We are '
-                'switching this on; until then, reply to your payment '
-                'receipt email or write to us and we sort anything out for '
-                'you.',
+                'Your card and invoices are not linked to this account yet, '
+                'so they cannot show here. Need an invoice, or to change '
+                'your card? Send us a message and we will sort it out.',
                 style: TextStyle(fontSize: 13.5, height: 1.5)),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-                onPressed: () => launchUrl(Uri.parse(
-                    'mailto:hello@nomadwise.io?subject='
-                    '${Uri.encodeComponent('Billing: ${widget.venueName}')}')),
-                icon: const Icon(Icons.mail_outline, size: 18),
-                label: const Text('Email hello@nomadwise.io')),
+            if (widget.onMessage != null) ...[
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                  onPressed: widget.onMessage,
+                  icon: const Icon(Icons.chat_bubble_outline, size: 18),
+                  label: const Text('Message us about billing')),
+            ],
           ]),
         ),
 
       const Padding(
         padding: EdgeInsets.fromLTRB(4, 2, 4, 0),
         child: Text(
-            'Questions about billing? hello@nomadwise.io, we are happy to help.',
+            'Questions about billing? Message us in Inbox & support, we are '
+            'happy to help.',
             style: TextStyle(fontSize: 12, color: Brand.inkMuted)),
       ),
     ]);

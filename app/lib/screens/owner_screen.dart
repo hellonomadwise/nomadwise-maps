@@ -16,6 +16,8 @@ import '../widgets/billing_panel.dart';
 import '../widgets/chat_thread.dart';
 import '../widgets/currencies.dart';
 import '../widgets/dial_codes.dart';
+import '../widgets/map_embed_stub.dart'
+    if (dart.library.html) '../widgets/map_embed_web.dart';
 import '../widgets/ideas_board.dart';
 import '../widgets/owner_question_card.dart';
 import '../widgets/phone_field.dart';
@@ -109,8 +111,12 @@ class _OwnerScreenState extends State<OwnerScreen> {
   // The prices' currency: the country's own unless the owner changes
   // it. Owners type the amount only; the page gets "€3.60" or "900 LKR".
   String _currency = 'EUR';
+  // The price list being edited (migration 218): one row per price.
+  final List<_PriceRow> _priceRows = [];
   // "Bookmark this page" tip, until the owner says Got it.
   bool _showTip = false;
+  // The small Build next note under the menu, until its X is pressed.
+  bool _ideasNoteClosed = false;
   final _website = TextEditingController();
   final _instagram = TextEditingController();
   final _whatsapp = TextEditingController(); // the number, no country code
@@ -135,6 +141,8 @@ class _OwnerScreenState extends State<OwnerScreen> {
   // leaves the page's photos (and our own top-ups) as they are.
   bool _photosFromPage = false;
   bool _photosTouched = false;
+  // The slot a dragged photo is over, to show where it will land.
+  int? _photoDropAt;
   // The hours Google shows today, when the owner has set none of their
   // own: the form opens with them, and they are only saved as the
   // owner's once a day is changed, so an untouched page keeps
@@ -181,6 +189,13 @@ class _OwnerScreenState extends State<OwnerScreen> {
     ('monitor', 'Monitors available'),
     ('office_chairs', 'Office chairs'),
     ('cozy', 'Cozy'),
+    // The page's other tags (migration 218, Jonathan 24 Oct).
+    ('swimming_pool', 'Swimming pool'),
+    ('no_traffic_noise', 'No traffic noise'),
+    ('low_background_music', 'Low background music'),
+    ('instagramable', 'Instagramable'),
+    ('vegan_friendly', 'Vegan friendly'),
+    ('pass_required', 'Pass required'),
   ];
 
   Map<String, dynamic>? get _venue =>
@@ -220,7 +235,10 @@ class _OwnerScreenState extends State<OwnerScreen> {
     _prefillEmail();
     SharedPreferences.getInstance().then((p) {
       if (mounted) {
-        setState(() => _showTip = !(p.getBool('owner_bookmark_tip') ?? false));
+        setState(() {
+          _showTip = !(p.getBool('owner_bookmark_tip') ?? false);
+          _ideasNoteClosed = p.getBool('owner_ideas_note_closed') ?? false;
+        });
       }
     }).catchError((_) {});
     for (final c in [
@@ -458,6 +476,9 @@ class _OwnerScreenState extends State<OwnerScreen> {
     for (final (h, b) in _sections) {
       h.dispose();
       b.dispose();
+    }
+    for (final r in _priceRows) {
+      r.dispose();
     }
     super.dispose();
   }
@@ -1140,6 +1161,94 @@ class _OwnerScreenState extends State<OwnerScreen> {
         _dirty = true;
       });
 
+  /// Asks before a photo is taken out (the bin under each photo).
+  Future<void> _confirmRemovePhoto(int i) async {
+    if (i < 0 || i >= _photos.length) return;
+    final p = _photos[i];
+    final yes = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => Dialog(
+        insetPadding: const EdgeInsets.all(16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 22, 24, 18),
+            child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Image.network(p,
+                        width: 120,
+                        height: 88,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) =>
+                            const SizedBox(width: 120, height: 88)),
+                  ),
+                  const SizedBox(height: 14),
+                  const Text('Remove this photo?',
+                      style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                          color: _edInk)),
+                  const SizedBox(height: 6),
+                  const Text(
+                      'It comes off your page once you save this change and '
+                      'Nomadwise approves it. To use it again later, you '
+                      'would need to add it again.',
+                      style: TextStyle(
+                          fontSize: 14, height: 1.5, color: _edMuted)),
+                  const SizedBox(height: 18),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: Wrap(
+                      alignment: WrapAlignment.end,
+                      spacing: 10,
+                      runSpacing: 8,
+                      children: [
+                        OutlinedButton(
+                          onPressed: () => Navigator.of(ctx).pop(false),
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size(0, 40),
+                            foregroundColor: _edInk,
+                            side: const BorderSide(color: _edBorder),
+                          ),
+                          child: const Text('Keep photo'),
+                        ),
+                        FilledButton(
+                          onPressed: () => Navigator.of(ctx).pop(true),
+                          style: FilledButton.styleFrom(
+                            minimumSize: const Size(0, 40),
+                            backgroundColor: _pageRed,
+                            foregroundColor: Colors.white,
+                          ),
+                          child: const Text('Remove photo'),
+                        ),
+                      ]),
+                  ),
+                ]),
+          ),
+        ),
+      ),
+    );
+    if (yes == true && mounted && i < _photos.length && _photos[i] == p) {
+      _removePhoto(i);
+    }
+  }
+
+  /// Moves a dragged photo from slot [from] to slot [to]; the others
+  /// shift along. Slot 0 is the large photo on the page.
+  void _movePhoto(int from, int to) => setState(() {
+        _photoDropAt = null;
+        if (from == to || from < 0 || from >= _photos.length) return;
+        final p = _photos.removeAt(from);
+        _photos.insert(to.clamp(0, _photos.length), p);
+        _photosTouched = true;
+        _dirty = true;
+      });
+
   /// Moves the photo in slot [i] to the front: the large one on the page.
   void _makeMainPhoto(int i) => setState(() {
         final p = _photos.removeAt(i);
@@ -1709,6 +1818,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
           preview: _isPreview,
           tierOverride: _isPreview ? (_verified ? 'verified' : 'free') : null,
           country: '${v['country'] ?? ''}',
+          onMessage: () => _goTab(_Tab.chat),
           onGoVerified: () => _saveThenOpen(
               'https://nomadmaps.io/?claim=${Uri.encodeComponent('${v['webflow_slug'] ?? v['name']}')}')),
       _Tab.ideas => IdeasBoard(
@@ -1766,18 +1876,85 @@ class _OwnerScreenState extends State<OwnerScreen> {
         const SizedBox(height: 14),
         if (wide)
           Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            SizedBox(width: 210, child: nav),
+            SizedBox(
+              width: 210,
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    nav,
+                    if (!_ideasNoteClosed && _tab != _Tab.ideas) ...[
+                      const SizedBox(height: 12),
+                      _ideasNote(),
+                    ],
+                  ]),
+            ),
             const SizedBox(width: 20),
             Expanded(child: body),
           ])
         else ...[
           nav,
+          if (!_ideasNoteClosed && _tab != _Tab.ideas) ...[
+            const SizedBox(height: 12),
+            _ideasNote(),
+          ],
           const SizedBox(height: 14),
           body,
         ],
       ]),
     );
   }
+
+  /// A quiet note from Nomadwise under the menu: what should we build
+  /// next? Opens the Build next board; the X puts it away for good on
+  /// this device.
+  Widget _ideasNote() => Container(
+        padding: const EdgeInsets.fromLTRB(12, 10, 4, 10),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF7F8FA),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFFE8EBEF)),
+        ),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Padding(
+            padding: EdgeInsets.only(top: 1),
+            child: Icon(Icons.lightbulb_outline, size: 16, color: _edMuted),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                      'What should we build next for spaces like yours?',
+                      style: TextStyle(
+                          fontSize: 12.5, height: 1.4, color: _edMuted)),
+                  const SizedBox(height: 4),
+                  InkWell(
+                    onTap: () => _goTab(_Tab.ideas),
+                    child: const Text('Share an idea',
+                        style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w700,
+                            color: _pageRed)),
+                  ),
+                ]),
+          ),
+          IconButton(
+            tooltip: 'Close',
+            visualDensity: VisualDensity.compact,
+            iconSize: 16,
+            style: IconButton.styleFrom(
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+            onPressed: () {
+              setState(() => _ideasNoteClosed = true);
+              SharedPreferences.getInstance()
+                  .then((p) => p.setBool('owner_ideas_note_closed', true))
+                  .catchError((_) => false);
+            },
+            icon: const Icon(Icons.close, color: _edMuted),
+          ),
+        ]),
+      );
 
   /// The space's name, its plan and "See my page". On a phone the link
   /// goes on its own line under the name, so nothing is cut off; long
@@ -1856,8 +2033,9 @@ class _OwnerScreenState extends State<OwnerScreen> {
       (_Tab.listing, Icons.edit_note_outlined, 'My listing'),
       (_Tab.message, Icons.campaign_outlined, 'Your message'),
       (_Tab.membership, Icons.workspace_premium_outlined, 'Plan & billing'),
-      (_Tab.ideas, Icons.lightbulb_outline, 'Build next'),
       (_Tab.chat, Icons.forum_outlined, 'Inbox & support'),
+      // Build next is a small note under the menu instead (Jonathan,
+      // 24 Oct): see _ideasNote.
     ];
     // The number beside Inbox & support: messages from Nomadwise not
     // opened yet. Nothing when there are none.
@@ -2132,6 +2310,213 @@ class _OwnerScreenState extends State<OwnerScreen> {
       hintText: hint,
       border: const OutlineInputBorder(),
       isDense: true);
+
+  static const _priceKinds = [
+    ('coworking', 'Coworking'),
+    ('meeting_room', 'Meeting rooms'),
+    ('private_office', 'Private offices'),
+    ('other', 'Other'),
+  ];
+
+  /// The prices on the page, with what the editor needs (migration
+  /// 218 adds the id, amount and the rest).
+  List<Map<String, dynamic>> get _pageProductRows => [
+        for (final p in (_venue?['page_products'] as List? ?? const []))
+          if (p is Map && '${p['name'] ?? ''}'.trim().isNotEmpty)
+            Map<String, dynamic>.from(p)
+      ];
+
+  /// Fills the price list from the page; with none there yet, from a
+  /// day, week or month pass the owner typed before (those boxes are
+  /// gone: the list replaces them).
+  void _loadPriceRows() {
+    for (final r in _priceRows) {
+      r.dispose();
+    }
+    _priceRows.clear();
+    final page = _pageProductRows;
+    for (final p in page) {
+      final amt = p['amount'];
+      final details = (p['details'] as List? ?? const []).map((x) => '$x');
+      _priceRows.add(_PriceRow(
+        id: (p['id'] ?? '').toString().isEmpty ? null : '${p['id']}',
+        category: '${p['category'] ?? 'coworking'}',
+        from: p['starting_from'] == true,
+        name: '${p['name']}',
+        amount: amt == null ? '' : Price.cleanAmount('$amt'),
+        note: details.join(' '),
+      ));
+      final cur = '${p['currency'] ?? ''}'.trim().toUpperCase();
+      if (cur.length == 3) _currency = cur;
+    }
+    if (page.isEmpty && _venue?['type'] != 'cafe') {
+      for (final (c, label) in [
+        (_priceDay, 'Day pass'),
+        (_priceWeek, 'Week pass'),
+        (_priceMonth, 'Month pass'),
+      ]) {
+        if (c.text.trim().isNotEmpty) {
+          _priceRows.add(_PriceRow(name: label, amount: c.text.trim()));
+        }
+      }
+    }
+    // The list replaces the three boxes, so they are not sent as well.
+    _priceDay.clear();
+    _priceWeek.clear();
+    _priceMonth.clear();
+    if (_priceRows.isEmpty && _venue?['type'] != 'cafe') {
+      _priceRows.add(_PriceRow(name: 'Day pass'));
+    }
+  }
+
+  /// Asks before a price that is on the page now is taken out.
+  Future<void> _removePriceRow(_PriceRow r) async {
+    if (r.id != null) {
+      final yes = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Remove this price?'),
+          content: Text(
+              '"${r.name.text.trim()}" comes off your page once you save '
+              'and Nomadwise approves the change.'),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: const Text('Keep it')),
+            FilledButton(
+                onPressed: () => Navigator.of(ctx).pop(true),
+                style: FilledButton.styleFrom(backgroundColor: _pageRed),
+                child: const Text('Remove price')),
+          ],
+        ),
+      );
+      if (yes != true || !mounted) return;
+    }
+    setState(() {
+      _priceRows.remove(r);
+      _dirty = true;
+    });
+    // Its boxes are still on screen in this frame.
+    WidgetsBinding.instance.addPostFrameCallback((_) => r.dispose());
+  }
+
+  /// One price in the editor: kind and name, the price with "from",
+  /// and an optional note.
+  Widget _priceRowEditor(_PriceRow r, double maxW) {
+    final narrow = maxW < 560;
+    final kind = SizedBox(
+      width: narrow ? double.infinity : 190,
+      child: DropdownButtonFormField<String>(
+        value: _priceKinds.any((k) => k.$1 == r.category) ? r.category : 'other',
+        isExpanded: true,
+        decoration: _dec('Kind'),
+        items: [
+          for (final (k, label) in _priceKinds)
+            DropdownMenuItem(value: k, child: Text(label)),
+        ],
+        onChanged: (x) => setState(() {
+          r.category = x ?? 'coworking';
+          _dirty = true;
+        }),
+      ),
+    );
+    final name = TextField(
+        controller: r.name,
+        maxLength: 80,
+        buildCounter: _nearLimit,
+        textCapitalization: TextCapitalization.sentences,
+        decoration: _dec('Name', hint: 'Day pass'));
+    final amount = SizedBox(
+      width: narrow ? (maxW - 10) * .55 : 200,
+      child: Focus(
+        onFocusChange: (on) {
+          if (!on) {
+            final clean = Price.cleanAmount(r.amount.text);
+            if (clean != r.amount.text) r.amount.text = clean;
+          }
+        },
+        child: TextField(
+          controller: r.amount,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'[0-9.,kK ]')),
+          ],
+          decoration: _dec('Price', hint: 'Amount').copyWith(
+              prefixText: Price.prefixFor(_currency),
+              suffixText: Price.suffixFor(_currency)),
+        ),
+      ),
+    );
+    final from = InkWell(
+      onTap: () => setState(() {
+        r.from = !r.from;
+        _dirty = true;
+      }),
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Checkbox(
+              value: r.from,
+              visualDensity: VisualDensity.compact,
+              onChanged: (x) => setState(() {
+                    r.from = x == true;
+                    _dirty = true;
+                  })),
+          const Text('Starting price ("from")',
+              style: TextStyle(fontSize: 13.5, color: _edInk)),
+        ]),
+      ),
+    );
+    final note = TextField(
+        controller: r.note,
+        maxLength: 120,
+        buildCounter: _nearLimit,
+        decoration: _dec('Note (optional)', hint: 'Per hour, up to 6 people'));
+    return Container(
+      key: ObjectKey(r),
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.fromLTRB(14, 14, 6, 6),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE3E6EA)),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Expanded(
+            child: narrow
+                ? Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    kind,
+                    const SizedBox(height: 10),
+                    name,
+                  ])
+                : Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    kind,
+                    const SizedBox(width: 10),
+                    Expanded(child: name),
+                  ]),
+          ),
+          IconButton(
+            tooltip: 'Remove this price',
+            onPressed: _saving ? null : () => _removePriceRow(r),
+            icon: const Icon(Icons.delete_outline, size: 20),
+          ),
+        ]),
+        const SizedBox(height: 4),
+        Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: Wrap(
+              spacing: 12,
+              runSpacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [amount, from]),
+        ),
+        const SizedBox(height: 10),
+        Padding(padding: const EdgeInsets.only(right: 8), child: note),
+      ]),
+    );
+  }
 
   /// One price box: the amount only, with the currency shown beside it.
   Widget _priceField(TextEditingController c, String label,
@@ -2476,8 +2861,8 @@ class _OwnerScreenState extends State<OwnerScreen> {
             'ig': _instagram.text,
             'wa': _whatsapp.text,
             'wac': _waCountry.value,
-            'enq': _enquiryEmail.text,
           },
+        'enquiries' => {'enq': _enquiryEmail.text},
         _ => const {},
       };
 
@@ -2508,6 +2893,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
         _instagram.text = '${s['ig']}';
         _whatsapp.text = '${s['wa']}';
         _waCountry.value = s['wac'] as String?;
+      case 'enquiries':
         _enquiryEmail.text = '${s['enq']}';
     }
   }
@@ -2515,8 +2901,12 @@ class _OwnerScreenState extends State<OwnerScreen> {
   /// Edit pressed: another open part is put back first (one at a time).
   void _startEdit(String part) {
     if (_editing != null && _editing != part) _cancelEdit();
+    // The snapshot first: Cancel puts back the old boxes the list
+    // empties.
+    final snap = _snapshot(part);
+    if (part == 'prices') _loadPriceRows();
     setState(() {
-      _snap = _snapshot(part);
+      _snap = snap;
       _editing = part;
       _savedNote = null;
     });
@@ -2557,6 +2947,51 @@ class _OwnerScreenState extends State<OwnerScreen> {
   Future<void> _saveEdit() async {
     final part = _editing;
     if (part == null) return;
+    final enq = _enquiryEmail.text.trim();
+    if (part == 'enquiries' &&
+        enq.isNotEmpty &&
+        !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(enq)) {
+      setState(() => _savedNote = 'Please check the email address.');
+      return;
+    }
+    if (part == 'prices' && !_isPreview && !_saving) {
+      // The price list goes to the founders' Price check, one change
+      // per price (migration 218); the rest of the listing as before.
+      final rows = [
+        for (final r in _priceRows)
+          if (!r.isBlank) r.toJson()
+      ];
+      final missing = _priceRows
+          .where((r) => !r.isBlank && r.name.text.trim().length < 2)
+          .length;
+      if (missing > 0) {
+        setState(() => _savedNote = 'Please give every price a name.');
+        return;
+      }
+      setState(() => _saving = true);
+      try {
+        final res = await _supabase.ownerProposeProducts(
+            '${_venue?['id']}', rows, _currency);
+        final problems = (res['problems'] as List? ?? const []);
+        if (problems.isNotEmpty) {
+          if (!mounted) return;
+          setState(() {
+            _saving = false;
+            _savedNote = 'Please check: ${problems.map((p) => '${(p as Map)['name']}: ${p['why']}').join('; ')}.';
+          });
+          return;
+        }
+      } catch (e) {
+        if (!mounted) return;
+        setState(() {
+          _saving = false;
+          _savedNote = 'Could not send your prices: $e';
+        });
+        return;
+      }
+      if (!mounted) return;
+      setState(() => _saving = false);
+    }
     await _save(submit: true);
     if (!mounted) return;
     final sent = (_savedNote ?? '').startsWith('Sent') ||
@@ -2574,6 +3009,71 @@ class _OwnerScreenState extends State<OwnerScreen> {
   static const _edInk = Color(0xFF142032);
   static const _edMuted = Color(0xFF5C6773);
   static const _edRed = Color(0xFFD92D38);
+
+  /// Where the page's enquiries are sent: the address, and Change.
+  Widget _enquiriesPart() {
+    final signIn = (_isPreview
+            ? (_venue?['listing_owner_email'] ?? _venue?['claim_email'] ?? '')
+            : (_supabase.userEmail ?? ''))
+        .toString();
+    final set = _enquiryEmail.text.trim();
+    if (_editing == 'enquiries') {
+      final bad = set.isNotEmpty &&
+          !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(set);
+      return _editFrame(
+        'Where enquiries go',
+        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text(
+              'Every enquiry a nomad sends from your page is emailed to '
+              'this address. Use the inbox your team checks most.',
+              style: TextStyle(fontSize: 13.5, height: 1.45, color: _edMuted)),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _enquiryEmail,
+            keyboardType: TextInputType.emailAddress,
+            autocorrect: false,
+            onChanged: (_) => setState(() {}),
+            decoration: _dec('Email for enquiries',
+                    hint: 'hello@yourspace.com')
+                .copyWith(
+                    errorText: bad ? 'This does not look like an email address' : null,
+                    helperText: signIn.isEmpty
+                        ? 'Leave it empty to use the email you sign in with.'
+                        : 'Leave it empty to use the email you sign in '
+                            'with ($signIn).',
+                    helperMaxLines: 3),
+          ),
+        ]),
+      );
+    }
+    final shown = set.isNotEmpty ? set : signIn;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE3E6EA)),
+      ),
+      child: Row(children: [
+        const Icon(Icons.mail_outline, size: 20, color: _edMuted),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('Enquiries from this page go to',
+                style: TextStyle(fontSize: 12.5, color: _edMuted)),
+            const SizedBox(height: 2),
+            Text(shown.isEmpty ? 'the email you sign in with' : shown,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                    fontSize: 14.5, fontWeight: FontWeight.w600, color: _edInk)),
+          ]),
+        ),
+        const SizedBox(width: 8),
+        _editButton('enquiries', label: 'Change'),
+      ]),
+    );
+  }
 
   /// The Edit button: 40px tall, its words never wrap.
   Widget _editButton(String part, {String label = 'Edit'}) => OutlinedButton.icon(
@@ -3160,8 +3660,9 @@ class _OwnerScreenState extends State<OwnerScreen> {
             Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(
                   'Up to five. The first is the large photo at the top of '
-                  'your page: press the star on another to make it the '
-                  'main one.',
+                  'your page. Drag a photo to change the order (on a '
+                  'phone, press and hold it first), or press the star to '
+                  'make it the main one.',
                   style: muted),
               const SizedBox(height: 12),
               // Two across on a phone, so five photos are not a long
@@ -3270,34 +3771,49 @@ class _OwnerScreenState extends State<OwnerScreen> {
             isCafe ? 'Prices' : 'Passes and prices',
             Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(
-                  '${isCafe ? 'A general guide, not your full menu.' : 'A general guide, not your full price list.'} '
+                  'Every price on your page. Add, change or remove any of '
+                  'them; each change goes live once Nomadwise approves it. '
                   'Type the amount only, like 3.60 or 1,500.',
                   style: muted),
               const SizedBox(height: 12),
               _currencyPicker(),
-              const SizedBox(height: 12),
-              LayoutBuilder(builder: (context, box) {
-                final w =
-                    box.maxWidth < 440 ? (box.maxWidth - 10) / 2 : 200.0;
-                return Wrap(spacing: 10, runSpacing: 10, children: [
-                  if (!isCafe) ...[
-                    _priceField(_priceDay, 'Day pass', width: w),
-                    _priceField(_priceWeek, 'Week pass', width: w),
-                    _priceField(_priceMonth, 'Month pass', width: w),
-                  ],
-                  _priceField(_priceCoffee, 'Cappuccino', width: w),
-                ]);
-              }),
-              if (_pageProducts.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                _pageProductsBox(),
+              const SizedBox(height: 14),
+              LayoutBuilder(builder: (context, box) => Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (final r in _priceRows)
+                      _priceRowEditor(r, box.maxWidth - 60),
+                  ])),
+              OutlinedButton.icon(
+                onPressed: _priceRows.length >= 40
+                    ? null
+                    : () => setState(() {
+                          _priceRows.add(_PriceRow(
+                              category: _priceRows.isEmpty
+                                  ? 'coworking'
+                                  : _priceRows.last.category));
+                          _dirty = true;
+                        }),
+                style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(0, 40),
+                    foregroundColor: _edInk,
+                    side: const BorderSide(color: _edBorder)),
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Add a price'),
+              ),
+              if (isCafe) ...[
+                const SizedBox(height: 16),
+                _priceField(_priceCoffee, 'Cappuccino', width: 220),
               ],
             ]))
         : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             _partHead('Prices', 'prices'),
             const SizedBox(height: 10),
+            if (((_venue?['price_changes_waiting'] as num?) ?? 0) > 0 &&
+                !_sent('prices'))
+              _waitingChip(),
             if (prices.isEmpty)
-              const Text('No prices yet. Press Edit to add a typical one.',
+              const Text('No prices yet. Press Edit to add one.',
                   style: muted)
             else
               for (final (name, price) in prices)
@@ -3537,18 +4053,6 @@ class _OwnerScreenState extends State<OwnerScreen> {
                     ),
                   ),
                 ),
-              if (_verified || _allow?['on'] == true)
-                SizedBox(
-                    width: 260,
-                    child: TextField(
-                        controller: _enquiryEmail,
-                        decoration: _dec('Enquiries go to',
-                                hint: 'hello@yourspace.com')
-                            .copyWith(
-                                helperText: 'Where nomads\' enquiries are '
-                                    'sent. If none is set, they go to the '
-                                    'email you sign in with.',
-                                helperMaxLines: 2))),
             ]))
         : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             // A Wrap: on a narrow phone with large text the Edit
@@ -3583,6 +4087,13 @@ class _OwnerScreenState extends State<OwnerScreen> {
       // free enquiries are left under it (CR-31).
       const SizedBox(height: 16),
       _pageButton('Send an enquiry', wide: true),
+      // Where those enquiries arrive, right under the button, with its
+      // own Change (Jonathan, 24 Oct: it was hidden in the links form).
+      if (_verified || _allow?['on'] == true) ...[
+        const SizedBox(height: 12),
+        _keyed('enquiries', _enquiriesPart()),
+        if (_sent('enquiries')) _waitingChip(),
+      ],
       if (_allowanceLine() != null) ...[
         const SizedBox(height: 12),
         _allowanceLine()!,
@@ -3646,6 +4157,12 @@ class _OwnerScreenState extends State<OwnerScreen> {
     'office_chairs': 'Office Chairs',
     'access_24h': '24 Hour Access',
     'laptops_allowed': 'Laptop Friendly',
+    'swimming_pool': 'Swimming Pool',
+    'no_traffic_noise': 'No Traffic Noise',
+    'low_background_music': 'Low Background Music',
+    'instagramable': 'Instagramable',
+    'vegan_friendly': 'Vegan Friendly',
+    'pass_required': 'Pass Required',
   };
 
   static const _pageRed = Color(0xFFE8464E); // the site's button red
@@ -3801,7 +4318,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
           ),
       ],
       const SizedBox(height: 14),
-      _mapBlock(v, area),
+      _drawnMap(v, area),
     ]));
 
     return _panel(
@@ -3963,6 +4480,12 @@ class _OwnerScreenState extends State<OwnerScreen> {
     'monitor': 'There are screens people can plug a laptop into.',
     'office_chairs': 'Proper desk chairs, not only cafe chairs.',
     'cozy': 'A warm, relaxed feel.',
+    'swimming_pool': 'Guests can use a pool.',
+    'no_traffic_noise': 'No road noise in the work area.',
+    'low_background_music': 'Music, if any, is kept quiet.',
+    'instagramable': 'A space people like to take photos of.',
+    'vegan_friendly': 'Vegan food or drinks are on the menu.',
+    'pass_required': 'Visitors need a day pass or membership to work here.',
   };
 
   /// The page's tags, with room for more: the ones ticked, then two or
@@ -4086,44 +4609,6 @@ class _OwnerScreenState extends State<OwnerScreen> {
   /// The passes and prices already on the page, to look at. Changing
   /// them from the Owner account is not built yet (they are checked
   /// against the space's own website: docs/PRICE_CHECK.md).
-  Widget _pageProductsBox() => Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-            color: Brand.field, borderRadius: BorderRadius.circular(10)),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('On your page now',
-              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-          const SizedBox(height: 6),
-          for (final (name, price, _) in _pageProducts)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 3),
-              child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                        child:
-                            Text(name, style: const TextStyle(fontSize: 13))),
-                    const SizedBox(width: 12),
-                    Flexible(
-                      child: Text(price,
-                          textAlign: TextAlign.right,
-                          style: const TextStyle(
-                              fontSize: 13, fontWeight: FontWeight.w600)),
-                    ),
-                  ]),
-            ),
-          const SizedBox(height: 6),
-          const Text(
-              'These are the passes and prices your page shows today. If '
-              'one is wrong, write to hello@nomadwise.io and we will '
-              'correct it. Use the boxes above only for a pass that is not '
-              'in this list.',
-              style:
-                  TextStyle(color: Brand.inkMuted, fontSize: 12, height: 1.4)),
-        ]),
-      );
-
   Widget _pageCard(Widget child) => Container(
         width: double.infinity,
         padding: const EdgeInsets.all(14),
@@ -4155,10 +4640,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
   Widget _photoSlot(int i, {double w = _slotW}) {
     final p = _photos[i];
     final h = w * _slotH / _slotW;
-    return SizedBox(
-      width: w,
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Stack(children: [
+    final pic = Stack(children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
             child: Image.network(p,
@@ -4187,7 +4669,67 @@ class _OwnerScreenState extends State<OwnerScreen> {
                         fontWeight: FontWeight.w700)),
               ),
             ),
-        ]),
+        ]);
+    // Drag a photo onto another to put it there. On a phone or tablet
+    // it is press and hold first, so the page still scrolls under a
+    // finger.
+    final platform = Theme.of(context).platform;
+    final touch = platform == TargetPlatform.android ||
+        platform == TargetPlatform.iOS;
+    final feedback = Material(
+      color: Colors.transparent,
+      elevation: 8,
+      borderRadius: BorderRadius.circular(10),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: Image.network(p,
+            width: w * .9,
+            height: h * .9,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => SizedBox(width: w * .9, height: h * .9)),
+      ),
+    );
+    final faded = Opacity(opacity: .35, child: pic);
+    final Widget handle = _saving
+        ? pic
+        : touch
+            ? LongPressDraggable<int>(
+                data: i,
+                feedback: feedback,
+                childWhenDragging: faded,
+                onDragEnd: (_) => setState(() => _photoDropAt = null),
+                child: pic)
+            : Draggable<int>(
+                data: i,
+                feedback: feedback,
+                childWhenDragging: faded,
+                onDragEnd: (_) => setState(() => _photoDropAt = null),
+                child: MouseRegion(cursor: SystemMouseCursors.grab, child: pic));
+    final target = DragTarget<int>(
+      onWillAcceptWithDetails: (d) {
+        if (d.data == i) return false;
+        if (_photoDropAt != i) setState(() => _photoDropAt = i);
+        return true;
+      },
+      onLeave: (_) {
+        if (_photoDropAt == i) setState(() => _photoDropAt = null);
+      },
+      onAcceptWithDetails: (d) => _movePhoto(d.data, i),
+      // Drawn over the photo, so the slot keeps its size.
+      builder: (context, _, __) => Container(
+        foregroundDecoration: _photoDropAt == i
+            ? BoxDecoration(
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: _pageRed, width: 3),
+              )
+            : null,
+        child: handle,
+      ),
+    );
+    return SizedBox(
+      width: w,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        target,
         const SizedBox(height: 4),
         Row(children: [
           TextButton.icon(
@@ -4224,7 +4766,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
             iconSize: 18,
             onPressed: _saving || _photos.length == 1
                 ? null
-                : () => _removePhoto(i),
+                : () => _confirmRemovePhoto(i),
             icon: const Icon(Icons.delete_outline),
           ),
         ]),
@@ -4417,10 +4959,25 @@ class _OwnerScreenState extends State<OwnerScreen> {
     return '@${h.replaceFirst(RegExp(r'^@+'), '')}';
   }
 
+  /// The Google map, as the live page shows it: Google's free map
+  /// embed (no key, no charge), searched by the space's name and
+  /// area so it opens on the place with its card. Away from the web,
+  /// the drawn stand-in below.
+  Widget _mapBlock(Map<String, dynamic> v, String area) {
+    final q = [
+      '${v['name'] ?? ''}'.trim(),
+      area,
+      '${v['country'] ?? ''}'.trim(),
+    ].where((x) => x.isNotEmpty).join(', ');
+    if (q.isEmpty) return _drawnMap(v, area);
+    final url = 'https://maps.google.com/maps?q=${Uri.encodeComponent(q)}'
+        '&z=15&hl=en&output=embed';
+    return MapEmbedView(url: url, height: 300, fallback: _drawnMap(v, area));
+  }
+
   /// Where the Google map sits on the page, drawn like it: the place
-  /// card top left, the red pin in the middle. Drawn, not loaded (a
-  /// real map would cost a Google call on every redraw).
-  Widget _mapBlock(Map<String, dynamic> v, String area) => Container(
+  /// card top left, the red pin in the middle.
+  Widget _drawnMap(Map<String, dynamic> v, String area) => Container(
         height: 150,
         decoration: BoxDecoration(
           color: const Color(0xFFE3F1E6),
@@ -4659,52 +5216,72 @@ class _OwnerScreenState extends State<OwnerScreen> {
             style: TextStyle(
                 color: Brand.inkSecondary, fontSize: 12.5, height: 1.45)),
         const SizedBox(height: 18),
-        Wrap(spacing: 10, runSpacing: 10, children: [
-          SizedBox(
-            width: 220,
-            child: DropdownButtonFormField<String>(
-              value: _mentionKind,
-              decoration: _dec('Kind'),
-              items: const [
-                DropdownMenuItem(value: 'Event', child: Text('Event')),
-                DropdownMenuItem(value: 'Offer', child: Text('Offer')),
-                DropdownMenuItem(
-                    value: 'Announcement', child: Text('Announcement')),
-              ],
-              onChanged: (x) => setState(() {
-                _mentionKind = x ?? 'Event';
-                _dirty = true;
-              }),
-            ),
+        SizedBox(
+          width: 260,
+          child: DropdownButtonFormField<String>(
+            value: _mentionKind,
+            decoration: _dec('Kind'),
+            items: const [
+              DropdownMenuItem(value: 'Event', child: Text('Event')),
+              DropdownMenuItem(value: 'Offer', child: Text('Offer')),
+              DropdownMenuItem(
+                  value: 'Announcement', child: Text('Announcement')),
+            ],
+            onChanged: (x) => setState(() {
+              _mentionKind = x ?? 'Event';
+              _dirty = true;
+            }),
           ),
-          SizedBox(
-              width: 220,
-              child: TextField(
-                  controller: _mentionCta,
-                  maxLength: 40,
-                  decoration: _dec('Button label',
-                      hint: 'See our next event'))),
-        ]),
-        const SizedBox(height: 10),
+        ),
+        const SizedBox(height: 14),
         TextField(
             controller: _mentionTitle,
             maxLength: 90,
+            buildCounter: _nearLimit,
             decoration: _dec('Headline',
-                hint: 'Join our Friday community lunch')),
-        const SizedBox(height: 10),
+                    hint: 'Join our Friday community lunch')
+                .copyWith(
+                    helperText: 'Short and specific, like the name of the '
+                        'event or the offer.')),
+        const SizedBox(height: 14),
         TextField(
             controller: _mentionBody,
-            minLines: 2,
-            maxLines: 5,
+            minLines: 3,
+            maxLines: 6,
             maxLength: 300,
+            buildCounter: _nearLimit,
             decoration: _dec('Message',
-                hint: 'Meet other remote workers over a relaxed lunch at '
-                    'our space. Everyone is welcome.')),
-        const SizedBox(height: 10),
-        TextField(
-            controller: _mentionUrl,
-            decoration:
-                _dec('Link', hint: 'https://yourspace.com/events')),
+                    hint: 'Meet other remote workers over a relaxed lunch at '
+                        'our space. Everyone is welcome.')
+                .copyWith(
+                    helperText: 'A sentence or two: what, when, and who it '
+                        'is for.')),
+        const SizedBox(height: 14),
+        // The button and where it goes, side by side when there is
+        // room; their helper lines keep the two the same height.
+        LayoutBuilder(builder: (context, box) {
+          final cta = TextField(
+              controller: _mentionCta,
+              maxLength: 40,
+              buildCounter: _nearLimit,
+              decoration: _dec('Button label', hint: 'Book a spot')
+                  .copyWith(helperText: 'What the button says.'));
+          final link = TextField(
+              controller: _mentionUrl,
+              keyboardType: TextInputType.url,
+              autocorrect: false,
+              decoration:
+                  _dec('Button link', hint: 'https://yourspace.com/events')
+                      .copyWith(helperText: 'Where the button takes people.'));
+          if (box.maxWidth < 520) {
+            return Column(children: [cta, const SizedBox(height: 14), link]);
+          }
+          return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            SizedBox(width: 220, child: cta),
+            const SizedBox(width: 12),
+            Expanded(child: link),
+          ]);
+        }),
         const SizedBox(height: 16),
         if (_savedNote != null)
           Padding(
@@ -4728,6 +5305,21 @@ class _OwnerScreenState extends State<OwnerScreen> {
     );
     return editor;
   }
+
+  /// A field's character count, shown only once it is close to the
+  /// limit (an always-on "0/40" pushed the fields out of line).
+  Widget? _nearLimit(BuildContext context,
+          {required int currentLength,
+          required bool isFocused,
+          required int? maxLength}) =>
+      maxLength == null || currentLength < (maxLength * .8).floor()
+          ? null
+          : Text('${maxLength - currentLength} characters left',
+              style: TextStyle(
+                  fontSize: 12,
+                  color: currentLength >= maxLength
+                      ? const Color(0xFFB42318)
+                      : Brand.inkMuted));
 
   Widget _messagePreview() => _panel(
         tint: Brand.bg,
@@ -4764,3 +5356,61 @@ class _OwnerScreenState extends State<OwnerScreen> {
 }
 
 enum _Step { done, now, todo }
+
+
+/// One price in the Owner account's price list (migration 218).
+class _PriceRow {
+  final String? id; // the price on the page; null for a new one
+  String category;
+  bool from;
+  final TextEditingController name;
+  final TextEditingController amount;
+  final TextEditingController note;
+  _PriceRow({
+    this.id,
+    this.category = 'coworking',
+    this.from = false,
+    String name = '',
+    String amount = '',
+    String note = '',
+  })  : name = TextEditingController(text: name),
+        amount = TextEditingController(text: amount),
+        note = TextEditingController(text: note);
+
+  bool get isBlank =>
+      id == null &&
+      name.text.trim().isEmpty &&
+      amount.text.trim().isEmpty &&
+      note.text.trim().isEmpty;
+
+  /// The amount as a plain number for the database: "1,500" is 1500,
+  /// "40k" is 40000; empty is "price on request".
+  String get _plainAmount {
+    // Tidied the way the box tidies it when left, in case Save is
+    // pressed while still typing ("3,6" is 3.60, "1.000" is 1,000).
+    var t = Price.cleanAmount(amount.text).replaceAll(',', '');
+    final k = RegExp(r'^(\d+(?:\.\d+)?)[kK]$').firstMatch(t);
+    if (k != null) {
+      final n = double.parse(k.group(1)!) * 1000;
+      t = n == n.roundToDouble() ? '${n.round()}' : n.toStringAsFixed(2);
+    }
+    return t;
+  }
+
+  Map<String, dynamic> toJson() => {
+        if (id != null) 'id': id,
+        'name': name.text.trim(),
+        'category': category,
+        'amount': _plainAmount,
+        'starting_from': from,
+        'details': [
+          if (note.text.trim().isNotEmpty) note.text.trim(),
+        ],
+      };
+
+  void dispose() {
+    name.dispose();
+    amount.dispose();
+    note.dispose();
+  }
+}

@@ -1341,6 +1341,14 @@ class _PriceSpacePageState extends State<_PriceSpacePage> {
     final note = '${c['note'] ?? ''}'.trim();
     final url = '${c['source_url'] ?? ''}'.trim();
     final on = _when(c['checked_on']);
+    if ('${c['source']}' == 'owner') {
+      // Sent from the space's Owner account (migration 218).
+      return Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: Text(note.isEmpty ? 'From the space\'s Owner account.' : '$note.',
+            style: const TextStyle(fontSize: 12.5, color: Brand.inkSecondary)),
+      );
+    }
     if ('${c['source']}' != 'check') {
       return const Padding(
         padding: EdgeInsets.only(top: 8),
@@ -1567,7 +1575,9 @@ class _PriceSpacePageState extends State<_PriceSpacePage> {
                             ? 'Going back to'
                             : '${open['source']}' == 'check'
                                 ? 'On their website'
-                                : 'Your change',
+                                : '${open['source']}' == 'owner'
+                                    ? 'The owner\'s change'
+                                    : 'Your change',
                         target,
                         proposed: true,
                         foot: diffs.join('\n')),
@@ -1656,7 +1666,9 @@ class _PriceSpacePageState extends State<_PriceSpacePage> {
         _productBox(
             '${c['source']}' == 'check'
                 ? 'On their website, not on our page'
-                : 'Your new product',
+                : '${c['source']}' == 'owner'
+                    ? 'Added by the owner'
+                    : 'Your new product',
             target,
             proposed: true),
         _basedOn(c),

@@ -5108,3 +5108,32 @@ checked on the CR-30 card. "Verified" stays only as the badge name,
 "Verified by Nomadwise". Only wording changed; who gets which email,
 and when, is the same. Outreach templates reworded by hand that still
 say Verified are listed in the build log for changing in Outreach.
+
+## 24 Oct 2026: Owner account photos: drag to reorder, ask before removing
+
+Jonathan asked for photos to be draggable in the photos form. On a
+laptop a photo is dragged straight away; on a phone or tablet it is
+press and hold first, so the page still scrolls under a finger. The
+slot it will land on gets a red outline. The star (make main) stays.
+The bin now asks "Remove this photo?" with Keep photo and Remove photo.
+
+## 24 Oct 2026: Owner account, Jonathan's review of the new My listing
+
+- The map is the real Google map (Google's free embed, by the space's
+  name and area), as on the live page. Away from the web it stays drawn.
+- "Where enquiries go" has its own small card under Send an enquiry,
+  with Change, instead of a field at the end of the links form.
+- Tags: the six page tags owners could not set (Swimming Pool, No
+  Traffic Noise, Low Background Music, Instagramable, Vegan Friendly,
+  Pass Required) are columns now (migration 218); the website push
+  reads them from the pages and writes an owner's approved change.
+- Prices: a list with any number of prices (kind, name, price, "from",
+  a note). Saving sends each change to Price check (product_changes,
+  source owner); it goes on the page when a founder presses Go. The
+  old day, week and month boxes are gone (their values start the list
+  when a page has no prices yet).
+- Your message: counters show only near the limit; the button label
+  and its link sit together with a line each saying what they do.
+- Build next is a small note from Nomadwise under the menu, with an X.
+- Plan & billing: no email link that opens a mail app; "Message us
+  about billing" opens Inbox & support.

@@ -4363,7 +4363,13 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       ('call_room', 'Call room'),
       ('monitor', 'Monitors'),
       ('office_chairs', 'Office chairs'),
-      ('cozy', 'Cozy')
+      ('cozy', 'Cozy'),
+      ('swimming_pool', 'Swimming pool'),
+      ('no_traffic_noise', 'No traffic noise'),
+      ('low_background_music', 'Low background music'),
+      ('instagramable', 'Instagramable'),
+      ('vegan_friendly', 'Vegan friendly'),
+      ('pass_required', 'Pass required')
     ]) {
       String yn(dynamic x) => x == null ? '' : (x == true ? 'Yes' : 'No');
       row(label, yn(of[k]), yn(nf[k]));

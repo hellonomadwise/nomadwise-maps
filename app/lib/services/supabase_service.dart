@@ -249,6 +249,19 @@ class SupabaseService {
     return Map<String, dynamic>.from(res as Map);
   }
 
+  /// Owner: the price list as the owner left it (migration 218). Each
+  /// change waits for a founder's Go in Price check. Returns counts
+  /// and any prices that could not be sent, with why.
+  Future<Map<String, dynamic>> ownerProposeProducts(
+      String venueId, List<Map<String, dynamic>> rows, String currency) async {
+    final res = await _db.rpc('owner_propose_products', params: {
+      'p_venue': venueId,
+      'p_rows': rows,
+      'p_currency': currency,
+    });
+    return Map<String, dynamic>.from(res as Map);
+  }
+
   /// Uploads one owner photo; returns its public link.
   Future<String> ownerUploadPhoto(Uint8List bytes, String ext) async {
     final uid = currentUser!.id;
