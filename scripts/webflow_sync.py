@@ -265,7 +265,22 @@ EDITORIAL_KEYS = [
     'power_outlets', 'aircon', 'comfortable_seating', 'cozy', 'quiet_space',
     'good_for_calls', 'call_room', 'monitor', 'office_chairs', 'access_24h',
     'wifi_speed_mbps',
+    # The page's other six tags (migration 218).
+    'swimming_pool', 'no_traffic_noise', 'low_background_music',
+    'instagramable', 'vegan_friendly', 'pass_required',
 ]
+
+# The six tags migration 218 added: (venues column, Webflow field,
+# the word the page shows). Read from the pages like the others, and
+# written back when an owner's change is approved.
+MORE_TAGS = (
+    ('swimming_pool', 'swimming-pool', 'Swimming Pool'),
+    ('no_traffic_noise', 'no-traffic-noise', 'No Traffic Noise'),
+    ('low_background_music', 'low-background-music', 'Low Background Music'),
+    ('instagramable', 'instagramable', 'Instagramable'),
+    ('vegan_friendly', 'vegan-friendly', 'Vegan Friendly'),
+    ('pass_required', 'membership-plans-available', 'Pass Required'),
+)
 
 
 def editorial_fields(f, existing_type=None):
@@ -293,6 +308,8 @@ def editorial_fields(f, existing_type=None):
         'office_chairs': yes(f.get('office-chairs')),
         'access_24h': yes(f.get('24hr-member-access')),
     }
+    for col, field, _ in MORE_TAGS:
+        out[col] = yes(f.get(field))
     return {k: v for k, v in out.items() if v is not None}
 
 
@@ -1716,7 +1733,8 @@ def owner_fields(v, item=None):
             ('call_room', 'isolated-quiet-room', 'Skype Room'),
             ('monitor', 'monitor-available', 'Monitor Available'),
             ('office_chairs', 'office-chairs', 'Office Chairs'),
-            ('access_24h', '24hr-member-access', '24 Hour Access')):
+            ('access_24h', '24hr-member-access', '24 Hour Access'),
+            *MORE_TAGS):
         if v.get(col) is not None:
             out[slug_] = word(v.get(col), label)
     m = oc.get('mention') or {}
