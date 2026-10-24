@@ -2661,9 +2661,9 @@ class _OwnerScreenState extends State<OwnerScreen> {
             crossAxisAlignment: WrapCrossAlignment.center,
             alignment: WrapAlignment.spaceBetween,
             children: [
-              const ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: 360),
-                child: Text(
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 360),
+                child: const Text(
                     'Saving sends this to Nomadwise. It goes live once '
                     'approved; until then your page stays as it is.',
                     style: TextStyle(
