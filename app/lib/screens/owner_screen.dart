@@ -43,7 +43,7 @@ class OwnerScreen extends StatefulWidget {
 
 const double _wideAt = 960;
 
-enum _Tab { listing, message, membership, ideas, chat }
+enum _Tab { listing, message, membership, badges, ideas, chat }
 
 class _OwnerScreenState extends State<OwnerScreen> {
   final _supabase = SupabaseService();
@@ -1837,6 +1837,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
           key: ValueKey('ideas-${v['id']}'),
           venueId: '${v['id']}',
           preview: _isPreview),
+      _Tab.badges => _badgesTab(),
       _Tab.chat => _chatTab(wide),
     };
     // (My listing is the page itself: no preview beside it.)
@@ -2045,6 +2046,9 @@ class _OwnerScreenState extends State<OwnerScreen> {
       (_Tab.listing, Icons.edit_note_outlined, 'My listing'),
       (_Tab.message, Icons.campaign_outlined, 'Your message'),
       (_Tab.membership, Icons.workspace_premium_outlined, 'Plan & billing'),
+      // CR-26: the badges for their own website. A placeholder until
+      // the designs are agreed with Leonie (Jonathan, 24 Oct).
+      (_Tab.badges, Icons.language, 'Website badges'),
       (_Tab.chat, Icons.forum_outlined, 'Inbox & support'),
       // Build next is a small note under the menu instead (Jonathan,
       // 24 Oct): see _ideasNote.
@@ -5565,6 +5569,38 @@ class _OwnerScreenState extends State<OwnerScreen> {
       ]),
     );
   }
+
+  /// Website badges (CR-26): not built yet. Says so plainly, and what
+  /// it will be, so an owner who opens it knows it is on its way.
+  Widget _badgesTab() => _panel(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            const Flexible(
+              child: Text('Website badges',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+            ),
+            const SizedBox(width: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                  color: Brand.accentTint,
+                  borderRadius: BorderRadius.circular(6)),
+              child: const Text('Coming very soon',
+                  style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: Brand.red)),
+            ),
+          ]),
+          const SizedBox(height: 8),
+          const Text(
+              'A badge for your own website that shows visitors your space '
+              'is on Nomadwise. You will be able to copy it onto your site, '
+              'or download it for Instagram and Facebook.',
+              style: TextStyle(
+                  fontSize: 13.5, height: 1.5, color: Brand.inkSecondary)),
+        ]),
+      );
 
   Widget _messageTab(bool wide) {
     if (!_verified) {

@@ -5205,3 +5205,13 @@ address, claim page message, site chat, "choose Free or Plus"). The
 full name stays in the Plus approved subject, the free claim approved
 paragraph, the claim reminder, the free-enquiry line, the "See
 Nomadwise Plus" button and first mentions in Outreach and the chat.
+
+## 24 Oct 2026: Website badges in the Owner account menu (CR-26, placeholder)
+
+Jonathan: badges for an owner's own website get their own place in the
+Owner account, "Website badges", right below Plan & billing. Until the
+designs are agreed with Leonie, it opens a short card marked "Coming
+very soon" that says what it will be (a badge to copy onto their site,
+or to download for Instagram and Facebook). To owners the badge is
+about credibility; that it links back to nomadwise.io is internal and
+never said to spaces.
