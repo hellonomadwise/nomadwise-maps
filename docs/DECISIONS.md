@@ -5173,3 +5173,13 @@ columns stay, and the website push keeps them as the pages have them).
   with the cursor in the price; "Something else" is filed by its name.
   Each price is one line (name, price, From), with a menu to add a
   note, move it to another group or remove it.
+
+## 24 Oct 2026: Promotions and events on the live page (CR-22 step 3)
+
+A Plus page's own event or offer (Owner account, Your message) shows in
+the sidebar of its nomadwise.io page as a white "Promotions and events"
+card: a small red type tag, the headline, the text and an outlined red
+button with an arrow. It is drawn by the site footer snippet into the
+advert slot, on Plus pages only (the plus-marker), so a free page never
+shows one. The Owner account draws the same card, so the owner sees
+what nomads see. Replaces the earlier teal "From <space>" card.

@@ -3810,7 +3810,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
             const Expanded(
               child: Text('Promotions and events',
                   style: TextStyle(
-                      fontSize: 16,
+                      fontSize: 18,
                       fontWeight: FontWeight.w700,
                       color: _pageInk)),
             ),
@@ -3818,7 +3818,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
           ]),
           const SizedBox(height: 10),
           if (has)
-            _mentionCard()
+            _mentionCard(card: false)
           else
             const Text(
                 'Show your next event, an offer or news here. It shows on '
@@ -5391,48 +5391,79 @@ class _OwnerScreenState extends State<OwnerScreen> {
     );
   }
 
-  Widget _mentionCard() => Container(
-        padding: const EdgeInsets.all(14),
+  /// The owner's promotion or event as nomadwise.io draws it in the
+  /// sidebar of a Plus page (the site footer snippet, 24 Oct): a small
+  /// red type tag, the headline, the text and an outlined red button.
+  /// [card] adds the white card and its "Promotions and events" title,
+  /// as the page shows it.
+  Widget _mentionCard({bool card = true}) {
+    final cta = _mentionCta.text.trim().isEmpty
+        ? 'Find out more'
+        : _mentionCta.text.trim();
+    final item = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
         decoration: BoxDecoration(
-            color: Brand.logoTealTint,
-            border: Border.all(color: Brand.logoTeal.withValues(alpha: .5)),
-            borderRadius: BorderRadius.circular(12)),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('FROM ${(_venue?['name'] ?? '').toString().toUpperCase()}',
+            color: const Color(0xFFFFF0F1),
+            borderRadius: BorderRadius.circular(6)),
+        child: Text(_mentionKind,
+            style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFFE0353F))),
+      ),
+      const SizedBox(height: 10),
+      Text(_mentionTitle.text.trim(),
+          style: const TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w700,
+              height: 1.35,
+              color: Color(0xFF2B2F36))),
+      if (_mentionBody.text.trim().isNotEmpty)
+        Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Text(_mentionBody.text.trim(),
               style: const TextStyle(
-                  fontSize: 10.5,
-                  letterSpacing: 1,
-                  fontWeight: FontWeight.w800,
-                  color: Brand.logoNavy)),
-          const SizedBox(height: 4),
-          Text(_mentionKind,
-              style: const TextStyle(fontSize: 11.5, color: Brand.inkSecondary)),
-          const SizedBox(height: 4),
-          Text(_mentionTitle.text.trim(),
-              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-          if (_mentionBody.text.trim().isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Text(_mentionBody.text.trim(),
-                  style: const TextStyle(fontSize: 13, height: 1.45)),
+                  fontSize: 15, height: 1.55, color: Color(0xFF555555))),
+        ),
+      if (_mentionUrl.text.trim().isNotEmpty) ...[
+        const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(
+              border: Border.all(color: const Color(0xFFFF444F)),
+              borderRadius: BorderRadius.circular(8)),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Flexible(
+              child: Text(cta,
+                  style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFFFF444F))),
             ),
-          const SizedBox(height: 10),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-            decoration: BoxDecoration(
-                color: Brand.logoNavy,
-                borderRadius: BorderRadius.circular(4)),
-            child: Text(
-                _mentionCta.text.trim().isEmpty
-                    ? 'Find out more'
-                    : _mentionCta.text.trim(),
-                style: const TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white)),
-          ),
-        ]),
-      );
+            const SizedBox(width: 8),
+            const Icon(Icons.arrow_forward, size: 16, color: Color(0xFFFF444F)),
+          ]),
+        ),
+      ],
+    ]);
+    if (!card) return item;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(22, 22, 22, 20),
+      decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: const Color(0xFFE4E6EB)),
+          borderRadius: BorderRadius.circular(16)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('Promotions and events',
+            style: TextStyle(
+                fontSize: 18, fontWeight: FontWeight.w700, color: _pageInk)),
+        const SizedBox(height: 14),
+        item,
+      ]),
+    );
+  }
 
   // --------------------------------------------------------------- message
 
