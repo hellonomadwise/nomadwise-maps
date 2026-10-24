@@ -5194,3 +5194,14 @@ what nomads see. Replaces the earlier teal "From <space>" card.
   dashed), not the old grey ones.
 - "Enquiries go to" under the menu says "the email you sign in with"
   when no address is known, instead of being blank.
+
+## 24 Oct 2026: Free and Plus (migration 219)
+
+Jonathan: the two plans are Free and Plus; "Nomadwise Plus" only where
+the full name introduces the plan. Migration 219 shortens it to "Plus"
+in the emails where the reader already knows it (payment received,
+Plus approved text, Plus ended, page live, Plus page with no enquiry
+address, claim page message, site chat, "choose Free or Plus"). The
+full name stays in the Plus approved subject, the free claim approved
+paragraph, the claim reminder, the free-enquiry line, the "See
+Nomadwise Plus" button and first mentions in Outreach and the chat.
