@@ -5099,3 +5099,12 @@ Photos in the photos form sit two across on a phone, not one long
 column. The red frame has a little less padding on a phone, so the
 fields keep their width. "Send my changes" goes under the words of the
 banner on a phone instead of squeezing them into a narrow column.
+
+## 24 Oct 2026: Plus in the emails, Outreach templates and site chat
+
+CR-30. The paid plan is called Nomadwise Plus in the owner emails, the
+Outreach templates and the chat on nomadwise.io, in the words Leonie
+checked on the CR-30 card. "Verified" stays only as the badge name,
+"Verified by Nomadwise". Only wording changed; who gets which email,
+and when, is the same. Outreach templates reworded by hand that still
+say Verified are listed in the build log for changing in Outreach.
