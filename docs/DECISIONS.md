@@ -5154,7 +5154,10 @@ columns stay, and the website push keeps them as the pages have them).
   not show it): it sits at the top of Inbox & support and under
   "Signed in as" in the menu, and Change opens a small window.
 - The page shows "Managed by its owner", as the live page does.
-- WhatsApp shows the WhatsApp icon (greyed with a lock on a free page).
+- The round link buttons use nomadwise.io's own icons (link, map pin,
+  Instagram, WhatsApp, from the Webflow CDN); on a free page Instagram
+  and WhatsApp are the same icons greyed. (Flutter has no WhatsApp icon:
+  Icons.whatsapp broke the 24 Oct 13:21 build.)
 - "See what Plus adds" and the other Plus links use the site's red.
 - "Get unlimited enquiries" has room around it, so its hover shade
   fits.

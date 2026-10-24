@@ -3391,6 +3391,44 @@ class _OwnerScreenState extends State<OwnerScreen> {
 
   /// The page's tags, as nomadwise.io draws them: white with a thin
   /// border and 6px corners.
+  /// The round link icons nomadwise.io uses (the template's own images
+  /// on the Webflow CDN), so the Owner account shows the same ones.
+  static const _siteIconBase =
+      'https://cdn.prod.website-files.com/64b6780f84d27e4bfd91f236/';
+  static const _siteIcons = {
+    'link': '653f63d8d113b66f1016f267_hyperlink.png',
+    'map': '65586cf6ac631f1984695fa8_location-pin.png',
+    'instagram': '65d0b5c67ea7d2d0ef2d3eb7_instagram.png',
+    'whatsapp': '65d0c06cfee042d9b2d76c09_whatsapp-logo-4454.png',
+  };
+
+  /// One of those icons; greyed for a locked (Plus) one. Falls back to
+  /// a drawn icon if the image cannot load.
+  Widget _siteIcon(String key, IconData fallback, Color color,
+      {double size = 22, bool grey = false}) {
+    Widget img = Image.network('$_siteIconBase${_siteIcons[key]}',
+        width: size,
+        height: size,
+        fit: BoxFit.contain,
+        errorBuilder: (_, __, ___) => Icon(fallback,
+            size: size * .9, color: grey ? const Color(0xFF8A94A0) : color));
+    if (grey) {
+      img = Opacity(
+        opacity: .55,
+        child: ColorFiltered(
+          colorFilter: const ColorFilter.matrix(<double>[
+            0.2126, 0.7152, 0.0722, 0, 0,
+            0.2126, 0.7152, 0.0722, 0, 0,
+            0.2126, 0.7152, 0.0722, 0, 0,
+            0, 0, 0, 1, 0,
+          ]),
+          child: img,
+        ),
+      );
+    }
+    return img;
+  }
+
   /// The tags as the page shows them, in its order (the template's tag
   /// list): Laptop Friendly, No Traffic Noise and Pass Required are not
   /// in it, so they are not offered here either.
@@ -4258,17 +4296,18 @@ class _OwnerScreenState extends State<OwnerScreen> {
             ]),
             pad: const EdgeInsets.fromLTRB(20, 18, 20, 18));
 
-    Widget circle(IconData icon, Color color) => Container(
+    Widget circle(String key, IconData icon, Color color) => Container(
           width: 44,
           height: 44,
           margin: const EdgeInsets.only(right: 10),
+          alignment: Alignment.center,
           decoration: BoxDecoration(
               color: Colors.white,
               shape: BoxShape.circle,
               border: Border.all(color: const Color(0xFFE0E0E0))),
-          child: Icon(icon, size: 20, color: color),
+          child: _siteIcon(key, icon, color, size: 22),
         );
-    Widget lockedCircle(IconData icon, String what) => Semantics(
+    Widget lockedCircle(String key, IconData icon, String what) => Semantics(
           button: true,
           label: '$what link, locked. See what Plus adds',
           child: InkWell(
@@ -4278,11 +4317,13 @@ class _OwnerScreenState extends State<OwnerScreen> {
               width: 44,
               height: 44,
               margin: const EdgeInsets.only(right: 10),
+              alignment: Alignment.center,
               decoration: BoxDecoration(
                   color: _lockFill,
                   shape: BoxShape.circle,
                   border: Border.all(color: _lockBorder)),
-              child: Icon(icon, size: 19, color: const Color(0xFF8A94A0)),
+              child: _siteIcon(key, icon, const Color(0xFF8A94A0),
+                  size: 20, grey: true),
             ),
           ),
         );
@@ -4357,15 +4398,18 @@ class _OwnerScreenState extends State<OwnerScreen> {
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   if (_website.text.trim().isNotEmpty)
-                    circle(Icons.link, _pageInk),
-                  circle(Icons.location_on, _pageRed),
+                    circle('link', Icons.link, _pageInk),
+                  circle('map', Icons.location_on, _pageRed),
                   if (_verified && _instagram.text.trim().isNotEmpty)
-                    circle(Icons.camera_alt_outlined, const Color(0xFFD62976)),
+                    circle('instagram', Icons.camera_alt_outlined,
+                        const Color(0xFFD62976)),
                   if (_verified && _whatsapp.text.trim().isNotEmpty)
-                    circle(Icons.whatsapp, const Color(0xFF25D366)),
+                    circle('whatsapp', Icons.chat_outlined,
+                        const Color(0xFF25D366)),
                   if (!_verified) ...[
-                    lockedCircle(Icons.camera_alt_outlined, 'Instagram'),
-                    lockedCircle(Icons.whatsapp, 'WhatsApp'),
+                    lockedCircle(
+                        'instagram', Icons.camera_alt_outlined, 'Instagram'),
+                    lockedCircle('whatsapp', Icons.chat_outlined, 'WhatsApp'),
                   ],
                   const SizedBox(width: 6),
                   _editButton('links'),
@@ -5171,15 +5215,16 @@ class _OwnerScreenState extends State<OwnerScreen> {
   /// The sidebar: opening hours, the round link buttons, the enquiry
   /// button (Verified) and the advert slot.
   Widget _sidebar() {
-    Widget circle(IconData icon, Color color) => Container(
+    Widget circle(String key, IconData icon, Color color) => Container(
           width: 34,
           height: 34,
           margin: const EdgeInsets.only(right: 8),
+          alignment: Alignment.center,
           decoration: BoxDecoration(
               color: Colors.white,
               shape: BoxShape.circle,
               border: Border.all(color: const Color(0xFFE0E0E0))),
-          child: Icon(icon, size: 17, color: color),
+          child: _siteIcon(key, icon, color, size: 17),
         );
     final days = [
       for (final day in _days)
@@ -5216,11 +5261,13 @@ class _OwnerScreenState extends State<OwnerScreen> {
       ])),
       const SizedBox(height: 10),
       Row(children: [
-        if (_website.text.trim().isNotEmpty) circle(Icons.link, _pageInk),
-        circle(Icons.location_on, _pageRed),
+        if (_website.text.trim().isNotEmpty)
+          circle('link', Icons.link, _pageInk),
+        circle('map', Icons.location_on, _pageRed),
         // Instagram shows on Plus pages only (agreed 23 Oct).
         if (_verified && _instagram.text.trim().isNotEmpty)
-          circle(Icons.camera_alt_outlined, const Color(0xFFD62976)),
+          circle('instagram', Icons.camera_alt_outlined,
+              const Color(0xFFD62976)),
         if (_verified && _instagram.text.trim().isNotEmpty)
           Flexible(
             child: Text(_igShown(_instagram.text),
