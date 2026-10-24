@@ -737,12 +737,24 @@ class _OwnerScreenState extends State<OwnerScreen> {
                     'every enquiry does.',
             style: const TextStyle(
                 fontSize: 13, height: 1.45, color: Brand.inkSecondary)),
-        const SizedBox(height: 8),
-        TextButton(
-            onPressed: () => _getPlus('enquiry'),
-            style: TextButton.styleFrom(
-                padding: EdgeInsets.zero, foregroundColor: Brand.red),
-            child: const Text('Get unlimited enquiries', softWrap: false)),
+        const SizedBox(height: 6),
+        // Roomy, so the hover shade sits around the words; moved left by
+        // its padding so the words still line up with the text above.
+        Transform.translate(
+          offset: const Offset(-12, 0),
+          child: TextButton(
+              onPressed: () => _getPlus('enquiry'),
+              style: TextButton.styleFrom(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  minimumSize: const Size(0, 40),
+                  foregroundColor: _pageRed,
+                  textStyle: const TextStyle(
+                      fontSize: 14, fontWeight: FontWeight.w700),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8))),
+              child: const Text('Get unlimited enquiries', softWrap: false)),
+        ),
       ]),
     );
   }
@@ -2141,6 +2153,28 @@ class _OwnerScreenState extends State<OwnerScreen> {
                   style: const TextStyle(
                       fontSize: 11.5, color: Brand.inkMuted, height: 1.4)),
             ),
+            if (_enquiriesOn) ...[
+              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                child: Text(
+                    'Enquiries go to\n${_enquiryEmail.text.trim().isNotEmpty ? _enquiryEmail.text.trim() : _signInEmail}',
+                    style: const TextStyle(
+                        fontSize: 11.5, color: Brand.inkMuted, height: 1.4)),
+              ),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton(
+                  onPressed: _saving ? null : _changeEnquiryEmail,
+                  style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      visualDensity: VisualDensity.compact,
+                      textStyle: const TextStyle(
+                          fontSize: 12, fontWeight: FontWeight.w700)),
+                  child: const Text('Change'),
+                ),
+              ),
+            ],
             const SizedBox(height: 6),
           ]),
     );
@@ -2312,11 +2346,60 @@ class _OwnerScreenState extends State<OwnerScreen> {
       isDense: true);
 
   static const _priceKinds = [
-    ('coworking', 'Coworking'),
+    ('coworking', 'Coworking passes'),
     ('meeting_room', 'Meeting rooms'),
     ('private_office', 'Private offices'),
     ('other', 'Other'),
   ];
+
+  /// One tap adds these, already in the right group (Jonathan, 24 Oct:
+  /// choosing a type for every price was too much work).
+  static const _pricePresets = [
+    ('Day pass', 'coworking'),
+    ('Week pass', 'coworking'),
+    ('Month pass', 'coworking'),
+    ('Hot desk', 'coworking'),
+    ('Dedicated desk', 'coworking'),
+    ('Meeting room', 'meeting_room'),
+    ('Private office', 'private_office'),
+    ('Monitor rental', 'other'),
+    ('Locker', 'other'),
+    ('Virtual office', 'other'),
+  ];
+
+  /// The group a price belongs in, from its name, for one the owner
+  /// names themselves.
+  static String _guessPriceType(String name) {
+    final n = name.toLowerCase();
+    if (RegExp(r'virtual|locker|monitor|parking|mail|print|storage|podcast|'
+            r'studio|event|kitchen|gym|shower')
+        .hasMatch(n)) {
+      return 'other';
+    }
+    if (RegExp(r'meeting|conference|board ?room|training room').hasMatch(n)) {
+      return 'meeting_room';
+    }
+    if (RegExp(r'office|suite|cabin|team room').hasMatch(n)) {
+      return 'private_office';
+    }
+    return 'coworking';
+  }
+
+  /// Adds a price (a preset, or an empty one to name) and puts the
+  /// cursor where the next thing to type is.
+  void _addPriceRow({String name = '', String? type}) {
+    if (_priceRows.length >= 40) return;
+    final r = _PriceRow(
+        name: name, category: type ?? 'coworking', autoType: type == null);
+    setState(() {
+      _priceRows.add(r);
+      _dirty = true;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      (name.isEmpty ? r.nameFocus : r.priceFocus).requestFocus();
+    });
+  }
 
   /// The prices on the page, with what the editor needs (migration
   /// 218 adds the id, amount and the rest).
@@ -2364,9 +2447,6 @@ class _OwnerScreenState extends State<OwnerScreen> {
     _priceDay.clear();
     _priceWeek.clear();
     _priceMonth.clear();
-    if (_priceRows.isEmpty && _venue?['type'] != 'cafe') {
-      _priceRows.add(_PriceRow(name: 'Day pass'));
-    }
   }
 
   /// Asks before a price that is on the page now is taken out.
@@ -2400,34 +2480,32 @@ class _OwnerScreenState extends State<OwnerScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) => r.dispose());
   }
 
-  /// One price in the editor: kind and name, the price with "from",
-  /// and an optional note.
+  /// One price in the editor, on one line where there is room: the
+  /// name, the price, "from", and a menu (add a note, move to another
+  /// group, remove). The group comes from where the price sits.
   Widget _priceRowEditor(_PriceRow r, double maxW) {
-    final narrow = maxW < 560;
-    final kind = SizedBox(
-      width: narrow ? double.infinity : 190,
-      child: DropdownButtonFormField<String>(
-        value: _priceKinds.any((k) => k.$1 == r.category) ? r.category : 'other',
-        isExpanded: true,
-        decoration: _dec('Kind'),
-        items: [
-          for (final (k, label) in _priceKinds)
-            DropdownMenuItem(value: k, child: Text(label)),
-        ],
-        onChanged: (x) => setState(() {
-          r.category = x ?? 'coworking';
-          _dirty = true;
-        }),
-      ),
+    final narrow = maxW < 520;
+    final name = Focus(
+      onFocusChange: (on) {
+        // A price the owner named: filed by its name until moved.
+        if (!on && r.autoType && r.name.text.trim().isNotEmpty) {
+          final t = _guessPriceType(r.name.text);
+          if (t != r.category) setState(() => r.category = t);
+        }
+      },
+      child: TextField(
+          controller: r.name,
+          focusNode: r.nameFocus,
+          // So a preset typed by hand leaves the quick-add list.
+          onChanged: (_) => setState(() {}),
+          maxLength: 80,
+          buildCounter: _nearLimit,
+          textCapitalization: TextCapitalization.sentences,
+          textInputAction: TextInputAction.next,
+          decoration: _dec('Name', hint: 'Day pass')),
     );
-    final name = TextField(
-        controller: r.name,
-        maxLength: 80,
-        buildCounter: _nearLimit,
-        textCapitalization: TextCapitalization.sentences,
-        decoration: _dec('Name', hint: 'Day pass'));
     final amount = SizedBox(
-      width: narrow ? (maxW - 10) * .55 : 200,
+      width: narrow ? 150 : 170,
       child: Focus(
         onFocusChange: (on) {
           if (!on) {
@@ -2437,6 +2515,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
         },
         child: TextField(
           controller: r.amount,
+          focusNode: r.priceFocus,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           inputFormatters: [
             FilteringTextInputFormatter.allow(RegExp(r'[0-9.,kK ]')),
@@ -2447,73 +2526,92 @@ class _OwnerScreenState extends State<OwnerScreen> {
         ),
       ),
     );
-    final from = InkWell(
-      onTap: () => setState(() {
-        r.from = !r.from;
-        _dirty = true;
-      }),
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Checkbox(
-              value: r.from,
-              visualDensity: VisualDensity.compact,
-              onChanged: (x) => setState(() {
-                    r.from = x == true;
-                    _dirty = true;
-                  })),
-          const Text('Starting price ("from")',
-              style: TextStyle(fontSize: 13.5, color: _edInk)),
-        ]),
+    final from = Tooltip(
+      message: 'Shows as "from" this price',
+      child: InkWell(
+        onTap: () => setState(() {
+          r.from = !r.from;
+          _dirty = true;
+        }),
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Checkbox(
+                value: r.from,
+                visualDensity: VisualDensity.compact,
+                onChanged: (x) => setState(() {
+                      r.from = x == true;
+                      _dirty = true;
+                    })),
+            const Text('From', style: TextStyle(fontSize: 14, color: _edInk)),
+          ]),
+        ),
       ),
     );
-    final note = TextField(
-        controller: r.note,
-        maxLength: 120,
-        buildCounter: _nearLimit,
-        decoration: _dec('Note (optional)', hint: 'Per hour, up to 6 people'));
-    return Container(
+    final menu = PopupMenuButton<String>(
+      tooltip: 'More',
+      enabled: !_saving,
+      icon: const Icon(Icons.more_vert, size: 20, color: _edMuted),
+      onSelected: (x) {
+        if (x == 'note') {
+          setState(() => r.showNote = true);
+          WidgetsBinding.instance
+              .addPostFrameCallback((_) => r.noteFocus.requestFocus());
+        } else if (x == 'remove') {
+          _removePriceRow(r);
+        } else if (x.startsWith('move:')) {
+          setState(() {
+            r.category = x.substring(5);
+            r.autoType = false;
+            _dirty = true;
+          });
+        }
+      },
+      itemBuilder: (_) => [
+        if (!r.showNote && r.note.text.trim().isEmpty)
+          const PopupMenuItem(value: 'note', child: Text('Add a note')),
+        for (final (k, label) in _priceKinds)
+          if (k != r.category)
+            PopupMenuItem(value: 'move:$k', child: Text('Move to $label')),
+        const PopupMenuDivider(),
+        const PopupMenuItem(value: 'remove', child: Text('Remove this price')),
+      ],
+    );
+    final showNote = r.showNote || r.note.text.trim().isNotEmpty;
+    return Padding(
       key: ObjectKey(r),
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.fromLTRB(14, 14, 6, 6),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFE3E6EA)),
-      ),
+      padding: const EdgeInsets.only(bottom: 10),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Expanded(
-            child: narrow
-                ? Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    kind,
-                    const SizedBox(height: 10),
-                    name,
-                  ])
-                : Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    kind,
-                    const SizedBox(width: 10),
-                    Expanded(child: name),
-                  ]),
-          ),
-          IconButton(
-            tooltip: 'Remove this price',
-            onPressed: _saving ? null : () => _removePriceRow(r),
-            icon: const Icon(Icons.delete_outline, size: 20),
-          ),
-        ]),
-        const SizedBox(height: 4),
-        Padding(
-          padding: const EdgeInsets.only(right: 8),
-          child: Wrap(
-              spacing: 12,
-              runSpacing: 4,
+        if (narrow) ...[
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Expanded(child: name),
+            menu,
+          ]),
+          Wrap(
+              spacing: 8,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [amount, from]),
-        ),
-        const SizedBox(height: 10),
-        Padding(padding: const EdgeInsets.only(right: 8), child: note),
+        ] else
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Expanded(child: name),
+            const SizedBox(width: 10),
+            amount,
+            const SizedBox(width: 4),
+            Padding(padding: const EdgeInsets.only(top: 4), child: from),
+            Padding(padding: const EdgeInsets.only(top: 4), child: menu),
+          ]),
+        if (showNote)
+          Padding(
+            padding: EdgeInsets.only(top: 8, right: narrow ? 48 : 0),
+            child: TextField(
+                controller: r.note,
+                focusNode: r.noteFocus,
+                maxLength: 120,
+                buildCounter: _nearLimit,
+                decoration: _dec('Note (optional)',
+                    hint: 'Per hour, up to 6 people')),
+          ),
       ]),
     );
   }
@@ -3010,56 +3108,122 @@ class _OwnerScreenState extends State<OwnerScreen> {
   static const _edMuted = Color(0xFF5C6773);
   static const _edRed = Color(0xFFD92D38);
 
-  /// Where the page's enquiries are sent: the address, and Change.
-  Widget _enquiriesPart() {
-    final signIn = (_isPreview
-            ? (_venue?['listing_owner_email'] ?? _venue?['claim_email'] ?? '')
-            : (_supabase.userEmail ?? ''))
-        .toString();
-    final set = _enquiryEmail.text.trim();
-    if (_editing == 'enquiries') {
-      final bad = set.isNotEmpty &&
-          !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(set);
-      return _editFrame(
-        'Where enquiries go',
-        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text(
-              'Every enquiry a nomad sends from your page is emailed to '
-              'this address. Use the inbox your team checks most.',
-              style: TextStyle(fontSize: 13.5, height: 1.45, color: _edMuted)),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _enquiryEmail,
-            keyboardType: TextInputType.emailAddress,
-            autocorrect: false,
-            onChanged: (_) => setState(() {}),
-            decoration: _dec('Email for enquiries',
-                    hint: 'hello@yourspace.com')
-                .copyWith(
-                    errorText: bad ? 'This does not look like an email address' : null,
-                    helperText: signIn.isEmpty
-                        ? 'Leave it empty to use the email you sign in with.'
-                        : 'Leave it empty to use the email you sign in '
-                            'with ($signIn).',
-                    helperMaxLines: 3),
-          ),
-        ]),
-      );
+  /// Enquiries reach the space by email (a Plus page, or a free page
+  /// with its free enquiries on).
+  bool get _enquiriesOn => _verified || _allow?['on'] == true;
+
+  String get _signInEmail => (_isPreview
+          ? (_venue?['listing_owner_email'] ?? _venue?['claim_email'] ?? '')
+          : (_supabase.userEmail ?? ''))
+      .toString();
+
+  /// Change where enquiries are sent, in a small window: the page
+  /// itself stays as nomads see it (Jonathan, 24 Oct).
+  Future<void> _changeEnquiryEmail() async {
+    // Saving sends the whole listing: a part half edited would go too.
+    if (_editing != null) {
+      setState(() => _savedNote =
+          'Please save or cancel the part you are editing first.');
+      return;
     }
-    final shown = set.isNotEmpty ? set : signIn;
+    final c = TextEditingController(text: _enquiryEmail.text.trim());
+    final signIn = _signInEmail;
+    final picked = await showDialog<String>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(builder: (ctx, setD) {
+        final t = c.text.trim();
+        final bad = t.isNotEmpty &&
+            !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(t);
+        return AlertDialog(
+          title: const Text('Where enquiries go'),
+          content: SizedBox(
+            width: 420,
+            child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                      'Every enquiry a nomad sends from your page is emailed '
+                      'to this address. Use the inbox your team checks most.',
+                      style: TextStyle(
+                          fontSize: 14, height: 1.45, color: _edMuted)),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: c,
+                    autofocus: true,
+                    keyboardType: TextInputType.emailAddress,
+                    autocorrect: false,
+                    onChanged: (_) => setD(() {}),
+                    decoration: _dec('Email for enquiries',
+                            hint: 'hello@yourspace.com')
+                        .copyWith(
+                            errorText: bad
+                                ? 'This does not look like an email address'
+                                : null,
+                            helperText: signIn.isEmpty
+                                ? 'Leave it empty to use the email you sign '
+                                    'in with.'
+                                : 'Leave it empty to use the email you sign '
+                                    'in with ($signIn).',
+                            helperMaxLines: 3),
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                      'Nomadwise approves the change first; until then '
+                      'enquiries keep going where they go now.',
+                      style: TextStyle(fontSize: 12.5, color: _edMuted)),
+                ]),
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('Cancel')),
+            FilledButton(
+                onPressed: bad ? null : () => Navigator.of(ctx).pop(t),
+                style: FilledButton.styleFrom(backgroundColor: _pageRed),
+                child: const Text('Send for approval')),
+          ],
+        );
+      }),
+    );
+    // The window is still closing for a few frames.
+    Future.delayed(const Duration(milliseconds: 400), c.dispose);
+    if (picked == null || !mounted) return;
+    if (picked == _enquiryEmail.text.trim()) return;
+    final before = _enquiryEmail.text;
+    _enquiryEmail.text = picked;
+    await _save(submit: true);
+    if (!mounted) return;
+    final sent = (_savedNote ?? '').startsWith('Sent') ||
+        (_savedNote ?? '').startsWith('Preview');
+    setState(() {
+      if (sent) {
+        _sentParts.add('${_venue?['id']}:enquiries');
+      } else {
+        _enquiryEmail.text = before;
+      }
+    });
+  }
+
+  /// Where the page's enquiries are sent, with Change: at the top of
+  /// Inbox & support, not on the page (the live page does not show it).
+  Widget _enquiriesCard() {
+    final set = _enquiryEmail.text.trim();
+    final shown = set.isNotEmpty ? set : _signInEmail;
     return Container(
+      margin: const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: const Color(0xFFF7F8FA),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFE3E6EA)),
+        border: Border.all(color: const Color(0xFFE8EBEF)),
       ),
       child: Row(children: [
         const Icon(Icons.mail_outline, size: 20, color: _edMuted),
         const SizedBox(width: 10),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('Enquiries from this page go to',
+            const Text('Enquiries from your page are emailed to',
                 style: TextStyle(fontSize: 12.5, color: _edMuted)),
             const SizedBox(height: 2),
             Text(shown.isEmpty ? 'the email you sign in with' : shown,
@@ -3067,10 +3231,20 @@ class _OwnerScreenState extends State<OwnerScreen> {
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                     fontSize: 14.5, fontWeight: FontWeight.w600, color: _edInk)),
+            if (_sent('enquiries'))
+              const Padding(
+                padding: EdgeInsets.only(top: 4),
+                child: Text('Your change is waiting for Nomadwise approval.',
+                    style: TextStyle(fontSize: 12.5, color: Color(0xFF8A5A00))),
+              ),
           ]),
         ),
         const SizedBox(width: 8),
-        _editButton('enquiries', label: 'Change'),
+        TextButton(
+          onPressed: _saving ? null : _changeEnquiryEmail,
+          child: const Text('Change',
+              style: TextStyle(fontWeight: FontWeight.w700)),
+        ),
       ]),
     );
   }
@@ -3217,23 +3391,96 @@ class _OwnerScreenState extends State<OwnerScreen> {
 
   /// The page's tags, as nomadwise.io draws them: white with a thin
   /// border and 6px corners.
-  Widget _liveTags(List<String> tags) => Wrap(
+  /// The tags as the page shows them, in its order (the template's tag
+  /// list): Laptop Friendly, No Traffic Noise and Pass Required are not
+  /// in it, so they are not offered here either.
+  static const _liveTagOrder = [
+    'aircon',
+    'comfortable_seating',
+    'low_background_music',
+    'access_24h',
+    'power_outlets',
+    'good_for_calls',
+    'quiet_space',
+    'office_chairs',
+    'cozy',
+    'instagramable',
+    'monitor',
+    'swimming_pool',
+    'call_room',
+    'vegan_friendly',
+  ];
+
+  /// The icon the page's tag snippet gives a tag, by its words.
+  static IconData _tagIcon(String t) {
+    final s = t.toLowerCase();
+    if (RegExp(r'skype|call room|phone booth').hasMatch(s)) {
+      return Icons.headset_mic_outlined;
+    }
+    if (RegExp(r'air ?con|cooling').hasMatch(s)) return Icons.ac_unit;
+    if (RegExp(r'seat|sofa|couch').hasMatch(s)) return Icons.weekend_outlined;
+    if (RegExp(r'24|hour').hasMatch(s)) return Icons.schedule;
+    if (RegExp(r'plug|socket|power').hasMatch(s)) return Icons.power_outlined;
+    if (s.contains('call')) return Icons.call_outlined;
+    if (RegExp(r'quiet|silent').hasMatch(s)) return Icons.volume_off_outlined;
+    if (s.contains('chair')) return Icons.chair_outlined;
+    if (RegExp(r'cozy|cosy|coffee').hasMatch(s)) return Icons.coffee_outlined;
+    if (RegExp(r'monitor|screen').hasMatch(s)) {
+      return Icons.desktop_windows_outlined;
+    }
+    return Icons.check;
+  }
+
+  Widget _liveTags(List<String> tags, {bool edit = false}) => Wrap(
       spacing: 8,
       runSpacing: 8,
       children: [
         for (final t in tags)
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
+            padding: const EdgeInsets.fromLTRB(11, 7, 14, 7),
             decoration: BoxDecoration(
               color: Colors.white,
               border: Border.all(color: const Color(0xFFE4E6EB)),
               borderRadius: BorderRadius.circular(6),
+              boxShadow: const [
+                BoxShadow(
+                    color: Color(0x0A142032),
+                    blurRadius: 2,
+                    offset: Offset(0, 1)),
+              ],
             ),
-            child: Text(t,
-                style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: Color(0xFF2B2F36))),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(_tagIcon(t), size: 16, color: const Color(0xFFE0442E)),
+              const SizedBox(width: 7),
+              Text(t,
+                  style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      height: 1.2,
+                      color: Color(0xFF2B2F36))),
+            ]),
+          ),
+        if (edit)
+          InkWell(
+            onTap: () => _startEdit('tags'),
+            borderRadius: BorderRadius.circular(6),
+            child: CustomPaint(
+              painter: _DashedBorder(),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(11, 7, 14, 7),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  const Icon(Icons.edit_outlined,
+                      size: 15, color: Color(0xFF6B7280)),
+                  const SizedBox(width: 6),
+                  Text(tags.isEmpty ? 'Add tags' : 'Edit tags',
+                      style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          height: 1.2,
+                          color: Color(0xFF6B7280))),
+                ]),
+              ),
+            ),
           ),
       ]);
 
@@ -3316,7 +3563,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
                           color: const Color(0xFFFFECED),
                           borderRadius: BorderRadius.circular(12)),
                       child: const Icon(Icons.lock_outline,
-                          color: Color(0xFFC4222E), size: 22),
+                          color: _pageRed, size: 22),
                     ),
                     const Spacer(),
                     IconButton(
@@ -3498,7 +3745,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
                       style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
-                          color: Color(0xFFC4222E))),
+                          color: _pageRed)),
                 ]),
           ),
         ),
@@ -3621,9 +3868,10 @@ class _OwnerScreenState extends State<OwnerScreen> {
       if ((v['neighbourhood'] ?? '').toString().isNotEmpty) v['neighbourhood'],
     ].join(' - ');
     final isCafe = v['type'] == 'cafe';
+    // In the live page's order, and only the tags the page shows.
     final tags = [
-      for (final (key, label) in _factLabels)
-        if (_facts[key] == true) _siteTags[key] ?? label
+      for (final key in _liveTagOrder)
+        if (_facts[key] == true) _siteTags[key] ?? key
     ];
     final photos = _photos.isNotEmpty
         ? _photos
@@ -3696,8 +3944,9 @@ class _OwnerScreenState extends State<OwnerScreen> {
                   style: muted),
               const SizedBox(height: 6),
               Wrap(spacing: 4, runSpacing: 0, children: [
-                for (final (key, label) in _factLabels)
-                  if (key != 'laptops_allowed')
+                for (final key in _liveTagOrder)
+                  for (final (k, label) in _factLabels)
+                    if (k == key)
                     SizedBox(
                       width: 280,
                       child: CheckboxListTile(
@@ -3721,17 +3970,9 @@ class _OwnerScreenState extends State<OwnerScreen> {
               ]),
             ]))
         : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  if (tags.isEmpty)
-                    const Text('No tags on your page yet.', style: muted)
-                  else
-                    _liveTags(tags),
-                  _editButton('tags', label: 'Edit tags'),
-                ]),
+            // Drawn like the page: white tags with their icons, and in
+            // place of the page's dashed "Add a tag", "Edit tags".
+            _liveTags(tags, edit: true),
             if (_sent('tags')) _waitingChip(),
           ]);
 
@@ -3771,36 +4012,76 @@ class _OwnerScreenState extends State<OwnerScreen> {
             isCafe ? 'Prices' : 'Passes and prices',
             Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(
-                  'Every price on your page. Add, change or remove any of '
-                  'them; each change goes live once Nomadwise approves it. '
-                  'Type the amount only, like 3.60 or 1,500.',
+                  'Every price on your page. Tap to add the usual ones, '
+                  'then type the amount, like 350 or 1,500. Each change '
+                  'goes live once Nomadwise approves it.',
                   style: muted),
               const SizedBox(height: 12),
               _currencyPicker(),
-              const SizedBox(height: 14),
+              const SizedBox(height: 16),
+              // The prices, grouped as the page groups them.
               LayoutBuilder(builder: (context, box) => Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    for (final r in _priceRows)
-                      _priceRowEditor(r, box.maxWidth - 60),
+                    for (final (k, label) in _priceKinds)
+                      if (_priceRows.any((r) => r.category == k)) ...[
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 10, top: 4),
+                          child: Text(label,
+                              style: const TextStyle(
+                                  fontSize: 14.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: _edInk)),
+                        ),
+                        for (final r in _priceRows)
+                          if (r.category == k)
+                            _priceRowEditor(r, box.maxWidth),
+                        const SizedBox(height: 6),
+                      ],
                   ])),
-              OutlinedButton.icon(
-                onPressed: _priceRows.length >= 40
-                    ? null
-                    : () => setState(() {
-                          _priceRows.add(_PriceRow(
-                              category: _priceRows.isEmpty
-                                  ? 'coworking'
-                                  : _priceRows.last.category));
-                          _dirty = true;
-                        }),
-                style: OutlinedButton.styleFrom(
-                    minimumSize: const Size(0, 40),
-                    foregroundColor: _edInk,
-                    side: const BorderSide(color: _edBorder)),
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('Add a price'),
-              ),
+              // One tap for the usual ones; a preset already in the list
+              // is not offered again.
+              Text(_priceRows.isEmpty ? 'Add your prices' : 'Add more',
+                  style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: _edMuted)),
+              const SizedBox(height: 8),
+              Wrap(spacing: 8, runSpacing: 8, children: [
+                for (final (label, type) in _pricePresets)
+                  if (!_priceRows.any((r) =>
+                      r.name.text.trim().toLowerCase() == label.toLowerCase()))
+                    ActionChip(
+                      avatar: const Icon(Icons.add, size: 16, color: _edInk),
+                      label: Text(label),
+                      labelStyle: const TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w500,
+                          color: _edInk),
+                      backgroundColor: Colors.white,
+                      side: const BorderSide(color: _edBorder),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8)),
+                      onPressed: _priceRows.length >= 40
+                          ? null
+                          : () => _addPriceRow(name: label, type: type),
+                    ),
+                ActionChip(
+                  avatar: const Icon(Icons.edit_outlined,
+                      size: 16, color: _pageRed),
+                  label: const Text('Something else'),
+                  labelStyle: const TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w600,
+                      color: _pageRed),
+                  backgroundColor: Colors.white,
+                  side: const BorderSide(color: _edBorder),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
+                  onPressed:
+                      _priceRows.length >= 40 ? null : () => _addPriceRow(),
+                ),
+              ]),
               if (isCafe) ...[
                 const SizedBox(height: 16),
                 _priceField(_priceCoffee, 'Cappuccino', width: 220),
@@ -3892,7 +4173,21 @@ class _OwnerScreenState extends State<OwnerScreen> {
                   color: const Color(0xFFF4B23E)),
             stat(Icons.laptop, isCafe ? 'Cafe' : 'Coworking Space'),
           ]),
-          const SizedBox(height: 4),
+          // As the live page shows a claimed space (the "Nomadwise
+          // Offers" mark, migration 216).
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            decoration: BoxDecoration(
+                color: const Color(0xFFEAF4F4),
+                borderRadius: BorderRadius.circular(8)),
+            child: const Text('\u2713 Managed by its owner',
+                style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF1F3340))),
+          ),
+          const SizedBox(height: 8),
           const Text(
               'Your name, ratings and WiFi tests come from Google and from '
               'nomads. To change your name, write to us in Inbox & support.',
@@ -4067,10 +4362,10 @@ class _OwnerScreenState extends State<OwnerScreen> {
                   if (_verified && _instagram.text.trim().isNotEmpty)
                     circle(Icons.camera_alt_outlined, const Color(0xFFD62976)),
                   if (_verified && _whatsapp.text.trim().isNotEmpty)
-                    circle(Icons.chat_outlined, const Color(0xFF25D366)),
+                    circle(Icons.whatsapp, const Color(0xFF25D366)),
                   if (!_verified) ...[
                     lockedCircle(Icons.camera_alt_outlined, 'Instagram'),
-                    lockedCircle(Icons.chat_outlined, 'WhatsApp'),
+                    lockedCircle(Icons.whatsapp, 'WhatsApp'),
                   ],
                   const SizedBox(width: 6),
                   _editButton('links'),
@@ -4087,13 +4382,6 @@ class _OwnerScreenState extends State<OwnerScreen> {
       // free enquiries are left under it (CR-31).
       const SizedBox(height: 16),
       _pageButton('Send an enquiry', wide: true),
-      // Where those enquiries arrive, right under the button, with its
-      // own Change (Jonathan, 24 Oct: it was hidden in the links form).
-      if (_verified || _allow?['on'] == true) ...[
-        const SizedBox(height: 12),
-        _keyed('enquiries', _enquiriesPart()),
-        if (_sent('enquiries')) _waitingChip(),
-      ],
       if (_allowanceLine() != null) ...[
         const SizedBox(height: 12),
         _allowanceLine()!,
@@ -4183,8 +4471,8 @@ class _OwnerScreenState extends State<OwnerScreen> {
       if ((v['neighbourhood'] ?? '').toString().isNotEmpty) v['neighbourhood'],
     ].join(' - ');
     final tags = [
-      for (final (key, label) in _factLabels)
-        if (_facts[key] == true) _siteTags[key] ?? label
+      for (final key in _liveTagOrder)
+        if (_facts[key] == true) _siteTags[key] ?? key
     ];
     // Their own photos once added; else the ones on the page today;
     // else Google's.
@@ -4509,9 +4797,8 @@ class _OwnerScreenState extends State<OwnerScreen> {
     // that opens: every listing is a place to work by definition, and
     // it is not one of the tags an owner's change writes to the page.
     final missing = [
-      for (final (key, label) in _factLabels)
-        if (key != 'laptops_allowed' && _facts[key] != true)
-          _siteTags[key] ?? label
+      for (final key in _liveTagOrder)
+        if (_facts[key] != true) _siteTags[key] ?? key
     ];
     if (!tappable) {
       // The full-size view shows the page only: the tags it has.
@@ -4572,7 +4859,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
                               color: Brand.inkSecondary)),
                       const SizedBox(height: 8),
                       for (final (key, label) in _factLabels)
-                        if (key != 'laptops_allowed')
+                        if (_liveTagOrder.contains(key))
                           CheckboxListTile(
                           dense: true,
                           contentPadding: EdgeInsets.zero,
@@ -5120,7 +5407,8 @@ class _OwnerScreenState extends State<OwnerScreen> {
             '$name on Nomadwise: write to us here.',
             style: const TextStyle(
                 fontSize: 13.5, height: 1.45, color: Brand.inkSecondary)),
-        const SizedBox(height: 10),
+        const SizedBox(height: 14),
+        if (_enquiriesOn) _enquiriesCard(),
         // An owner of several spaces: a message about another one
         // would otherwise wait unseen behind the space on screen.
         for (var i = 0; i < _venues.length; i++)
@@ -5220,7 +5508,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
           width: 260,
           child: DropdownButtonFormField<String>(
             value: _mentionKind,
-            decoration: _dec('Kind'),
+            decoration: _dec('Type'),
             items: const [
               DropdownMenuItem(value: 'Event', child: Text('Event')),
               DropdownMenuItem(value: 'Offer', child: Text('Offer')),
@@ -5363,6 +5651,12 @@ class _PriceRow {
   final String? id; // the price on the page; null for a new one
   String category;
   bool from;
+  // Named by the owner: filed by its name until they move it.
+  bool autoType;
+  bool showNote = false;
+  final nameFocus = FocusNode();
+  final priceFocus = FocusNode();
+  final noteFocus = FocusNode();
   final TextEditingController name;
   final TextEditingController amount;
   final TextEditingController note;
@@ -5370,6 +5664,7 @@ class _PriceRow {
     this.id,
     this.category = 'coworking',
     this.from = false,
+    this.autoType = false,
     String name = '',
     String amount = '',
     String note = '',
@@ -5412,5 +5707,33 @@ class _PriceRow {
     name.dispose();
     amount.dispose();
     note.dispose();
+    nameFocus.dispose();
+    priceFocus.dispose();
+    noteFocus.dispose();
   }
+}
+
+
+/// The page's dashed "Add a tag" outline (1px #C9CDD4, 6px corners).
+class _DashedBorder extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = const Color(0xFFC9CDD4)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    final path = Path()
+      ..addRRect(RRect.fromRectAndRadius(
+          Offset.zero & size, const Radius.circular(6)));
+    for (final m in path.computeMetrics()) {
+      var d = 0.0;
+      while (d < m.length) {
+        canvas.drawPath(m.extractPath(d, d + 4), paint);
+        d += 7;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

@@ -5,9 +5,10 @@ import 'dart:ui_web' as ui_web;
 import 'package:flutter/material.dart';
 
 /// On the web: the Google map as the live page shows it, in a frame
-/// (Google's free embed, no key, no charge). With a mouse it can be
-/// moved and zoomed like on the page; on a touch screen it stays
-/// untouchable, so a swipe over it still scrolls the screen.
+/// (Google's free embed, no key, no charge). It is a picture of the
+/// page here, so it takes no clicks: a frame that did would sit above
+/// the app, taking the pointer (and its hand cursor) from windows such
+/// as Get Plus opened over it, and a swipe over it would not scroll.
 class MapEmbedView extends StatefulWidget {
   final String url;
   final double height;
@@ -27,13 +28,12 @@ class _MapEmbedViewState extends State<MapEmbedView> {
   String _typeFor(String url) => _types.putIfAbsent(url, () {
         final t = 'nw-map-embed-${_types.length}';
         ui_web.platformViewRegistry.registerViewFactory(t, (int _) {
-          final mouse = html_lib.window.matchMedia('(pointer: fine)').matches;
           return html_lib.IFrameElement()
             ..src = url
             ..style.border = '0'
             ..style.width = '100%'
             ..style.height = '100%'
-            ..style.pointerEvents = mouse ? 'auto' : 'none'
+            ..style.pointerEvents = 'none'
             ..setAttribute('loading', 'lazy')
             ..setAttribute('referrerpolicy', 'no-referrer-when-downgrade');
         });

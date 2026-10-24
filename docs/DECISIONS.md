@@ -5137,3 +5137,36 @@ The bin now asks "Remove this photo?" with Keep photo and Remove photo.
 - Build next is a small note from Nomadwise under the menu, with an X.
 - Plan & billing: no email link that opens a mail app; "Message us
   about billing" opens Inbox & support.
+
+## 24 Oct 2026: Owner account tags drawn like the live page
+
+Jonathan: the tags should look as they do on nomadwise.io. They are
+now white tags with the same icons (the page's tag snippet picks an
+icon by the tag's words), in the order of the template's tag list,
+with "Edit tags" as a dashed tag where the page has "Add a tag".
+Laptop Friendly, No Traffic Noise and Pass Required are not in the
+page's tag list, so they are not shown or offered to owners (their
+columns stay, and the website push keeps them as the pages have them).
+
+## 24 Oct 2026: My listing closer to the live page
+
+- "Where enquiries go" is not on the page any more (the live page does
+  not show it): it sits at the top of Inbox & support and under
+  "Signed in as" in the menu, and Change opens a small window.
+- The page shows "Managed by its owner", as the live page does.
+- WhatsApp shows the WhatsApp icon (greyed with a lock on a free page).
+- "See what Plus adds" and the other Plus links use the site's red.
+- "Get unlimited enquiries" has room around it, so its hover shade
+  fits.
+- The map on My listing takes no clicks. As a live frame it sat above
+  the app and took the mouse (its hand cursor) from the Get Plus window
+  and other windows opened over it.
+- Prices and Your message: the "Kind" box is called "Type".
+- Prices are quicker to fill in (Jonathan): no type to choose for each
+  price. Prices sit in the page's groups (Coworking passes, Meeting
+  rooms, Private offices, Other); one tap adds the usual ones (Day,
+  Week and Month pass, Hot desk, Dedicated desk, Meeting room, Private
+  office, Monitor rental, Locker, Virtual office) in the right group
+  with the cursor in the price; "Something else" is filed by its name.
+  Each price is one line (name, price, From), with a menu to add a
+  note, move it to another group or remove it.
