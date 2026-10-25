@@ -2749,6 +2749,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     final lookWhere = '${look['where'] ?? ''}'.trim();
     final lookLocal = count(look, 'local');
     final signup = part('signup');
+    final newPage = part('new_page');
     final webflow = _drafts.length + _approvedTonight.length;
 
     final first = <_NextJob>[
@@ -2802,6 +2803,18 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
             'Open in Outreach',
             () => _nextUpOpen('signup',
                 const AdminOutreachScreen(initialStep: 'signed_up'))),
+      // Pages we put live whose space has not heard from us yet
+      // (migration 221): say hello, by email, or WhatsApp when there is
+      // no address. Nothing goes by itself.
+      if (count(newPage) > 0)
+        _NextJob(
+            'newpage',
+            'Say hello to ${name(newPage)}',
+            '${count(newPage) == 1 ? 'A page we put on nomadwise.io is live and the space has not heard from us yet' : '${count(newPage)} pages we put on nomadwise.io are live and their spaces have not heard from us yet'}. '
+                'Tell them it is there and that claiming it is free: '
+                '${count(newPage, 'with_email') == count(newPage) ? 'by email' : count(newPage, 'with_email') == 0 ? 'by WhatsApp, Instagram or Facebook, as there is no email yet' : 'by email, or WhatsApp where there is no email'}.',
+            'Open in Outreach',
+            () => _nextUpOpen('newpage', const AdminOutreachScreen())),
       // Spaces that asked to be listed through our old forms and are
       // not on the site yet (migration 188): they come before the
       // places the nightly job found.

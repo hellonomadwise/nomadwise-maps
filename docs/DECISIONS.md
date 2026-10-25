@@ -5268,3 +5268,20 @@ and its buttons were stacked awkwardly.
   dialog.
 - Cost: two Text Search calls per opening instead of one autocomplete,
   counted by the Google meter like every other call.
+
+## 25 Oct 2026: Saying hello to the spaces we put on the site (migration 221)
+
+Jonathan: once we have put a space on nomadwise.io that did not ask,
+tell them it is there and that claiming it is free, to get more
+owners trying the Owner account. Keep the one soft line about Plus
+("if you don't ask you don't get", but awareness, soft sell). Where
+there is no email, WhatsApp is fine as long as what was sent is
+recorded.
+- Next up: "Say hello to <space>" for pages put live in the last 60
+  days whose space has not heard from us (no message either way, no
+  owner, not a test, not set aside). It opens Outreach, where the New
+  pages card lists them.
+- The email hello (invite_new_page) is unchanged.
+- New WhatsApp hello (invite_new_page_wa), also used for Instagram
+  and Facebook: offered for a space we have not written to. Sent by
+  hand from the phone; "I sent it" keeps the words on the space's card.

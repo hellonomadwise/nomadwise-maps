@@ -979,10 +979,17 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
   }
 
   /// The WhatsApp (and Instagram, Facebook) words for a space: the
-  /// follow-up after our message, or the note for a stranger who
-  /// opened the claim page.
-  String _waKey(Map<String, dynamic> c) =>
-      _followUp(c).interest ? 'followup_after_ours_wa' : 'claim_looked_wa';
+  /// follow-up after our message, the note for a stranger who opened
+  /// the claim page, or the first hello to a space we put on the site
+  /// that has not heard from us (migration 221).
+  String _waKey(Map<String, dynamic> c) {
+    if (_followUp(c).interest) return 'followup_after_ours_wa';
+    if (c['claim_look'] is Map) return 'claim_looked_wa';
+    if (c['last_out_at'] == null && c['last_in_at'] == null) {
+      return 'invite_new_page_wa';
+    }
+    return 'claim_looked_wa';
+  }
 
   Future<void> _reply(Map<String, dynamic> c) async {
     if ('${c['email'] ?? ''}'.isEmpty) {
