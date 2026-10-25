@@ -6,6 +6,22 @@ import 'supabase_service.dart';
 import '../models/discovered_place.dart';
 import '../models/venue.dart';
 
+/// One place from a Google search by name: its id, name, full
+/// address and position (the position can be missing).
+class PlaceHit {
+  final String placeId;
+  final String name;
+  final String address;
+  final double? lat;
+  final double? lng;
+  PlaceHit(
+      {required this.placeId,
+      required this.name,
+      required this.address,
+      this.lat,
+      this.lng});
+}
+
 /// A city's centre point as Google resolves it from "City, Country".
 class CityCentre {
   final String name;
@@ -368,6 +384,56 @@ class PlacesService {
     } catch (_) {
       return null;
     }
+  }
+
+  /// Places matching a name and town, each with its full street
+  /// address and position, so two branches of the same business can be
+  /// told apart (Shloka, Ahmedabad, 25 Oct 2026). One Text Search call;
+  /// falls back to the lighter autocomplete when it finds nothing.
+  Future<List<PlaceHit>> findPlaces(String query, {int max = 8}) async {
+    final q = query.trim();
+    if (q.length < 2) return [];
+    try {
+      final resp = await GoogleMeter.client.post(
+        Uri.parse('https://places.googleapis.com/v1/places:searchText'),
+        headers: {
+          'X-Goog-Api-Key': AppConfig.googlePlacesKey,
+          'Content-Type': 'application/json',
+          'X-Goog-FieldMask':
+              'places.id,places.displayName,places.formattedAddress,places.location',
+        },
+        body: jsonEncode({
+          'languageCode': 'en',
+          'textQuery': q,
+          'maxResultCount': max,
+        }),
+      );
+      if (resp.statusCode == 200) {
+        final places = (jsonDecode(resp.body)['places'] as List?) ?? [];
+        final hits = <PlaceHit>[];
+        for (final x in places) {
+          if (x is! Map) continue;
+          final id = (x['id'] ?? '').toString();
+          if (id.isEmpty) continue;
+          final loc = x['location'];
+          hits.add(PlaceHit(
+            placeId: id,
+            name: (x['displayName']?['text'] ?? '').toString(),
+            address: (x['formattedAddress'] ?? '').toString(),
+            lat: loc is Map ? (loc['latitude'] as num?)?.toDouble() : null,
+            lng: loc is Map ? (loc['longitude'] as num?)?.toDouble() : null,
+          ));
+        }
+        if (hits.isNotEmpty) return hits;
+      }
+    } catch (_) {
+      // falls back below
+    }
+    final sugg = await autocomplete(q);
+    return [
+      for (final h in sugg)
+        PlaceHit(placeId: h.placeId, name: h.main, address: h.secondary),
+    ];
   }
 
   final Map<String, List<String>> _photoNameCache = {};

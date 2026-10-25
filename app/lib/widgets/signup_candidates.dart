@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -88,14 +90,37 @@ class _SignupCandidatesState extends State<SignupCandidates> {
   Future<void> _findAndQueue(Map<String, dynamic> s) async {
     final id = _s(s['id']);
     if (_busy.contains(id)) return;
-    final picked = await showDialog<(String, PlaceLive)>(
-        context: context,
-        builder: (_) => _FindPlaceDialog(
-            places: widget.places,
-            start: [s['name'], s['city'], s['country']]
-                .map(_s)
-                .where((x) => x.isNotEmpty)
-                .join(' ')));
+    final start = [s['name'], s['city'], s['country']]
+        .map(_s)
+        .where((x) => x.isNotEmpty)
+        .join(' ');
+    // The address the space gave us, to tell branches apart.
+    final given = _s(s['address']).isEmpty
+        ? ''
+        : [s['address'], s['city'], s['country']]
+            .map(_s)
+            .where((x) => x.isNotEmpty)
+            .join(', ');
+    // On a phone a panel that slides up from the bottom, clear of the
+    // keyboard; on a wide screen the dialog as before (Jonathan, 25 Oct
+    // 2026: "the ux can be better on mobile").
+    final phone = MediaQuery.sizeOf(context).width < 600;
+    final picked = phone
+        ? await showModalBottomSheet<(String, PlaceLive)>(
+            context: context,
+            isScrollControlled: true,
+            useSafeArea: true,
+            showDragHandle: true,
+            backgroundColor: Brand.surface,
+            builder: (_) => _FindPlaceDialog(
+                places: widget.places,
+                start: start,
+                given: given,
+                sheet: true))
+        : await showDialog<(String, PlaceLive)>(
+            context: context,
+            builder: (_) => _FindPlaceDialog(
+                places: widget.places, start: start, given: given));
     if (picked == null || !mounted) return;
     final (placeId, live) = picked;
     setState(() => _busy.add(id));
@@ -376,7 +401,16 @@ class _SignupCandidatesState extends State<SignupCandidates> {
 class _FindPlaceDialog extends StatefulWidget {
   final PlacesService places;
   final String start;
-  const _FindPlaceDialog({required this.places, required this.start});
+  /// The address on the sign-up ('' when none): each result shows how
+  /// far it is from there, and the nearest close one is marked.
+  final String given;
+  /// Shown as a bottom panel (a phone) rather than a dialog.
+  final bool sheet;
+  const _FindPlaceDialog(
+      {required this.places,
+      required this.start,
+      this.given = '',
+      this.sheet = false});
 
   @override
   State<_FindPlaceDialog> createState() => _FindPlaceDialogState();
@@ -384,16 +418,23 @@ class _FindPlaceDialog extends StatefulWidget {
 
 class _FindPlaceDialogState extends State<_FindPlaceDialog> {
   late final _q = TextEditingController(text: widget.start);
-  List<PlaceSuggestion> _hits = [];
+  List<PlaceHit> _hits = [];
   bool _searching = false;
   String? _pickedId;
   PlaceLive? _picked;
   bool _loadingPick = false;
+  // Where the sign-up's own address is, once Google has placed it.
+  CityCentre? _given;
 
   @override
   void initState() {
     super.initState();
     _search();
+    if (widget.given.trim().isNotEmpty) {
+      widget.places.cityCentre(widget.given).then((c) {
+        if (mounted && c != null) setState(() => _given = c);
+      });
+    }
   }
 
   @override
@@ -406,7 +447,7 @@ class _FindPlaceDialogState extends State<_FindPlaceDialog> {
     final text = _q.text.trim();
     if (text.length < 2) return;
     setState(() => _searching = true);
-    final hits = await widget.places.autocomplete(text);
+    final hits = await widget.places.findPlaces(text);
     if (!mounted) return;
     if (text != _q.text.trim()) {
       setState(() => _searching = false);
@@ -418,7 +459,7 @@ class _FindPlaceDialogState extends State<_FindPlaceDialog> {
     });
   }
 
-  Future<void> _pick(PlaceSuggestion p) async {
+  Future<void> _pick(PlaceHit p) async {
     setState(() {
       _pickedId = p.placeId;
       _picked = null;
@@ -432,115 +473,280 @@ class _FindPlaceDialogState extends State<_FindPlaceDialog> {
     });
   }
 
+  /// Kilometres from the sign-up's address, or null when either
+  /// position is unknown.
+  double? _km(double? lat, double? lng) {
+    final g = _given;
+    if (g == null || lat == null || lng == null) return null;
+    const r = 6371.0;
+    double rad(double d) => d * math.pi / 180;
+    final dLat = rad(lat - g.lat);
+    final dLng = rad(lng - g.lng);
+    final a = math.pow(math.sin(dLat / 2), 2) +
+        math.cos(rad(g.lat)) * math.cos(rad(lat)) * math.pow(math.sin(dLng / 2), 2);
+    return 2 * r * math.asin(math.min(1.0, math.sqrt(a.toDouble())));
+  }
+
+  static String _kmWords(double km) => km < 1
+      ? '${(km * 1000).round()} m from their address'
+      : '${km < 10 ? km.toStringAsFixed(1) : km.round()} km from their address';
+
+  /// The result that matches the sign-up's address: the nearest one,
+  /// when it is within 1.5 km and clearly nearer than the next.
+  String? get _matchId {
+    String? best;
+    double? bestKm;
+    double? second;
+    for (final h in _hits) {
+      final k = _km(h.lat, h.lng);
+      if (k == null) continue;
+      if (bestKm == null || k < bestKm) {
+        second = bestKm;
+        bestKm = k;
+        best = h.placeId;
+      } else if (second == null || k < second) {
+        second = k;
+      }
+    }
+    if (bestKm == null || bestKm > 1.5) return null;
+    if (second != null && second - bestKm < 0.5) return null;
+    return best;
+  }
+
+  List<PlaceHit> get _sorted {
+    if (_given == null) return _hits;
+    final list = [..._hits];
+    list.sort((a, b) {
+      final ka = _km(a.lat, a.lng) ?? double.infinity;
+      final kb = _km(b.lat, b.lng) ?? double.infinity;
+      return ka.compareTo(kb);
+    });
+    return list;
+  }
+
+  Widget _matchLabel() => Container(
+        margin: const EdgeInsets.only(top: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+            color: Brand.success.withValues(alpha: .12),
+            borderRadius: BorderRadius.circular(6)),
+        child: const Text('Matches their sign-up address',
+            style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: Brand.success)),
+      );
+
+  Widget _hitRow(PlaceHit h, String? match) {
+    final km = _km(h.lat, h.lng);
+    final isMatch = h.placeId == match;
+    return Material(
+      color: isMatch ? Brand.success.withValues(alpha: .06) : Colors.transparent,
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: () => _pick(h),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(8, 10, 8, 10),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Icon(Icons.place_outlined,
+                  size: 20,
+                  color: isMatch ? Brand.success : Brand.inkSecondary),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(h.name,
+                        style: const TextStyle(
+                            fontSize: 14.5, fontWeight: FontWeight.w700)),
+                    if (h.address.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(h.address,
+                            style: const TextStyle(
+                                fontSize: 13,
+                                height: 1.35,
+                                color: Brand.inkSecondary)),
+                      ),
+                    if (km != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 3),
+                        child: Text(_kmWords(km),
+                            style: const TextStyle(
+                                fontSize: 12, color: Brand.inkMuted)),
+                      ),
+                    if (isMatch) _matchLabel(),
+                  ]),
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  Widget _results() {
+    final match = _matchId;
+    final given = widget.given.trim();
+    return Column(mainAxisSize: MainAxisSize.min, children: [
+      TextField(
+        controller: _q,
+        autofocus: !widget.sheet,
+        textInputAction: TextInputAction.search,
+        onSubmitted: (_) => _search(),
+        decoration: InputDecoration(
+            labelText: 'Name and town',
+            suffixIcon: IconButton(
+                tooltip: 'Search',
+                onPressed: _search,
+                icon: const Icon(Icons.search))),
+      ),
+      if (given.isNotEmpty)
+        Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Text('Their address: $given',
+                style:
+                    const TextStyle(fontSize: 12.5, color: Brand.inkSecondary)),
+          ),
+        ),
+      const SizedBox(height: 8),
+      if (_searching)
+        const Padding(
+          padding: EdgeInsets.all(16),
+          child: CircularProgressIndicator(color: Brand.red),
+        )
+      else if (_hits.isEmpty)
+        const Padding(
+          padding: EdgeInsets.all(12),
+          child: Text(
+              'Nothing found. Try the name alone, or the name and the street.',
+              style: TextStyle(color: Brand.inkMuted)),
+        )
+      else
+        ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: widget.sheet ? 420 : 340),
+          child: ListView(shrinkWrap: true, children: [
+            for (final h in _sorted) _hitRow(h, match),
+          ]),
+        ),
+    ]);
+  }
+
+  Widget _checkPicked(PlaceLive? picked) {
+    if (_loadingPick) {
+      return const SizedBox(
+          height: 120,
+          child: Center(child: CircularProgressIndicator(color: Brand.red)));
+    }
+    if (picked == null) {
+      return const Text('Google did not answer for that place. Go back and '
+          'pick it again, or another one.');
+    }
+    final km = _km(picked.lat, picked.lng);
+    return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(picked.displayName ?? '',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 4),
+          if ((picked.address ?? '').isNotEmpty)
+            Text(picked.address!, style: const TextStyle(fontSize: 13)),
+          if (km != null) ...[
+            const SizedBox(height: 4),
+            Text(_kmWords(km),
+                style: const TextStyle(fontSize: 12.5, color: Brand.inkMuted)),
+          ],
+          if (_pickedId != null && _pickedId == _matchId) _matchLabel(),
+          const SizedBox(height: 6),
+          Text(
+              [
+                if (picked.rating != null)
+                  '★ ${picked.rating} (${picked.userRatingCount ?? 0} reviews)',
+                if ((picked.primaryType ?? '').isNotEmpty)
+                  picked.primaryType!.replaceAll('_', ' '),
+                if ((picked.website ?? '').isNotEmpty) picked.website!,
+              ].join('  ·  '),
+              style: const TextStyle(fontSize: 12.5, color: Brand.inkSecondary)),
+          if (picked.lat == null) ...[
+            const SizedBox(height: 8),
+            const Text(
+                'Google gave no location for this one, so it cannot go on '
+                'the map.',
+                style: TextStyle(fontSize: 12.5, color: Brand.red)),
+          ],
+        ]);
+  }
+
+  void _back() => setState(() {
+        _pickedId = null;
+        _picked = null;
+      });
+
   @override
   Widget build(BuildContext context) {
     final picked = _picked;
+    final body = _pickedId != null ? _checkPicked(picked) : _results();
+    final canQueue = picked != null && picked.lat != null;
+    void queue() => Navigator.pop(context, (_pickedId!, picked!));
+
+    if (widget.sheet) {
+      // Phone: full-width buttons, the one that acts first.
+      return Padding(
+        padding: EdgeInsets.fromLTRB(
+            20, 0, 20, 16 + MediaQuery.viewInsetsOf(context).bottom),
+        child: SingleChildScrollView(
+          child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text('Find it on Google',
+                    style:
+                        TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 12),
+                body,
+                const SizedBox(height: 16),
+                if (canQueue) ...[
+                  FilledButton(
+                      onPressed: queue,
+                      style: FilledButton.styleFrom(
+                          backgroundColor: Brand.red,
+                          minimumSize: const Size.fromHeight(48)),
+                      child: const Text('Yes, queue it')),
+                  const SizedBox(height: 8),
+                ],
+                if (_pickedId != null) ...[
+                  OutlinedButton(
+                      onPressed: _back,
+                      style: OutlinedButton.styleFrom(
+                          minimumSize: const Size.fromHeight(48)),
+                      child: const Text('Not this one')),
+                  const SizedBox(height: 4),
+                ],
+                TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Cancel')),
+              ]),
+        ),
+      );
+    }
+
     return AlertDialog(
       title: const Text('Find it on Google'),
-      content: SizedBox(
-        width: 460,
-        child: _pickedId != null
-            ? (_loadingPick
-                ? const SizedBox(
-                    height: 120,
-                    child: Center(
-                        child: CircularProgressIndicator(color: Brand.red)))
-                : picked == null
-                    ? const Text('Google did not answer for that place. Go '
-                        'back and pick it again, or another one.')
-                    : Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                            Text(picked.displayName ?? '',
-                                style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w700)),
-                            const SizedBox(height: 4),
-                            if ((picked.address ?? '').isNotEmpty)
-                              Text(picked.address!,
-                                  style: const TextStyle(fontSize: 13)),
-                            const SizedBox(height: 6),
-                            Text(
-                                [
-                                  if (picked.rating != null)
-                                    '★ ${picked.rating} '
-                                        '(${picked.userRatingCount ?? 0} reviews)',
-                                  if ((picked.primaryType ?? '').isNotEmpty)
-                                    picked.primaryType!.replaceAll('_', ' '),
-                                  if ((picked.website ?? '').isNotEmpty)
-                                    picked.website!,
-                                ].join('  ·  '),
-                                style: const TextStyle(
-                                    fontSize: 12.5,
-                                    color: Brand.inkSecondary)),
-                            if (picked.lat == null) ...[
-                              const SizedBox(height: 8),
-                              const Text(
-                                  'Google gave no location for this one, '
-                                  'so it cannot go on the map.',
-                                  style: TextStyle(
-                                      fontSize: 12.5, color: Brand.red)),
-                            ],
-                          ]))
-            : Column(mainAxisSize: MainAxisSize.min, children: [
-                TextField(
-                  controller: _q,
-                  autofocus: true,
-                  textInputAction: TextInputAction.search,
-                  onSubmitted: (_) => _search(),
-                  decoration: InputDecoration(
-                      labelText: 'Name and town',
-                      suffixIcon: IconButton(
-                          tooltip: 'Search',
-                          onPressed: _search,
-                          icon: const Icon(Icons.search))),
-                ),
-                const SizedBox(height: 8),
-                if (_searching)
-                  const Padding(
-                    padding: EdgeInsets.all(16),
-                    child: CircularProgressIndicator(color: Brand.red),
-                  )
-                else if (_hits.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.all(12),
-                    child: Text(
-                        'Nothing found. Try the name alone, or the name '
-                        'and the street.',
-                        style: TextStyle(color: Brand.inkMuted)),
-                  )
-                else
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxHeight: 320),
-                    child: ListView(shrinkWrap: true, children: [
-                      for (final h in _hits)
-                        ListTile(
-                          dense: true,
-                          leading: const Icon(Icons.place_outlined),
-                          title: Text(h.main),
-                          subtitle: Text(h.secondary),
-                          onTap: () => _pick(h),
-                        ),
-                    ]),
-                  ),
-              ]),
-      ),
+      content: SizedBox(width: 480, child: body),
       actions: [
         if (_pickedId != null)
-          TextButton(
-              onPressed: () => setState(() {
-                    _pickedId = null;
-                    _picked = null;
-                  }),
-              child: const Text('Not this one')),
+          TextButton(onPressed: _back, child: const Text('Not this one')),
         TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Cancel')),
-        if (picked != null && picked.lat != null)
-          ElevatedButton(
-              onPressed: () => Navigator.pop(context, (_pickedId!, picked)),
-              child: const Text('Yes, queue it')),
+        if (canQueue)
+          ElevatedButton(onPressed: queue, child: const Text('Yes, queue it')),
       ],
     );
   }

@@ -5249,3 +5249,22 @@ any data. Step 1, Outreach only:
 - "Verified" as a plan reads "Plus" throughout Outreach (the stage key
   stays 'verified'; the badge is still "Verified by Nomadwise").
 - Outreach remembers the group and stage last chosen, on that device.
+
+## 25 Oct 2026: "Find it on Google" tells branches apart, and fits a phone
+
+Jonathan, picking Shloka Coworking (two branches in Ahmedabad) on his
+phone: the box listed both without saying which matched the sign-up,
+and its buttons were stacked awkwardly.
+- Results come from a Google text search, so each shows its full
+  street address (falls back to the lighter autocomplete when nothing
+  is found).
+- When the sign-up gave an address, Google places it, every result
+  says how far it is from there, the nearest come first, and one
+  within 1.5 km (and clearly nearest) is marked "Matches their sign-up
+  address". The picked place shows the same.
+- On a phone (narrower than 600 px) it opens as a panel from the
+  bottom, clear of the keyboard, with full-width buttons: "Yes, queue
+  it" first, then "Not this one", then Cancel. Wide screens keep the
+  dialog.
+- Cost: two Text Search calls per opening instead of one autocomplete,
+  counted by the Google meter like every other call.
