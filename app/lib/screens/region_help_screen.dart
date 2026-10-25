@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
+import 'package:url_launcher/url_launcher.dart';
 
 import '../services/supabase_service.dart';
 import '../theme.dart';
@@ -252,6 +253,11 @@ class _RegionHelpScreenState extends State<RegionHelpScreen> {
       }
     }
 
+    // The rule only matters when the space is not plainly in a Region.
+    final town = verdict['verdict'] == 'suggest'
+        ? ''
+        : '${verdict['town'] ?? venue['city'] ?? ''}'.trim();
+
     final where = [
       venue['city'],
       venue['county'],
@@ -273,6 +279,10 @@ class _RegionHelpScreenState extends State<RegionHelpScreen> {
               padding: const EdgeInsets.only(top: 2),
               child: Text('Google: $where', style: _small),
             ),
+          if (town.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            _ruleBox(town, '${venue['country_code'] ?? ''}'),
+          ],
           if (isUs) ...[
             const SizedBox(height: 10),
             Container(
@@ -355,9 +365,20 @@ class _RegionHelpScreenState extends State<RegionHelpScreen> {
     final kind = '${verdict['verdict'] ?? 'none'}';
     final region = '${verdict['region'] ?? ''}'.trim();
     final why = '${verdict['why'] ?? ''}'.trim();
-    final (String title, Color tint, Color ink) = kind == 'suggest'
-        ? ('Suggested: $region', Brand.goldTint, Brand.goldTextDark)
-        : ('No Region suggested', Brand.field, Brand.inkSecondary);
+    final town = '${verdict['town'] ?? ''}'.trim();
+    final (String title, Color tint, Color ink) = switch (kind) {
+      'suggest' => ('Suggested: $region', Brand.goldTint, Brand.goldTextDark),
+      'check' => (
+          'Its own Region, or $region? Check the rule below',
+          Brand.goldTint,
+          Brand.goldTextDark
+        ),
+      _ => (
+          town.isEmpty ? 'No Region suggested' : 'Probably a new Region: $town',
+          Brand.field,
+          Brand.inkSecondary
+        ),
+    };
     return Container(
       width: double.infinity,
       color: tint,
@@ -372,6 +393,37 @@ class _RegionHelpScreenState extends State<RegionHelpScreen> {
             child: Text(why,
                 style: TextStyle(fontSize: 12.5, height: 1.4, color: ink)),
           ),
+      ]),
+    );
+  }
+
+  /// Jonathan's rule for a town near a bigger city (25 Oct 2026), and a
+  /// link to see how many people search for coworking there.
+  Widget _ruleBox(String town, String countryCode) {
+    final cc = countryCode.trim().toLowerCase();
+    final url = Uri.parse('https://app.ahrefs.com/keywords-explorer/google/'
+        '${cc.isEmpty ? 'us' : cc}/overview'
+        '?keyword=${Uri.encodeQueryComponent('coworking ${town.toLowerCase()}')}');
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(10, 10, 10, 4),
+      decoration: BoxDecoration(
+          color: Brand.field, borderRadius: BorderRadius.circular(10)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('THE RULE', style: _label),
+        const SizedBox(height: 4),
+        Text(
+            '$town gets its own Region when people search for coworking '
+            'there by name, or when it is a city of its own (roughly '
+            '100,000 people or more). Otherwise it goes under the nearest '
+            "big city's Region, with $town as a Location.",
+            style: _small),
+        TextButton.icon(
+            onPressed: () =>
+                launchUrl(url, mode: LaunchMode.externalApplication),
+            style: TextButton.styleFrom(padding: EdgeInsets.zero),
+            icon: const Icon(Icons.open_in_new, size: 16),
+            label: Text('Searches for "coworking $town" in Ahrefs')),
       ]),
     );
   }
@@ -393,6 +445,7 @@ class _RegionHelpScreenState extends State<RegionHelpScreen> {
           : (_picked == rid && _pickedNew == null);
       final reason = '${o['reason'] ?? ''}'.trim();
       final conf = '${o['confidence'] ?? ''}';
+      final loc = isNew ? '' : '${o['location'] ?? ''}'.trim();
       return Padding(
         padding: const EdgeInsets.only(bottom: 6),
         child: Material(
@@ -426,12 +479,18 @@ class _RegionHelpScreenState extends State<RegionHelpScreen> {
                                 [
                                   name,
                                   if (isNew) '(new Region)',
+                                  if (loc.isNotEmpty) '+ $loc as a Location',
                                   if (conf.isNotEmpty) '· $conf confidence',
                                 ].join(' '),
                                 style: const TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w700)),
                             if (reason.isNotEmpty) Text(reason, style: _small),
+                            if (loc.isNotEmpty && on)
+                              Text(
+                                  'After this, add $loc as a Location of '
+                                  '$name (Nearby spaces on a map).',
+                                  style: _small),
                           ]),
                     ),
                   ]),

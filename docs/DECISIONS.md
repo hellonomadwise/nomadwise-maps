@@ -5215,3 +5215,22 @@ very soon" that says what it will be (a badge to copy onto their site,
 or to download for Instagram and Facebook). To owners the badge is
 about credibility; that it links back to nomadwise.io is internal and
 never said to spaces.
+
+## 25 Oct 2026: The Region rule for towns near a bigger city (migration 220)
+
+Jonathan, deciding Unterschleissheim (near Munich) and Richmond Hill
+(near Toronto): a town gets its own Region when people search for
+coworking there by name, or when it is a city of its own (roughly
+100,000 people or more). Otherwise it goes under the nearest big
+city's Region, with the town as a Location of that Region.
+- Unterschleissheim: about 29,000 people, 16 km from Munich, no
+  searches for coworking there: Munich, Location Unterschleissheim.
+- Richmond Hill: about 200,000 people, about 150 searches a month in
+  Canada: a Region of its own.
+
+Which Region? now carries the rule: a space within 25 km of a Region
+but in another town gets "Its own Region, or <Region>? Check the rule
+below" instead of a plain suggestion; the screen shows the rule and a
+link to the searches for "coworking <town>" in Ahrefs. Ask Claude is
+given the rule and both decisions as examples, and says which town to
+add as a Location when it files a town under a bigger city.
