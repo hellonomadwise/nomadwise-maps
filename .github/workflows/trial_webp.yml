@@ -1,0 +1,38 @@
+name: Trial WebP photos (throwaway)
+on:
+  push:
+    branches: [trial-webp-photos]
+permissions:
+  contents: write
+jobs:
+  trial:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Upload test and dry run
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          WEBFLOW_API_TOKEN: ${{ secrets.WEBFLOW_API_TOKEN }}
+        run: |
+          mkdir -p out
+          python3 - > out/upload_test.txt 2>&1 <<'PY' || true
+          import os, sys, json, urllib.request
+          sys.path.insert(0, 'scripts'); import web_photos as W
+          SB=os.environ['SUPABASE_URL'].rstrip('/'); K=os.environ['SUPABASE_SERVICE_ROLE_KEY']
+          r=urllib.request.Request(f"{SB}/rest/v1/venues?select=name,website_photos&name=ilike.*Terra*Healthy*",headers={'apikey':K,'Authorization':f'Bearer {K}'})
+          rows=json.load(urllib.request.urlopen(r)); print(rows)
+          url=[u for u in rows[0]['website_photos'] if 'googleusercontent' in u][0]
+          c=W.WebPhotos(SB,K); new=c.convert(url,'trial-terra'); print('NEW', new); print(c.log)
+          h=urllib.request.urlopen(urllib.request.Request(new,method='HEAD')); print(h.status, h.headers.get('Content-Type'), h.headers.get('Content-Length'))
+          print('AGAIN', c.convert(url,'trial-terra'), len(c.log))
+          print('REUSE', W.WebPhotos(SB,K).convert(url,'trial-terra'))
+          PY
+          python3 scripts/web_photos_redo.py --dry-run > out/dry_run.txt 2>&1 || true
+          cp ci-debug/*.json out/ 2>/dev/null || true
+      - name: Save results
+        if: always()
+        run: |
+          cd out && git init -q && git checkout -q -b trial-webp-results
+          git -c user.name=ci -c user.email=ci@x add -A && git -c user.name=ci -c user.email=ci@x commit -qm results
+          git push -qf https://x-access-token:${{ github.token }}@github.com/${{ github.repository }} trial-webp-results
