@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../services/clipboard_stub.dart'
@@ -80,12 +81,19 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
     ('contacted', 'Contacted'),
     ('replied', 'Replied'),
     ('claimed', 'Claimed'),
-    ('verified', 'Verified'),
+    ('verified', 'Plus'),
     ('not_now', 'Not now'),
     ('declined', 'Declined'),
     ('unsubscribed', 'Unsubscribed'),
     ('', 'All'),
   ];
+
+  // Spaces 2.0, step 1 (Jonathan, 25 Oct 2026): the stages worked
+  // through every day stay in view; the ones that are rarely needed
+  // (stepped off, set up by us, tests, not for outreach) sit behind
+  // "More". Nothing is hidden from the lists themselves.
+  static const _mainStages = {'new', 'contacted', 'replied', 'claimed', 'verified', ''};
+  bool _moreOpen = false;
 
   static const _groups = <(String, String, String)>[
     ('', 'Everyone', ''),
@@ -106,7 +114,11 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
       _view = 'whole';
       _stage = ''; // All stages, so a space already written to shows
     }
-    _load();
+    if (q.isEmpty && _step == null) {
+      _loadRemembered();
+    } else {
+      _load();
+    }
     _supabase.outreachTemplates().then((t) {
       if (mounted) setState(() => _templates = t);
     }).catchError((_) {});
@@ -122,8 +134,46 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
   // tab picked after it.
   int _req = 0;
 
+  // The group and stage last chosen, kept on this device, so Outreach
+  // opens where it was left.
+  static const _keyGroup = 'outreach_group';
+  static const _keyStage = 'outreach_stage';
+
+  Future<void> _loadRemembered() async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      final g = p.getString(_keyGroup);
+      final st = p.getString(_keyStage);
+      if (mounted) {
+        setState(() {
+          if (g != null && _groups.any((x) => x.$1 == g)) _group = g;
+          if (st != null &&
+              (_stages.any((x) => x.$1 == st) ||
+                  const {'ours', 'tests', 'aside'}.contains(st))) {
+            _stage = st;
+            if (!_mainStages.contains(st)) _moreOpen = true;
+          }
+        });
+      }
+    } catch (_) {
+      // Nothing remembered: the usual start.
+    }
+    if (mounted) _load();
+  }
+
+  void _remember() {
+    if (_step != null || _search.text.trim().isNotEmpty) return;
+    final g = _group;
+    final st = _stage;
+    SharedPreferences.getInstance().then((p) {
+      p.setString(_keyGroup, g);
+      p.setString(_keyStage, st);
+    }).catchError((_) {});
+  }
+
   Future<void> _load() async {
     final n = ++_req;
+    _remember();
     // Started first and read last: it never throws, and the list does
     // not wait for it.
     final pathF = _supabase.outreachPath();
@@ -1504,7 +1554,7 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
     ('{city}', 'its city'),
     ('{claim_link}', 'the claim form, opened on their space'),
     ('{page_link}', 'their page on nomadwise.io'),
-    ('{price_words}', 'the Verified price for their country'),
+    ('{price_words}', 'the Plus price for their country'),
     ('{unsubscribe_link}', 'the link that stops our emails'),
     // (migration 183: an email closes "Kind regards, Jonathan Heavens,
     // Cofounder - Nomadwise.io"; a WhatsApp message keeps the short one)
@@ -1815,15 +1865,15 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
       'used',
       'Used it',
       'They changed their page, answered a question or voted on an '
-          'idea. These are the likeliest to go Verified. Next: tell them '
-          'what Verified adds.',
+          'idea. These are the likeliest to go for Plus. Next: tell them '
+          'what Plus adds.',
       '',
       '',
       ''
     ),
     (
       'looked',
-      'Looked at Verified',
+      'Looked at Plus',
       'They opened the payment step and did not finish. Next: ask what '
           'held them back.',
       '',
@@ -1832,8 +1882,8 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
     ),
     (
       'verified',
-      'On Verified',
-      'On the Verified plan. Next: keep them, and ask what they would '
+      'On Plus',
+      'On the Plus plan. Next: keep them, and ask what they would '
           'like added.',
       '',
       '',
@@ -1858,7 +1908,7 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
     if (key == 'ours') {
       return (
         'Set up by us, not claimed yet',
-        'We made these Verified ourselves, or put the owner on for them: '
+        'We put these on Plus ourselves, or put the owner on for them: '
             'booking partners, and spaces that paid for a listing the old '
             'way. Nobody there has claimed the page or been in the Owner '
             'account. Next: write to say their Owner account is ready, and '
@@ -2326,14 +2376,14 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
     ),
     (
       'owners', 'looked', Icons.sell_outlined,
-      'Looked at Verified, did not pay',
+      'Looked at Plus, did not pay',
       'Their address, and that they opened the payment step.',
       'Ask what held them back.'
     ),
     (
       'owners', 'ours', Icons.storefront_outlined,
       'Set up by us, not claimed yet',
-      'Partners and spaces listed the old way, on Verified without an '
+      'Partners and spaces listed the old way, on Plus without an '
           'account of their own.',
       'Tell them their Owner account is ready.'
     ),
@@ -2842,8 +2892,8 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
     }
     if (o['looked'] == true) {
       parts.add(o['checkout'] == true
-          ? 'reached the payment page for Verified and did not finish'
-          : 'opened the Verified step and did not finish');
+          ? 'reached the payment page for Plus and did not finish'
+          : 'opened the Plus step and did not finish');
     }
     return 'Owner account: ${parts.join('; ')}.';
   }
@@ -2873,7 +2923,7 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
       'New: not written to yet.\n'
           'Contacted: we wrote.\n'
           'Replied: they answered.\n'
-          'Claimed and Verified: the owner claimed the page themselves, '
+          'Claimed and Plus: the owner claimed the page themselves, '
           'or has been in their Owner account. These two move by '
           'themselves, and a space that claims is added here if it was '
           'not in the list. Spaces we set up ourselves are under "Set up '
@@ -2888,7 +2938,7 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
           'reaching them: no address yet, ready to write to, written '
           'to, follow-up due, replied. Then, once they have claimed: '
           'signed in to their Owner account, used it, looked at '
-          'Verified, on Verified.\n'
+          'Plus, on Plus.\n'
           'Tap a step to see its spaces and what can be done next. The '
           'red lines under a step are the spaces stuck there.\n'
           'A claimed space\'s card says what its owner has done in the '
@@ -2901,7 +2951,7 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
           'interest is a row: they wrote back, began the claim form, made '
           'an account on the map, looked at the claim page, and, after '
           'claiming, never came in, changed nothing, or looked at '
-          'Verified. Each row says how many spaces stand there now, what '
+          'Plus. Each row says how many spaces stand there now, what '
           'we know about them, and the one thing to do. Tap a row to see '
           'its spaces.\n'
           'A space leaves a row when we write to it, or when "Done for '
@@ -2942,11 +2992,11 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
     (
       Icons.storefront_outlined,
       'Set up by us, not claimed yet',
-      'Some spaces are on Verified, or have an owner, because we set '
+      'Some spaces are on Plus, or have an owner, because we set '
           'them up: booking partners we agreed terms with, and spaces '
           'that paid for a listing the old way. Nobody there has claimed '
           'the page or been in the Owner account, so they are not '
-          'counted under the Claimed or Verified chips. They have their '
+          'counted under the Claimed or Plus chips. They have their '
           'own chip and their own line on the path, and are the ones to '
           'invite to their Owner account. A space leaves this group by '
           'itself when its owner claims the page, or opens the Owner '
@@ -2960,7 +3010,7 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
           'test". It then shows under the Tests chip only, and is left '
           'out of every number here, of the path, of the number beside '
           'Outreach in the menu, and of the Money card\'s claimed and '
-          'Verified.\n'
+          'Plus.\n'
           'Marking a claimed space marks the owner\'s address, so '
           'everything else claimed with it follows. Addresses at '
           'nomadwise.io, our own sign-in addresses and people named '
@@ -3181,7 +3231,7 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
                         : null,
                     child: Text(
                         '${onSite ? 'On nomadwise.io' : 'On the map'}: $venueName'
-                        '${tier == 'verified' ? (ours ? ' (Verified by us)' : ' (Verified)') : tier == 'free' && '${c['listing_owner_email'] ?? ''}'.isNotEmpty ? (ours ? ' (owner put on by us, Claimed)' : ' (Claimed)') : ''}',
+                        '${tier == 'verified' ? (ours ? ' (Plus, set up by us)' : ' (Plus)') : tier == 'free' && '${c['listing_owner_email'] ?? ''}'.isNotEmpty ? (ours ? ' (owner put on by us, Claimed)' : ' (Claimed)') : ''}',
                         style: TextStyle(
                             fontSize: 12.5,
                             color: onSite ? Brand.logoNavy : Brand.inkSecondary,
@@ -4494,61 +4544,98 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
                           ),
                         ],
                         const SizedBox(height: 10),
-                        Wrap(spacing: 6, runSpacing: 6, children: [
+                        Builder(builder: (context) {
+                          void pick(String stage) {
+                            setState(() {
+                              _stage = stage;
+                              _step = null;
+                              _rows = null;
+                            });
+                            _load();
+                          }
+
                           // While a step of the path is showing, no
                           // stage is the chosen one.
-                          for (final s in _stages)
-                            _pill(s.$2,
-                                count: s.$1.isEmpty ? null : _counts[s.$1] ?? 0,
-                                on: _step == null && _stage == s.$1,
-                                color: Brand.ink, onTap: () {
-                              setState(() {
-                                _stage = s.$1;
-                                _step = null;
-                                _rows = null;
-                              });
-                              _load();
-                            }),
-                          // Spaces we set up and nobody has claimed:
-                          // their own pill, out of Claimed and Verified.
-                          if ((_counts['ours'] ?? 0) > 0 || _stage == 'ours')
-                            _pill('Set up by us',
-                                count: _counts['ours'] ?? 0,
-                                on: _step == null && _stage == 'ours',
-                                idle: Brand.logoNavy, onTap: () {
-                              setState(() {
-                                _stage = 'ours';
-                                _step = null;
-                                _rows = null;
-                              });
-                              _load();
-                            }),
-                          // Lines marked as tests (one of us): here and
-                          // in no other tab or number.
-                          if ((_counts['_tests'] ?? 0) > 0 || _stage == 'tests')
-                            _pill('Tests',
-                                count: _counts['_tests'] ?? 0,
-                                on: _step == null && _stage == 'tests',
-                                color: Brand.goldTextDark,
-                                idle: Brand.goldTextDark,
-                                onTap: _showTests),
-                          // Other business, and spaces that asked to be
-                          // removed or are not a fit: out of the list,
-                          // here, and found by searching (migration 171).
-                          if ((_counts['_aside'] ?? 0) > 0 || _stage == 'aside')
-                            _pill('Not for outreach',
-                                count: _counts['_aside'] ?? 0,
-                                on: _step == null && _stage == 'aside',
-                                color: Brand.inkSecondary,
-                                idle: Brand.inkSecondary, onTap: () {
-                              setState(() {
-                                _stage = 'aside';
-                                _step = null;
-                                _rows = null;
-                              });
-                              _load();
-                            }),
-                        ]),
+                          Widget stagePill((String, String) s) => _pill(s.$2,
+                              count: s.$1.isEmpty ? null : _counts[s.$1] ?? 0,
+                              on: _step == null && _stage == s.$1,
+                              color: Brand.ink,
+                              onTap: () => pick(s.$1));
+                          final rare = [
+                            for (final s in _stages)
+                              if (!_mainStages.contains(s.$1) &&
+                                  ((_counts[s.$1] ?? 0) > 0 || _stage == s.$1))
+                                s,
+                          ];
+                          final ours = _counts['ours'] ?? 0;
+                          final tests = _counts['_tests'] ?? 0;
+                          final aside = _counts['_aside'] ?? 0;
+                          final moreCount = rare.fold<int>(
+                                  0, (a, s) => a + (_counts[s.$1] ?? 0)) +
+                              ours +
+                              tests +
+                              aside;
+                          final moreOn = _step == null &&
+                              !_mainStages.contains(_stage);
+                          final hasMore = rare.isNotEmpty ||
+                              ours > 0 ||
+                              tests > 0 ||
+                              aside > 0 ||
+                              moreOn;
+                          final open = _moreOpen || moreOn;
+                          return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Wrap(spacing: 6, runSpacing: 6, children: [
+                                  for (final s in _stages)
+                                    if (_mainStages.contains(s.$1))
+                                      stagePill(s),
+                                  // (While one of its stages is chosen the
+                                  // row stays open, so no button.)
+                                  if (hasMore && !moreOn)
+                                    _pill(open ? 'Less' : 'More',
+                                        count: open ? null : moreCount,
+                                        on: false,
+                                        idle: Brand.inkSecondary,
+                                        onTap: () => setState(
+                                            () => _moreOpen = !open)),
+                                ]),
+                                if (open && hasMore) ...[
+                                  const SizedBox(height: 8),
+                                  Wrap(spacing: 6, runSpacing: 6, children: [
+                                    for (final s in rare) stagePill(s),
+                                    // Spaces we set up and nobody has
+                                    // claimed: out of Claimed and Plus.
+                                    if (ours > 0 || _stage == 'ours')
+                                      _pill('Set up by us',
+                                          count: ours,
+                                          on: _step == null && _stage == 'ours',
+                                          idle: Brand.logoNavy,
+                                          onTap: () => pick('ours')),
+                                    // Lines marked as tests (one of us):
+                                    // here and in no other tab or number.
+                                    if (tests > 0 || _stage == 'tests')
+                                      _pill('Tests',
+                                          count: tests,
+                                          on: _step == null && _stage == 'tests',
+                                          color: Brand.goldTextDark,
+                                          idle: Brand.goldTextDark,
+                                          onTap: _showTests),
+                                    // Other business, and spaces that asked
+                                    // to be removed or are not a fit: out
+                                    // of the list, found by searching
+                                    // (migration 171).
+                                    if (aside > 0 || _stage == 'aside')
+                                      _pill('Not for outreach',
+                                          count: aside,
+                                          on: _step == null && _stage == 'aside',
+                                          color: Brand.inkSecondary,
+                                          idle: Brand.inkSecondary,
+                                          onTap: () => pick('aside')),
+                                  ]),
+                                ],
+                              ]);
+                        }),
                         const SizedBox(height: 14),
                         if (rows == null)
                           const Padding(

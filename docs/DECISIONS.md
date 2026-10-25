@@ -5234,3 +5234,18 @@ below" instead of a plain suggestion; the screen shows the rule and a
 link to the searches for "coworking <town>" in Ahrefs. Ask Claude is
 given the rule and both decisions as examples, and says which town to
 add as a Location when it files a town under a bigger city.
+
+## 25 Oct 2026: Spaces 2.0, step 1: a tidier Outreach
+
+Jonathan's Spaces 2.0 plan (made with ChatGPT, 25 Oct): the admin
+becomes "Spaces" (coworking, cafes, coliving) with Overview, Listings,
+Outreach, Claims and Analytics, built in small steps without losing
+any data. Step 1, Outreach only:
+- The stages worked through every day stay in view: New, Contacted,
+  Replied, Claimed, Plus, All. Not now, Declined and Unsubscribed (when
+  they have spaces), Set up by us, Tests and Not for outreach sit
+  behind "More" with their total. They were already left out of the
+  lists and numbers; only their buttons moved.
+- "Verified" as a plan reads "Plus" throughout Outreach (the stage key
+  stays 'verified'; the badge is still "Verified by Nomadwise").
+- Outreach remembers the group and stage last chosen, on that device.
