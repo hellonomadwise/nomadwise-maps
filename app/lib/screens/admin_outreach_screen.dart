@@ -482,10 +482,95 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
 
     final title = c == null ? 'Add a contact' : 'Edit contact';
     final narrow = MediaQuery.sizeOf(context).width < 600;
+
+    // Jonathan, 25 Oct 2026: "after i clicked save, nothing happened ...
+    // nothing had been saved". Save now saves from inside the form. If
+    // the database says no, the form stays open with everything typed
+    // still in it and the reason above the buttons; when it worked, a
+    // short message says so.
+    var busy = false;
+    String? err;
+    Map<String, dynamic> collect() => <String, dynamic>{
+          'space_name': space.text.trim(),
+          'person_name': person.text.trim(),
+          'email': email.text.trim(),
+          'phone': phone.text.trim(),
+          'city': city.text.trim(),
+          'country': country.text.trim(),
+          'kind': kind,
+          'website': website.text.trim(),
+          'instagram': instagram.text.trim(),
+          'notes': notes.text.trim(),
+        };
+    Future<void> save(BuildContext ctx, StateSetter setD) async {
+      if (busy) return;
+      setD(() {
+        busy = true;
+        err = null;
+      });
+      try {
+        final fields = collect();
+        if (c == null) {
+          await _supabase.outreachAdd({
+            ...fields,
+            'source': source,
+            'stage': 'new',
+            if (message.text.trim().isNotEmpty) 'message': message.text.trim(),
+            if (message.text.trim().isNotEmpty)
+              'first_in_at': DateTime.now().toUtc().toIso8601String(),
+          });
+        } else {
+          await _supabase.outreachUpdate('${c['id']}', fields);
+        }
+        if (ctx.mounted) Navigator.pop(ctx, true);
+      } catch (e) {
+        if (ctx.mounted) {
+          setD(() {
+            busy = false;
+            err = _plain(e);
+          });
+        }
+      }
+    }
+
+    Widget errorBox() => Container(
+          margin: const EdgeInsets.only(top: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+              color: Brand.accentTint, borderRadius: BorderRadius.circular(10)),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Padding(
+              padding: EdgeInsets.only(top: 1, right: 8),
+              child: Icon(Icons.error_outline, size: 18, color: Brand.red),
+            ),
+            Expanded(
+              child: Text(err ?? '',
+                  style: const TextStyle(
+                      fontSize: 13.5, height: 1.35, color: Brand.ink)),
+            ),
+          ]),
+        );
+
+    Widget saveButton(BuildContext ctx, StateSetter setD) => FilledButton(
+          onPressed: busy ? null : () => save(ctx, setD),
+          child: busy
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: Colors.white))
+              : Text(c == null ? 'Add' : 'Save'),
+        );
+
     final ok = await showDialog<bool>(
       context: context,
+      barrierDismissible: false,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setD) => narrow
+        // Back (the phone's gesture, the browser's button) closes the
+        // form only while nothing is being saved.
+        builder: (ctx, setD) => PopScope(
+          canPop: !busy,
+          child: narrow
             // A phone: the whole screen, Save always in reach.
             ? Dialog.fullscreen(
                 backgroundColor: Brand.bg,
@@ -494,23 +579,32 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
                   appBar: AppBar(
                     leading: IconButton(
                         tooltip: 'Cancel',
-                        onPressed: () => Navigator.pop(ctx, false),
+                        onPressed: busy ? null : () => Navigator.pop(ctx, false),
                         icon: const Icon(Icons.close)),
                     title: Text(title),
                     actions: [
                       Padding(
                         padding: const EdgeInsets.only(right: 10),
-                        child: FilledButton(
-                            onPressed: () => Navigator.pop(ctx, true),
-                            child: Text(c == null ? 'Add' : 'Save')),
+                        child: saveButton(ctx, setD),
                       ),
                     ],
                   ),
                   body: SafeArea(
                     top: false,
-                    child: ListView(
-                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
-                        children: form(true, setD)),
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                      if (err != null)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                          child: errorBox(),
+                        ),
+                      Expanded(
+                        child: ListView(
+                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+                            children: form(true, setD)),
+                      ),
+                    ]),
                   ),
                 ),
               )
@@ -518,53 +612,47 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
                 title: Text(title),
                 content: SizedBox(
                   width: 560,
-                  child: SingleChildScrollView(
-                    child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: form(false, setD)),
-                  ),
+                  child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                    Flexible(
+                      child: SingleChildScrollView(
+                        child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: form(false, setD)),
+                      ),
+                    ),
+                    if (err != null) errorBox(),
+                  ]),
                 ),
                 actions: [
                   TextButton(
-                      onPressed: () => Navigator.pop(ctx, false),
+                      onPressed: busy ? null : () => Navigator.pop(ctx, false),
                       child: const Text('Cancel')),
-                  FilledButton(
-                      onPressed: () => Navigator.pop(ctx, true),
-                      child: Text(c == null ? 'Add' : 'Save')),
+                  saveButton(ctx, setD),
                 ],
               ),
+        ),
       ),
     );
-    if (ok != true) return;
-    final fields = <String, dynamic>{
-      'space_name': space.text.trim(),
-      'person_name': person.text.trim(),
-      'email': email.text.trim(),
-      'phone': phone.text.trim(),
-      'city': city.text.trim(),
-      'country': country.text.trim(),
-      'kind': kind,
-      'website': website.text.trim(),
-      'instagram': instagram.text.trim(),
-      'notes': notes.text.trim(),
-    };
-    try {
-      if (c == null) {
-        await _supabase.outreachAdd({
-          ...fields,
-          'source': source,
-          'stage': 'new',
-          if (message.text.trim().isNotEmpty) 'message': message.text.trim(),
-          if (message.text.trim().isNotEmpty)
-            'first_in_at': DateTime.now().toUtc().toIso8601String(),
-        });
-      } else {
-        await _supabase.outreachUpdate('${c['id']}', fields);
+    // The form takes a few frames to close before its fields can go.
+    Future.delayed(const Duration(milliseconds: 400), () {
+      for (final t in [
+        space, person, email, phone, city, country, website, instagram,
+        message, notes
+      ]) {
+        t.dispose();
       }
+    });
+    if (ok != true || !mounted) return;
+    final name = space.text.trim().isEmpty ? 'the contact' : space.text.trim();
+    _snack(c == null ? 'Added: $name' : 'Saved: $name');
+    try {
       await _load();
     } catch (e) {
-      _snack(_plain(e), bad: true);
+      if (mounted) _snack(_plain(e), bad: true);
     }
   }
 

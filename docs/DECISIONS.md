@@ -5313,3 +5313,18 @@ enough to switch the page to its other layout, which rebuilt it
 without the typed box. The layout is now chosen by the tallest height
 seen at that width (the keyboard never switches it), and with the
 keyboard up the list under the map gets more of the room.
+
+## 25 Oct 2026: Edit contact saves from inside the form (migration 223)
+
+Jonathan added an email and a WhatsApp number to a new page's line, pressed
+Save, saw nothing happen, and found the fields empty when he looked again.
+Save now saves from inside the form. When it works, the form closes and
+"Saved: <space>" shows. When the database says no, the form stays open with
+everything still typed in it and the reason in plain words above the buttons.
+Back only closes the form while nothing is being saved. In the database:
+- An email already on another line is refused by name ("already on another
+  line in Outreach: <space> (<city>)"). One line per address stays the rule.
+- An email that is not an address is refused before anything is written.
+- The space on the map is looked up again only when the name or city really
+  changed. Before, every save looked it up again, which could move a line to
+  another branch with the same name.
