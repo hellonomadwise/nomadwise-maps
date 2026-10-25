@@ -75,6 +75,11 @@ class _NearbySpacesScreenState extends State<NearbySpacesScreen> {
   final _own = TextEditingController();
   bool _ownOn = false;
 
+  // The page's layout is chosen by the tallest height seen at this
+  // width, so the phone keyboard opening never switches it.
+  double _layoutWidth = -1;
+  double _tallest = 0;
+
   // One dot per colour, drawn once.
   final Map<int, BitmapDescriptor> _dots = {};
   BitmapDescriptor? _here;
@@ -438,9 +443,25 @@ class _NearbySpacesScreenState extends State<NearbySpacesScreen> {
       child: _panel(h, region, legend, spots.length, name),
     );
     return LayoutBuilder(builder: (context, box) {
+      // The keyboard does not count as a short window: switching layout
+      // when it opens rebuilt the page with the typed box gone, back at
+      // the map (Jonathan, 25 Oct 2026, typing "Something else" on his
+      // phone). With the keyboard up the list below the map gets most
+      // of the room instead.
+      final keyboard = MediaQuery.viewInsetsOf(context).bottom;
       // A short window (a phone on its side): everything scrolls, the
       // map at a fixed height, so nothing is squeezed to nothing.
-      if (box.maxHeight < 460) {
+      // (Also when a browser reports the keyboard as a smaller window:
+      // the tallest height seen at this width decides.)
+      if (box.maxWidth != _layoutWidth) {
+        _layoutWidth = box.maxWidth;
+        _tallest = 0;
+      }
+      if (box.maxHeight + keyboard > _tallest) {
+        _tallest = box.maxHeight + keyboard;
+      }
+      final squeezed = keyboard > 0 || box.maxHeight < _tallest - 80;
+      if (_tallest < 460) {
         return ListView(children: [
           _verdictBox(verdict, region),
           if (_savingKind) const LinearProgressIndicator(minHeight: 2),
@@ -455,7 +476,8 @@ class _NearbySpacesScreenState extends State<NearbySpacesScreen> {
             if (_savingKind) const LinearProgressIndicator(minHeight: 2),
             Expanded(child: map),
             ConstrainedBox(
-              constraints: BoxConstraints(maxHeight: box.maxHeight * 0.42),
+              constraints: BoxConstraints(
+                  maxHeight: box.maxHeight * (squeezed ? 0.6 : 0.42)),
               child: SingleChildScrollView(child: panel),
             ),
           ]);

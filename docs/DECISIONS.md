@@ -5304,3 +5304,12 @@ casual), and "with gdpr we always check if its a business or not".
   not emailed. Replies to people who wrote to us are not affected.
 - The first-contact templates are named "First contact: a new page of
   ours (email)" and "(WhatsApp)".
+
+## 25 Oct 2026: Typing a new Location on a phone
+
+Jonathan, on his phone: tapping "Something else" on the Location map
+went straight back to the map. The keyboard made the window short
+enough to switch the page to its other layout, which rebuilt it
+without the typed box. The layout is now chosen by the tallest height
+seen at that width (the keyboard never switches it), and with the
+keyboard up the list under the map gets more of the room.
