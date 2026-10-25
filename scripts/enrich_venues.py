@@ -215,6 +215,32 @@ RESOLVE_AT_REFRESH = 0  # plain links made at each refresh. Was 6: about
                         # on the venue for everyone (cache_google_photos),
                         # so only photos people see are paid for.
 MAX_PER_RUN = _a_night(300)   # hard cap per run, bounds worst-case API spend
+FULL_MAX_AGE_DAYS = 42  # Hours and rating are asked for every six weeks
+                        # (Jonathan, 25 Oct 2026). Asking for them puts the
+                        # call on Google's "Place Details Enterprise" line,
+                        # which has only 1,000 free a month; at three weeks
+                        # the refresh alone used most of it and every call
+                        # after about the 13th of the month was charged.
+                        # In between, the three-weekly visit asks only for
+                        # the photo list ("Essentials (IDs Only)", free),
+                        # which is all the photos need. Map only: the
+                        # nomadwise.io pages keep their hand-picked photos.
+
+
+def photos_only(place_id):
+    return req(
+        f'https://places.googleapis.com/v1/places/{place_id}',
+        headers={
+            'X-Goog-Api-Key': PLACES_KEY,
+            'X-Goog-FieldMask': 'photos',
+        })
+
+
+def _full_at(v):
+    """When hours and rating were last asked for: kept in the snapshot
+    as full_at; a snapshot from before 25 Oct 2026 has none, and its
+    g_synced_at was a full refresh, so that stands in."""
+    return v.get('full_at') or v.get('g_synced_at')
 
 
 def snapshot_details(place_id):
@@ -276,7 +302,8 @@ try:
     rows = req(
         f'{SUPABASE_URL}/rest/v1/venues'
         '?select=id,name,google_place_id,g_synced_at,closed_seen_at,'
-        'google_photo_urls,country,ptype:g_details->>primaryType'
+        'google_photo_urls,country,ptype:g_details->>primaryType,'
+        'full_at:g_details->>full_at'
         '&google_place_id=not.is.null',
         headers=sb_headers())
 except Exception as e:  # noqa: BLE001
@@ -303,15 +330,61 @@ for v in rows:
     if v.get('ptype') is None:
         stale.append(v)
 
-snapped, snap_failed = 0, []
+def _full_due(v):
+    if v.get('ptype') is None or not v.get('g_synced_at'):
+        return True
+    ts = _full_at(v)
+    if not ts:
+        return True
+    try:
+        at = datetime.fromisoformat(str(ts).replace('Z', '+00:00'))
+    except ValueError:
+        return True
+    return at < datetime.now(timezone.utc) - timedelta(
+        days=FULL_MAX_AGE_DAYS)
+
+
+snapped, snap_failed, photo_only = 0, [], 0
 for v in stale[:MAX_PER_RUN]:
+    if not _full_due(v):
+        # Photos only, free: keep everything else in the snapshot.
+        # The snapshot itself is read only for the places being
+        # visited, not for every venue (the project is near its
+        # monthly data allowance). No snapshot to keep: full refresh.
+        try:
+            cur = req(f"{SUPABASE_URL}/rest/v1/venues?id=eq.{v['id']}"
+                      '&select=g_details', headers=sb_headers()) or []
+            g = dict((cur[0].get('g_details') if cur else None) or {})
+        except Exception:  # noqa: BLE001
+            g = {}
+        if g.get('primaryType'):
+            try:
+                d = photos_only(v['google_place_id']) or {}
+                photos = d.get('photos') or []
+                g['photos'] = [{'name': p['name']}
+                               for p in photos[:6] if p.get('name')]
+                g['full_at'] = _full_at(v)
+                req(f"{SUPABASE_URL}/rest/v1/venues?id=eq.{v['id']}",
+                    method='PATCH',
+                    headers=sb_headers({'Prefer': 'return=minimal'}),
+                    body={'g_details': g,
+                          'g_synced_at':
+                              datetime.now(timezone.utc).isoformat(),
+                          'google_photo_urls': resolve_photo_links(
+                              d, v.get('google_photo_urls'))})
+                snapped += 1
+                photo_only += 1
+            except Exception as e:  # noqa: BLE001
+                snap_failed.append(f"{v['name']} ({e})")
+            continue
     try:
         details = snapshot_details(v['google_place_id'])
         if not details:
             snap_failed.append(v['name'])
             continue
         patch = {
-            'g_details': slim(details),
+            'g_details': {**slim(details),
+                          'full_at': datetime.now(timezone.utc).isoformat()},
             'g_synced_at': datetime.now(timezone.utc).isoformat(),
             # The country, for Verified's price by country; written
             # only when the row has none, so a founder's edit stays.
@@ -335,8 +408,8 @@ for v in stale[:MAX_PER_RUN]:
         snap_failed.append(f"{v['name']} ({e})")
 
 skipped = max(0, len(stale) - MAX_PER_RUN)
-print(f'Snapshots: {snapped} refreshed, {len(rows) - len(stale)} fresh, '
-      f'{skipped} deferred to next run.')
+print(f'Snapshots: {snapped} refreshed ({photo_only} photos only, free), '
+      f'{len(rows) - len(stale)} fresh, {skipped} deferred to next run.')
 if snap_failed:
     print('Snapshot failures:', *snap_failed, sep='\n  - ')
 
