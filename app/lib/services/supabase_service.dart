@@ -1101,6 +1101,35 @@ class SupabaseService {
       _db.rpc('admin_outreach_business_check',
           params: {'p_id': contactId, 'p_ok': ok});
 
+  /// Outreach (migration 225): puts a line aside with a reason
+  /// ('unreachable', 'not_fit', 'said_no'), or brings it back (null).
+  Future<void> outreachSetAside(String contactId, String? reason,
+          {String? detail}) =>
+      _db.rpc('admin_outreach_set_aside', params: {
+        'p_id': contactId,
+        'p_reason': reason,
+        'p_detail': detail,
+      });
+
+  /// Why each line was put aside: {contact_id: {reason, detail, at}}.
+  Future<Map<String, Map<String, dynamic>>> outreachAsides() async {
+    try {
+      final r = await _db.rpc('admin_outreach_asides');
+      if (r is! Map) return {};
+      return {
+        for (final e in r.entries)
+          if (e.value is Map)
+            '${e.key}': Map<String, dynamic>.from(e.value as Map)
+      };
+    } catch (_) {
+      return {};
+    }
+  }
+
+  /// Joins line [drop] into line [keep] (two lines for one space).
+  Future<void> outreachJoin(String keep, String drop) =>
+      _db.rpc('admin_outreach_join', params: {'p_keep': keep, 'p_drop': drop});
+
   /// Admin: per space, the enquiries that reached it and how many
   /// booked: {venue_id: {sent, booked, last}} (migration 193).
   Future<Map<String, Map<String, dynamic>>> venueCustomers() async {

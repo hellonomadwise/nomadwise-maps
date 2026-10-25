@@ -112,6 +112,8 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
     super.initState();
     _step = widget.initialStep;
     final q = (widget.initialQuery ?? '').trim();
+    // Opened for a search or a step: straight to Everything.
+    if (q.isNotEmpty || _step != null) _tab = 'all';
     if (q.isNotEmpty) {
       _search.text = q;
       _view = 'whole';
@@ -177,6 +179,8 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
   Future<void> _load() async {
     final n = ++_req;
     _remember();
+    // To do, Waiting and Done are read again after anything changes.
+    if (_tab != 'all' || _board == null) _loadBoard();
     // Started first and read last: it never throws, and the list does
     // not wait for it.
     final pathF = _supabase.outreachPath();
@@ -1209,7 +1213,9 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
     return ok;
   }
 
-  Future<void> _reply(Map<String, dynamic> c) async {
+  /// Writes to a line. [template] is the one to open with, when the
+  /// caller knows better than the guess below (To do, migration 225).
+  Future<void> _reply(Map<String, dynamic> c, {String? template}) async {
     if ('${c['email'] ?? ''}'.isEmpty) {
       _snack('No email address for this contact yet. Edit it first.', bad: true);
       return;
@@ -1264,6 +1270,7 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
     final newPage = (_newPages ?? const [])
         .any((p) => p['venue_id'] != null && p['venue_id'] == c['venue_id']);
     String key = <String>[
+      if (template != null) template,
       if (theirOwn) 'owner_account_how',
       if (known && onSite) 'reply_we_know_you',
       if (c['signup'] is Map) 'signed_up',
@@ -2634,26 +2641,8 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
 
   /// A new page's line, read in full, then written to (or its address
   /// added). The line is found by the space's name.
-  Future<void> _openNewPage(Map<String, dynamic> p, {required bool write}) async {
-    try {
-      final rows = await _supabase.outreachList(
-          stage: '', query: '${p['name'] ?? ''}', group: '', limit: 50);
-      final c = rows.where((r) => r['id'] == p['contact_id']).firstOrNull;
-      if (!mounted) return;
-      if (c == null) {
-        _snack('Its line in Outreach could not be found. Search for it below.',
-            bad: true);
-        return;
-      }
-      if (write) {
-        await _reply(c);
-      } else {
-        await _editContact(c);
-      }
-    } catch (e) {
-      if (mounted) _snack(_plain(e), bad: true);
-    }
-  }
+  Future<void> _openNewPage(Map<String, dynamic> p, {required bool write}) =>
+      _withLine(p, (c) => write ? _reply(c) : _editContact(c));
 
   /// Every page we approved, from the moment it went live: whether we
   /// have an address, wrote to it, and whether it claimed and signed
@@ -3165,6 +3154,21 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
           'email is read and sent by one of us.'
     ),
     (
+      Icons.checklist,
+      'To do, Waiting, Done',
+      'To do is what needs you, most urgent first: they wrote to us, they '
+          'showed interest, new pages to contact, new pages that need an '
+          'address. Each line has one button that says what to do. Work '
+          'from the top; whatever is left waits for next time.\n'
+          'Waiting: we wrote and the next move is theirs. Each line says '
+          'when to follow up.\n'
+          'Done: claimed, on Plus, said no, or taken off with a reason.\n'
+          'Remove... takes a line off with a reason: no way to reach them, '
+          'already in touch on another line (the two are joined), not a fit, '
+          'or they said no. Nothing is sent, and Bring back undoes it.\n'
+          'Everything holds the numbers and every list, as before.'
+    ),
+    (
       Icons.groups_outlined,
       'Who is in it (the first row of chips)',
       'Wrote to us: they emailed hello@, filled in a form on the site, '
@@ -3604,16 +3608,25 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
           FilledButton.icon(
             onPressed: () => _reply(c),
             icon: const Icon(Icons.send_rounded, size: 16),
-            label: Text(c['last_out_at'] == null ? 'Reply' : 'Write again'),
+            // What the button does, read from the line (Jonathan, 25 Oct
+            // 2026: "why does the button say Reply ... there is no
+            // history"): Reply only when they wrote last.
+            label: Text(_writeLabel(c)),
           ),
           if ('${c['stage']}' == 'contacted')
             OutlinedButton(
                 onPressed: () => _setStage(c, 'replied'),
                 child: const Text('They replied')),
-          if ('${c['stage']}' == 'new' || '${c['stage']}' == 'replied')
+          // "Not now" said nothing about why (Jonathan, 25 Oct 2026): a
+          // line now comes off with a reason (migration 225).
+          if ('${c['stage']}' == 'new' ||
+              '${c['stage']}' == 'replied' ||
+              '${c['stage']}' == 'contacted')
             OutlinedButton(
-                onPressed: () => _setStage(c, 'not_now'),
-                child: const Text('Not now')),
+                onPressed: () => _remove(
+                    '${c['id']}', '${c['space_name'] ?? 'this space'}',
+                    c: c),
+                child: const Text('Remove...')),
           // For a card marked Replied by mistake: back to where it was
           // before, Contacted if we have written to them, otherwise New.
           if ('${c['stage']}' == 'replied')
@@ -4675,6 +4688,1018 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
     );
   }
 
+  // =============================================== To do / Waiting / Done
+  // Jonathan, 25 Oct 2026: "I'm really wanting to simplify so i can
+  // understand clearly what action to take" and "make as if we're a
+  // fully funded startup, with a premium setup". Outreach opens on To
+  // do: one list, most urgent first, each line with the one thing to
+  // do. Waiting holds the lines where the next move is theirs, Done the
+  // ones with nothing to do. Everything is the old screen: the numbers
+  // and every list. "Not now" is gone: a line leaves the lists with a
+  // reason (migration 225).
+
+  /// What a write button does, read from the line: Reply only when they
+  /// wrote last.
+  static String _writeLabel(Map<String, dynamic> c) {
+    final inAt = DateTime.tryParse('${c['last_in_at'] ?? ''}');
+    final outAt = DateTime.tryParse('${c['last_out_at'] ?? ''}');
+    if (inAt != null && (outAt == null || inAt.isAfter(outAt))) return 'Reply';
+    if (inAt == null && outAt == null) return 'Make contact';
+    return 'Follow up';
+  }
+
+  static String _agoOf(dynamic iso) {
+    final d = DateTime.tryParse('${iso ?? ''}');
+    return d == null ? '' : _ago(d.toLocal());
+  }
+
+  static String _kindWord(dynamic k) => switch ('${k ?? ''}') {
+        'coworking' => 'Coworking space',
+        'cafe' => 'Cafe',
+        'coliving' => 'Coliving',
+        'hotel' => 'Hotel',
+        'restaurant' => 'Restaurant',
+        '' || 'null' => '',
+        final o => o[0].toUpperCase() + o.substring(1),
+      };
+
+  static String _placeLine(dynamic kind, dynamic city, dynamic country) => [
+        _kindWord(kind),
+        [city, country]
+            .where((x) => x != null && '$x'.trim().isNotEmpty)
+            .join(', '),
+      ].where((x) => x.isNotEmpty).join(' · ');
+
+  static String _clip(String s, int n) {
+    final t = s.replaceAll(RegExp(r'\s+'), ' ').trim();
+    return t.length <= n ? t : '${t.substring(0, n).trimRight()}...';
+  }
+
+  String _tab = 'todo';
+  Map<String, List<Map<String, dynamic>>>? _board;
+  String? _boardError;
+  Map<String, Map<String, dynamic>> _asides = const {};
+  Map<String, int> _allCounts = const {};
+  final Map<String, List<Map<String, dynamic>>?> _doneRows = {};
+  final Set<String> _doneOpen = {};
+  final Set<String> _rowOpen = {};
+  int _boardReq = 0;
+
+  Future<void> _loadBoard() async {
+    final n = ++_boardReq;
+    try {
+      final r = await Future.wait([
+        _supabase.outreachList(stage: 'replied', limit: 300),
+        _supabase.outreachList(stage: '', step: 'claim_looked', limit: 150),
+        _supabase.outreachList(stage: '', step: 'signed_up', limit: 150),
+        _supabase.outreachList(stage: '', step: 'follow_up', limit: 150),
+        _supabase.outreachList(stage: 'ours', limit: 100),
+        _supabase.outreachList(stage: '', step: 'waiting', limit: 300),
+      ]);
+      final asides = await _supabase.outreachAsides();
+      final counts = await _supabase.outreachCounts();
+      if (!mounted || n != _boardReq) return;
+      setState(() {
+        _board = {
+          'replied': r[0],
+          'looked': r[1],
+          'signed': r[2],
+          'due': r[3],
+          'ours': r[4],
+          'waiting': r[5],
+        };
+        _asides = asides;
+        _allCounts = counts;
+        _boardError = null;
+      });
+      for (final k in _doneOpen.toList()) {
+        _loadDone(k);
+      }
+    } catch (e) {
+      if (mounted && n == _boardReq) setState(() => _boardError = _plain(e));
+    }
+  }
+
+  Future<void> _loadDone(String key) async {
+    try {
+      final rows = await _supabase.outreachList(stage: key, limit: 200);
+      if (mounted) setState(() => _doneRows[key] = rows);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _doneRows[key] = const []);
+      _snack(_plain(e), bad: true);
+    }
+  }
+
+  /// We wrote after [at] (or after the line began, when [at] is null):
+  /// the next move is theirs, so the line is waiting, not to do.
+  static bool _wroteSince(Map<String, dynamic> c, dynamic at) {
+    final out = DateTime.tryParse('${c['last_out_at'] ?? ''}');
+    if (out == null) return false;
+    final a = DateTime.tryParse('${at ?? ''}');
+    return a == null || !a.isAfter(out);
+  }
+
+  static bool _closedLine(Map<String, dynamic> c) =>
+      const {'claimed', 'verified', 'declined', 'unsubscribed', 'not_now', 'bounced'}
+          .contains('${c['stage']}') ||
+      c['aside'] == true ||
+      c['is_test'] == true;
+
+  /// Everything that needs us, most urgent first; a line once only.
+  List<_Task> _tasks() {
+    final b = _board;
+    if (b == null) return const [];
+    final seen = <String>{};
+    final out = <_Task>[];
+
+    void add(String kind, Map<String, dynamic> c, String why) {
+      final id = '${c['id']}';
+      if (!seen.add(id)) return;
+      out.add(_Task(
+          kind: kind,
+          id: id,
+          name: '${c['space_name'] ?? c['venue_name'] ?? c['email'] ?? 'A space'}',
+          sub: _placeLine(c['kind'], c['city'] ?? c['venue_city'],
+              c['country'] ?? c['venue_country']),
+          why: why,
+          c: c));
+    }
+
+    // 1. They wrote, and we have not answered since.
+    for (final c in b['replied'] ?? const <Map<String, dynamic>>[]) {
+      final inAt = DateTime.tryParse('${c['last_in_at'] ?? ''}');
+      final outAt = DateTime.tryParse('${c['last_out_at'] ?? ''}');
+      if (outAt != null && (inAt == null || !inAt.isAfter(outAt))) continue;
+      if (c['aside'] == true || c['is_test'] == true) continue;
+      final said = '${c['last_in'] ?? ''}'.trim();
+      add(
+          'reply',
+          c,
+          inAt == null
+              ? 'Marked as replied. Their message is not in Outreach yet.'
+              : 'Wrote to us ${_ago(inAt.toLocal())}'
+                  '${said.isEmpty ? '.' : ': "${_clip(said, 110)}"'}');
+    }
+
+    // 2. Signs of interest.
+    for (final c in b['signed'] ?? const <Map<String, dynamic>>[]) {
+      if (_closedLine(c)) continue;
+      final u = c['signup'] is Map ? c['signup'] as Map : const {};
+      if (_wroteSince(c, u['at'])) continue;
+      add('follow_up', c,
+          'Made an account on the map ${_agoOf(u['at'])} but has not claimed the page.');
+    }
+    for (final c in b['looked'] ?? const <Map<String, dynamic>>[]) {
+      if (_closedLine(c)) continue;
+      final l = c['claim_look'] is Map ? c['claim_look'] as Map : const {};
+      if (_wroteSince(c, l['last_at'])) continue;
+      final form = '${l['form_email'] ?? ''}'.trim();
+      add(
+          'follow_up',
+          c,
+          form.isNotEmpty
+              ? 'Began the claim form ${_agoOf(l['last_at'])} and stopped.'
+              : 'Opened their claim page ${_agoOf(l['last_at'])}. No claim yet.');
+    }
+    for (final c in b['due'] ?? const <Map<String, dynamic>>[]) {
+      if (_closedLine(c)) continue;
+      add('follow_up', c,
+          'We wrote ${_agoOf(c['last_out_at'])} and the follow-up date has come.');
+    }
+
+    // 3. New pages: an address to write to, or one to find.
+    for (final p in _newPages ?? const <Map<String, dynamic>>[]) {
+      final id = '${p['contact_id'] ?? ''}';
+      if (id.isEmpty ||
+          p['ours'] == true ||
+          p['claimed_at'] != null ||
+          p['written_at'] != null ||
+          '${p['stage'] ?? 'new'}' != 'new') {
+        continue;
+      }
+      if (!seen.add(id)) continue;
+      final hasEmail = '${p['email'] ?? ''}'.isNotEmpty;
+      final live = _agoOf(p['live_at']);
+      out.add(_Task(
+          kind: hasEmail ? 'make_contact' : 'add_address',
+          id: id,
+          name: '${p['name'] ?? 'A new page'}',
+          sub: _placeLine(p['type'], p['city'], p['country']),
+          why: hasEmail
+              ? 'New page, live $live. They have not heard from us.'
+              : p['address_looked'] != null &&
+                          p['address_looked'] != false ||
+                      '${p['website'] ?? ''}'.isEmpty
+                  ? 'New page, live $live. No email on their website: add '
+                      'one, or WhatsApp them.'
+                  : 'New page, live $live. Still looking on their website '
+                      'for an email.',
+          page: p));
+    }
+
+    // 4. Set up by us, never claimed.
+    for (final c in b['ours'] ?? const <Map<String, dynamic>>[]) {
+      if (_wroteSince(c, c['last_in_at'])) continue; // waiting for them
+      if (c['last_in_at'] != null) {
+        add('reply', c,
+            'Wrote to us ${_agoOf(c['last_in_at'])}. Set up by us, not claimed yet.');
+        continue;
+      }
+      add('owner_ready', c,
+          'Set up by us and never claimed. Tell them their Owner account is ready.');
+    }
+    return out;
+  }
+
+  /// Lines where we wrote and the next move is theirs.
+  List<Map<String, dynamic>> _waitingRows(List<_Task> tasks) {
+    final b = _board;
+    if (b == null) return const [];
+    final todo = {for (final t in tasks) t.id};
+    final seen = <String>{};
+    final out = <Map<String, dynamic>>[];
+    for (final c in [...?b['waiting'], ...?b['replied'], ...?b['ours']]) {
+      final id = '${c['id']}';
+      if (todo.contains(id) || !seen.add(id)) continue;
+      // Set up by us and written to: waiting too, whatever its stage.
+      final ours = c['owner'] is Map && (c['owner'] as Map)['mine'] == false;
+      if (ours && c['last_out_at'] == null) continue;
+      if (!ours && !const {'contacted', 'replied'}.contains('${c['stage']}')) continue;
+      if (c['aside'] == true || c['is_test'] == true) continue;
+      out.add(c);
+    }
+    out.sort((a, b) => '${b['last_out_at'] ?? ''}'.compareTo('${a['last_out_at'] ?? ''}'));
+    return out;
+  }
+
+  static const _doneKinds = <(String, String, String)>[
+    ('claimed', 'Claimed their page',
+        'The claim emails went out by themselves.'),
+    ('verified', 'On Plus', 'Paying spaces.'),
+    ('not_now', 'Put aside', 'No way to reach them. Bring back undoes it.'),
+    ('declined', 'Said no', 'They told us they are not interested.'),
+    ('aside', 'Not for outreach', 'Not a fit, or other business.'),
+    ('unsubscribed', 'Unsubscribed', 'We never write to them again.'),
+    ('bounced', 'Email bounced', 'The address did not work.'),
+  ];
+
+  int _doneCount(String key) =>
+      key == 'aside' ? (_allCounts['_aside'] ?? 0) : (_allCounts[key] ?? 0);
+
+  // ------------------------------------------------------------ views
+
+  Widget _boardTabs(int todo, int waiting) {
+    final done = _doneKinds.fold<int>(0, (a, k) => a + _doneCount(k.$1));
+    Widget tab(String key, String label, int? count) => _pill(label,
+        count: count,
+        on: _tab == key,
+        color: key == 'todo' ? Brand.red : Brand.ink,
+        idle: Brand.ink,
+        onTap: () {
+          setState(() => _tab = key);
+          if (key != 'all') _loadBoard();
+        });
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Wrap(spacing: 6, runSpacing: 6, children: [
+        tab('todo', 'To do', _board == null ? null : todo),
+        tab('waiting', 'Waiting', _board == null ? null : waiting),
+        tab('done', 'Done', _board == null ? null : done),
+        tab('all', 'Everything', null),
+      ]),
+    );
+  }
+
+  Widget _groupHeading(String text, int n) => Padding(
+        padding: const EdgeInsets.fromLTRB(2, 14, 2, 8),
+        child: Text('${text.toUpperCase()}  ·  $n',
+            style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                letterSpacing: .8,
+                color: Brand.inkMuted)),
+      );
+
+  Widget _boardWaitBox() {
+    if (_boardError != null) {
+      return Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(children: [
+          Text(_boardError!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Brand.red)),
+          const SizedBox(height: 8),
+          TextButton(onPressed: _loadBoard, child: const Text('Try again')),
+        ]),
+      );
+    }
+    return const Padding(
+      padding: EdgeInsets.all(32),
+      child: Center(child: CircularProgressIndicator(color: Brand.red)),
+    );
+  }
+
+  Widget _todoView(List<_Task> tasks) {
+    if (_board == null) return _boardWaitBox();
+    if (tasks.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
+        decoration: BoxDecoration(
+            color: Brand.surface,
+            border: Border.all(color: Brand.border),
+            borderRadius: BorderRadius.circular(14)),
+        child: const Column(children: [
+          Icon(Icons.task_alt, size: 36, color: Brand.success),
+          SizedBox(height: 10),
+          Text('Nothing needs you right now',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+          SizedBox(height: 4),
+          Text('Replies, signs of interest and new pages show up here as '
+              'they come in.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13, color: Brand.inkSecondary)),
+        ]),
+      );
+    }
+    const groups = <(String, String)>[
+      ('reply', 'They wrote to us'),
+      ('follow_up', 'They showed interest'),
+      ('make_contact', 'New pages to contact'),
+      ('add_address', 'New pages that need an address'),
+      ('owner_ready', 'Set up by us, not claimed'),
+    ];
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      for (final g in groups)
+        if (tasks.any((t) => t.kind == g.$1)) ...[
+          _groupHeading(g.$2, tasks.where((t) => t.kind == g.$1).length),
+          for (final t in tasks.where((t) => t.kind == g.$1)) _taskRow(t),
+        ],
+    ]);
+  }
+
+  /// One line of To do: who, why, and the one thing to do.
+  Widget _taskRow(_Task t) {
+    final c = t.c;
+    final p = t.page;
+    final (IconData icon, Color fg, Color bg) = switch (t.kind) {
+      'reply' => (Icons.mark_email_unread_outlined, Brand.red, Brand.accentTint),
+      'follow_up' => (Icons.visibility_outlined, Brand.goldTextDark, Brand.goldTint),
+      'owner_ready' => (Icons.storefront_outlined, Brand.logoNavy, Brand.logoTealTint),
+      _ => (Icons.fiber_new_outlined, Brand.logoNavy, Brand.logoTealTint),
+    };
+    final String label = switch (t.kind) {
+      'reply' => 'Reply',
+      'follow_up' => 'Follow up',
+      'make_contact' => 'Make contact',
+      'add_address' => 'Add address',
+      _ => 'Write to them',
+    };
+    Future<void> primary() async {
+      switch (t.kind) {
+        case 'make_contact':
+          if (p != null) await _openNewPage(p, write: true);
+        case 'add_address':
+          if (p != null) await _openNewPage(p, write: false);
+        case 'owner_ready':
+          if (c != null) await _reply(c, template: 'reply_we_know_you');
+        default:
+          if (c != null) await _reply(c);
+      }
+    }
+
+    Future<void> whatsApp() async {
+      if (c != null) return _whatsApp(c);
+      if (p != null) return _withLine(p, _whatsApp);
+    }
+
+    final open = c != null && _rowOpen.contains(t.id);
+    return _rowShell(
+      icon: icon,
+      fg: fg,
+      bg: bg,
+      name: t.name,
+      sub: t.sub,
+      why: t.why,
+      open: open,
+      onToggle: c == null
+          ? null
+          : () => setState(() => open ? _rowOpen.remove(t.id) : _rowOpen.add(t.id)),
+      actions: [
+        FilledButton.icon(
+            onPressed: primary,
+            icon: Icon(
+                t.kind == 'add_address'
+                    ? Icons.alternate_email
+                    : Icons.send_rounded,
+                size: 16),
+            label: Text(label)),
+        if (t.kind != 'reply')
+          TextButton.icon(
+              onPressed: whatsApp,
+              icon: const Icon(Icons.chat_outlined, size: 16),
+              label: const Text('WhatsApp')),
+      ],
+      menu: [
+        ('edit', 'Edit details'),
+        // A space set up by us has a page of its own: it is not
+        // taken off, it waits until they claim.
+        if (t.kind != 'owner_ready') ('remove', 'Remove from To do...'),
+      ],
+      onMenu: (k) async {
+        if (k == 'edit') {
+          if (c != null) {
+            await _editContact(c);
+          } else if (p != null) {
+            await _openNewPage(p, write: false);
+          }
+        } else {
+          await _remove(t.id, t.name, c: c, page: p);
+        }
+      },
+      detail: open && c != null ? _card(c) : null,
+    );
+  }
+
+  /// The frame every line on To do, Waiting and Done shares.
+  Widget _rowShell({
+    required IconData icon,
+    required Color fg,
+    required Color bg,
+    required String name,
+    required String sub,
+    required String why,
+    required bool open,
+    required VoidCallback? onToggle,
+    required List<Widget> actions,
+    required List<(String, String)> menu,
+    required Future<void> Function(String) onMenu,
+    Widget? detail,
+  }) {
+    final narrow = MediaQuery.sizeOf(context).width < 600;
+    final info = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(name,
+          style: const TextStyle(
+              fontSize: 15, fontWeight: FontWeight.w700, color: Brand.ink)),
+      if (sub.isNotEmpty)
+        Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: Text(sub,
+              style: const TextStyle(fontSize: 12.5, color: Brand.inkMuted)),
+        ),
+      if (why.isNotEmpty)
+        Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Text(why,
+              style: const TextStyle(
+                  fontSize: 13.5, height: 1.4, color: Brand.inkSecondary)),
+        ),
+    ]);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+          color: Brand.surface,
+          border: Border.all(color: Brand.border),
+          borderRadius: BorderRadius.circular(14)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 4, 12),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                  color: bg, borderRadius: BorderRadius.circular(10)),
+              child: Icon(icon, size: 18, color: fg),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (onToggle == null)
+                      info
+                    else
+                      InkWell(
+                          onTap: onToggle,
+                          borderRadius: BorderRadius.circular(6),
+                          child: info),
+                    if (actions.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: actions),
+                    ],
+                  ]),
+            ),
+            if (onToggle != null && !narrow)
+              IconButton(
+                  tooltip: open ? 'Hide the details' : 'Show the details',
+                  onPressed: onToggle,
+                  icon: Icon(open ? Icons.expand_less : Icons.expand_more,
+                      color: Brand.inkMuted)),
+            if (menu.isNotEmpty)
+              PopupMenuButton<String>(
+                tooltip: 'More',
+                icon: const Icon(Icons.more_horiz, color: Brand.inkMuted),
+                onSelected: (k) => onMenu(k),
+                itemBuilder: (_) => [
+                  for (final m in menu)
+                    PopupMenuItem(value: m.$1, child: Text(m.$2)),
+                ],
+              ),
+          ]),
+        ),
+        if (detail != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+            child: detail,
+          ),
+      ]),
+    );
+  }
+
+  Widget _waitingView(List<Map<String, dynamic>> rows) {
+    if (_board == null) return _boardWaitBox();
+    if (rows.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.all(32),
+        child: Text('Nobody to wait for. Lines show up here once we have written.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Brand.inkMuted)),
+      );
+    }
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      for (final c in rows) _waitRow(c),
+    ]);
+  }
+
+  Widget _waitRow(Map<String, dynamic> c) {
+    final id = '${c['id']}';
+    final outAt = DateTime.tryParse('${c['last_out_at'] ?? ''}');
+    final follow = DateTime.tryParse('${c['follow_up_on'] ?? ''}');
+    final nextAt = follow ?? outAt?.add(_followUpGap);
+    final wrote = outAt == null ? 'We wrote to them.' : 'We wrote ${_ago(outAt.toLocal())}.';
+    final next = nextAt == null
+        ? ''
+        : nextAt.isAfter(DateTime.now())
+            ? ' Follow up from ${DateFormat('EEE d MMM').format(nextAt.toLocal())} if they stay quiet.'
+            : ' No answer yet: a follow-up can go any time.';
+    final open = _rowOpen.contains(id);
+    return _rowShell(
+      icon: Icons.hourglass_empty,
+      fg: Brand.inkSecondary,
+      bg: Brand.field,
+      name: '${c['space_name'] ?? c['venue_name'] ?? c['email'] ?? 'A space'}',
+      sub: _placeLine(c['kind'], c['city'] ?? c['venue_city'],
+          c['country'] ?? c['venue_country']),
+      why: '$wrote$next',
+      open: open,
+      onToggle: () => setState(() => open ? _rowOpen.remove(id) : _rowOpen.add(id)),
+      actions: [
+        OutlinedButton(
+            onPressed: () => _logReply(c), child: const Text('They replied')),
+        TextButton(
+            onPressed: () => _reply(c), child: const Text('Follow up now')),
+      ],
+      menu: [
+        ('edit', 'Edit details'),
+        if (!(c['owner'] is Map && (c['owner'] as Map)['mine'] == false))
+          ('remove', 'Remove from Waiting...'),
+      ],
+      onMenu: (k) => k == 'edit'
+          ? _editContact(c)
+          : _remove(id, '${c['space_name'] ?? 'this space'}', c: c),
+      detail: open ? _card(c) : null,
+    );
+  }
+
+  Widget _doneView() {
+    if (_board == null) return _boardWaitBox();
+    final kinds = [
+      for (final k in _doneKinds)
+        if (_doneCount(k.$1) > 0 || _doneOpen.contains(k.$1)) k,
+    ];
+    if (kinds.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.all(32),
+        child: Text('Nothing here yet.',
+            textAlign: TextAlign.center, style: TextStyle(color: Brand.inkMuted)),
+      );
+    }
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      for (final k in kinds) ...[
+        Material(
+          color: Brand.surface,
+          shape: RoundedRectangleBorder(
+              side: const BorderSide(color: Brand.border),
+              borderRadius: BorderRadius.circular(12)),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () {
+              final opening = !_doneOpen.contains(k.$1);
+              setState(() => opening ? _doneOpen.add(k.$1) : _doneOpen.remove(k.$1));
+              if (opening && _doneRows[k.$1] == null) _loadDone(k.$1);
+            },
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 10, 12),
+              child: Row(children: [
+                SizedBox(
+                  width: 44,
+                  child: Text('${_doneCount(k.$1)}',
+                      style: const TextStyle(
+                          fontSize: 18, fontWeight: FontWeight.w800)),
+                ),
+                Expanded(
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(k.$2,
+                            style: const TextStyle(
+                                fontSize: 14.5, fontWeight: FontWeight.w700)),
+                        Text(k.$3,
+                            style: const TextStyle(
+                                fontSize: 12.5, color: Brand.inkSecondary)),
+                      ]),
+                ),
+                Icon(
+                    _doneOpen.contains(k.$1)
+                        ? Icons.expand_less
+                        : Icons.expand_more,
+                    color: Brand.inkMuted),
+              ]),
+            ),
+          ),
+        ),
+        if (_doneOpen.contains(k.$1))
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 0, 4),
+            child: _doneRows[k.$1] == null
+                ? const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Center(
+                        child: CircularProgressIndicator(color: Brand.red)))
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                        for (final c in _doneRows[k.$1]!) _doneRow(k.$1, c),
+                        if (_doneRows[k.$1]!.isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.all(12),
+                            child: Text('Nobody here.',
+                                style: TextStyle(color: Brand.inkMuted)),
+                          ),
+                      ]),
+          ),
+        const SizedBox(height: 8),
+      ],
+    ]);
+  }
+
+  static String _asideWords(Map<String, dynamic>? a) {
+    if (a == null) return '';
+    final detail = '${a['detail'] ?? ''}'.trim();
+    final words = switch ('${a['reason'] ?? ''}') {
+      'unreachable' => 'No way to reach them',
+      'not_fit' => 'Not a fit',
+      'said_no' => 'They said no',
+      _ => '',
+    };
+    if (words.isEmpty) return '';
+    return '$words${detail.isEmpty ? '' : ' ($detail)'}, ${_agoOf(a['at'])}.';
+  }
+
+  Widget _doneRow(String key, Map<String, dynamic> c) {
+    final id = '${c['id']}';
+    final aside = _asideWords(_asides[id]);
+    final String why = switch (key) {
+      'claimed' => 'Claimed ${_agoOf(c['stage_at'])}.',
+      'verified' => 'On Plus since ${_agoOf(c['stage_at'])}.',
+      'unsubscribed' => 'Unsubscribed ${_agoOf(c['unsubscribed_at'] ?? c['stage_at'])}.',
+      _ => aside.isNotEmpty
+          ? aside
+          : key == 'not_now'
+              ? 'Put aside ${_agoOf(c['stage_at'])}, before reasons were kept.'
+              : '${_stageLabel('${c['stage']}')} ${_agoOf(c['stage_at'])}.',
+    };
+    final canBringBack = const {'not_now', 'declined', 'aside'}.contains(key) &&
+        c['topic'] != 'other' &&
+        c['stage'] != 'claimed' &&
+        c['stage'] != 'verified';
+    final open = _rowOpen.contains(id);
+    return _rowShell(
+      icon: key == 'claimed' || key == 'verified'
+          ? Icons.verified_outlined
+          : Icons.inventory_2_outlined,
+      fg: key == 'claimed' || key == 'verified' ? Brand.success : Brand.inkMuted,
+      bg: key == 'claimed' || key == 'verified' ? Brand.successTint : Brand.field,
+      name: '${c['space_name'] ?? c['venue_name'] ?? c['email'] ?? 'A space'}',
+      sub: _placeLine(c['kind'], c['city'] ?? c['venue_city'],
+          c['country'] ?? c['venue_country']),
+      why: why,
+      open: open,
+      onToggle: () => setState(() => open ? _rowOpen.remove(id) : _rowOpen.add(id)),
+      actions: [
+        if (canBringBack)
+          OutlinedButton(
+              onPressed: () => _bringBack(c), child: const Text('Bring back')),
+      ],
+      menu: const [('edit', 'Edit details')],
+      onMenu: (_) => _editContact(c),
+      detail: open ? _card(c) : null,
+    );
+  }
+
+  // ---------------------------------------------------------- actions
+
+  /// The line behind a new page, read in full, then [act] on it.
+  Future<void> _withLine(Map<String, dynamic> p,
+      Future<void> Function(Map<String, dynamic>) act) async {
+    try {
+      final rows = await _supabase.outreachList(
+          stage: '', query: '${p['name'] ?? ''}', group: '', limit: 50);
+      final c = rows.where((r) => r['id'] == p['contact_id']).firstOrNull;
+      if (!mounted) return;
+      if (c == null) {
+        _snack('Its line in Outreach could not be found. Search for it under '
+            'Everything.', bad: true);
+        return;
+      }
+      await act(c);
+    } catch (e) {
+      if (mounted) _snack(_plain(e), bad: true);
+    }
+  }
+
+  Future<void> _bringBack(Map<String, dynamic> c) async {
+    try {
+      await _supabase.outreachSetAside('${c['id']}', null);
+      if (!mounted) return;
+      _snack('${c['space_name'] ?? 'It'} is back in the lists.');
+      _doneRows.clear();
+      await _load();
+    } catch (e) {
+      if (mounted) _snack(_plain(e), bad: true);
+    }
+  }
+
+  /// Takes a line off To do or Waiting with a reason. Nothing is sent.
+  Future<void> _remove(String id, String name,
+      {Map<String, dynamic>? c, Map<String, dynamic>? page}) async {
+    const reasons = <(String, String, String)>[
+      ('unreachable', 'No way to reach them',
+          'No email, WhatsApp or Instagram found.'),
+      ('join', 'Already in touch on another line',
+          'Joins the two lines into one, with every message kept.'),
+      ('not_fit', 'Not a fit',
+          'Closed, a chain\'s head office, or a duplicate page.'),
+      ('said_no', 'They said no', 'They told us they are not interested.'),
+    ];
+    const fits = ['Closed', 'Head office of a chain', 'Duplicate page', 'Other'];
+    String? reason;
+    String? fit;
+    final picked = await showDialog<(String, String?)>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setD) => AlertDialog(
+          title: Text('Why take $name off?'),
+          content: SizedBox(
+            width: 480,
+            child: SingleChildScrollView(
+              child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (final r in reasons) ...[
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(
+                            reason == r.$1
+                                ? Icons.radio_button_checked
+                                : Icons.radio_button_off,
+                            color: reason == r.$1 ? Brand.ink : Brand.inkMuted),
+                        title: Text(r.$2,
+                            style: const TextStyle(fontWeight: FontWeight.w600)),
+                        subtitle: Text(r.$3),
+                        onTap: () => setD(() => reason = r.$1),
+                      ),
+                      if (reason == 'unreachable' && r.$1 == 'unreachable')
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(40, 0, 0, 8),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: TextButton.icon(
+                                onPressed: () =>
+                                    Navigator.pop(ctx, ('whatsapp', null)),
+                                icon: const Icon(Icons.chat_outlined, size: 16),
+                                label: const Text(
+                                    'Try WhatsApp first (we look up their number on Google)')),
+                          ),
+                        ),
+                      if (reason == 'not_fit' && r.$1 == 'not_fit')
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(40, 0, 0, 8),
+                          child: Wrap(spacing: 6, runSpacing: 6, children: [
+                            for (final f in fits)
+                              _pill(f,
+                                  on: fit == f,
+                                  idle: Brand.inkSecondary,
+                                  onTap: () => setD(() => fit = f)),
+                          ]),
+                        ),
+                    ],
+                    const SizedBox(height: 8),
+                    const Text(
+                        'Nothing is sent to them. The line moves to Done, '
+                        'where Bring back undoes it.',
+                        style: TextStyle(fontSize: 12.5, color: Brand.inkMuted)),
+                  ]),
+            ),
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel')),
+            FilledButton(
+                onPressed: reason == null || (reason == 'not_fit' && fit == null)
+                    ? null
+                    : () => Navigator.pop(ctx, (reason!, fit)),
+                child: Text(reason == 'join' ? 'Choose the other line' : 'Move to Done')),
+          ],
+        ),
+      ),
+    );
+    if (picked == null || !mounted) return;
+    final (what, detail) = picked;
+    if (what == 'whatsapp') {
+      if (c != null) {
+        await _whatsApp(c);
+      } else if (page != null) {
+        await _withLine(page, _whatsApp);
+      }
+      return;
+    }
+    if (what == 'join') {
+      await _joinPicker(id, name);
+      return;
+    }
+    try {
+      await _supabase.outreachSetAside(id, what,
+          detail: detail == 'Other' ? null : detail);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('$name moved to Done.'),
+        action: SnackBarAction(
+            label: 'Undo',
+            onPressed: () async {
+              try {
+                await _supabase.outreachSetAside(id, null);
+                await _load();
+              } catch (e) {
+                if (mounted) _snack(_plain(e), bad: true);
+              }
+            }),
+      ));
+      _doneRows.clear();
+      await _load();
+    } catch (e) {
+      if (mounted) _snack(_plain(e), bad: true);
+    }
+  }
+
+  /// Two lines for one space: pick the other one, then join them.
+  Future<void> _joinPicker(String dropId, String name) async {
+    final q = TextEditingController(
+        text: name.split(RegExp(r'[\s\-(,]+')).firstWhere((w) => w.length > 2,
+            orElse: () => name));
+    List<Map<String, dynamic>>? found;
+    String? problem;
+    var started = false;
+    var closed = false;
+    Future<void> search(StateSetter setD) async {
+      if (closed) return;
+      setD(() {
+        found = null;
+        problem = null;
+      });
+      try {
+        final r = await _supabase.outreachList(
+            stage: '', query: q.text.trim(), group: '', limit: 20);
+        if (closed) return;
+        setD(() => found = r.where((x) => '${x['id']}' != dropId).toList());
+      } catch (e) {
+        if (closed) return;
+        setD(() {
+          found = const [];
+          problem = _plain(e);
+        });
+      }
+    }
+
+    final keep = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(builder: (ctx, setD) {
+        if (!started) {
+          started = true;
+          Future.microtask(() => search(setD));
+        }
+        return AlertDialog(
+          title: Text('Join $name with which line?'),
+          content: SizedBox(
+            width: 520,
+            height: 380,
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              TextField(
+                controller: q,
+                autofocus: true,
+                onSubmitted: (_) => search(setD),
+                decoration: InputDecoration(
+                  hintText: 'Search by space, email or city',
+                  prefixIcon: const Icon(Icons.search),
+                  suffixIcon: IconButton(
+                      tooltip: 'Search',
+                      onPressed: () => search(setD),
+                      icon: const Icon(Icons.arrow_forward)),
+                  border: const OutlineInputBorder(),
+                  isDense: true,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Expanded(
+                child: found == null
+                    ? const Center(
+                        child: CircularProgressIndicator(color: Brand.red))
+                    : found!.isEmpty
+                        ? Center(
+                            child: Text(problem ?? 'No other line found.',
+                                style: TextStyle(
+                                    color: problem == null
+                                        ? Brand.inkMuted
+                                        : Brand.red)))
+                        : ListView(children: [
+                            for (final x in found!)
+                              ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                title: Text('${x['space_name'] ?? x['email'] ?? ''}'),
+                                subtitle: Text([
+                                  '${x['email'] ?? ''}',
+                                  _placeLine(null, x['city'], x['country']),
+                                  _stageLabel('${x['stage']}'),
+                                ].where((s) => s.trim().isNotEmpty).join(' · ')),
+                                trailing: const Icon(Icons.chevron_right),
+                                onTap: () => Navigator.pop(ctx, x),
+                              ),
+                          ]),
+              ),
+            ]),
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel')),
+          ],
+        );
+      }),
+    );
+    closed = true;
+    Future.delayed(const Duration(milliseconds: 400), q.dispose);
+    if (keep == null || !mounted) return;
+    final other = '${keep['space_name'] ?? keep['email'] ?? 'that line'}';
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Join the two lines?'),
+        content: SizedBox(
+          width: 460,
+          child: Text(
+              '$name joins $other. $other keeps its address and messages, '
+              'and takes the page, phone and notes from $name. Nothing is '
+              'sent to them. This cannot be undone.'),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Join the lines')),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    try {
+      await _supabase.outreachJoin('${keep['id']}', dropId);
+      if (!mounted) return;
+      _snack('Joined: $name is now part of $other.');
+      _doneRows.clear();
+      await _load();
+    } catch (e) {
+      if (mounted) _snack(_plain(e), bad: true);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final rows = _rows;
@@ -4686,6 +5711,18 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
   }
 
   Widget _screen(BuildContext context, List<Map<String, dynamic>>? rows) {
+    final tasks = _tasks();
+    final waiting = _waitingRows(tasks);
+    final intro = switch (_tab) {
+      'todo' => 'What needs you, most urgent first. Work from the top; '
+          'whatever is left waits for next time. Nothing is sent by itself.',
+      'waiting' => 'We wrote and the next move is theirs. Each line says '
+          'when to follow up.',
+      'done' => 'Nothing to do here: claimed, on Plus, said no, or taken '
+          'off with a reason.',
+      _ => 'Every space we are talking to, the numbers, and every list. '
+          'Nothing is sent by itself.',
+    };
     return Scaffold(
       appBar: AppBar(title: const Text('Outreach'), actions: [
         IconButton(
@@ -4717,11 +5754,9 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
                       padding: const EdgeInsets.fromLTRB(14, 12, 14, 40),
                       children: [
                         Row(children: [
-                          const Expanded(
-                            child: Text(
-                                'Every space we are talking to, and where each '
-                                'one is. Nothing is sent by itself.',
-                                style: TextStyle(
+                          Expanded(
+                            child: Text(intro,
+                                style: const TextStyle(
                                     fontSize: 13,
                                     height: 1.45,
                                     color: Brand.inkSecondary)),
@@ -4732,6 +5767,14 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
                               label: const Text('How it works')),
                         ]),
                         const SizedBox(height: 8),
+                        _boardTabs(tasks.length, waiting.length),
+                        if (_tab == 'todo')
+                          _todoView(tasks)
+                        else if (_tab == 'waiting')
+                          _waitingView(waiting)
+                        else if (_tab == 'done')
+                          _doneView()
+                        else ...[
                         _viewSwitch(),
                         if (_view == 'new')
                           _newPagesCard()
@@ -4923,6 +5966,7 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
                                       fontSize: 12.5, color: Brand.inkMuted)),
                             ),
                         ],
+                        ],
                       ]),
                 ),
               ),
@@ -4977,4 +6021,30 @@ class _UnsubscribeScreenState extends State<UnsubscribeScreen> {
       ),
     );
   }
+}
+
+/// One line on To do (migration 225): what to do, for whom, and why.
+class _Task {
+  /// reply, follow_up, make_contact, add_address or owner_ready.
+  final String kind;
+
+  /// The line's id in Outreach.
+  final String id;
+  final String name;
+  final String sub;
+  final String why;
+
+  /// The line in full, when it was read (not for new pages).
+  final Map<String, dynamic>? c;
+
+  /// The new page's row (admin_new_pages), for new pages.
+  final Map<String, dynamic>? page;
+  const _Task(
+      {required this.kind,
+      required this.id,
+      required this.name,
+      required this.sub,
+      required this.why,
+      this.c,
+      this.page});
 }

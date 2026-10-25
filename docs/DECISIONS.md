@@ -5366,3 +5366,24 @@ keystroke or two off (gmial.com, hotmail.co, outlok.com). Real look-alikes
 claim form (both emails), map sign-in, Owner account sign-in and its
 enquiry email, the enquiry form, both update forms, and Outreach Edit
 contact (widgets/email_typo_hint.dart).
+
+## 25 Oct 2026: Outreach as To do / Waiting / Done (migration 225)
+
+Jonathan: "I'm really wanting to simplify so i can understand clearly what
+action to take", "make as if we're a fully funded startup, with a premium
+setup". Outreach now opens on To do: one list, most urgent first (they wrote
+to us; they showed interest; new pages to contact; new pages that need an
+address; set up by us, not claimed), each line with one button that says what
+to do (Reply, Follow up, Make contact, Add address, Write to them) and
+WhatsApp beside it. Waiting holds lines where we wrote and the next move is
+theirs, with the date to follow up. Done holds claimed, Plus, said no, put
+aside, not for outreach and unsubscribed, each section opened on a tap.
+Everything is the old screen: the numbers and every list.
+- The write button on a card says Reply only when they wrote last; otherwise
+  Make contact (nobody wrote yet) or Follow up (we wrote last).
+- "Not now" is gone. Remove... asks why: no way to reach them (WhatsApp is
+  offered first), already in touch on another line (the two lines are
+  joined), not a fit (closed, chain head office, duplicate page, other), or
+  they said no. The reason is kept (space_contacts.aside_reason), nothing is
+  sent, and Bring back on Done undoes it, topic included.
+- admin_outreach_join refuses two lines for different spaces on the map.
