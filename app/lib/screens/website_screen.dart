@@ -7241,11 +7241,12 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       ],
       if (_drafts.isNotEmpty) ...[
         _section('IN WEBFLOW, NOT RELEASED', _drafts.length,
-            'Each draft is checked against Webflow within a minute or '
-            'two. When it passes, Publish puts both the listing and its '
-            'Images entry live; it then moves to Released and its entry '
-            'appears under Sitemap. It also gets a line in Outreach, under '
-            'New pages, ready for a hello.'),
+            'Each draft is checked against Webflow as soon as it is made. '
+            'Publish puts the listing and its Images entry live, checking '
+            'first, so it can be pressed before the check shows. It then '
+            'moves to Released, its entry appears under Sitemap, and it '
+            'gets a line in Outreach, under New pages, ready to make '
+            'contact.'),
         ..._drafts.map((v) => _card(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Row(children: [
@@ -7287,23 +7288,51 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                           style: TextButton.styleFrom(
                               foregroundColor: Brand.inkSecondary),
                           child: const Text('I published it in Webflow')),
+                      // Fixed in Webflow: nothing in the app changes, so
+                      // this starts the run that checks again.
+                      if (_publishWaits(v))
+                        TextButton(
+                            onPressed: () => _checkAgain(v),
+                            child: const Text('Check again')),
                       if (v['website_publish_requested_at'] != null)
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 8),
-                          child: Text('Publishing within a minute or two',
-                              style: TextStyle(
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          child: Text(
+                              _publishWaits(v)
+                                  ? 'Publishes once the above is fixed'
+                                  : 'Publishing within a minute or two',
+                              style: const TextStyle(
                                   fontSize: 12.5,
                                   fontWeight: FontWeight.w600,
                                   color: Brand.goldTextDark)),
                         )
                       else
+                        // Jonathan, 25 Oct 2026: "this takes too long to
+                        // make it so I can publish a new space". Publish
+                        // no longer waits for the check to show: the run
+                        // checks first and only puts a clean draft live.
+                        // It stays off only when a check found a problem.
                         ElevatedButton.icon(
-                            onPressed: _checkOf(v)['ok'] == true
+                            onPressed: _checkOf(v).isEmpty ||
+                                    _checkOf(v)['ok'] == true
                                 ? () => _requestPublish(v)
                                 : null,
                             icon: const Icon(Icons.publish_outlined, size: 18),
                             label: const Text('Publish on nomadwise.io')),
                     ]),
+                if (v['website_publish_requested_at'] == null &&
+                    _checkOf(v).isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 4),
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: Text(
+                          'Checked first. It only goes live if the check passes.',
+                          textAlign: TextAlign.right,
+                          style: TextStyle(
+                              fontSize: 12, color: Brand.inkMuted)),
+                    ),
+                  ),
               ]),
             )),
       ],
@@ -7318,10 +7347,20 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     return c is Map ? Map<String, dynamic>.from(c) : const {};
   }
 
+  /// Publish was asked for, and the latest check (made after that)
+  /// found something to fix in Webflow: it waits for the fix.
+  bool _publishWaits(Map<String, dynamic> v) {
+    final c = _checkOf(v);
+    if (c.isEmpty || c['ok'] == true) return false;
+    final asked = DateTime.tryParse('${v['website_publish_requested_at'] ?? ''}');
+    final at = DateTime.tryParse('${c['checked_at'] ?? ''}');
+    return asked != null && at != null && !at.isBefore(asked);
+  }
+
   Widget _draftCheck(Map<String, dynamic> v) {
     final c = _checkOf(v);
     if (c.isEmpty) {
-      return const Text('Checking the draft against Webflow...',
+      return const Text('Not checked yet.',
           style: TextStyle(fontSize: 12.5, color: Brand.inkMuted));
     }
     final issues = (c['issues'] as List?)?.cast<String>() ?? const [];
@@ -7362,6 +7401,24 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
             DateTime.now().toUtc().toIso8601String(),
       },
       '${v['name']} will be published within a minute or two.');
+
+  /// After fixing a draft in Webflow: starts the run now, which checks
+  /// it again and publishes it if it passes.
+  Future<void> _checkAgain(Map<String, dynamic> v) async {
+    try {
+      final r = await _supabase.requestWebsitePush();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(r == 'requested'
+              ? 'Checking ${v['name']} again. It publishes if it passes.'
+              : 'Could not start the check. Try again in a minute.')));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Could not start the check: $e'),
+          backgroundColor: Brand.red));
+    }
+  }
 
   /// Founder says the page is live: released now, so its sitemap
   /// entry is ready under Sitemap straight away.

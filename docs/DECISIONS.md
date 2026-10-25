@@ -5328,3 +5328,19 @@ Back only closes the form while nothing is being saved. In the database:
 - The space on the map is looked up again only when the name or city really
   changed. Before, every save looked it up again, which could move a line to
   another branch with the same name.
+
+## 25 Oct 2026: a new page can be published sooner (migration 224)
+
+Jonathan: "this takes too long to make it so I can publish a new space".
+The draft check only ran on the run after the one that made the draft, and
+nothing reliably started that run, so a draft could sit at "Checking" for
+hours. Now:
+- The run that makes the draft checks it straight away (one retry after
+  20 seconds if Webflow is still taking the photos in).
+- Publish on nomadwise.io can be pressed before the check shows. The run
+  always checks first and only puts a clean draft live. Publish stays off
+  only when a check found a problem.
+- Pressing Publish always starts the run (migration 224; migration 76 had
+  left it to the one-minute throttle).
+- A draft waiting on a fix shows "Publishes once the above is fixed" and a
+  Check again button for after the fix in Webflow.

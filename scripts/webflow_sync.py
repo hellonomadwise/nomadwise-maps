@@ -2968,6 +2968,42 @@ if queued:
             {'name': v['name'], 'slug': slug_, 'photos': len(photos),
              'images_entry': bool(img_id)})
 
+        # Check the new draft straight away, so Publish is ready as soon
+        # as the draft exists (Jonathan, 25 Oct 2026: "this takes too
+        # long to make it so I can publish a new space"). Before, the
+        # check waited for the next run, and with nothing else queued
+        # that could be hours. Webflow can take a moment to take the
+        # photos in, so a failed first look is tried once more before
+        # it is shown; anything still wrong then is real.
+        made_v = dict(v, webflow_cms_id=new_id, webflow_slug=slug_)
+        try:
+            check = None
+            for wait in (2, 20):
+                time.sleep(wait)
+                check = verify_draft(made_v)
+                if check['ok']:
+                    break
+            # Publish pressed while this run was making the draft: the
+            # app's nudge may have been held back (one per two minutes),
+            # so do it here rather than wait for the next run.
+            asked = None
+            if check['ok']:
+                row = sb(f"venues?id=eq.{v['id']}"
+                         '&select=website_publish_requested_at') or []
+                asked = (row[0] if row else {}).get(
+                    'website_publish_requested_at')
+            if asked:
+                publish_draft(made_v, check)
+                report['drafts_published'] = (
+                    report.get('drafts_published') or 0) + 1
+            else:
+                save_check(made_v, check)
+            report['created_on_site'][-1]['checked'] = check['ok']
+        except Exception as e:  # noqa: BLE001
+            # Not an error: the next run checks it as before.
+            report.setdefault('warnings', []).append(
+                f"first check {v['name']}: {str(e)[:160]}")
+
     for v in queued:
         old = v.get('website_prepared') or {}
         if not v.get('google_place_id'):
