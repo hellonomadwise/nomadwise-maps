@@ -1,0 +1,620 @@
+{
+  "started": "2026-10-25T04:32:21.116877+00:00",
+  "dry_run": true,
+  "pages_checked": 64,
+  "pages_changed": [
+    {
+      "page": "portugal-lisbon-aethos-club-lisbon",
+      "slots": [
+        "image",
+        "image-2",
+        "image-3",
+        "image-4",
+        "image-5"
+      ]
+    },
+    {
+      "page": "india-jaipur-arvian-workspaces-virtual-office-coworking-space-in-mansarovar-jaipur",
+      "slots": [
+        "image",
+        "image-2",
+        "image-3",
+        "image-4",
+        "image-5"
+      ]
+    },
+    {
+      "page": "spain-valencia-bastard-coffee-kitchen-ruzafa",
+      "slots": [
+        "image",
+        "image-2",
+        "image-3",
+        "image-4",
+        "image-5"
+      ]
+    },
+    {
+      "page": "portugal-ericeira-breakpoint-ericeira",
+      "slots": [
+        "image",
+        "image-2",
+        "image-3",
+        "image-4",
+        "image-5"
+      ]
+    },
+    {
+      "page": "germany-berlin-cafe-amano",
+      "slots": [
+        "image",
+        "image-2",
+        "image-3",
+        "image-4",
+        "image-5"
+      ]
+    },
+    {
+      "page": "germany-ulm-cafe-deins-und-meins-neu-ulm",
+      "slots": [
+        "image",
+        "image-2",
+        "image-3",
+        "image-5"
+      ]
+    },
+    {
+      "page": "denmark-copenhagen-cafe-gavlen",
+      "slots": [
+        "image",
+        "image-2",
+        "image-3",
+        "image-4",
+        "image-5"
+      ]
+    },
+    {
+      "page": "germany-wiggensbach-co-work",
+      "slots": [
+        "image",
+        "image-2",
+        "image-3",
+        "image-4",
+        "image-5"
+      ]
+    },
+    {
+      "page": "croatia-dubrovnik-coffee-break",
+      "slots": [
+        "image",
+        "image-2",
+        "image-3",
+        "image-5"
+      ]
+    },
+    {
+      "page": "germany-ulm-coffee-fellows-kaffee-bagels-fruhstuck",
+      "slots": [
+        "image",
+        "image-2",
+        "image-3",
+        "image-4",
+        "image-5"
+      ]
+    },
+    {
+      "page": "portugal-lisbon-copenhagen-coffee-lab-bica",
+      "slots": [
+        "image",
+        "image-2",
+        "image-3",
+        "image-4",
+        "image-5"
+      ]
+    },
+    {
+      "page": "portugal-lisbon-copenhagen-coffee-lab-santos",
+      "slots": [
+        "image",
+        "image-2",
+        "image-3",
+        "image-4",
+        "image-5"
+      ]
+    },
+    {
+      "page": "portugal-lisbon-doma-portugal",
+      "slots": [
+        "image",
+        "image-2",
+        "image-3",
+        "image-4",
+        "image-5"
+      ]
+    },
+    {
+      "page": "spain-valencia-espacio-bica-ruzafa-coworking",
+      "slots": [
+        "image",
+        "image-2",
+        "image-3",
+        "image-4",
+        "image-5"
+      ]
+    },
+    {
+      "page": "portugal-lisbon-fauna-flora-anjos",
+      "slots": [
+        "image",
+        "image-2",
+        "image-3",
+        "image-4",
+        "image-5"
+      ]
+    },
+    {
+      "page": "spain-valencia-federal-valencia",
+      "slots": [
+        "image",
+        "image-2",
+        "image-3",
+        "image-5"
+      ]
+    },
+    {
+      "page": "canada-richmond-hill-flex-space-coworking-office-event-space",
+      "slots": [
+        "image",
+        "image-2",
+        "image-3",
+        "image-4",
+        "image-5"
+      ]
+    },
+    {
+      "page": "portugal-lisbon-flores-da-pampa",
+      "slots": [
+        "image",
+        "image-2",
+        "image-3",
+        "image-4",
+        "image-5"
+      ]
+    },
+    {
+      "page": "denmark-copenhagen-folkehuset-absalon",
+      "slots": [
+        "image",
+        "image-2",
+        "image-3",
+        "image-4",
+        "image-5"
+      ]
+    },
+    {
+      "page": "england-london-frothee-kings-cross",
+      "slots": [
+        "image",
+        "image-2",
+        "image-3",
+        "image-4",
+        "image-5"
+      ]
+    },
+    {
+      "page": "croatia-dubrovnik-gradska-kavana-arsenal-restaurant",
+      "slots": [
+        "image",
+        "image-2",
+        "image-3",
+        "image-4",
+        "image-5"
+      ]
+    },
+    {
+      "page": "portugal-ericeira-hurley-cafe-sourdough-bakery-restaurant",
+      "slots": [
+        "image",
+        "image-2",
+        "image-3",
+        "image-4",
+        "image-5"
+      ]
+    },
+    {
+      "page": "portugal-lisbon-hygge-kaffe",
+      "slots": [
+        "image"
+      ]
+    },
+    {
+      "page": "portugal-lisbon-instant-crunch-saldanha",
+      "slots": [
+        "image",
+        "image-2",
+        "image-3",
+        "image-4",
+        "image-5"
+      ]
+    },
+    {
+      "page": "united-arab-emirates-dubai-jobetter-space-barsha-heights",
+      "slots": [
+        "image",
+        "image-2",
+        "image-3",
+        "image-4",
+        "image-5"
+      ]
+    },
+    {
+      "page": "denmark-copenhagen-joe-the-juice-islands-brygge",
+      "slots": [
+        "image",
+        "image-2",
+        "image-3",
+        "image-4",
+        "image-5"
+      ]
+    },
+    {
+      "page": "portugal-lisbon-lacs-anjos",
+      "slots": [
+        "image",
+        "image-2",
+        "image-3",
+        "image-4",
+        "image-5"
+      ]
+    },
+    {
+      "page": "denmark-copenhagen-lagkagehuset-the-lakes",
+      "slots": [
+        "image",
+        "image-2",
+        "image-3",
+        "image-4",
+        "image-5"
+      ]
+    },
+    {
+      "page": "portugal-lisbon-lena-specialty-coffee",
+      "slots": [
+        "image",
+        "image-2",
+        "image-5"
+      ]
+    },
+    {
+      "page": "england-london-level39",
+      "slots": [
+        "image",
+        "image-2",
+        "image-3",
+        "image-4",
+        "image-5"
+      ]
+    },
+    {
+      "page": "croatia-dubrovnik-life-according-to-kawa",
+      "slots": [
+        "image",
+        "image-2",
+        "image-3",
+        "image-4",
+        "image-5"
+      ]
+    },
+    {
+      "page": "spain-valencia-llum-coworking-valencia",
+      "slots": [
+        "image",
+        "image-2",
+        "image-3",
+        "image-4",
+        "image-5"
+      ]
+    },
+    {
+      "page": "portugal-ericeira-mother-cafe-ericeira",
+      "slots": [
+        "image",
+        "image-2",
+        "image-3",
+        "image-5"
+      ]
+    },
+    {
+      "page": "philippines-el-nido-neighbors-and-nomads-coworking",
+      "slots": [
+        "image",
+        "image-2",
+        "image-3",
+        "image-4",
+        "image-5"
+      ]
+    },
+    {
+      "page": "indonesia-bali-node-bali-coliving-coworking-space",
+      "slots": [
+        "image",
+        "image-2",
+        "image-3",
+        "image-4",
+        "image-5"
+      ]
+    },
+    {
+      "page": "portugal-lisbon-nuua-beach",
+      "slots": [
+        "image",
+        "image-2",
+        "image-3",
+        "image-4",
+        "image-5"
+      ]
+    },
+    {
+      "page": "indonesia-bali-openhouse-cafe-seseh",
+      "slots": [
+        "image",
+        "image-2",
+        "image-3",
+        "image-4",
+        "image-5"
+      ]
+    },
+    {
+      "page": "denmark-copenhagen-original-coffee",
+      "slots": [
+        "image",
+        "image-2",
+        "image-3",
+        "image-4",
+        "image-5"
+      ]
+    },
+    {
+      "page": "denmark-copenhagen-orsa",
+      "slots": [
+        "image",
+        "image-2",
+        "image-3",
+        "image-4",
+        "image-5"
+      ]
+    },
+    {
+      "page": "england-london-oru-dulwich-coworking-cafe-yoga",
+      "slots": [
+        "image",
+        "image-2",
+        "image-3",
+        "image-4",
+        "image-5"
+      ]
+    },
+    {
+      "page": "germany-ulm-pagoni-cafe",
+      "slots": [
+        "image",
+        "image-2",
+        "image-3",
+        "image-5"
+      ]
+    },
+    {
+      "page": "denmark-copenhagen-paludan-bog-cafe",
+      "slots": [
+        "image",
+        "image-2",
+        "image-3",
+        "image-4",
+        "image-5"
+      ]
+    },
+    {
+      "page": "serbia-belgrade-pfu-coworking",
+      "slots": [
+        "image",
+        "image-2",
+        "image-3",
+        "image-4"
+      ]
+    },
+    {
+      "page": "thailand-phuket-island-place-coworking-phuket",
+      "slots": [
+        "image",
+        "image-2",
+        "image-3",
+        "image-4",
+        "image-5"
+      ]
+    },
+    {
+      "page": "portugal-lisbon-resves-cowork-space",
+      "slots": [
+        "image",
+        "image-2",
+        "image-3",
+        "image-4",
+        "image-5"
+      ]
+    },
+    {
+      "page": "india-bengaluru-sierra-cartel",
+      "slots": [
+        "image",
+        "image-2",
+        "image-3",
+        "image-4",
+        "image-5"
+      ]
+    },
+    {
+      "page": "india-bengaluru-sierra-cartel-coworking-space-hrbr",
+      "slots": [
+        "image",
+        "image-2",
+        "image-3",
+        "image-4",
+        "image-5"
+      ]
+    },
+    {
+      "page": "india-bengaluru-sierra-cartel-coworking-space-indiranagar",
+      "slots": [
+        "image",
+        "image-2",
+        "image-3"
+      ]
+    },
+    {
+      "page": "portugal-peniche-sol-specialty-coffee-nanoroaster",
+      "slots": [
+        "image",
+        "image-2",
+        "image-3",
+        "image-4",
+        "image-5"
+      ]
+    },
+    {
+      "page": "germany-munich-spacerise",
+      "slots": [
+        "image",
+        "image-2",
+        "image-3",
+        "image-4",
+        "image-5"
+      ]
+    },
+    {
+      "page": "spain-valencia-starbucks",
+      "slots": [
+        "image",
+        "image-2",
+        "image-3",
+        "image-4",
+        "image-5"
+      ]
+    },
+    {
+      "page": "germany-munich-terra-cafe-tagesbar-coworking",
+      "slots": [
+        "image",
+        "image-2",
+        "image-3",
+        "image-4",
+        "image-5"
+      ]
+    },
+    {
+      "page": "indonesia-bali-terra-healthy-restaurant-canggu",
+      "slots": [
+        "image",
+        "image-2",
+        "image-3",
+        "image-4",
+        "image-5"
+      ]
+    },
+    {
+      "page": "denmark-copenhagen-the-artisan-copenhagen",
+      "slots": [
+        "image",
+        "image-2",
+        "image-3",
+        "image-4",
+        "image-5"
+      ]
+    },
+    {
+      "page": "england-london-the-coffee-studio-greenwich",
+      "slots": [
+        "image",
+        "image-3",
+        "image-4",
+        "image-5"
+      ]
+    },
+    {
+      "page": "vietnam-da-nang-the-good-canteen",
+      "slots": [
+        "image",
+        "image-2",
+        "image-3",
+        "image-4",
+        "image-5"
+      ]
+    },
+    {
+      "page": "england-lancaster-the-storey-print-room-cafe",
+      "slots": [
+        "image",
+        "image-2",
+        "image-3",
+        "image-4",
+        "image-5"
+      ]
+    },
+    {
+      "page": "portugal-lisbon-wel-well",
+      "slots": [
+        "image",
+        "image-2",
+        "image-3",
+        "image-4",
+        "image-5"
+      ]
+    },
+    {
+      "page": "tanzania-arusha-westerwelle-startup-haus",
+      "slots": [
+        "image",
+        "image-2",
+        "image-3",
+        "image-4",
+        "image-5"
+      ]
+    },
+    {
+      "page": "united-states-ocala-fl-workspace-collective-at-1st-ave",
+      "slots": [
+        "image",
+        "image-2",
+        "image-3",
+        "image-4",
+        "image-5"
+      ]
+    },
+    {
+      "page": "united-states-daytona-beach-fl-workspace-collective-daytona-beach",
+      "slots": [
+        "image",
+        "image-2",
+        "image-3",
+        "image-4",
+        "image-5"
+      ]
+    },
+    {
+      "page": "portugal-lisbon-zenith",
+      "slots": [
+        "image",
+        "image-2",
+        "image-3",
+        "image-4",
+        "image-5"
+      ]
+    }
+  ],
+  "photos_converted": 295,
+  "already_fine": 23,
+  "too_small": [],
+  "errors": [
+    "Coastal Cowork Collective Ericeira: HTTP Error 404: Not Found"
+  ],
+  "finished": "2026-10-25T04:35:53.439090+00:00",
+  "converted_detail": []
+}
