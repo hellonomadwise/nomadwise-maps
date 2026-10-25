@@ -5285,3 +5285,22 @@ recorded.
 - New WhatsApp hello (invite_new_page_wa), also used for Instagram
   and Facebook: offered for a space we have not written to. Sent by
   hand from the phone; "I sent it" keeps the words on the space's card.
+
+## 25 Oct 2026: "Make contact", and the GDPR business check (migration 222)
+
+Jonathan: "Say hello" reads "Make contact" (best in class, not
+casual), and "with gdpr we always check if its a business or not".
+- Next up: "Make contact: <space>". The Control centre's To do line
+  gets "N spaces to make contact with", the last step of adding a
+  space we found ourselves; it opens Outreach. Approving a page now
+  says it will show in Next up once live.
+- Outreach card, for a line that has not written to us: "Business
+  address" (green) when the email is on the space's own website
+  domain or was checked; "Check it is a business" (amber) for any
+  other address, free-mail ones included; "Personal address: no
+  email" (red) when checked and not a business's. A first email to an
+  amber address asks "Is this a business address?" first and keeps
+  the answer, who and when (outreach_business_checks); a red one is
+  not emailed. Replies to people who wrote to us are not affected.
+- The first-contact templates are named "First contact: a new page of
+  ours (email)" and "(WhatsApp)".

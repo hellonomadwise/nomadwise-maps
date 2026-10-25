@@ -46,6 +46,8 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
   /// straight to a Verified space) and how many booked, by venue id
   /// (migration 193): the best opening for a hello.
   Map<String, Map<String, dynamic>> _customers = const {};
+  // Business checks on email addresses (migration 222), by line.
+  Map<String, Map<String, dynamic>> _business = const {};
   Map<String, int> _counts = {};
   List<Map<String, dynamic>> _templates = [];
   String _stage = 'new';
@@ -180,6 +182,7 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
     final wholeF = _supabase.outreachWhole();
     final newF = _supabase.outreachNewPages();
     final customersF = _supabase.venueCustomers();
+    final businessF = _supabase.outreachBusinessChecks();
     try {
       final rows = await _supabase.outreachList(
           stage: _stage,
@@ -191,10 +194,12 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
       final whole = await wholeF;
       final fresh = await newF;
       final customers = await customersF;
+      final business = await businessF;
       if (!mounted || n != _req) return;
       setState(() {
         _rows = rows;
         _customers = customers;
+        _business = business;
         _counts = counts;
         if (path != null) _path = path;
         if (whole != null) _whole = whole;
@@ -991,10 +996,144 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
     return 'claim_looked_wa';
   }
 
+  // ------------------------------------------------- business check
+
+  static const _freeMail = [
+    'gmail.', 'googlemail.', 'hotmail.', 'outlook.', 'live.', 'msn.',
+    'yahoo.', 'ymail.', 'icloud.', 'me.com', 'mac.com', 'aol.',
+    'proton.me', 'protonmail.', 'pm.me', 'gmx.', 'web.de', 'mail.ru',
+    'yandex.', 'qq.com', '163.com', '126.com', 'zoho.', 'tutanota.',
+  ];
+
+  /// Whether an email address may get a first email without consent
+  /// (GDPR: we only write cold to businesses; Jonathan, 25 Oct 2026):
+  /// 'ok' (on the space's own website domain, or checked by one of us),
+  /// 'no' (checked: not a business's), or 'check' (still to check).
+  String _bizState(Map<String, dynamic> c) {
+    final email = '${c['email'] ?? ''}'.trim().toLowerCase();
+    if (email.isEmpty || !email.contains('@')) return 'check';
+    final b = _business['${c['id']}'];
+    if (b != null && '${b['email'] ?? ''}' == email) {
+      return b['ok'] == true ? 'ok' : 'no';
+    }
+    final domain = email.split('@').last;
+    if (_freeMail.any((f) => domain.startsWith(f) || domain == f)) {
+      return 'check';
+    }
+    final site = '${c['website'] ?? ''}'.trim().toLowerCase();
+    final host = (Uri.tryParse(site.contains('://') ? site : 'https://$site')
+                ?.host ??
+            '')
+        .replaceFirst(RegExp(r'^www\.'), '');
+    if (host.isNotEmpty &&
+        (host == domain ||
+            host.endsWith('.$domain') ||
+            domain.endsWith('.$host'))) {
+      return 'ok';
+    }
+    return 'check';
+  }
+
+  Widget _bizChip(Map<String, dynamic> c) {
+    final email = '${c['email'] ?? ''}'.trim();
+    if (email.isEmpty) return const SizedBox.shrink();
+    final st = _bizState(c);
+    final (String words, Color bg, Color fg) = switch (st) {
+      'ok' => ('Business address', Brand.successTint, Brand.success),
+      'no' => ('Personal address: no email', Brand.accentTint, Brand.red),
+      _ => ('Check it is a business', Brand.goldTint, Brand.goldTextDark),
+    };
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(6),
+        onTap: st == 'ok' && _business['${c['id']}'] == null
+            ? null
+            : () => _confirmBusiness(c),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration:
+              BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6)),
+          child: Text(words,
+              style: TextStyle(
+                  fontSize: 12, fontWeight: FontWeight.w700, color: fg)),
+        ),
+      ),
+    );
+  }
+
+  /// Asks whether the address is a business's and keeps the answer.
+  /// True when it is.
+  Future<bool> _confirmBusiness(Map<String, dynamic> c) async {
+    final email = '${c['email'] ?? ''}'.trim();
+    final space = '${c['space_name'] ?? c['venue_name'] ?? 'this space'}';
+    final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+              title: const Text('Is this a business address?'),
+              content: Text(
+                  '$email for $space.\n\n'
+                  'Under GDPR we only write to a business address without '
+                  'their consent. Check it belongs to the business: on '
+                  'their website, Google listing or social pages, and not '
+                  'a person\'s own address.',
+                  style: const TextStyle(height: 1.45)),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('Cancel')),
+                TextButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    child: const Text('Not a business')),
+                ElevatedButton(
+                    onPressed: () => Navigator.pop(ctx, true),
+                    child: const Text('Yes, a business')),
+              ],
+            ));
+    if (ok == null) return false;
+    try {
+      await _supabase.outreachBusinessCheck('${c['id']}', ok);
+      if (mounted) {
+        setState(() {
+          _business = {
+            ..._business,
+            '${c['id']}': {
+              'email': email.toLowerCase(),
+              'ok': ok,
+              'at': DateTime.now().toIso8601String(),
+            },
+          };
+        });
+      }
+    } catch (e) {
+      _snack(_plain(e), bad: true);
+      return false;
+    }
+    return ok;
+  }
+
   Future<void> _reply(Map<String, dynamic> c) async {
     if ('${c['email'] ?? ''}'.isEmpty) {
       _snack('No email address for this contact yet. Edit it first.', bad: true);
       return;
+    }
+    // A first email to someone who has not written to us goes only to
+    // a business address (GDPR). Replies to people who wrote are fine.
+    if (c['last_in_at'] == null) {
+      final st = _bizState(c);
+      if (st == 'no') {
+        _snack('This address was marked as personal, so no email. Use '
+            'WhatsApp, Instagram or a business address instead.', bad: true);
+        return;
+      }
+      if (st == 'check' && !await _confirmBusiness(c)) {
+        if (mounted && _bizState(c) == 'no') {
+          _snack('Marked as a personal address, so no email. Use WhatsApp, '
+              'Instagram or a business address instead.', bad: true);
+        }
+        return;
+      }
+      if (!mounted) return;
     }
     if (_templates.isEmpty) {
       try {
@@ -3201,7 +3340,7 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
                 if (ours)
                   _chip(
                       '${c['stage']}' == 'verified'
-                          ? 'VERIFIED BY US'
+                          ? 'PLUS, SET UP BY US'
                           : 'NOT CLAIMED YET',
                       bg: Brand.logoTealTint,
                       fg: Brand.logoNavy)
@@ -3222,6 +3361,7 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
                     if (where.isNotEmpty) where,
                   ].join(' · '),
                   style: const TextStyle(fontSize: 13, color: Brand.inkSecondary)),
+              if (c['last_in_at'] == null) _bizChip(c),
               const SizedBox(height: 3),
               Text(
                   '$source'

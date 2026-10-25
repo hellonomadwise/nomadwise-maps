@@ -1080,6 +1080,27 @@ class SupabaseService {
     return r == true;
   }
 
+  /// The business checks made on Outreach lines (migration 222), by
+  /// line: {email, ok, at}. Empty when they cannot be read.
+  Future<Map<String, Map<String, dynamic>>> outreachBusinessChecks() async {
+    try {
+      final r = await _db.rpc('admin_outreach_business_checks');
+      if (r is! Map) return {};
+      return {
+        for (final e in r.entries)
+          if (e.value is Map)
+            '${e.key}': Map<String, dynamic>.from(e.value as Map)
+      };
+    } catch (_) {
+      return {};
+    }
+  }
+
+  /// Records that a line's email address is (or is not) a business's.
+  Future<void> outreachBusinessCheck(String contactId, bool ok) =>
+      _db.rpc('admin_outreach_business_check',
+          params: {'p_id': contactId, 'p_ok': ok});
+
   /// Admin: per space, the enquiries that reached it and how many
   /// booked: {venue_id: {sent, booked, last}} (migration 193).
   Future<Map<String, Map<String, dynamic>>> venueCustomers() async {

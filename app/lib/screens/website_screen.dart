@@ -681,7 +681,8 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
             // Approving the suggested photos makes them yours.
             'website_photos_auto': false,
           },
-          '${v['name']} approved. The draft is created within minutes.');
+          '${v['name']} approved. The draft is created within minutes. '
+          'Once the page is live, it shows in Next up to make contact.');
       _recordPicks(v);
     }
   }
@@ -2591,6 +2592,13 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   /// migration 145. Null until read, or when it cannot be.
   Map<String, dynamic>? _nextUp;
 
+  /// New pages whose space has not heard from us yet (Next up's
+  /// "new_page" part, migration 221).
+  int get _makeContactCount {
+    final p = _nextUp?['new_page'];
+    return p is Map ? ((p['n'] as num?)?.toInt() ?? 0) : 0;
+  }
+
   /// Jobs put aside with "Skip for now", until they are shown again
   /// from the card or the control centre is opened afresh.
   final Set<String> _skipped = {};
@@ -2804,14 +2812,14 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
             () => _nextUpOpen('signup',
                 const AdminOutreachScreen(initialStep: 'signed_up'))),
       // Pages we put live whose space has not heard from us yet
-      // (migration 221): say hello, by email, or WhatsApp when there is
-      // no address. Nothing goes by itself.
+      // (migrations 221, 222): make contact, by email, or WhatsApp when
+      // there is no address. Nothing goes by itself.
       if (count(newPage) > 0)
         _NextJob(
             'newpage',
-            'Say hello to ${name(newPage)}',
+            'Make contact: ${name(newPage)}',
             '${count(newPage) == 1 ? 'A page we put on nomadwise.io is live and the space has not heard from us yet' : '${count(newPage)} pages we put on nomadwise.io are live and their spaces have not heard from us yet'}. '
-                'Tell them it is there and that claiming it is free: '
+                'Let them know it is there and that claiming it is free: '
                 '${count(newPage, 'with_email') == count(newPage) ? 'by email' : count(newPage, 'with_email') == 0 ? 'by WhatsApp, Instagram or Facebook, as there is no email yet' : 'by email, or WhatsApp where there is no email'}.',
             'Open in Outreach',
             () => _nextUpOpen('newpage', const AdminOutreachScreen())),
@@ -3238,6 +3246,12 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       if (_sitemapCount > 0)
         (n(_sitemapCount, 'sitemap entry', 'sitemap entries'), 'sitemap',
             Brand.goldTextDark),
+      // The last step of adding a space we found ourselves: make
+      // contact (Jonathan, 25 Oct 2026: "so it gets done").
+      if (_makeContactCount > 0)
+        (n(_makeContactCount, 'space to make contact with',
+                'spaces to make contact with'),
+            '_contact', Brand.logoNavy),
     ];
     return Container(
       width: double.infinity,
@@ -3272,7 +3286,9 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                           fontSize: 12.5,
                           fontWeight: FontWeight.w700,
                           color: color)),
-                  onPressed: () => _goToGroup(key),
+                  onPressed: () => key == '_contact'
+                      ? _nextUpOpen('newpage', const AdminOutreachScreen())
+                      : _goToGroup(key),
                 ),
               ),
         ]),
