@@ -1,0 +1,54 @@
+name: Redo listing photos as WebP
+
+# Runs once by itself when this change reaches main (and again only if
+# the photo rules in scripts/web_photos.py change), so nobody has to
+# remember to start it. "Run workflow" does it again by hand. It swaps
+# photos on Nomad Maps' pages that are not yet a WebP of 90 KB or less
+# for a sharp WebP copy; see scripts/web_photos_redo.py.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/web_photos.py'
+      - 'scripts/web_photos_redo.py'
+      - '.github/workflows/web_photos_redo.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: enrich
+  cancel-in-progress: false
+
+jobs:
+  redo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Convert the photos
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          WEBFLOW_API_TOKEN: ${{ secrets.WEBFLOW_API_TOKEN }}
+        run: python3 scripts/web_photos_redo.py
+
+      # The report goes to its own small branch so it can be read
+      # without opening the Actions log. Never touches main.
+      - name: Publish the report
+        if: always()
+        continue-on-error: true
+        run: |
+          if [ ! -f ci-debug/web_photos_redo.json ]; then exit 0; fi
+          git config user.name "nomadwise-bot"
+          git config user.email "actions@github.com"
+          cp ci-debug/web_photos_redo.json /tmp/web_photos_redo.json
+          git checkout --orphan web-photos-report
+          git rm -rf --cached . >/dev/null 2>&1 || true
+          rm -rf reports && mkdir -p reports
+          cp /tmp/web_photos_redo.json reports/web_photos_redo.json
+          git add -f reports/web_photos_redo.json
+          git commit -m "Web photos redo report"
+          git push -f origin web-photos-report

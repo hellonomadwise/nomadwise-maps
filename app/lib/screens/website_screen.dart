@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'
@@ -8099,10 +8100,13 @@ class _PhotosPageState extends State<_PhotosPage> {
 
   bool _uploading = false;
 
-  /// From the phone or laptop: pick photos (on a phone, long-press a
-  /// photo on Google, "Save to Photos", then pick it here). Each one
-  /// is stored with us and its link goes into a free slot, or into
-  /// slot [slot] when one was tapped.
+  /// From the phone or laptop: pick photos (on a phone, open a photo
+  /// on Google full screen, long-press, "Save to Photos", then pick it
+  /// here). Each one is stored with us and its link goes into a free
+  /// slot, or into slot [slot] when one was tapped. A photo narrower
+  /// than [_minPhotoWidth] is left out: that is a saved preview, not
+  /// the photo, and it would look blurry across a phone screen on the
+  /// site (seen 25 Oct 2026: Terra's uploads were 166 to 214 pixels).
   Future<void> _upload({int? slot}) async {
     final free = [
       for (var i = 0; i < _ctl.length; i++)
@@ -8129,18 +8133,38 @@ class _PhotosPageState extends State<_PhotosPage> {
       if (picked.isEmpty) return;
       setState(() => _uploading = true);
       final targets = slot != null ? [slot] : free;
-      var added = 0;
-      for (final x in picked.take(targets.length)) {
+      var added = 0, extra = 0;
+      final small = <int>[];
+      for (final x in picked) {
         final bytes = await x.readAsBytes();
+        final wide = await _widthOf(bytes);
+        if (wide != null && wide < _minPhotoWidth) {
+          small.add(wide);
+          continue;
+        }
+        if (added >= targets.length) {
+          extra++;
+          continue;
+        }
         final ext = x.name.toLowerCase().endsWith('.png') ? 'png' : 'jpg';
         final link = await SupabaseService().ownerUploadPhoto(bytes, ext);
         _ctl[targets[added]].text = link;
         added++;
         if (mounted) setState(() {});
       }
-      if (picked.length > targets.length && mounted) {
+      final notes = <String>[
+        if (small.isNotEmpty)
+          '${small.length == 1 ? 'One photo was' : '${small.length} photos were'} '
+              'left out: ${small.length == 1 ? 'it is' : 'they are'} a small '
+              'preview (${small.join(', ')} pixels wide) and would look '
+              'blurry on the site. On Google, tap the photo to open it full '
+              'screen, wait a moment for it to sharpen, then save it.',
+        if (extra > 0) 'Added $added. Only five fit; the rest were left out.',
+      ];
+      if (notes.isNotEmpty && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text('Added $added. Only five fit; the rest were left out.')));
+            duration: const Duration(seconds: 10),
+            content: Text(notes.join('\n\n'))));
       }
     } catch (e) {
       if (mounted) {
@@ -8149,6 +8173,24 @@ class _PhotosPageState extends State<_PhotosPage> {
       }
     } finally {
       if (mounted) setState(() => _uploading = false);
+    }
+  }
+
+  /// Narrowest photo worth putting on a page. The site's photos fill a
+  /// phone screen (about 1,170 real pixels) and are sent to the site at
+  /// 800 to 1,280 pixels wide, so anything under 800 shows as blurry.
+  static const _minPhotoWidth = 800;
+
+  /// The picture's width in pixels, or null when it cannot be read
+  /// (then it is not held back).
+  Future<int?> _widthOf(Uint8List bytes) async {
+    try {
+      final img = await decodeImageFromList(bytes);
+      final w = img.width;
+      img.dispose();
+      return w;
+    } catch (_) {
+      return null;
     }
   }
 
