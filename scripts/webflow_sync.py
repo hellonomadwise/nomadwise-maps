@@ -76,6 +76,20 @@ SOURCE_TAG = 'nomadwise-webflow'
 PAGE = 100
 
 here = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, here)
+# Every photo handed to Webflow goes through this first: a WebP copy,
+# at most 90 KB, sized so it stays sharp (scripts/web_photos.py).
+import web_photos  # noqa: E402
+WEB_PHOTOS = (web_photos.WebPhotos(SUPABASE_URL, SERVICE_KEY)
+              if SUPABASE_URL and SERVICE_KEY else None)
+
+
+def web_photo(url, hint=''):
+    """The link to give Webflow for this photo: its WebP copy, or the
+    original if the copy could not be made (listed in the report)."""
+    return WEB_PHOTOS.convert(url, hint) if WEB_PHOTOS else url
+
+
 SNAPSHOT = os.path.join(here, 'webflow_sitemap_snapshot.json')
 
 report = {
@@ -100,6 +114,8 @@ report = {
 
 
 def finish(code=0):
+    if WEB_PHOTOS is not None and WEB_PHOTOS.log:
+        report['web_photos'] = WEB_PHOTOS.log
     report['finished'] = datetime.datetime.now(
         datetime.timezone.utc).isoformat()
     os.makedirs('ci-debug', exist_ok=True)
@@ -1924,12 +1940,15 @@ def sync_listing(v):
     img_id = (item.get('fieldData') or {}).get('image-reference')
     if photos and img_id:
         caption = (item.get('fieldData') or {}).get('h1-label') or v.get('name') or ''
+        fd_slug = (item.get('fieldData') or {}).get('slug') or ''
         ifd = {'has-enough-images': len(photos) > 3}
         for n in range(1, 6):
             suffix = '' if n == 1 else f'-{n}'
             if n <= len(photos):
                 alt = caption if n == 1 else f'{caption} {n}'
-                ifd[f'image{suffix}'] = {'url': photos[n - 1], 'alt': alt}
+                ifd[f'image{suffix}'] = {
+                    'url': web_photo(photos[n - 1],
+                                     fd_slug or caption), 'alt': alt}
                 ifd[f'alt-text{suffix}'] = alt
                 ifd[f'image-title{suffix}'] = caption
             else:
@@ -2180,7 +2199,9 @@ def apply_photos(u):
         if n <= len(wanted):
             alt = caption if n == 1 else f'{caption} {n}'
             if wanted[n - 1] != now_[n - 1]:
-                patch[key] = {'url': wanted[n - 1], 'alt': alt}
+                patch[key] = {'url': web_photo(wanted[n - 1],
+                                               fd.get('slug') or caption),
+                              'alt': alt}
                 patch[f'alt-text{suffix}'] = alt
                 patch[f'image-title{suffix}'] = caption
         elif now_[n - 1]:
@@ -2921,7 +2942,8 @@ if queued:
         for n, url in enumerate(photos, start=1):
             suffix = '' if n == 1 else f'-{n}'
             alt = caption if n == 1 else f'{caption} {n}'
-            img[f'image{suffix}'] = {'url': url, 'alt': alt}
+            img[f'image{suffix}'] = {'url': web_photo(url, slug_),
+                                     'alt': alt}
             img[f'alt-text{suffix}'] = alt
             img[f'image-title{suffix}'] = caption
         time.sleep(1.1)
