@@ -14,6 +14,7 @@ import '../theme.dart';
 import '../widgets/phone_field.dart';
 import '../widgets/pricing_picker.dart';
 import '../widgets/ui.dart' show PlanFeatureRow;
+import '../widgets/email_typo_hint.dart';
 
 /// Claim your space: the owner's way in.
 ///
@@ -1064,12 +1065,18 @@ class _ClaimScreenState extends State<ClaimScreen> {
       const SizedBox(height: 16),
       _pair(
         wide,
-        TextField(
-            controller: _ownerEmail,
-            keyboardType: TextInputType.emailAddress,
-            decoration: _field('Your email',
-                helper: 'An email at the business\'s own address (like '
-                    'you@yourspace.com) is the quickest way we confirm you.')),
+        Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TextField(
+                  controller: _ownerEmail,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: _field('Your email',
+                      helper: 'An email at the business\'s own address (like '
+                          'you@yourspace.com) is the quickest way we confirm you.')),
+              EmailTypoHint(controller: _ownerEmail),
+            ]),
         PhoneField(
             number: _ownerPhone,
             country: _phoneCountry,
@@ -1107,14 +1114,19 @@ class _ClaimScreenState extends State<ClaimScreen> {
               if (!_sameEnquiryEmail)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-                  child: TextField(
-                      controller: _enquiryEmail,
-                      autofocus: true,
-                      keyboardType: TextInputType.emailAddress,
-                      decoration: _field('Email for enquiries',
-                          hint: 'hello@yourspace.com',
-                          helper: 'A shared inbox, or whoever answers '
-                              'bookings.')),
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                    TextField(
+                        controller: _enquiryEmail,
+                        autofocus: true,
+                        keyboardType: TextInputType.emailAddress,
+                        decoration: _field('Email for enquiries',
+                            hint: 'hello@yourspace.com',
+                            helper: 'A shared inbox, or whoever answers '
+                                'bookings.')),
+                    EmailTypoHint(controller: _enquiryEmail),
+                  ]),
                 ),
             ]),
           );

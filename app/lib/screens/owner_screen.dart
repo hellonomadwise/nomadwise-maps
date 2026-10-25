@@ -22,6 +22,7 @@ import '../widgets/ideas_board.dart';
 import '../widgets/owner_question_card.dart';
 import '../widgets/phone_field.dart';
 import '../widgets/price.dart';
+import '../widgets/email_typo_hint.dart';
 
 /// The Owner account at nomadmaps.io/?owner ("Nomadwise for Spaces"
 /// to the owner; never "members area").
@@ -1473,6 +1474,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
                               border: OutlineInputBorder()),
                           onSubmitted: (_) => _sendLink(),
                         ),
+                        EmailTypoHint(controller: _email),
                         if (_error != null)
                           Padding(
                             padding: const EdgeInsets.only(top: 10),
@@ -3171,6 +3173,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
                                     'in with ($signIn).',
                             helperMaxLines: 3),
                   ),
+                  EmailTypoHint(controller: c, onUse: () => setD(() {})),
                   const SizedBox(height: 10),
                   const Text(
                       'Nomadwise approves the change first; until then '

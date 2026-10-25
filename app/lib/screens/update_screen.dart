@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../services/analytics_service.dart';
 import '../services/supabase_service.dart';
 import '../theme.dart';
+import '../widgets/email_typo_hint.dart';
 
 /// "Something need updating? Let us know", from a nomadwise.io
 /// listing page (nomadmaps.io/?update=<slug>). Two doors, told apart at
@@ -447,6 +448,7 @@ class _UpdateScreenState extends State<UpdateScreen> {
           decoration: const InputDecoration(
               labelText: 'Your email (optional)',
               helperText: 'Only if we have a question about what you sent.')),
+      EmailTypoHint(controller: _email),
       Offstage(
           offstage: true,
           child: TextField(controller: _website, autofocus: false)),
@@ -538,6 +540,7 @@ class _UpdateScreenState extends State<UpdateScreen> {
           decoration: const InputDecoration(
               labelText: 'Your email (optional)',
               helperText: 'Only if we have a question about your report.')),
+      EmailTypoHint(controller: _email),
       Offstage(
           offstage: true,
           child: TextField(controller: _website, autofocus: false)),

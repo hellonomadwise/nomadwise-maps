@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../services/analytics_service.dart';
 import '../services/supabase_service.dart';
 import '../theme.dart';
+import '../widgets/email_typo_hint.dart';
 
 /// The Send an enquiry form. A nomad arrives here from a Verified
 /// listing on nomadwise.io (nomadmaps.io/?enquire=<slug>), fills in a
@@ -249,6 +250,7 @@ class _EnquiryScreenState extends State<EnquiryScreen> {
           keyboardType: TextInputType.emailAddress,
           decoration: const InputDecoration(
               labelText: 'Your email', helperText: 'They reply here.')),
+      EmailTypoHint(controller: _email),
       const SizedBox(height: 12),
       TextField(
           controller: _phone,

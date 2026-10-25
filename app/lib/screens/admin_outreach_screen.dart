@@ -14,6 +14,7 @@ import '../services/clipboard_stub.dart'
 import '../services/places_service.dart';
 import '../services/supabase_service.dart';
 import '../theme.dart';
+import '../widgets/email_typo_hint.dart';
 
 /// Outreach (migration 121): every cafe, coworking or coliving space
 /// we are talking to, in one list. Who they are, what they wrote,
@@ -446,10 +447,18 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
               field(city, 'City', icon: Icons.location_city_outlined),
               field(country, 'Country', icon: Icons.public)),
           heading('HOW TO REACH THEM'),
-          pair(narrow, field(person, 'Person', icon: Icons.person_outline),
-              field(email, 'Email',
-                  icon: Icons.alternate_email,
-                  type: TextInputType.emailAddress)),
+          pair(
+              narrow,
+              field(person, 'Person', icon: Icons.person_outline),
+              Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    field(email, 'Email',
+                        icon: Icons.alternate_email,
+                        type: TextInputType.emailAddress),
+                    EmailTypoHint(controller: email),
+                  ])),
           gap,
           field(phone, 'Phone or WhatsApp',
               icon: Icons.phone_outlined, type: TextInputType.phone),
@@ -2707,7 +2716,8 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
           fg: Brand.success,
           bg: Brand.successTint,
           detail: 'Claimed on ${_when(p['claimed_at'])} and been in their '
-              'Owner account.'
+              'Owner account. Our emails went out by themselves when they '
+              'claimed and when the claim was approved: nothing to send.'
         );
       }
       if (p['claimed_at'] != null) {
@@ -2721,7 +2731,8 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
               ? 'Claimed on ${_when(p['claimed_at'])}, waiting for your '
                   'approval in Owners.'
               : 'Claimed on ${_when(p['claimed_at'])}, not in their Owner '
-                  'account yet.'
+                  'account yet. Our emails went out by themselves when they '
+                  'claimed and when the claim was approved.'
         );
       }
       if (p['looked_at'] != null) {
@@ -2812,22 +2823,33 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
             color: cowork ? Brand.logoNavy : Brand.goldTextDark),
       );
 
+      // Claimed: the claim emails already went out by themselves (when
+      // they claimed, and when the claim was approved), so there is no
+      // hello to write. Jonathan, 25 Oct 2026, on Dadai: "hasn't this
+      // already been sent out". Writing stays possible, quietly.
+      final claimed = p['claimed_at'] != null;
       final actions = <Widget>[
-        if (line && hasEmail && p['written_at'] == null)
+        if (line && hasEmail && p['written_at'] == null && !claimed)
           FilledButton.icon(
               onPressed: () => _openNewPage(p, write: true),
               icon: const Icon(Icons.send_rounded),
               label: const Text('Write the hello')),
-        if (line && !hasEmail)
+        if (line && !hasEmail && !claimed)
           OutlinedButton.icon(
               onPressed: () => _openNewPage(p, write: false),
               icon: const Icon(Icons.alternate_email),
               label: const Text('Add an address')),
-        if (line && hasEmail && p['written_at'] != null)
+        if (line && hasEmail && p['written_at'] != null && !claimed)
           OutlinedButton.icon(
               onPressed: () => _openNewPage(p, write: true),
               icon: const Icon(Icons.forward_to_inbox_outlined),
               label: const Text('Write again')),
+        if (line && hasEmail && claimed)
+          TextButton(
+              onPressed: () => _openNewPage(p, write: true),
+              style: TextButton.styleFrom(
+                  foregroundColor: Brand.inkSecondary),
+              child: const Text('Write to them')),
       ];
 
       final info = Column(

@@ -5344,3 +5344,25 @@ hours. Now:
   left it to the one-minute throttle).
 - A draft waiting on a fix shows "Publishes once the above is fixed" and a
   Check again button for after the fix in Webflow.
+
+## 25 Oct 2026: no hello to a space that has claimed
+
+Jonathan, on Dadai (claimed and already in its Owner account): "hasn't this
+already been sent out". It had: the claim emails go out by themselves when a
+space claims and when we approve the claim (and the page-live email when an
+owned page goes live). In Outreach, New pages, a claimed space no longer
+shows "Write the hello" or "Add an address"; its line says the emails went
+out by themselves, and a quiet "Write to them" is left for a personal note.
+
+## 25 Oct 2026: "Did you mean ...?" under email boxes
+
+A new owner typed dadaicafe.con; the confirmation email bounced and nobody
+would have known. Every email box people type into now shows a gentle hint
+when the address looks mistyped: "Did you mean x@dadaicafe.com? Use it".
+It never blocks; the address can be sent as typed. It catches endings that
+do not exist (.con, .cpm, .nte, .ogr and similar) and common providers a
+keystroke or two off (gmial.com, hotmail.co, outlok.com). Real look-alikes
+(email.com, gmx.at, hotmail.be, outlook.it) are left alone. Shown on: the
+claim form (both emails), map sign-in, Owner account sign-in and its
+enquiry email, the enquiry form, both update forms, and Outreach Edit
+contact (widgets/email_typo_hint.dart).

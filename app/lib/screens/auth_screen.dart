@@ -7,6 +7,7 @@ import '../services/supabase_service.dart';
 import '../theme.dart';
 import 'owner_screen.dart';
 import '../widgets/ui.dart';
+import '../widgets/email_typo_hint.dart';
 
 /// Email + Google sign-in. (Apple sign-in slots in here later once the
 /// Apple Developer account exists, see docs/APPLE_SIGN_IN.md.)
@@ -244,6 +245,7 @@ class _AuthScreenState extends State<AuthScreen> {
                   keyboardType: TextInputType.emailAddress,
                   decoration:
                       const InputDecoration(labelText: 'Email')),
+              EmailTypoHint(controller: _email),
               const SizedBox(height: 12),
               TextField(
                   controller: _password,
