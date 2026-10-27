@@ -5387,3 +5387,44 @@ Everything is the old screen: the numbers and every list.
   they said no. The reason is kept (space_contacts.aside_reason), nothing is
   sent, and Bring back on Done undoes it, topic included.
 - admin_outreach_join refuses two lines for different spaces on the map.
+
+## 26 Oct 2026: Facebook pages as a space's website
+
+Jonathan, on a claim for a Bangkok cafe whose website is its Facebook page:
+"Need to factor in Facebook". A claim card no longer compares the email
+domain with a social page (it said "does not match web.facebook.com"); it
+says the website is a Facebook page and that a message there settles the
+claim, since only the business answers from its own page. The card offers
+Facebook and "Message on Facebook" (the question is copied, then the page's
+Messenger opens). The ownership line counts Facebook as a way to confirm,
+including when Google lists the Facebook page as the website. In Outreach
+To do, a space whose website is a Facebook page gets a Facebook button.
+- Every claim card also has "Copy message": the same check question, ready
+  to paste into Instagram, LINE or anywhere else (Jonathan, 26 Oct 2026: "I
+  just needed to manually write this message").
+
+## 26 Oct 2026: one button style across Outreach's dialogs
+
+Jonathan, on the write dialog ("My own inbox" a tall box, "Send from here" a
+pill): "Styling to be consistent". The control-centre button style now sits
+above the whole Outreach screen, so its dialogs (write, remove, join, edit)
+use it too, and the two send buttons on a phone are the same height.
+
+## 26 Oct 2026: "My own inbox" on the iPhone stays with Apple Mail
+
+The designed email (button, spacing, signature) pastes perfectly into Apple
+Mail on the iPhone, but Spark on the iPhone strips it (no paragraph spacing,
+the button as blue words on a red patch, its own signature added). So the
+designed copy stays as it is, and the fix is on the phone: Apple Mail stays
+the default mail app, with hello@nomadwise.io added to it as an account, so
+"My own inbox" opens in Apple Mail and hello@ can be picked as the sender.
+
+## 26 Oct 2026: the email's page link and an outlined button (migration 226)
+
+Two touches to the designed email, for Postmark sends and the "My own inbox"
+copy alike. "X is already on nomadwise.io: https://www.nomadwise.io/..."
+showed as "nomadwise.io: nomadwise.io/coworking/..." (Jonathan: "it's
+repeating"); the page address now sits behind the word "nomadwise.io", same
+words, and the plain-text part keeps the full address. "Claim your page" is
+an outlined button (red frame, red words), because Gmail's dark mode turned
+the white words on the filled button dark.

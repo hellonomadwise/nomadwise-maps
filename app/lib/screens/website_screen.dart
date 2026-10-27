@@ -5639,7 +5639,8 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   /// website. A phone match is strong (only the business changes the
   /// number on its Google listing); a website domain match likewise;
   /// nothing to compare means "ring the number Google lists and ask".
-  Widget _ownerCheck(Map<String, dynamic> c, String placeId) {
+  Widget _ownerCheck(Map<String, dynamic> c, String placeId,
+      {String facebook = ''}) {
     final givenPhone = _digits((c['owner_phone'] ?? '').toString());
     final email = (c['owner_email'] ?? '').toString().toLowerCase();
     final domain = email.contains('@') ? email.split('@').last : '';
@@ -5662,7 +5663,16 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         }
         final g = snap.data!;
         final gPhone = _digits(g.phone ?? '');
-        final gHost = (g.website ?? '').isEmpty ? '' : host(g.website!);
+        final gRaw = (g.website ?? '').isEmpty ? '' : host(g.website!);
+        // Google's "website" can be the Facebook page: nothing to match
+        // an email against, but a page to message.
+        final gHostFb = _isFacebook(_hostOf(g.website ?? ''));
+        final gHost = _isSocial(_hostOf(g.website ?? '')) ? '' : gRaw;
+        final fbPage = facebook.isNotEmpty
+            ? facebook
+            : gHostFb
+                ? g.website!
+                : '';
         final phoneMatch = givenPhone.length >= 7 &&
             gPhone.length >= 7 &&
             (givenPhone.endsWith(gPhone.substring(gPhone.length - 7)) ||
@@ -5683,7 +5693,15 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
           else
             (Icons.error_outline, Brand.goldTextDark,
                 'Phone differs from the Google listing (${g.phone}). Message that one on WhatsApp and ask for ${c['owner_name']}.'),
-          if (gHost.isEmpty)
+          if (gHost.isEmpty && gHostFb)
+            (Icons.facebook, Brand.goldTextDark,
+                'Google lists their Facebook page as the website. Message it '
+                'and ask for ${c['owner_name']}: only the business answers from it.')
+          else if (gHost.isEmpty && fbPage.isNotEmpty)
+            (Icons.facebook, Brand.goldTextDark,
+                'No website on Google, but they have a Facebook page: message '
+                'it and ask for ${c['owner_name']}.')
+          else if (gHost.isEmpty)
             (Icons.language, Brand.inkMuted,
                 'Google lists no website for this place.')
           else if (siteMatch)
@@ -5727,10 +5745,17 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                     strong
                         ? 'Ownership: strong, the claim matches what Google lists.'
                         : gPhone.isNotEmpty
-                            ? 'Ownership: not proven yet, one WhatsApp message away.'
-                            : 'Ownership: not proven yet. Google has no phone for '
-                                'this place: message their Instagram, or the email '
-                                'on their website, and ask for ${c['owner_name']}.',
+                            ? fbPage.isNotEmpty
+                                ? 'Ownership: not proven yet, one WhatsApp or '
+                                    'Facebook message away.'
+                                : 'Ownership: not proven yet, one WhatsApp message away.'
+                            : fbPage.isNotEmpty
+                                ? 'Ownership: not proven yet. Google has no phone '
+                                    'for this place: message their Facebook page '
+                                    'and ask for ${c['owner_name']}.'
+                                : 'Ownership: not proven yet. Google has no phone for '
+                                    'this place: message their Instagram, or the email '
+                                    'on their website, and ask for ${c['owner_name']}.',
                     style: TextStyle(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w700,
@@ -5772,6 +5797,65 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   }
 
   static String _digits(String s) => s.replaceAll(RegExp(r'[^0-9]'), '');
+
+  // A space whose "website" is its Facebook page (Jonathan, 26 Oct
+  // 2026, a cafe in Bangkok: "Need to factor in Facebook"). A social
+  // page has no email domain to compare, but only the business can
+  // answer from its own page, so a message there settles a claim.
+  static String _hostOf(String u) => u
+      .trim()
+      .replaceFirst(RegExp(r'^https?://'), '')
+      .replaceFirst(RegExp(r'^(www|web|m|mobile|business)\.'), '')
+      .split('/')
+      .first
+      .split('?')
+      .first
+      .toLowerCase();
+
+  static bool _isFacebook(String host) =>
+      host == 'facebook.com' ||
+      host.endsWith('.facebook.com') ||
+      host == 'fb.com' ||
+      host == 'fb.me' ||
+      host == 'm.me';
+
+  static bool _isSocial(String host) =>
+      _isFacebook(host) ||
+      host == 'instagram.com' ||
+      host.endsWith('.instagram.com') ||
+      host == 'linktr.ee' ||
+      host == 'tiktok.com' ||
+      host.endsWith('.tiktok.com') ||
+      host == 'line.me' ||
+      host == 'wa.me';
+
+  /// Messenger for a Facebook page link (m.me/<page>), or the page
+  /// itself when its name cannot be read from the link.
+  static String _messengerUrl(String url) {
+    final u = Uri.tryParse(_withScheme(url.trim()));
+    if (u == null) return _withScheme(url.trim());
+    final segs = u.pathSegments.where((x) => x.isNotEmpty).toList();
+    const skip = {'pages', 'pg', 'people', 'p'};
+    var i = 0;
+    while (i < segs.length && skip.contains(segs[i])) {
+      i++;
+    }
+    // /pages/<name>/<id>: the id is what Messenger knows the page by.
+    if (i > 0 && segs.first == 'pages' && segs.length > i + 1) {
+      return 'https://m.me/${segs[i + 1]}';
+    }
+    // /p/<name>-<id>: the id at the end.
+    if (i > 0 && segs.first == 'p' && i < segs.length) {
+      final id = RegExp(r'(\d{6,})$').firstMatch(segs[i])?.group(1);
+      if (id != null) return 'https://m.me/$id';
+    }
+    if (i < segs.length && segs[i] != 'profile.php' && segs[i] != 'share') {
+      return 'https://m.me/${segs[i]}';
+    }
+    final id = u.queryParameters['id'];
+    if (id != null && id.isNotEmpty) return 'https://m.me/$id';
+    return _withScheme(url.trim());
+  }
 
   /// " EUR 99" or " EUR 0 (code TESTVERIFIED)", from the Stripe order
   /// kept on the claim; empty when it is not known.
@@ -5820,7 +5904,13 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         .first
         .toLowerCase();
     final domain = email.contains('@') ? email.split('@').last : '';
-    final match = site.isNotEmpty && domain.isNotEmpty && host(site) == domain;
+    final siteHost = site.isEmpty ? '' : _hostOf(site);
+    final siteFb = _isFacebook(siteHost);
+    final siteSocial = _isSocial(siteHost);
+    final match = site.isNotEmpty &&
+        !siteSocial &&
+        domain.isNotEmpty &&
+        host(site) == domain;
     final previous = (v['listing_owner_email'] ?? '').toString();
     final address = (c['space_address'] ?? '').toString();
     // The claim's own place id (a new space) or the listing's.
@@ -5888,14 +5978,22 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                     ? 'Email domain matches the space\'s website.'
                     : site.isEmpty
                         ? 'No website on file to check the email against.'
-                        : 'Email domain does not match the website (${host(site)}). '
-                            'Common with Gmail; worth a look.',
+                        : siteFb
+                            ? 'Their website is a Facebook page, so there is no '
+                                'email domain to compare. A message to the page '
+                                'settles it: only the business answers from it.'
+                            : siteSocial
+                                ? 'Their website is a social page ($siteHost), so '
+                                    'there is no email domain to compare.'
+                                : 'Email domain does not match the website (${host(site)}). '
+                                    'Common with Gmail; worth a look.',
                 style: TextStyle(
                     fontSize: 12,
                     color: match ? Brand.success : Brand.goldTextDark)),
           ),
         ]),
-        if (placeId.isNotEmpty) _ownerCheck(c, placeId),
+        if (placeId.isNotEmpty)
+          _ownerCheck(c, placeId, facebook: siteFb ? site : ''),
         if (previous.isNotEmpty && previous != email)
           Padding(
             padding: const EdgeInsets.only(top: 4),
@@ -5946,7 +6044,28 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
           if (insta.isNotEmpty)
             _lookupButton(Icons.camera_alt_outlined, 'Instagram',
                 _instagramUrl(insta)),
-          if (site.isNotEmpty)
+          if (site.isNotEmpty && siteFb) ...[
+            _lookupButton(Icons.facebook, 'Facebook', _withScheme(site)),
+            // The question, copied, then their page's Messenger: paste
+            // and send.
+            TextButton.icon(
+              onPressed: () async {
+                await _copy(_claimHello(c, spaceName),
+                    'Message copied: paste it in Messenger.');
+                await launchUrl(Uri.parse(_messengerUrl(site)),
+                    mode: LaunchMode.platformDefault,
+                    webOnlyWindowName: '_blank');
+              },
+              icon: const Icon(Icons.chat_bubble_outline, size: 16),
+              label: const Text('Message on Facebook'),
+              style: TextButton.styleFrom(
+                  foregroundColor: Brand.inkSecondary,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  textStyle: const TextStyle(
+                      fontSize: 12.5, fontWeight: FontWeight.w600)),
+            ),
+          ] else if (site.isNotEmpty)
             _lookupButton(Icons.language, 'Website', _withScheme(site)),
           if (email.isNotEmpty)
             _lookupButton(Icons.mail_outline, 'Email',
@@ -5957,6 +6076,20 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
           if (claimWa != null)
             _lookupButton(Icons.chat_outlined, 'WhatsApp',
                 'https://wa.me/$claimWa?text=${Uri.encodeComponent(_claimHello(c, spaceName))}'),
+          // The same question, ready to paste anywhere: Instagram, LINE,
+          // a contact form (Jonathan, 26 Oct 2026: "I just needed to
+          // manually write this message").
+          TextButton.icon(
+            onPressed: () => _copy(_claimHello(c, spaceName),
+                'Message copied: paste it wherever you reach them.'),
+            icon: const Icon(Icons.copy_outlined, size: 16),
+            label: const Text('Copy message'),
+            style: TextButton.styleFrom(
+                foregroundColor: Brand.inkSecondary,
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                textStyle:
+                    const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
+          ),
         ]),
       ]),
     );

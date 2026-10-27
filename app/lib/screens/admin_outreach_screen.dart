@@ -21,7 +21,7 @@ import '../widgets/email_typo_hint.dart';
 /// which stage they are at, and a Reply button that fills one of our
 /// templates with their details, sends it from hello@nomadwise.io and
 /// logs it. Founders only.
-class AdminOutreachScreen extends StatefulWidget {
+class AdminOutreachScreen extends StatelessWidget {
   const AdminOutreachScreen({super.key, this.initialStep, this.initialQuery});
 
   /// Opens on one step of the path (from "Next up": the spaces that
@@ -31,11 +31,28 @@ class AdminOutreachScreen extends StatefulWidget {
   /// Opens on the whole picture, searched for this (a space's name,
   /// from the control centre's search: "Write to them").
   final String? initialQuery;
+
+  // The compact control-centre buttons (theme.dart) sit above the
+  // screen, so every dialog it opens has them too (Jonathan, 26 Oct
+  // 2026, on the write dialog's two send buttons: "Styling to be
+  // consistent").
   @override
-  State<AdminOutreachScreen> createState() => _AdminOutreachScreenState();
+  Widget build(BuildContext context) => Theme(
+        data: controlCentreButtons(Theme.of(context)),
+        child: _OutreachBody(
+            initialStep: initialStep, initialQuery: initialQuery),
+      );
 }
 
-class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
+class _OutreachBody extends StatefulWidget {
+  const _OutreachBody({this.initialStep, this.initialQuery});
+  final String? initialStep;
+  final String? initialQuery;
+  @override
+  State<_OutreachBody> createState() => _AdminOutreachScreenState();
+}
+
+class _AdminOutreachScreenState extends State<_OutreachBody> {
   final _supabase = SupabaseService();
   // One for the screen, so a phone number looked up on Google is kept
   // and not paid for again on the next press.
@@ -1383,6 +1400,8 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
           }
           return;
         }
+        // Without our sign-off: Spark adds the sender's own signature
+        // (Jonathan, 26 Oct 2026: it showed twice). The log keeps it.
         final text = ownInboxBody();
         // The designed version first (Jonathan, 10 Oct 2026: Spark
         // showed the bare text, long links and no button); a browser
@@ -1740,9 +1759,13 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
                       pair(
                           OutlinedButton(
                               onPressed: () => Navigator.pop(ctx, false),
+                              style: OutlinedButton.styleFrom(
+                                  minimumSize: const Size(0, 46)),
                               child: const Text('Not sent')),
                           FilledButton(
                               onPressed: loading ? null : logSent,
+                              style: FilledButton.styleFrom(
+                                  minimumSize: const Size(0, 46)),
                               child: Text(loading ? 'One moment' : 'I sent it')))
                     else ...[
                       TextButton(
@@ -1759,15 +1782,17 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
                           OutlinedButton(
                               onPressed: loading ? null : () => openDraft(setD),
                               style: OutlinedButton.styleFrom(
+                                  minimumSize: const Size(0, 46),
                                   padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 12)),
+                                      horizontal: 8)),
                               child: const Text('My own inbox',
                                   textAlign: TextAlign.center)),
                           FilledButton(
                               onPressed: loading ? null : sendHere,
                               style: FilledButton.styleFrom(
+                                  minimumSize: const Size(0, 46),
                                   padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 12)),
+                                      horizontal: 8)),
                               child: Text(
                                   loading ? 'One moment' : 'Send from here',
                                   textAlign: TextAlign.center)))
@@ -5099,6 +5124,18 @@ class _AdminOutreachScreenState extends State<AdminOutreachScreen> {
               onPressed: whatsApp,
               icon: const Icon(Icons.chat_outlined, size: 16),
               label: const Text('WhatsApp')),
+        // Their "website" is a Facebook page: a message there reaches
+        // the business itself (Jonathan, 26 Oct 2026).
+        if (t.kind != 'reply' &&
+            RegExp(r'(^|[/.])(facebook\.com|fb\.com|fb\.me)(/|$)').hasMatch(
+                '${c?['website'] ?? p?['website'] ?? ''}'.toLowerCase()))
+          TextButton.icon(
+              onPressed: () async {
+                if (c != null) return _social(c, 'facebook');
+                if (p != null) return _withLine(p, (x) => _social(x, 'facebook'));
+              },
+              icon: const Icon(Icons.facebook, size: 16),
+              label: const Text('Facebook')),
       ],
       menu: [
         ('edit', 'Edit details'),
