@@ -26,6 +26,10 @@ class UpdateScreen extends StatefulWidget {
 }
 
 class _UpdateScreenState extends State<UpdateScreen> {
+  /// Space either side of the 580 px column (set from the window width).
+  double _side = 0;
+  EdgeInsets get _listPadding =>
+      EdgeInsets.fromLTRB(18 + _side, 18, 18 + _side, 18);
   final _supabase = SupabaseService();
   Map<String, dynamic>? _venue;
   bool _loading = true;
@@ -181,22 +185,27 @@ class _UpdateScreenState extends State<UpdateScreen> {
             onPressed: () => launchUrl(Uri.parse(_pageUrl),
                 mode: LaunchMode.platformDefault)),
       ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 580),
-          child: _loading
-              ? const Center(child: CircularProgressIndicator(color: Brand.red))
-              : v == null
-                  ? _notFound()
-                  : _sent
-                      ? _thanks(v)
-                      : !widget.tags
-                          ? _form(v)
-                          : _visitor
-                              ? _tagForm(v)
-                              : _whoAreYou(v),
-        ),
-      ),
+      // The scrolling list spans the whole window, with the 580 px
+      // column kept by its side padding, so the mouse wheel scrolls the
+      // page wherever the pointer is (Leonie, 27 Oct 2026: it only
+      // scrolled over the text, not the grey sides).
+      body: LayoutBuilder(builder: (context, box) {
+        _side = box.maxWidth > 580 ? (box.maxWidth - 580) / 2 : 0;
+        Widget narrow(Widget w) => Center(
+            child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 580), child: w));
+        return _loading
+            ? const Center(child: CircularProgressIndicator(color: Brand.red))
+            : v == null
+                ? narrow(_notFound())
+                : _sent
+                    ? narrow(_thanks(v))
+                    : !widget.tags
+                        ? _form(v)
+                        : _visitor
+                            ? _tagForm(v)
+                            : _whoAreYou(v);
+      }),
     );
   }
 
@@ -363,7 +372,7 @@ class _UpdateScreenState extends State<UpdateScreen> {
   /// "Add a tag", first step: who are you?
   Widget _whoAreYou(Map<String, dynamic> v) {
     final name = '${v['name']}';
-    return ListView(padding: const EdgeInsets.all(18), children: [
+    return ListView(padding: _listPadding, children: [
       Text('Add a tag to $name',
           style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 20)),
       const SizedBox(height: 6),
@@ -393,7 +402,7 @@ class _UpdateScreenState extends State<UpdateScreen> {
 
   /// "Add a tag", second step for someone who has been there.
   Widget _tagForm(Map<String, dynamic> v) {
-    return ListView(padding: const EdgeInsets.all(18), children: [
+    return ListView(padding: _listPadding, children: [
       Align(
         alignment: Alignment.centerLeft,
         child: TextButton.icon(
@@ -478,7 +487,7 @@ class _UpdateScreenState extends State<UpdateScreen> {
     final where = [v['neighbourhood'], v['city']]
         .where((x) => x != null && '$x'.isNotEmpty)
         .join(', ');
-    return ListView(padding: const EdgeInsets.all(18), children: [
+    return ListView(padding: _listPadding, children: [
       Text('Something need updating at ${v['name']}?',
           style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 20)),
       if (where.isNotEmpty)

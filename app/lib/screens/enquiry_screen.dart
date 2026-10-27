@@ -18,6 +18,10 @@ class EnquiryScreen extends StatefulWidget {
 }
 
 class _EnquiryScreenState extends State<EnquiryScreen> {
+  /// Space either side of the 560 px column (set from the window width).
+  double _side = 0;
+  EdgeInsets get _listPadding =>
+      EdgeInsets.fromLTRB(18 + _side, 18, 18 + _side, 18);
   final _supabase = SupabaseService();
   Map<String, dynamic>? _venue;
   bool _loading = true;
@@ -129,19 +133,22 @@ class _EnquiryScreenState extends State<EnquiryScreen> {
             onPressed: () => launchUrl(Uri.parse(_pageUrl),
                 mode: LaunchMode.platformDefault)),
       ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 560),
-          child: _loading
-              ? const Center(
-                  child: CircularProgressIndicator(color: Brand.red))
-              : v == null
-                  ? _notFound()
-                  : _sent
-                      ? _thanks(v)
-                      : _form(v),
-        ),
-      ),
+      // Full-width scrolling with the column kept by side padding, so
+      // the mouse wheel works anywhere in the window (as the update
+      // page, 27 Oct 2026).
+      body: LayoutBuilder(builder: (context, box) {
+        _side = box.maxWidth > 560 ? (box.maxWidth - 560) / 2 : 0;
+        Widget narrow(Widget w) => Center(
+            child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 560), child: w));
+        return _loading
+            ? const Center(child: CircularProgressIndicator(color: Brand.red))
+            : v == null
+                ? narrow(_notFound())
+                : _sent
+                    ? narrow(_thanks(v))
+                    : _form(v);
+      }),
     );
   }
 
@@ -202,7 +209,7 @@ class _EnquiryScreenState extends State<EnquiryScreen> {
     final where = [v['neighbourhood'], v['city']]
         .where((x) => x != null && '$x'.isNotEmpty)
         .join(', ');
-    return ListView(padding: const EdgeInsets.all(18), children: [
+    return ListView(padding: _listPadding, children: [
       Text(v['name'] ?? '',
           style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 20)),
       if (where.isNotEmpty)

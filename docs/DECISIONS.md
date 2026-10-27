@@ -5428,3 +5428,10 @@ repeating"); the page address now sits behind the word "nomadwise.io", same
 words, and the plain-text part keeps the full address. "Claim your page" is
 an outlined button (red frame, red words), because Gmail's dark mode turned
 the white words on the filled button dark.
+
+## 27 Oct 2026: forms scroll from anywhere in the window
+
+Leonie, on "Suggest an update" on a laptop: the page only scrolled with the
+pointer over the text, not the grey space either side. The scrolling list now
+spans the whole window and the column is kept by side padding, on the update
+page and the enquiry page alike.
