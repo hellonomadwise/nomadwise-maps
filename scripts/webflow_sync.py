@@ -686,6 +686,38 @@ def slugify(x):
     return re.sub(r'-{2,}', '-', x)
 
 
+SLUG_MAX = 60
+# Google names often carry a tagline after a dash, bar, dot or colon
+# ("Arvian Workspaces - Virtual Office & Coworking Space in Mansarovar,
+# Jaipur"). The slug keeps the name before it (Jonathan, 27 Oct 2026:
+# "this slug was too long"). Same rule as the app's preview.
+NAME_CUTS = (' - ', ' \u2013 ', ' \u2014 ', ' | ', ' \u00b7 ', ': ')
+
+
+def slug_name(name, region_slug=''):
+    """The name part of a page slug: the name before any tagline, the
+    Region left off the end when the name repeats it."""
+    n = (name or '').strip()
+    for cut in NAME_CUTS:
+        head = n.split(cut, 1)[0].strip()
+        if head and slugify(head):
+            n = head
+    s = slugify(n)
+    if region_slug and s.endswith('-' + region_slug):
+        s = s[:-(len(region_slug) + 1)]
+    return s
+
+
+def page_slug(country, region, name):
+    """country-region-name, the name trimmed word by word (never below
+    its first word) until the whole slug is SLUG_MAX characters or less."""
+    prefix = '-'.join(x for x in (slugify(country), slugify(region)) if x)
+    words = slug_name(name, slugify(region)).split('-')
+    while len(words) > 1 and len(prefix) + 1 + len('-'.join(words)) > SLUG_MAX:
+        words.pop()
+    return '-'.join(x for x in (prefix, '-'.join(words)) if x)
+
+
 def word(flag, label):
     """App booleans back into Webflow's words. Unknown stays empty."""
     if flag is None:
@@ -2902,15 +2934,17 @@ if queued:
         prefix = f"{slugify(country_of(v, country))}-"
         typed = slugify(v.get('website_slug_override') or '')
         seen = (prepared or {}).get('slug')
-        # A proposal made under the old rule (no country) is redone.
-        fixed = typed or (seen if seen and seen.startswith(prefix) else None)
+        # A proposal made under an old rule (no country, or the whole
+        # Google name and tagline) is redone.
+        fixed = typed or (seen if seen and seen.startswith(prefix)
+                          and len(seen) <= SLUG_MAX else None)
         if fixed:
             if fixed in taken_slugs:
                 return None
             taken_slugs.add(fixed)
             return fixed
-        base = (f"{prefix}{slugify(region['fieldData'].get('name-label'))}-"
-                f"{slugify(v['name'])}")
+        base = page_slug(country_of(v, country),
+                         region['fieldData'].get('name-label'), v['name'])
         slug_ = base
         n = 2
         while slug_ in taken_slugs:

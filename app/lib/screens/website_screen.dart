@@ -659,7 +659,8 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                   'out to be taken the space comes back to you instead of '
                   'being renamed. The slug cannot be changed afterwards '
                   'without a redirect. Your photos go in with it; you then '
-                  'add the words in Webflow and publish.',
+                  'add the words in Webflow and publish.'
+                  '${slug.length > _slugMax ? '\n\nThis slug is long (${slug.length} characters). Press Not yet and tap the slug to shorten it.' : ''}',
                   style: const TextStyle(height: 1.45)),
               actions: [
                 TextButton(
@@ -1265,11 +1266,57 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     final typed = v['website_slug_override'];
     if (typed != null && '$typed'.isNotEmpty) return '$typed';
     final country = _countryOf(v) ?? region['country'] ?? '';
-    return [
-      _slugify('$country'),
-      _slugify(region['name'] ?? ''),
-      _slugify(v['name'] ?? ''),
-    ].where((x) => x.isNotEmpty).join('-');
+    return _pageSlug('$country', '${region['name'] ?? ''}', '${v['name'] ?? ''}');
+  }
+
+  // Same rule as the nightly sync (page_slug in webflow_sync.py):
+  // the name before any tagline ("Arvian Workspaces - Virtual Office
+  // & Coworking Space in Mansarovar, Jaipur" -> arvian-workspaces),
+  // the Region left off the end when the name repeats it, and the
+  // name trimmed word by word until the slug is 60 characters or less.
+  static const _slugMax = 60;
+  static const _nameCuts = [
+    ' - ', ' \u2013 ', ' \u2014 ', ' | ', ' \u00b7 ', ': '
+  ];
+
+  static String _pageSlug(String country, String region, String name) {
+    var n = name.trim();
+    for (final cut in _nameCuts) {
+      final head = n.split(cut).first.trim();
+      if (head.isNotEmpty && _slugify(head).isNotEmpty) n = head;
+    }
+    final r = _slugify(region);
+    var s = _slugify(n);
+    if (r.isNotEmpty && s.endsWith('-$r')) {
+      s = s.substring(0, s.length - r.length - 1);
+    }
+    final prefix =
+        [_slugify(country), r].where((x) => x.isNotEmpty).join('-');
+    final words = s.split('-');
+    while (words.length > 1 &&
+        prefix.length + 1 + words.join('-').length > _slugMax) {
+      words.removeLast();
+    }
+    return [prefix, words.join('-')].where((x) => x.isNotEmpty).join('-');
+  }
+
+  /// An amber line under a slug longer than _slugMax: shorten it
+  /// before approving, as the address is fixed after that.
+  Widget _longSlugNote(String? slug) {
+    if (slug == null || slug.length <= _slugMax) {
+      return const SizedBox.shrink();
+    }
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Text(
+          'Long slug (${slug.length} characters). Tap it and shorten it '
+          'to the space\'s name before approving; aim for $_slugMax or '
+          'fewer.',
+          style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFFB45309))),
+    );
   }
 
   /// Inbox groups, in the order they are worth working through.
@@ -4290,6 +4337,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
               ]),
             ),
           ),
+          _longSlugNote(_slugPreview(v, region)),
           const SizedBox(height: 4),
           Text(
               v['website_slug_override'] != null
@@ -7144,6 +7192,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
             ]),
           ),
         ),
+        _longSlugNote('${p['slug'] ?? ''}'),
         const SizedBox(height: 8),
         _kv(Icons.place_outlined, place),
         InkWell(

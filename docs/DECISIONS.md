@@ -5435,3 +5435,15 @@ Leonie, on "Suggest an update" on a laptop: the page only scrolled with the
 pointer over the text, not the grey space either side. The scrolling list now
 spans the whole window and the column is kept by side padding, on the update
 page and the enquiry page alike.
+
+## 27 Oct 2026: shorter page slugs
+
+Arvian went live at /coworking/india-jaipur-arvian-workspaces-virtual-office-coworking-space-in-mansarovar-jaipur
+(82 characters): the slug took the whole Google name, tagline and all.
+A new page's slug is now country-region and the name before any tagline
+(" - ", " | ", " · ", ": "), the Region dropped from the end when the name
+repeats it, and trimmed word by word to 60 characters at most
+(india-jaipur-arvian-workspaces). The app's preview and the sync use the
+same rule. A proposal already made with a longer slug is redone. Any slug
+over 60 characters shows an amber "Long slug" line on the card and in the
+Approve box. Pages already live keep their slug.
