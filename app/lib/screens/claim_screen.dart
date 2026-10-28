@@ -906,7 +906,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
                 fontWeight: FontWeight.w700, fontSize: wide ? 15.5 : 14.5)),
         subtitle: Text(
             verified
-                ? '$where · already on Plus'
+                ? '$where · already on Premium'
                 : onSite
                     ? '$where · has a page on nomadwise.io'
                     : '$where · not published yet',
@@ -932,7 +932,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('$name is already on Plus'),
+        title: Text('$name is already on Premium'),
         content: const Text(
             'Someone has already claimed this listing. If that was not you, '
             'email hello@nomadwise.io and we will look into it.'),
@@ -1290,10 +1290,10 @@ class _ClaimScreenState extends State<ClaimScreen> {
   // ---------------------------------------------------------- step three
 
   /// Step three, laid out like a pricing page: Monthly / Yearly switch
-  /// and the currency at the top, then Free and Plus side by side,
+  /// and the currency at the top, then Free and Premium side by side,
   /// each with its price, its button and what it gives. Everything
   /// fits one laptop screen, so the choice is made without scrolling.
-  /// Claiming is free; Plus is the optional upgrade (Leonie's
+  /// Claiming is free; Premium is the optional upgrade (Leonie's
   /// review, 28 Sep: the paid offer alone hid the point of claiming
   /// for free).
   Widget _payStep(bool wide) {
@@ -1316,7 +1316,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
               _resumed
                   ? 'Nothing was charged. Your details are still here, so '
                       'pick a plan when you are ready.'
-                  : 'Claiming is free. Plus is optional, and you can add '
+                  : 'Claiming is free. Premium is optional, and you can add '
                       'it now or later from your Owner account.',
               style: TextStyle(
                   color: Brand.inkSecondary,
@@ -1414,14 +1414,14 @@ class _ClaimScreenState extends State<ClaimScreen> {
   Widget _payButton() => _planButton(
         filled: _plan == 'verified',
         onPressed: _sending ? null : _startAndPay,
-        label: _sending ? 'One moment' : 'Get Plus: continue to payment',
+        label: _sending ? 'One moment' : 'Get Premium: continue to payment',
       );
 
   // ------------------------------------------------------- what you get
 
   /// A step's own content, then both ways to be on Nomadwise below it,
   /// full width, so it is clear from the first screen that claiming is
-  /// free and Plus is an optional extra.
+  /// free and Premium is an optional extra.
   Widget _withPlans(bool wide, Widget main) =>
       Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Align(
@@ -1443,7 +1443,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
     'Optimised to be found on Google and by AI assistants',
     '2 free enquiries from nomads',
   ];
-  // The paid plan is Plus (CR-30); the badge it brings is still
+  // The paid plan is Premium (CR-30); the badge it brings is still
   // called Verified by Nomadwise.
   static const _verifiedAdds = [
     'Verified by Nomadwise badge on your page',
@@ -1523,7 +1523,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
     return Semantics(
       button: true,
       selected: on,
-      label: plan == 'free' ? 'Free plan' : 'Plus plan',
+      label: plan == 'free' ? 'Free plan' : 'Premium plan',
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
         child: GestureDetector(
@@ -1563,10 +1563,10 @@ class _ClaimScreenState extends State<ClaimScreen> {
     );
   }
 
-  /// Free and Plus side by side (stacked on a phone), Free first.
+  /// Free and Premium side by side (stacked on a phone), Free first.
   /// With [buttons], each card carries its own button (step three);
   /// without, it is the overview under the search box, where the
-  /// Plus price is "around a day pass a month" until a space, and
+  /// Premium price is "around a day pass a month" until a space, and
   /// so a country, is known.
   Widget _planCards(bool wide, {required bool buttons}) {
     Widget line(String text, {bool plus = false}) =>
@@ -1615,7 +1615,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
         const SizedBox(height: 10),
         if (buttons) ...[
           _priceLine(wide, '€0', 'always'),
-          // The same check for both plans; Plus claims are taken
+          // The same check for both plans; Premium claims are taken
           // first (the one incentive to decide now, Jonathan, 3 Oct).
           // No "no card, nothing to pay, ever" (Leonie, 23 Oct).
           sub('Claiming is free. A person checks your claim in the order '
@@ -1629,7 +1629,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
       button: buttons ? _freeButton() : null,
     );
 
-    // The Plus price. On step three it is the chosen period and
+    // The Premium price. On step three it is the chosen period and
     // currency for this space; before that, "around a day pass a
     // month" unless the country is already known.
     final p = _pricing;
@@ -1652,7 +1652,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
           ? null
           : formatMoney(p.yearly! / 12, p.currency);
       final months = p.monthsFree.round();
-      const first = ' Plus claims are checked first, so your Plus '
+      const first = ' Premium claims are checked first, so your Premium '
           'features go on sooner.';
       priceSub = (yearly
               ? (perMonth == null
@@ -1666,8 +1666,8 @@ class _ClaimScreenState extends State<ClaimScreen> {
     } else {
       // Prices not in Stripe yet: the payment link's price.
       priceLine = _priceLine(wide, '€99', 'a year');
-      priceSub = 'Billed once a year. Cancel any time. Plus claims are '
-          'checked first, so your Plus features go on sooner.';
+      priceSub = 'Billed once a year. Cancel any time. Premium claims are '
+          'checked first, so your Premium features go on sooner.';
     }
 
     final verified = _planCard(
@@ -1675,9 +1675,9 @@ class _ClaimScreenState extends State<ClaimScreen> {
       plan: 'verified',
       top: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         // A fact, not an opinion: "Recommended" reads as "of course they
-        // would say that" (Jonathan). Plus, as Leonie put it (23 Oct):
+        // would say that" (Jonathan). Premium, as Leonie put it (23 Oct):
         // make the most of Nomadwise.
-        title('Plus',
+        title('Premium',
             verified: true, pill: _pill('MAKE THE MOST OF NOMADWISE', on: true)),
         const SizedBox(height: 10),
         priceLine,
@@ -1739,7 +1739,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
         _planCards(wide, buttons: false),
         const SizedBox(height: 12),
         Text(
-            'Claiming is free. Plus can be added when you claim or any time '
+            'Claiming is free. Premium can be added when you claim or any time '
             'later from your Owner account, monthly or yearly, cancel any '
             'time.',
             style: TextStyle(
@@ -1808,7 +1808,7 @@ class _ClaimedScreenState extends State<ClaimedScreen> {
             'stand.'
         : "You've claimed your $kind${space.isEmpty ? '' : ', $space'}, and "
             'your payment has reached us. Next we check you are with the '
-            'team at $spaceName, then Plus goes on and we email you'
+            'team at $spaceName, then Premium goes on and we email you'
             '${email.contains('@') ? ' at $email' : ''}.\n\n'
             'Your Owner account is ready now: sign in to see where things '
             'stand.';

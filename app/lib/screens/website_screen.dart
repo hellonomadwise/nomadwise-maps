@@ -197,7 +197,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   List<Map<String, dynamic>> _orders = [];
   // Enquiries waiting to be passed on to a space (migration 113).
   List<Map<String, dynamic>> _passOn = [];
-  // Enquiries held for Plus (migration 212) and the free limit.
+  // Enquiries held for Premium (migration 212) and the free limit.
   List<Map<String, dynamic>> _heldEnq = [];
   int _freeLimit = 2;
   int _passed30 = 0;
@@ -4100,8 +4100,8 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     }
   }
 
-  /// Enquiries held for Plus (migration 212): the space used its free
-  /// ones. The owner was told one is waiting; going on Plus sends them.
+  /// Enquiries held for Premium (migration 212): the space used its free
+  /// ones. The owner was told one is waiting; going on Premium sends them.
   /// "Move to pass on" puts one on the list above, to send by hand.
   Widget _heldEnquiriesCard() => Card(
         margin: const EdgeInsets.only(bottom: 12),
@@ -4109,14 +4109,14 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
           padding: const EdgeInsets.all(16),
           child:
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Held for Plus (${_heldEnq.length})',
+            Text('Held for Premium (${_heldEnq.length})',
                 style:
                     const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
             const SizedBox(height: 4),
             Text(
                 'These spaces have used their $_freeLimit free enquiries. '
                 'Each owner was emailed that one is waiting; if they go on '
-                'Plus, it is sent to them and the nomad is told. Move to '
+                'Premium, it is sent to them and the nomad is told. Move to '
                 'pass on only if you want it sent now.',
                 style: const TextStyle(
                     fontSize: 12.5, height: 1.45, color: Brand.inkSecondary)),

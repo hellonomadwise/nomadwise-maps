@@ -381,7 +381,7 @@ class PrimaryCta extends StatelessWidget {
 }
 
 /// One line of what a plan includes (claim page and Plan & billing).
-/// Free lines get a plain green tick. Plus extras each get their
+/// Free lines get a plain green tick. Premium extras each get their
 /// own small icon in a soft green circle, the colour of the Verified
 /// badge: it reads as "what you gain", where red plus signs read as a
 /// warning (Jonathan, 30 Sep 2026).

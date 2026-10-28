@@ -50,7 +50,7 @@ class _BillingPanelState extends State<BillingPanel> {
   String? _busy; // which action is running
 
   // The same lists as the claim page (Leonie's wording, 23 Oct).
-  // The paid plan is Plus; its badge is still Verified by Nomadwise.
+  // The paid plan is Premium; its badge is still Verified by Nomadwise.
   static const _benefits = [
     'Verified by Nomadwise badge on your page',
     "Top positioning on your region's page",
@@ -160,8 +160,8 @@ class _BillingPanelState extends State<BillingPanel> {
       await _load();
       if (mounted) {
         _say(action == 'cancel'
-            ? 'Done. Your renewal is off; you keep Plus until the end of your paid year.'
-            : 'Welcome back! Your Plus plan will renew as before.');
+            ? 'Done. Your renewal is off; you keep Premium until the end of your paid year.'
+            : 'Welcome back! Your Premium plan will renew as before.');
       }
     } catch (e) {
       _say('That did not go through. Please try again.', bad: true);
@@ -195,7 +195,7 @@ class _BillingPanelState extends State<BillingPanel> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                        'Your Plus plan will not renew. You keep Plus until '
+                        'Your Premium plan will not renew. You keep Premium until '
                         '$until; after that your page stays on Nomadwise on '
                         'the free plan, with your description, photos and '
                         'details.',
@@ -261,7 +261,7 @@ class _BillingPanelState extends State<BillingPanel> {
             FilledButton(
                 onPressed: () => Navigator.pop(ctx, false),
                 style: FilledButton.styleFrom(backgroundColor: Brand.red),
-                child: const Text('Keep Plus')),
+                child: const Text('Keep Premium')),
           ],
         ),
       ),
@@ -380,7 +380,7 @@ class _BillingPanelState extends State<BillingPanel> {
           ]),
           const SizedBox(height: 12),
           Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-            Text(verified ? 'Plus' : 'Free',
+            Text(verified ? 'Premium' : 'Free',
                 style: const TextStyle(
                     fontWeight: FontWeight.w800,
                     fontSize: 26,
@@ -406,12 +406,12 @@ class _BillingPanelState extends State<BillingPanel> {
                   ? 'Your page is on Nomadwise for free, and stays free.'
                   : trouble
                       ? 'Your last payment did not go through. Update your '
-                          'card to keep Plus.'
+                          'card to keep Premium.'
                       : ending
-                          ? 'You keep Plus until $periodEnd. After that '
+                          ? 'You keep Premium until $periodEnd. After that '
                               'your page stays on Nomadwise on the free plan.'
                           : periodEnd.isEmpty
-                              ? 'Plus is on.'
+                              ? 'Premium is on.'
                               : 'Renews on $periodEnd'
                                   '${sub != null ? ' for ${_money(sub['amount'] as num?, '${sub['currency']}')}' : ''}.'
                                   ' Change or stop it any time here.',
@@ -422,7 +422,7 @@ class _BillingPanelState extends State<BillingPanel> {
               FilledButton(
                   onPressed: widget.onGoVerified,
                   style: FilledButton.styleFrom(backgroundColor: Brand.red),
-                  child: const Text('Get Plus')),
+                  child: const Text('Get Premium')),
             if (verified && trouble && connected)
               FilledButton.icon(
                   onPressed: _busy != null ? null : () => _portal('card'),
@@ -437,7 +437,7 @@ class _BillingPanelState extends State<BillingPanel> {
                   style: FilledButton.styleFrom(backgroundColor: Brand.red),
                   child: _busy == 'resume'
                       ? _spin()
-                      : const Text('Keep Plus')),
+                      : const Text('Keep Premium')),
           ]),
         ]),
       ),
@@ -447,7 +447,7 @@ class _BillingPanelState extends State<BillingPanel> {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           _title('Plans',
               sub: 'Move between them whenever you like. Going down to free '
-                  'keeps Plus until the end of the period you paid for.'),
+                  'keeps Premium until the end of the period you paid for.'),
           LayoutBuilder(builder: (context, box) {
             final two = box.maxWidth >= 560;
             final free = _planBox(
@@ -473,7 +473,7 @@ class _BillingPanelState extends State<BillingPanel> {
                   : null,
             );
             final paid = _planBox(
-              name: 'Plus',
+              name: 'Premium',
               price: sub == null
                   ? (_pricing?.monthly != null
                       ? formatMoney(_pricing!.monthly!, _pricing!.currency)
@@ -492,14 +492,14 @@ class _BillingPanelState extends State<BillingPanel> {
                   ? FilledButton(
                       onPressed: widget.onGoVerified,
                       style: FilledButton.styleFrom(backgroundColor: Brand.red),
-                      child: const Text('Get Plus'))
+                      child: const Text('Get Premium'))
                   : ending && connected
                       ? FilledButton(
                           onPressed:
                               _busy != null ? null : () => _action('resume'),
                           style: FilledButton.styleFrom(
                               backgroundColor: Brand.red),
-                          child: const Text('Keep Plus'))
+                          child: const Text('Keep Premium'))
                       : null,
             );
             return two

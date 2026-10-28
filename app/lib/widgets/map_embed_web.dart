@@ -8,7 +8,7 @@ import 'package:flutter/material.dart';
 /// (Google's free embed, no key, no charge). It is a picture of the
 /// page here, so it takes no clicks: a frame that did would sit above
 /// the app, taking the pointer (and its hand cursor) from windows such
-/// as Get Plus opened over it, and a swipe over it would not scroll.
+/// as Get Premium opened over it, and a swipe over it would not scroll.
 class MapEmbedView extends StatefulWidget {
   final String url;
   final double height;

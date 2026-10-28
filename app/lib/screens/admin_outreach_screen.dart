@@ -101,7 +101,7 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
     ('contacted', 'Contacted'),
     ('replied', 'Replied'),
     ('claimed', 'Claimed'),
-    ('verified', 'Plus'),
+    ('verified', 'Premium'),
     ('not_now', 'Not now'),
     ('declined', 'Declined'),
     ('unsubscribed', 'Unsubscribed'),
@@ -1829,7 +1829,7 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
     ('{city}', 'its city'),
     ('{claim_link}', 'the claim form, opened on their space'),
     ('{page_link}', 'their page on nomadwise.io'),
-    ('{price_words}', 'the Plus price for their country'),
+    ('{price_words}', 'the Premium price for their country'),
     ('{unsubscribe_link}', 'the link that stops our emails'),
     // (migration 183: an email closes "Kind regards, Jonathan Heavens,
     // Cofounder - Nomadwise.io"; a WhatsApp message keeps the short one)
@@ -2140,15 +2140,15 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
       'used',
       'Used it',
       'They changed their page, answered a question or voted on an '
-          'idea. These are the likeliest to go for Plus. Next: tell them '
-          'what Plus adds.',
+          'idea. These are the likeliest to go for Premium. Next: tell them '
+          'what Premium adds.',
       '',
       '',
       ''
     ),
     (
       'looked',
-      'Looked at Plus',
+      'Looked at Premium',
       'They opened the payment step and did not finish. Next: ask what '
           'held them back.',
       '',
@@ -2157,8 +2157,8 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
     ),
     (
       'verified',
-      'On Plus',
-      'On the Plus plan. Next: keep them, and ask what they would '
+      'On Premium',
+      'On the Premium plan. Next: keep them, and ask what they would '
           'like added.',
       '',
       '',
@@ -2183,7 +2183,7 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
     if (key == 'ours') {
       return (
         'Set up by us, not claimed yet',
-        'We put these on Plus ourselves, or put the owner on for them: '
+        'We put these on Premium ourselves, or put the owner on for them: '
             'booking partners, and spaces that paid for a listing the old '
             'way. Nobody there has claimed the page or been in the Owner '
             'account. Next: write to say their Owner account is ready, and '
@@ -2651,14 +2651,14 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
     ),
     (
       'owners', 'looked', Icons.sell_outlined,
-      'Looked at Plus, did not pay',
+      'Looked at Premium, did not pay',
       'Their address, and that they opened the payment step.',
       'Ask what held them back.'
     ),
     (
       'owners', 'ours', Icons.storefront_outlined,
       'Set up by us, not claimed yet',
-      'Partners and spaces listed the old way, on Plus without an '
+      'Partners and spaces listed the old way, on Premium without an '
           'account of their own.',
       'Tell them their Owner account is ready.'
     ),
@@ -3162,8 +3162,8 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
     }
     if (o['looked'] == true) {
       parts.add(o['checkout'] == true
-          ? 'reached the payment page for Plus and did not finish'
-          : 'opened the Plus step and did not finish');
+          ? 'reached the payment page for Premium and did not finish'
+          : 'opened the Premium step and did not finish');
     }
     return 'Owner account: ${parts.join('; ')}.';
   }
@@ -3187,7 +3187,7 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
           'from the top; whatever is left waits for next time.\n'
           'Waiting: we wrote and the next move is theirs. Each line says '
           'when to follow up.\n'
-          'Done: claimed, on Plus, said no, or taken off with a reason.\n'
+          'Done: claimed, on Premium, said no, or taken off with a reason.\n'
           'Remove... takes a line off with a reason: no way to reach them, '
           'already in touch on another line (the two are joined), not a fit, '
           'or they said no. Nothing is sent, and Bring back undoes it.\n'
@@ -3208,7 +3208,7 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
       'New: not written to yet.\n'
           'Contacted: we wrote.\n'
           'Replied: they answered.\n'
-          'Claimed and Plus: the owner claimed the page themselves, '
+          'Claimed and Premium: the owner claimed the page themselves, '
           'or has been in their Owner account. These two move by '
           'themselves, and a space that claims is added here if it was '
           'not in the list. Spaces we set up ourselves are under "Set up '
@@ -3223,7 +3223,7 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
           'reaching them: no address yet, ready to write to, written '
           'to, follow-up due, replied. Then, once they have claimed: '
           'signed in to their Owner account, used it, looked at '
-          'Plus, on Plus.\n'
+          'Premium, on Premium.\n'
           'Tap a step to see its spaces and what can be done next. The '
           'red lines under a step are the spaces stuck there.\n'
           'A claimed space\'s card says what its owner has done in the '
@@ -3236,7 +3236,7 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
           'interest is a row: they wrote back, began the claim form, made '
           'an account on the map, looked at the claim page, and, after '
           'claiming, never came in, changed nothing, or looked at '
-          'Plus. Each row says how many spaces stand there now, what '
+          'Premium. Each row says how many spaces stand there now, what '
           'we know about them, and the one thing to do. Tap a row to see '
           'its spaces.\n'
           'A space leaves a row when we write to it, or when "Done for '
@@ -3277,11 +3277,11 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
     (
       Icons.storefront_outlined,
       'Set up by us, not claimed yet',
-      'Some spaces are on Plus, or have an owner, because we set '
+      'Some spaces are on Premium, or have an owner, because we set '
           'them up: booking partners we agreed terms with, and spaces '
           'that paid for a listing the old way. Nobody there has claimed '
           'the page or been in the Owner account, so they are not '
-          'counted under the Claimed or Plus chips. They have their '
+          'counted under the Claimed or Premium chips. They have their '
           'own chip and their own line on the path, and are the ones to '
           'invite to their Owner account. A space leaves this group by '
           'itself when its owner claims the page, or opens the Owner '
@@ -3295,7 +3295,7 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
           'test". It then shows under the Tests chip only, and is left '
           'out of every number here, of the path, of the number beside '
           'Outreach in the menu, and of the Money card\'s claimed and '
-          'Plus.\n'
+          'Premium.\n'
           'Marking a claimed space marks the owner\'s address, so '
           'everything else claimed with it follows. Addresses at '
           'nomadwise.io, our own sign-in addresses and people named '
@@ -3479,7 +3479,7 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
                 if (ours)
                   _chip(
                       '${c['stage']}' == 'verified'
-                          ? 'PLUS, SET UP BY US'
+                          ? 'PREMIUM, SET UP BY US'
                           : 'NOT CLAIMED YET',
                       bg: Brand.logoTealTint,
                       fg: Brand.logoNavy)
@@ -3517,7 +3517,7 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
                         : null,
                     child: Text(
                         '${onSite ? 'On nomadwise.io' : 'On the map'}: $venueName'
-                        '${tier == 'verified' ? (ours ? ' (Plus, set up by us)' : ' (Plus)') : tier == 'free' && '${c['listing_owner_email'] ?? ''}'.isNotEmpty ? (ours ? ' (owner put on by us, Claimed)' : ' (Claimed)') : ''}',
+                        '${tier == 'verified' ? (ours ? ' (Premium, set up by us)' : ' (Premium)') : tier == 'free' && '${c['listing_owner_email'] ?? ''}'.isNotEmpty ? (ours ? ' (owner put on by us, Claimed)' : ' (Claimed)') : ''}',
                         style: TextStyle(
                             fontSize: 12.5,
                             color: onSite ? Brand.logoNavy : Brand.inkSecondary,
@@ -4961,7 +4961,7 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
   static const _doneKinds = <(String, String, String)>[
     ('claimed', 'Claimed their page',
         'The claim emails went out by themselves.'),
-    ('verified', 'On Plus', 'Paying spaces.'),
+    ('verified', 'On Premium', 'Paying spaces.'),
     ('not_now', 'Put aside', 'No way to reach them. Bring back undoes it.'),
     ('declined', 'Said no', 'They told us they are not interested.'),
     ('aside', 'Not for outreach', 'Not a fit, or other business.'),
@@ -5413,7 +5413,7 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
     final aside = _asideWords(_asides[id]);
     final String why = switch (key) {
       'claimed' => 'Claimed ${_agoOf(c['stage_at'])}.',
-      'verified' => 'On Plus since ${_agoOf(c['stage_at'])}.',
+      'verified' => 'On Premium since ${_agoOf(c['stage_at'])}.',
       'unsubscribed' => 'Unsubscribed ${_agoOf(c['unsubscribed_at'] ?? c['stage_at'])}.',
       _ => aside.isNotEmpty
           ? aside
@@ -5755,7 +5755,7 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
           'whatever is left waits for next time. Nothing is sent by itself.',
       'waiting' => 'We wrote and the next move is theirs. Each line says '
           'when to follow up.',
-      'done' => 'Nothing to do here: claimed, on Plus, said no, or taken '
+      'done' => 'Nothing to do here: claimed, on Premium, said no, or taken '
           'off with a reason.',
       _ => 'Every space we are talking to, the numbers, and every list. '
           'Nothing is sent by itself.',
@@ -5942,7 +5942,7 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
                                   Wrap(spacing: 6, runSpacing: 6, children: [
                                     for (final s in rare) stagePill(s),
                                     // Spaces we set up and nobody has
-                                    // claimed: out of Claimed and Plus.
+                                    // claimed: out of Claimed and Premium.
                                     if (ours > 0 || _stage == 'ours')
                                       _pill('Set up by us',
                                           count: ours,

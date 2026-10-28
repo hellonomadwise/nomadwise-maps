@@ -630,7 +630,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
       ('waiting_free', 'Claimed, not checked'),
       ('waiting_paid', 'Paid, not checked'),
       ('free', 'Claimed'),
-      ('verified', 'Plus'),
+      ('verified', 'Premium'),
     ];
     // One slim line: the reminder, then the states to look at, which
     // swipe sideways on a phone instead of taking two rows.
@@ -731,10 +731,10 @@ class _OwnerScreenState extends State<OwnerScreen> {
         Text(
             held > 0
                 ? '$held ${held == 1 ? 'enquiry is' : 'enquiries are'} '
-                    'waiting for you. With Plus, '
+                    'waiting for you. With Premium, '
                     '${held == 1 ? 'it comes' : 'they come'} straight to your '
                     'inbox, and so does every enquiry after.'
-                : 'Your free enquiries go straight to your inbox. With Plus, '
+                : 'Your free enquiries go straight to your inbox. With Premium, '
                     'every enquiry does.',
             style: const TextStyle(
                 fontSize: 13, height: 1.45, color: Brand.inkSecondary)),
@@ -1059,7 +1059,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
           'owner this would ${submit ? 'send the changes to you for review' : 'save a draft'}.');
       return;
     }
-    // (Instagram is a Plus part: a free page has no field to fix it in.)
+    // (Instagram is a Premium part: a free page has no field to fix it in.)
     if (submit && _verified && _igHandle(_instagram.text) == null) {
       setState(() => _savedNote = 'That Instagram handle does not look '
           'right: letters, numbers, dots and underscores only, like '
@@ -1558,7 +1558,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
         "We check it's you",
         (started || confirming) && verified ? _Step.todo : _Step.now
       ),
-      (verified ? 'Plus is on' : 'Yours to manage', _Step.todo),
+      (verified ? 'Premium is on' : 'Yours to manage', _Step.todo),
     ];
 
     return _frame(
@@ -1600,7 +1600,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
                 confirming
                     ? 'Your payment is being confirmed with Stripe. This '
                         'page updates by itself as soon as it is; then we '
-                        'check you are with the team and Plus goes on.'
+                        'check you are with the team and Premium goes on.'
                     : started && verified
                     ? 'We have not received a payment yet. If you have just '
                         'paid, it shows here as soon as Stripe confirms it; '
@@ -2004,7 +2004,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
       const SizedBox(width: 8),
       Flexible(child: name),
       const SizedBox(width: 8),
-      _chip(_verified ? 'Plus' : 'Free',
+      _chip(_verified ? 'Premium' : 'Free',
           _verified ? Brand.success : Brand.inkSecondary),
     ]);
     final Widget? seePage = pageLive
@@ -3114,7 +3114,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
   static const _edMuted = Color(0xFF5C6773);
   static const _edRed = Color(0xFFD92D38);
 
-  /// Enquiries reach the space by email (a Plus page, or a free page
+  /// Enquiries reach the space by email (a Premium page, or a free page
   /// with its free enquiries on).
   bool get _enquiriesOn => _verified || _allow?['on'] == true;
 
@@ -3409,7 +3409,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
     'whatsapp': '65d0c06cfee042d9b2d76c09_whatsapp-logo-4454.png',
   };
 
-  /// One of those icons; greyed for a locked (Plus) one. Falls back to
+  /// One of those icons; greyed for a locked (Premium) one. Falls back to
   /// a drawn icon if the image cannot load.
   Widget _siteIcon(String key, IconData fallback, Color color,
       {double size = 22, bool grey = false}) {
@@ -3529,10 +3529,10 @@ class _OwnerScreenState extends State<OwnerScreen> {
           ),
       ]);
 
-  // ------------------------------------------- locked Plus parts (step 2)
-  // CR-22 step 2: on a free page the Plus parts show greyed with a lock
+  // ------------------------------------------- locked Premium parts (step 2)
+  // CR-22 step 2: on a free page the Premium parts show greyed with a lock
   // (the Verified badge, Instagram and WhatsApp, Promotions and events,
-  // the advert with Remove ad). Pressing one opens the Get Plus window,
+  // the advert with Remove ad). Pressing one opens the Get Premium window,
   // in the words agreed on 23 Oct (CR-29).
 
   static const _lockBorder = Color(0xFFAEB7C1);
@@ -3541,29 +3541,29 @@ class _OwnerScreenState extends State<OwnerScreen> {
   static const _plusWhy = {
     'social': (
       'Add your Instagram and WhatsApp',
-      'Free pages show your website and directions. With Nomadwise Plus, '
+      'Free pages show your website and directions. With Nomadwise Premium, '
           'nomads can also reach you on Instagram and WhatsApp straight from '
           'your page.'
     ),
     'ad': (
       'Remove the ad from your page',
-      'With Nomadwise Plus, the advert on your page goes, and your own '
+      'With Nomadwise Premium, the advert on your page goes, and your own '
           'events and offers can take its place.'
     ),
     'promo': (
       'Promote your events and offers',
-      'With Nomadwise Plus, your next event, an offer or your news takes '
+      'With Nomadwise Premium, your next event, an offer or your news takes '
           'the place of the advert on your page.'
     ),
     'enquiry': (
       'Unlimited enquiries from nomads',
       'Your free page includes 2 enquiries from nomads. With Nomadwise '
-          'Plus, you can receive an unlimited number of enquiries straight '
+          'Premium, you can receive an unlimited number of enquiries straight '
           'to your inbox.'
     ),
     'badge': (
       'Get the Verified by Nomadwise badge',
-      'Nomadwise Plus pages carry the Verified by Nomadwise badge, on the '
+      'Nomadwise Premium pages carry the Verified by Nomadwise badge, on the '
           'page and in every list.'
     ),
   };
@@ -3577,7 +3577,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
     'Remove ads from your page',
   ];
 
-  /// The Get Plus window. "See the Plus plan" opens Plan & billing,
+  /// The Get Premium window. "See the Premium plan" opens Plan & billing,
   /// where the price for their country is shown before anything is
   /// charged.
   Future<void> _getPlus(String why) {
@@ -3662,7 +3662,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
                     child: const Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Plus: about the price of a day pass a month',
+                          Text('Premium: about the price of a day pass a month',
                               style: TextStyle(
                                   fontSize: 15,
                                   fontWeight: FontWeight.w700,
@@ -3711,7 +3711,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
                                 fontSize: 15, fontWeight: FontWeight.w600),
                           ),
                           child:
-                              const Text('See the Plus plan', softWrap: false),
+                              const Text('See the Premium plan', softWrap: false),
                         ),
                       ]),
                 ]),
@@ -3721,11 +3721,11 @@ class _OwnerScreenState extends State<OwnerScreen> {
     );
   }
 
-  /// A greyed part with a lock: pressing it opens the Get Plus window.
+  /// A greyed part with a lock: pressing it opens the Get Premium window.
   Widget _lockedChip(String label, String why, {IconData icon = Icons.lock_outline}) =>
       Semantics(
         button: true,
-        label: '$label, locked. See what Plus adds',
+        label: '$label, locked. See what Premium adds',
         child: InkWell(
           onTap: () => _getPlus(why),
           borderRadius: BorderRadius.circular(6),
@@ -3751,12 +3751,12 @@ class _OwnerScreenState extends State<OwnerScreen> {
       );
 
   /// Promotions and events in the sidebar: locked on a free page; on a
-  /// Plus page the message as it shows, with Edit (Your message tab).
+  /// Premium page the message as it shows, with Edit (Your message tab).
   Widget _promoPart() {
     if (!_verified) {
       return Semantics(
         button: true,
-        label: 'Promotions and events, locked. See what Plus adds',
+        label: 'Promotions and events, locked. See what Premium adds',
         child: InkWell(
           onTap: () => _getPlus('promo'),
           borderRadius: BorderRadius.circular(16),
@@ -3786,7 +3786,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
                       style: TextStyle(
                           fontSize: 14, height: 1.45, color: Color(0xFF3F4954))),
                   SizedBox(height: 10),
-                  Text('See what Plus adds',
+                  Text('See what Premium adds',
                       style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
@@ -4310,7 +4310,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
         );
     Widget lockedCircle(String key, IconData icon, String what) => Semantics(
           button: true,
-          label: '$what link, locked. See what Plus adds',
+          label: '$what link, locked. See what Premium adds',
           child: InkWell(
             onTap: () => _getPlus('social'),
             customBorder: const CircleBorder(),
@@ -4358,7 +4358,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
                         label: 'WhatsApp (optional)',
                         helper: 'Leave empty if you do not use WhatsApp.')),
               ] else
-                // Agreed 23 Oct: Instagram and WhatsApp come with Plus.
+                // Agreed 23 Oct: Instagram and WhatsApp come with Premium.
                 SizedBox(
                   width: 420,
                   child: InkWell(
@@ -4381,7 +4381,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
                                     fontWeight: FontWeight.w700,
                                     color: _edInk)),
                             TextSpan(
-                                text: 'Come with Plus. See what Plus adds',
+                                text: 'Come with Premium. See what Premium adds',
                                 style: TextStyle(fontSize: 13)),
                           ]), style: TextStyle(
                               fontSize: 14, color: Color(0xFF3F4954))),
@@ -4433,7 +4433,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
       ],
       const SizedBox(height: 16),
       _promoPart(),
-      // A Plus page shows no adverts.
+      // A Premium page shows no adverts.
       if (!_verified) ...[
         const SizedBox(height: 16),
         _greyAdvert(),
@@ -5283,7 +5283,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
         if (_website.text.trim().isNotEmpty)
           circle('link', Icons.link, _pageInk),
         circle('map', Icons.location_on, _pageRed),
-        // Instagram shows on Plus pages only (agreed 23 Oct).
+        // Instagram shows on Premium pages only (agreed 23 Oct).
         if (_verified && _instagram.text.trim().isNotEmpty)
           circle('instagram', Icons.camera_alt_outlined,
               const Color(0xFFD62976)),
@@ -5402,7 +5402,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
             _verified
                 ? 'Your own event or offer replaces this advert. Write it '
                     'under Your message.'
-                : 'A partner advert shows here. Plus pages show their '
+                : 'A partner advert shows here. Premium pages show their '
                     'own event or offer instead.',
             style: const TextStyle(
                 fontSize: 12, height: 1.4, color: Color(0xFFDCE3E8))),
@@ -5419,7 +5419,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
           color: Color(0xFF757575)));
 
   /// The owner's promotion or event as nomadwise.io draws it in the
-  /// sidebar of a Plus page (the site footer snippet, 24 Oct): a small
+  /// sidebar of a Premium page (the site footer snippet, 24 Oct): a small
   /// red type tag, the headline, the text and an outlined red button.
   /// [card] adds the white card and its "Promotions and events" title,
   /// as the page shows it.
@@ -5613,9 +5613,9 @@ class _OwnerScreenState extends State<OwnerScreen> {
               style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
           const SizedBox(height: 8),
           const Text(
-              'Plus pages carry the space\'s own event, offer or '
+              'Premium pages carry the space\'s own event, offer or '
               'announcement where nomadwise.io would otherwise show an '
-              'advert. Yours shows the advert. Get Plus and this tab '
+              'advert. Yours shows the advert. Get Premium and this tab '
               'opens up, along with the Verified by Nomadwise badge, top '
               'positioning on your region\'s page and unlimited '
               'enquiries straight to your inbox.',
@@ -5626,7 +5626,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
               onPressed: () => _saveThenOpen('https://nomadmaps.io/?claim='
                   '${Uri.encodeComponent('${_venue?['webflow_slug'] ?? _venue?['name'] ?? ''}')}'),
               style: FilledButton.styleFrom(backgroundColor: Brand.red),
-              child: const Text('Get Plus')),
+              child: const Text('Get Premium')),
         ]),
       );
     }

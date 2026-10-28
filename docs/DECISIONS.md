@@ -5447,3 +5447,28 @@ repeats it, and trimmed word by word to 60 characters at most
 same rule. A proposal already made with a longer slug is redone. Any slug
 over 60 characters shows an amber "Long slug" line on the card and in the
 Approve box. Pages already live keep their slug.
+
+## 28 Oct 2026: the paid plan is called Premium (migration 227)
+
+Jonathan, after the research in the project doc
+listings/2026-10-28-paid-plan-name.md: "lets update everything to premium".
+Paid listings in this market are mostly called Premium (Tripadvisor,
+European Coffee Trip, directory software); a bare "Plus" says less.
+The plans are Free and Premium; "Nomadwise Premium" where it introduces the
+plan. The badge stays "Verified by Nomadwise", and the plan's key in the
+data stays 'verified', so nothing about who pays or what they get changes.
+
+- App: every "Plus" the owner, claimer or founder reads is now "Premium"
+  (claim page, Owner account, Plan & billing, Outreach, New pages).
+  "Everything in Free, plus:" keeps its small "plus".
+- Database (migration 227): every function whose text says "Plus" is
+  re-created from its live version with that one word swapped (owner
+  emails, the red button "See Nomadwise Premium", claim page message,
+  plan ended, page live, held enquiries, the site chat), and the same
+  swap in the Outreach templates. Emails already sent are left as sent.
+- nomadwise.io: no visible "Plus" on the pages; the hidden .plus-marker
+  class in the custom code is a technical name and stays.
+- Stripe: the product name shown at checkout is changed by hand in the
+  Stripe dashboard.
+A later migration copied from a pre-227 file would bring "Plus" back:
+copy functions from their live version instead.
