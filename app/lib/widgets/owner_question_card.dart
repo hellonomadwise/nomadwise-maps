@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../services/supabase_service.dart';
 import '../theme.dart';
+import 'motion.dart';
 
 /// Owner account: one quick question at a time, answered with a tap.
 /// Not a survey: a single friendly card that asks what would help,
@@ -133,11 +134,11 @@ class _OwnerQuestionCardState extends State<OwnerQuestionCard> {
       _ => _asking(),
     };
     return AnimatedSize(
-      duration: const Duration(milliseconds: 260),
+      duration: Motion.of(context, const Duration(milliseconds: 220)),
       curve: Curves.easeOutCubic,
       alignment: Alignment.topCenter,
       child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 260),
+        duration: Motion.of(context, const Duration(milliseconds: 220)),
         switchInCurve: Curves.easeOutCubic,
         transitionBuilder: (c, a) => FadeTransition(
             opacity: a,
@@ -287,7 +288,7 @@ class _OwnerQuestionCardState extends State<OwnerQuestionCard> {
           borderRadius: BorderRadius.circular(22),
           onTap: onTap,
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 160),
+            duration: Motion.of(context, const Duration(milliseconds: 160)),
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
             decoration: BoxDecoration(
               color: on ? Brand.ink : Brand.surface,

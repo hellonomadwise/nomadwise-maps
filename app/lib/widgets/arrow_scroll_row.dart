@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme.dart';
+import 'motion.dart';
 
 /// A row of chips (or anything) that scrolls sideways: a swipe on a
 /// phone, and on a laptop, where a mouse cannot swipe, a round arrow
@@ -76,8 +77,7 @@ class _ArrowScrollRowState extends State<ArrowScrollRow> {
     final pos = _scroll.position;
     final target =
         (pos.pixels + (left ? -260 : 260)).clamp(0.0, pos.maxScrollExtent);
-    _scroll.animateTo(target,
-        duration: const Duration(milliseconds: 220), curve: Curves.easeOut);
+    Motion.scrollTo(context, _scroll, target);
   }
 
   Widget _arrow({required bool left}) => Positioned(

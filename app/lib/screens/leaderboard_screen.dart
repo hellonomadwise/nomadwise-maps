@@ -6,6 +6,7 @@ import '../services/analytics_service.dart';
 import '../services/supabase_service.dart';
 import '../theme.dart';
 import '../widgets/ui.dart';
+import '../widgets/motion.dart';
 
 /// Leaderboard (top nomads by coins) + live activity feed.
 /// Tap any player to see their public stats.
@@ -61,7 +62,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
         child: GestureDetector(
           onTap: () => setState(() => _tab = i),
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
+            duration: Motion.of(context, const Duration(milliseconds: 180)),
             curve: Curves.easeOut,
             height: 38,
             decoration: BoxDecoration(

@@ -6,6 +6,7 @@ import '../theme.dart';
 import '../widgets/ui.dart';
 import 'claim_journeys_screen.dart';
 import 'google_usage_screen.dart';
+import '../widgets/motion.dart';
 
 /// Admin only: who has been in the app (signed in or not) and what
 /// they did. Since 30 Sep 2026 the counting happens in the database
@@ -680,7 +681,7 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
             _load();
           },
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 160),
+            duration: Motion.of(context, const Duration(milliseconds: 160)),
             padding: const EdgeInsets.symmetric(vertical: 9),
             decoration: BoxDecoration(
               color: active ? Brand.surface : Colors.transparent,

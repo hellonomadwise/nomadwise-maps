@@ -8,6 +8,7 @@ import '../services/supabase_service.dart';
 import '../theme.dart';
 import '../widgets/chat_thread.dart';
 import '../widgets/site_chats_pane.dart';
+import '../widgets/motion.dart';
 
 /// The founders' side of the chat with owners (migration 161): every
 /// space that has an owner, the chats waiting for an answer first.
@@ -95,7 +96,7 @@ class _AdminChatsScreenState extends State<AdminChatsScreen> {
         child: MouseRegion(
           cursor: SystemMouseCursors.click,
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
+            duration: Motion.of(context, const Duration(milliseconds: 150)),
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
             decoration: BoxDecoration(
               color: on ? Colors.white : Colors.transparent,

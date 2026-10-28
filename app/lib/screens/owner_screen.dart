@@ -23,6 +23,7 @@ import '../widgets/owner_question_card.dart';
 import '../widgets/phone_field.dart';
 import '../widgets/price.dart';
 import '../widgets/email_typo_hint.dart';
+import '../widgets/motion.dart';
 
 /// The Owner account at nomadmaps.io/?owner ("Nomadwise for Spaces"
 /// to the owner; never "members area").
@@ -379,7 +380,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
     return TweenAnimationBuilder<double>(
       key: ValueKey('pop-${x['id']}'),
       tween: Tween(begin: 0, end: 1),
-      duration: const Duration(milliseconds: 260),
+      duration: Motion.of(context, const Duration(milliseconds: 220)),
       curve: Curves.easeOutCubic,
       builder: (_, t, child) => Opacity(
           opacity: t,
@@ -3020,7 +3021,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
       final c = _partKeys[part]?.currentContext;
       if (c != null && mounted) {
         Scrollable.ensureVisible(c,
-            duration: const Duration(milliseconds: 250),
+            duration: Motion.of(context, const Duration(milliseconds: 220)),
             curve: Curves.easeOut,
             alignment: 0.02,
             alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtStart);

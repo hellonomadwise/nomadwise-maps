@@ -36,6 +36,7 @@ import 'leaderboard_screen.dart';
 import 'venue_detail.dart';
 import 'wallet_screen.dart';
 import 'website_screen.dart';
+import '../widgets/motion.dart';
 
 enum VenueFilter { openNow, openLate, open24h, workFriendly, food }
 
@@ -2966,7 +2967,7 @@ class _MapScreenState extends State<MapScreen> {
       child: GestureDetector(
         onTap: onTap,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
+          duration: Motion.of(context, const Duration(milliseconds: 150)),
           curve: Curves.ease,
           height: 32,
           padding: const EdgeInsets.symmetric(horizontal: 14),

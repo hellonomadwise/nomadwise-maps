@@ -15,6 +15,7 @@ import '../widgets/phone_field.dart';
 import '../widgets/pricing_picker.dart';
 import '../widgets/ui.dart' show PlanFeatureRow;
 import '../widgets/email_typo_hint.dart';
+import '../widgets/motion.dart';
 
 /// Claim your space: the owner's way in.
 ///
@@ -1495,7 +1496,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
 
   /// The round tick in a card's corner: filled on the chosen plan.
   Widget _mark(bool on) => AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
+        duration: Motion.of(context, const Duration(milliseconds: 150)),
         width: 24,
         height: 24,
         decoration: BoxDecoration(
@@ -1530,7 +1531,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
           behavior: HitTestBehavior.opaque,
           onTap: () => _choosePlan(plan),
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
+            duration: Motion.of(context, const Duration(milliseconds: 150)),
             padding: EdgeInsets.all(wide ? 18 : 16),
             decoration: BoxDecoration(
               color: Brand.surface,

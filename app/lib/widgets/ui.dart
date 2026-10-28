@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/coins_gate.dart';
 import '../theme.dart';
+import 'motion.dart';
 
 /// Shared components from the "Nomad Maps Polish" handoff.
 /// One visual language for coins, buttons, labels, toggles and avatars.
@@ -161,7 +162,7 @@ class YesNoToggle extends StatelessWidget {
       return GestureDetector(
         onTap: () => onChanged(v),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
+          duration: Motion.of(context, const Duration(milliseconds: 180)),
           curve: Curves.easeOut,
           width: w,
           height: 30,

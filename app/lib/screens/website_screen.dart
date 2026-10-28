@@ -45,6 +45,7 @@ import 'owner_screen.dart';
 import 'region_help_screen.dart';
 import 'space_trail_screen.dart';
 import 'venue_detail.dart';
+import '../widgets/motion.dart';
 
 /// Admin-only: the nomadwise.io control centre.
 ///
@@ -101,8 +102,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     final pos = _tabScroll.position;
     final target = (pos.pixels + (left ? -260 : 260))
         .clamp(0.0, pos.maxScrollExtent);
-    _tabScroll.animateTo(target,
-        duration: const Duration(milliseconds: 220), curve: Curves.easeOut);
+    Motion.scrollTo(context, _tabScroll, target);
   }
 
   Widget _tabArrow({required bool left}) => Positioned(
@@ -3828,7 +3828,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         SizedBox(
           width: double.infinity,
           child: AnimatedSize(
-            duration: const Duration(milliseconds: 160),
+            duration: Motion.of(context, const Duration(milliseconds: 160)),
             curve: Curves.easeOut,
             alignment: Alignment.topCenter,
             child: Column(mainAxisSize: MainAxisSize.min, children: [

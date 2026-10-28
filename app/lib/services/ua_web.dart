@@ -67,3 +67,13 @@ bool sendBeacon(String url, String body, [Map<String, String>? headers]) {
     return false;
   }
 }
+
+/// Web: true when the visitor turned on "Reduce motion" on their
+/// device (the browser's prefers-reduced-motion).
+bool prefersReducedMotion() {
+  try {
+    return html.window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  } catch (_) {
+    return false;
+  }
+}

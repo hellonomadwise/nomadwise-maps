@@ -5472,3 +5472,18 @@ data stays 'verified', so nothing about who pays or what they get changes.
   Stripe dashboard.
 A later migration copied from a pre-227 file would bring "Plus" back:
 copy functions from their live version instead.
+
+## 28 Oct 2026: motion rules, and "Reduce motion" honoured
+
+Jonathan shared a set of motion rules (short, ease out, no bounce, grow from
+what opened it, honour reduced motion, never animate layout). The app already
+used ease-out curves only and no springs. Changed:
+- Reduce motion: a person who turned on "Reduce motion" on their phone or
+  computer now sees things simply appear, with no slide, grow or glide
+  (Flutter's own setting, and the browser's prefers-reduced-motion on the web).
+  One place for it: widgets/motion.dart (Motion.of, Motion.scrollTo,
+  Motion.toPage).
+- Shorter: the bars in Owner insights (500ms to 220ms), the photo arrows on a
+  space (300ms to 220ms), the owner's message card, the Owner account's
+  scroll to a part and the owner question card (250-260ms to 220ms).
+New animations use Motion.of(context, ...) and stay under 250ms.

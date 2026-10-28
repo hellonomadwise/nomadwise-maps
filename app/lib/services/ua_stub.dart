@@ -7,3 +7,6 @@ String timeZone() => '';
 void setPageHideHandler(void Function()? cb) {}
 bool sendBeacon(String url, String body, [Map<String, String>? headers]) =>
     false;
+
+/// Off the web: the device setting reaches the app through MediaQuery.
+bool prefersReducedMotion() => false;

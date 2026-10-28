@@ -6,6 +6,7 @@ import '../config.dart';
 import '../services/analytics_service.dart';
 import '../theme.dart';
 import '../widgets/ui.dart';
+import '../widgets/motion.dart';
 
 /// First-run welcome: three quick cards that explain the game.
 /// Shown once per device, always skippable.
@@ -158,7 +159,7 @@ class _IntroOverlayState extends State<_IntroOverlay> {
               children: List.generate(3, (i) {
                 final on = i == _page;
                 return AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
+                  duration: Motion.of(context, const Duration(milliseconds: 200)),
                   margin: const EdgeInsets.symmetric(horizontal: 4),
                   width: on ? 22 : 8,
                   height: 8,
@@ -174,9 +175,7 @@ class _IntroOverlayState extends State<_IntroOverlay> {
                   _page < 2 ? 'Next' : 'Start exploring',
               onPressed: () {
                 if (_page < 2) {
-                  _controller.nextPage(
-                      duration: const Duration(milliseconds: 260),
-                      curve: Curves.easeOut);
+                  Motion.toPage(context, _controller, _page + 1);
                 } else {
                   _finish('intro_completed');
                 }

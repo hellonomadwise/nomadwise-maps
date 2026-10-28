@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../services/supabase_service.dart';
 import '../theme.dart';
+import '../widgets/motion.dart';
 
 /// Control centre: what owners told us through the quick questions in
 /// their Owner account (migration 104). Each question shows how the
@@ -400,7 +401,7 @@ class _OwnerInsightsScreenState extends State<OwnerInsightsScreen> {
           borderRadius: BorderRadius.circular(4),
           child: TweenAnimationBuilder<double>(
             tween: Tween(begin: 0, end: share),
-            duration: const Duration(milliseconds: 500),
+            duration: Motion.of(context, const Duration(milliseconds: 220)),
             curve: Curves.easeOutCubic,
             builder: (_, v, __) => LinearProgressIndicator(
               value: v,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/supabase_service.dart';
 import '../theme.dart';
+import 'motion.dart';
 
 /// Owner account, "Build next": owners vote for the tools they would
 /// like us to make (as many as they like, a tap turns a vote on or
@@ -178,7 +179,7 @@ class _IdeasBoardState extends State<IdeasBoard> {
           }),
           const SizedBox(height: 10),
           AnimatedSwitcher(
-            duration: const Duration(milliseconds: 200),
+            duration: Motion.of(context, const Duration(milliseconds: 200)),
             child: Text(
                 key: ValueKey(_votes),
                 _votes == 0
@@ -254,7 +255,7 @@ class _IdeasBoardState extends State<IdeasBoard> {
         borderRadius: BorderRadius.circular(8),
         onTap: () => _toggle(i),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
+          duration: Motion.of(context, const Duration(milliseconds: 180)),
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             color: on ? Brand.logoTealTint : Brand.surface,
@@ -284,7 +285,7 @@ class _IdeasBoardState extends State<IdeasBoard> {
             ),
             const SizedBox(width: 10),
             AnimatedSwitcher(
-              duration: const Duration(milliseconds: 180),
+              duration: Motion.of(context, const Duration(milliseconds: 180)),
               transitionBuilder: (c, a) => ScaleTransition(scale: a, child: c),
               child: Icon(
                   on ? Icons.check_circle : Icons.radio_button_unchecked,

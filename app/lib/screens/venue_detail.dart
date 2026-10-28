@@ -21,6 +21,7 @@ import '../theme.dart';
 import '../widgets/ui.dart';
 import '../widgets/google_photo.dart';
 import 'auth_screen.dart';
+import '../widgets/motion.dart';
 
 class VenueDetailScreen extends StatefulWidget {
   final Venue venue;
@@ -766,9 +767,8 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
             bottom: 0,
             child: Center(
                 child: _photoArrow(Icons.chevron_left, 'Previous photo',
-                    () => _photoCtl.previousPage(
-                        duration: const Duration(milliseconds: 300),
-                        curve: Curves.easeOutCubic))),
+                    () => Motion.toPage(
+                        context, _photoCtl, _photoIndex - 1))),
           ),
         if (_photos.length > 1 && _photoIndex < _photos.length - 1)
           Positioned(
@@ -777,9 +777,8 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
             bottom: 0,
             child: Center(
                 child: _photoArrow(Icons.chevron_right, 'Next photo',
-                    () => _photoCtl.nextPage(
-                        duration: const Duration(milliseconds: 300),
-                        curve: Curves.easeOutCubic))),
+                    () => Motion.toPage(
+                        context, _photoCtl, _photoIndex + 1))),
           ),
         // dots
         Positioned(
