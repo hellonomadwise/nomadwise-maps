@@ -4917,3 +4917,11 @@ sequence bar, which shows how many are in it now; the separate
 Waiting box at the bottom was the same people counted twice and is
 gone. Tapping a bar (reminders, claim-page signal, review) now opens
 it like the amber boxes.
+Also: "next steps, when it says done, what does that mean. I can't
+take any action in this screen." Each next step now has a Write to
+them button (opens Outreach on that space, as the control centre's
+search does), the list says that ticking means the step is done and
+drops it off, owners still inside the reminder sequence have no step
+(nothing to do by hand), and the steps only name things that exist
+today: no "send the monthly numbers email" while there is no such
+email; a short note from Jonathan instead.

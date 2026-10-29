@@ -9,6 +9,7 @@ import '../services/flow_sound_stub.dart'
 import '../services/supabase_service.dart';
 import '../theme.dart';
 import '../widgets/motion.dart';
+import 'admin_outreach_screen.dart';
 
 /// Owner flow (migration 203): the space-owner journey as a map, top
 /// to bottom, on real numbers.
@@ -301,16 +302,14 @@ class _Owner {
   String get next => switch (stop) {
         'noclaim' => 'Send the "was this you?" email.',
         'never' => 'One personal note from you (not the sequence): what would make it worth logging in?',
-        'waiting' => _n('reminders') == 0
-            ? 'Check reminder 1 goes out on schedule.'
-            : 'Nothing yet; let the sequence finish.',
+        'waiting' => '',
         'left' => _n('unsent') > 0
             ? 'Nudge: "your draft is still waiting, one click to send it".'
             : 'Nudge: one quick edit (wifi, prices, photos).',
         'declined' => 'Tell them what was declined and how to fix it.',
-        'dormant' => 'Send the monthly numbers email.',
+        'dormant' => 'Write to them: ask how the page is working for them, and give them one number (views this month).',
         'active' => 'Premium conversation.',
-        'premium' => 'Keep warm: monthly numbers.',
+        'premium' => 'Write to them: a short check-in, and one number.',
         _ => '',
       };
 }
@@ -786,6 +785,20 @@ class _AdminOwnerFlowScreenState extends State<AdminOwnerFlowScreen>
                 child: Text('→ ${o.next}',
                     style: TextStyle(fontSize: 12.5, color: done ? Brand.inkMuted : Brand.accent, fontWeight: FontWeight.w500)),
               ),
+            if (o.next.isNotEmpty && !done)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: OutlinedButton.icon(
+                  onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => AdminOutreachScreen(initialQuery: o.space))),
+                  icon: const Icon(Icons.send_rounded, size: 15),
+                  label: const Text('Write to them'),
+                  style: OutlinedButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                ),
+              ),
             if (when.isNotEmpty)
               Text(when, style: const TextStyle(fontSize: 11, color: Brand.inkMuted)),
           ]),
@@ -893,6 +906,11 @@ class _AdminOwnerFlowScreenState extends State<AdminOwnerFlowScreen>
             child: Text(_showDone ? 'Hide done' : 'Show done', style: const TextStyle(fontSize: 12)),
           ),
         ]),
+        const Padding(
+          padding: EdgeInsets.only(bottom: 6),
+          child: Text('Write to them opens Outreach on that space. Tick the box once you have done the step; it drops off the list.',
+              style: TextStyle(fontSize: 11.5, color: Brand.inkMuted)),
+        ),
         if (show.isEmpty)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 12),
