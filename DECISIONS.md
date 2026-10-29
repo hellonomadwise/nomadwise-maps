@@ -4905,3 +4905,15 @@ control centre for good ("we can't just have it as an artifact").
   24 h, average under an hour), and the leak is after approval:
   changes go live and most owners do not come back. The lever there is
   the monthly numbers email, not yet built. Premium: nobody paying yet.
+
+Same evening, Jonathan: "there's no tone within nomadmaps, for owner
+flow" and "should there not be 3 spaces held within the reminder
+sequence, showing 3?". Now: a Sound button in the title bar (a high
+piano-like run, one note a hop, a low note at an amber box, a chime
+when a bead lands on Active or Premium; the web only, and only after
+a tap, as browsers insist). And an owner still inside the reminder
+sequence has no result yet, so the bead stops at the Reminder
+sequence bar, which shows how many are in it now; the separate
+Waiting box at the bottom was the same people counted twice and is
+gone. Tapping a bar (reminders, claim-page signal, review) now opens
+it like the amber boxes.

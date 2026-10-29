@@ -4,6 +4,8 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../services/flow_sound_stub.dart'
+    if (dart.library.html) '../services/flow_sound_web.dart' as sound;
 import '../services/supabase_service.dart';
 import '../theme.dart';
 import '../widgets/motion.dart';
@@ -53,7 +55,7 @@ class _Node {
       this.strip = false,
       this.off = false,
       this.result});
-  bool get tappable => block || result != null;
+  bool get tappable => block || bar || result != null;
 }
 
 const double _kH = 30; // box height on the canvas
@@ -79,11 +81,10 @@ const List<_Node> _kNodes = [
   _Node('review', 'YOUR REVIEW', 100, 808, 150, bar: true),
   _Node('approved', 'APPROVED · LIVE', 100, 898, 130, sub: 'CHANGES-LIVE EMAIL'),
   _Node('declined', 'DECLINED', 262, 898, 76, block: true),
-  _Node('premium', 'PREMIUM', 40, 1000, 70, result: 'premium'),
-  _Node('active', 'ACTIVE', 120, 1000, 70, sub: 'COMES BACK', result: 'active'),
-  _Node('dormant', 'DORMANT', 200, 1000, 70, result: 'dormant'),
-  _Node('lost', 'LOST', 280, 1000, 70, result: 'lost'),
-  _Node('waiting', 'WAITING', 355, 1000, 70, sub: 'IN REMINDERS', result: 'waiting'),
+  _Node('premium', 'PREMIUM', 80, 1000, 70, result: 'premium'),
+  _Node('active', 'ACTIVE', 160, 1000, 70, sub: 'COMES BACK', result: 'active'),
+  _Node('dormant', 'DORMANT', 240, 1000, 70, result: 'dormant'),
+  _Node('lost', 'LOST', 320, 1000, 70, result: 'lost'),
 ];
 
 const List<List<String>> _kEdges = [
@@ -96,7 +97,6 @@ const List<List<String>> _kEdges = [
   ['nologin', 'remind'],
   ['remind', 'cc'],
   ['remind', 'never'],
-  ['remind', 'waiting'],
   ['loginnow', 'cc'],
   ['cc', 'updated'],
   ['cc', 'left'],
@@ -135,6 +135,9 @@ const List<(String, double)> _kRows = [
 ];
 
 final Map<String, _Node> _kByKey = {for (final n in _kNodes) n.key: n};
+
+/// A high pentatonic run (C6 D6 E6 G6 A6 C7 D7 E7): one note a hop.
+const List<double> _kScale = [1046.5, 1174.7, 1318.5, 1568, 1760, 2093, 2349.3, 2637];
 
 Path _edgePath(String a, String b) {
   final na = _kByKey[a]!, nb = _kByKey[b]!;
@@ -209,6 +212,22 @@ const Map<String, _Lever> _kLevers = {
   'premium': _Lever(
       'Paying', 'Keep them warm: the monthly numbers, and a reply within a day.',
       [('SYSTEM · MONTHLY NUMBERS EMAIL', true)]),
+  'remind': _Lever(
+      'In the reminder sequence now',
+      'Nothing to do by hand while the sequence runs. Email 1 should give '
+          'one reason to log in now (a stat, a review, a wifi speed to confirm), '
+          'not a generic nudge. After email 3 with no login the owner goes to Never.',
+      [('SYSTEM · REMINDER SEQUENCE', true)]),
+  'followup': _Lever(
+      'The claim-page signal',
+      'Who landed on the claim page and what they did there, dropped into '
+          'the outreach queue so the "was this you?" email is one tap.',
+      [('SYSTEM · SIGNAL CAPTURE', true), ('MANUAL · SEND', false)]),
+  'review': _Lever(
+      'Your review',
+      'Fast today. The risk is the week you are travelling. Auto-approve the '
+          'low-risk fields (wifi, hours, prices) so only text and photos wait.',
+      [('MANUAL · YOU APPROVE', false), ('SYSTEM · AUTO-APPROVE SAFE FIELDS', true)]),
   'lost': _Lever(
       'Gone, for now',
       'Lost at the claim page, or claimed and never logged in after the '
@@ -222,7 +241,14 @@ const Map<String, _Lever> _kLevers = {
 class _Owner {
   final Map<String, dynamic> m;
   final List<String> path;
-  _Owner(this.m) : path = [for (final x in (m['path'] as List? ?? const [])) '$x'];
+  _Owner(this.m)
+      : path = [
+          for (final x in (m['path'] as List? ?? const []))
+            if ('$x' != 'waiting') '$x'
+        ],
+        waiting = (m['path'] as List? ?? const []).contains('waiting');
+  /// Still inside the reminder sequence: no result yet.
+  final bool waiting;
 
   String get email => '${m['email'] ?? ''}';
   String get space => '${m['space'] ?? ''}'.trim().isEmpty ? email : '${m['space']}';
@@ -230,7 +256,7 @@ class _Owner {
   String get city => '${m['city'] ?? ''}';
   String get type => m['type'] == 'cafe' ? 'café' : 'coworking';
   String get src => m['src'] == 'out' ? 'outreach' : 'website';
-  String get end => path.isEmpty ? '' : path.last;
+  String get end => waiting ? 'waiting' : (path.isEmpty ? '' : path.last);
   bool has(String k) => path.contains(k);
   int _n(String k) => (m[k] is num) ? (m[k] as num).toInt() : 0;
   Map<String, dynamic>? get tick =>
@@ -241,7 +267,7 @@ class _Owner {
   String get stop {
     if (has('noclaim')) return 'noclaim';
     if (has('never')) return 'never';
-    if (end == 'waiting') return 'waiting';
+    if (waiting) return 'waiting';
     if (has('left')) return 'left';
     if (has('declined')) return 'declined';
     if (end == 'dormant') return 'dormant';
@@ -320,6 +346,7 @@ class _AdminOwnerFlowScreenState extends State<AdminOwnerFlowScreen>
   int _nextBead = 0;
   double _sinceLaunch = 0; // ms since the last bead set off
   double _speed = 0.5;
+  bool _soundOn = false;
   final Map<String, int> _counts = {}; // box -> beads that reached it
   final Map<String, double> _lit = {}; // box -> ms left glowing
   final Map<String, bool> _slots = {}; // owner email -> finished
@@ -397,6 +424,7 @@ class _AdminOwnerFlowScreenState extends State<AdminOwnerFlowScreen>
         _counts[k] = (_counts[k] ?? 0) + 1;
       }
     }
+    if (o.waiting) _counts['remind'] = (_counts['remind'] ?? 0) + 1;
     final t = _kByKey[o.m['type'] == 'cafe' ? 'cafe' : 'cowork'];
     if (t != null) _counts[t.key] = (_counts[t.key] ?? 0) + 1;
     _slots[o.email] = true;
@@ -429,6 +457,15 @@ class _AdminOwnerFlowScreenState extends State<AdminOwnerFlowScreen>
         b.k = 0;
         final arrived = path[b.seg + 1];
         _lit[arrived] = 700;
+        if (_soundOn) {
+          final nb = _kByKey[arrived]!;
+          final amber = nb.block || nb.result == 'lost' || nb.result == 'dormant';
+          if (amber) {
+            sound.playNote(392, 1.2, .06);
+          } else {
+            sound.playNote(_kScale[b.seg % _kScale.length], .9, .07);
+          }
+        }
         b.seg++;
         if (b.seg >= path.length - 1) _finish(b);
       }
@@ -461,7 +498,16 @@ class _AdminOwnerFlowScreenState extends State<AdminOwnerFlowScreen>
         _counts[k] = (_counts[k] ?? 0) + 1;
       }
     }
+    if (o.waiting) _counts['remind'] = (_counts['remind'] ?? 0) + 1;
     _slots[o.email] = true;
+    if (_soundOn) {
+      if (o.end == 'premium' || o.end == 'active') {
+        final notes = o.end == 'premium' ? [1046.5, 1318.5, 1568.0, 2093.0] : [1046.5, 1568.0];
+        for (var i = 0; i < notes.length; i++) {
+          sound.playNote(notes[i], 2.2, .08, delay: i * .09);
+        }
+      }
+    }
   }
 
   // ---------- ticks ----------
@@ -509,6 +555,13 @@ class _AdminOwnerFlowScreenState extends State<AdminOwnerFlowScreen>
             },
             child: Text('Speed ×${_speed == 0.5 ? '0.5' : _speed.toInt()}'),
           ),
+          IconButton(
+              tooltip: _soundOn ? 'Sound off' : 'Sound on',
+              onPressed: _loading ? null : () {
+                setState(() => _soundOn = !_soundOn);
+                if (_soundOn) sound.playNote(1046.5, .6, .07);
+              },
+              icon: Icon(_soundOn ? Icons.volume_up_outlined : Icons.volume_off_outlined)),
           IconButton(
               tooltip: 'Replay',
               onPressed: _loading ? null : _replay,
@@ -636,7 +689,9 @@ class _AdminOwnerFlowScreenState extends State<AdminOwnerFlowScreen>
 
   Widget _detail(String k) {
     final n = _kByKey[k]!;
-    final rows = _owners.where((o) => o.has(k)).toList();
+    final rows = k == 'remind'
+        ? _owners.where((o) => o.waiting).toList()
+        : _owners.where((o) => o.has(k)).toList();
     final lever = _kLevers[k];
     return _card(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -1003,7 +1058,7 @@ class _FlowPainter extends CustomPainter {
         _text(canvas, n.sub!, Offset(n.x, n.y + 7), 6.8, color: sub, weight: FontWeight.w400, spacing: .8);
       }
       final count = counts[n.key];
-      if (count != null && (n.block || n.result != null || (n.strip && !n.off))) {
+      if (count != null && (n.block || n.result != null || (n.strip && !n.off) || n.key == 'remind')) {
         _text(canvas, '$count', Offset(n.x, n.y + _kH / 2 + 12), 11,
             color: n.block ? Brand.goldTextDark : _flow);
       }
