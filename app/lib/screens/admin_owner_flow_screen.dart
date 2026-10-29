@@ -1,5 +1,5 @@
 import 'dart:math' as math;
-import 'dart:ui' show FontFeature;
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -775,7 +775,7 @@ class _AdminOwnerFlowScreenState extends State<AdminOwnerFlowScreen>
           padding: const EdgeInsets.symmetric(vertical: 3),
           child: Row(children: [
             Expanded(child: Text(k, style: const TextStyle(fontSize: 12.5, color: Brand.inkSecondary))),
-            Text('$v', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: color ?? Brand.ink, fontFeatures: const [FontFeature.tabularFigures()])),
+            Text('$v', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: color ?? Brand.ink, fontFeatures: const [ui.FontFeature.tabularFigures()])),
           ]),
         );
 
@@ -881,7 +881,7 @@ class _FlowPainter extends CustomPainter {
       TextAlign align = TextAlign.center}) {
     final tp = TextPainter(
       text: TextSpan(text: s, style: TextStyle(fontSize: size, color: color, fontWeight: weight, letterSpacing: spacing, fontFamily: 'Roboto')),
-      textDirection: TextDirection.ltr,
+      textDirection: ui.TextDirection.ltr,
       textAlign: align,
     )..layout();
     final dx = align == TextAlign.center ? at.dx - tp.width / 2 : at.dx;
