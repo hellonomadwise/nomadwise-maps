@@ -1995,6 +1995,20 @@ class SupabaseService {
   static List<Map<String, dynamic>> chatRowsOf(Map<String, dynamic> chat) =>
       _chatRows(chat);
 
+  /// Owner flow (migration 203): every real owner with the path they
+  /// took through the map, the claim-page numbers, review speed and
+  /// the ticks.
+  Future<Map<String, dynamic>> adminOwnerFlow() async {
+    final r = await _db.rpc('admin_owner_flow');
+    return r is Map ? Map<String, dynamic>.from(r) : <String, dynamic>{};
+  }
+
+  /// Tick (or untick) an owner's next step on the owner flow.
+  Future<void> adminOwnerFlowTick(String email, bool done, String step) async {
+    await _db.rpc('admin_owner_flow_tick',
+        params: {'p_email': email, 'p_done': done, 'p_step': step});
+  }
+
   /// Sequences (migration 167): each with its switch, its emails, and
   /// the spaces it has to do with and where each stands.
   Future<List<Map<String, dynamic>>> adminSequences() async {

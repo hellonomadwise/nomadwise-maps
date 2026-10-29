@@ -28,6 +28,7 @@ import '../widgets/resubmit_changes.dart';
 import '../widgets/ui.dart';
 import 'admin_analytics_screen.dart';
 import 'admin_chats_screen.dart';
+import 'admin_owner_flow_screen.dart';
 import 'admin_sequences_screen.dart';
 import 'admin_prices_screen.dart';
 import 'admin_pricing_screen.dart';
@@ -1428,6 +1429,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         'outreach' => AdminOutreachScreen(initialQuery: query),
         'chats' => const AdminChatsScreen(),
         'sequences' => const AdminSequencesScreen(),
+        'ownerflow' => const AdminOwnerFlowScreen(),
         'upgrades' => const AdminUpgradesScreen(),
         'prices' => const AdminPricesScreen(),
         'review' => const AdminScreen(),
@@ -1681,6 +1683,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       tool('outreach', Icons.mail_outline, 'Outreach'),
       tool('chats', Icons.forum_outlined, 'Chats'),
       tool('sequences', Icons.timeline_outlined, 'Sequences'),
+      tool('ownerflow', Icons.account_tree_outlined, 'Owner flow'),
       // Creating Country, City and Area pages moved to the Create
       // button at the top right of the control centre (Jonathan,
       // 22 Oct 2026: needed only from there, now and then).
@@ -1762,6 +1765,8 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                       : 'Chats')),
               const PopupMenuItem(
                   value: 'sequences', child: Text('Sequences')),
+              const PopupMenuItem(
+                  value: 'ownerflow', child: Text('Owner flow')),
               const PopupMenuDivider(),
               const PopupMenuItem(
                   value: 'analytics', child: Text('Analytics')),

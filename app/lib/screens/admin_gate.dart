@@ -90,7 +90,7 @@ class _AdminGateState extends State<AdminGate> {
       final s = widget.section;
       const tools = {
         'analytics', 'users', 'pricing', 'outreach', 'upgrades', 'prices',
-        'chats', 'sequences',
+        'chats', 'sequences', 'ownerflow',
       };
       // ?admin=chats (nomadmaps.io/chats, the icon on a founder's
       // phone): the chats and nothing else, so it opens at once

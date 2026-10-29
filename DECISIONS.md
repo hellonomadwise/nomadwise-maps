@@ -4860,3 +4860,48 @@ have no messages yet still there but tucked away. Now:
 - Mark done / Reopen in an open chat (a tick at the top on a phone).
   A new message from either side reopens it by itself.
 - Searching looks through everything, done and not yet written to.
+
+## 29 Oct 2026: the Owner flow (migration 203)
+
+Jonathan, after a reel that animated requests dropping through a map
+of AI models: the space-owner journey drawn the same way, "calm and
+clear and minimalist", on real numbers, "so that I am able to go,
+okay, well, we need to make this particular area better", and "for
+each of the points where we lose them ... what steps we can take to
+push them along". Built first as a Claude page, then moved into the
+control centre for good ("we can't just have it as an artifact").
+
+- Owner flow, a tool in the team menu (and nomadmaps.io/?admin=ownerflow).
+  Top to bottom on every screen (Jonathan prefers it that way on a
+  laptop too), with the numbers and the next steps beside it on a
+  laptop and below it on a phone.
+- The map: lead in (website claim button, or outreach) -> café or
+  coworking (co-living later) -> claim page -> claimed, or No claim ->
+  the claim-page signal and the "was this you?" email -> logs in, or
+  No login -> the reminder sequence -> Owner account ("owner account",
+  not "control centre", which is ours) -> submits an edit, or Looks
+  only -> Your review -> approved and live, or Declined -> Premium,
+  Active (came back), Dormant; plus Waiting (still in reminders) and
+  Lost. Amber boxes are where owners stop. One bead per real owner runs
+  down the map on Replay (speed x0.5 by default, so it can be
+  followed); counts and the fork percentages are from the real
+  owners, team tests left out (owner_flow_team_emails, plus any claim
+  whose owner name says "test"). An edit sent from the email link
+  counts as having been in the Owner account.
+- Tap any amber box or result: who is there (space, person, city,
+  email, when they claimed, last seen, how they came in, what they
+  did), what pushes them along at that stop, tagged MANUAL (Jonathan
+  does it) or SYSTEM (something to build once), and a next step per
+  owner with a tick. Ticks are kept in the database
+  (owner_flow_ticks), so phone and laptop agree.
+- The numbers: claim-page visitors, started a claim, claimed, logged
+  in, submitted an edit, approved, came back, Premium, waiting, lost
+  or dormant; review speed (average hours and how many within 24 h);
+  the biggest leak named. Next steps as an inbox under it (done ones
+  folded away).
+- Paid plan is called Premium (was Plus).
+- What the first real run shows (11 owners since 21 Sep): claiming is
+  strong, 9 of 14 claims log in, review is fast (every edit within
+  24 h, average under an hour), and the leak is after approval:
+  changes go live and most owners do not come back. The lever there is
+  the monthly numbers email, not yet built. Premium: nobody paying yet.
