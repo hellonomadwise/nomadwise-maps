@@ -5487,3 +5487,13 @@ used ease-out curves only and no springs. Changed:
   space (300ms to 220ms), the owner's message card, the Owner account's
   scroll to a part and the owner question card (250-260ms to 220ms).
 New animations use Motion.of(context, ...) and stay under 250ms.
+
+## 29 Oct 2026: the second sign-in reminder, reworded (migration 228)
+
+Jonathan did not like "This is the last reminder we send." in the second
+reminder to an owner who claimed but never signed in. The body now reads:
+"Just checking in on <space>. It looks like you haven't had a chance to sign
+in to your Owner account yet. If something got in the way, reply to this email
+and I will sort it out. Once you are in, you can keep your hours, prices and
+contact details up to date, and add your own photos and description, so
+nomads see <space> at its best." Subject, button and timing unchanged.
