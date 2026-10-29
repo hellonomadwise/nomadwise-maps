@@ -5497,3 +5497,17 @@ in to your Owner account yet. If something got in the way, reply to this email
 and I will sort it out. Once you are in, you can keep your hours, prices and
 contact details up to date, and add your own photos and description, so
 nomads see <space> at its best." Subject, button and timing unchanged.
+
+## 29 Oct 2026: an old message is history, not "They wrote to us"
+
+Ofis Voyvoda (set up by us, Premium) wrote once in Sep 2024 and it was dealt
+with then, yet Outreach put it under "They wrote to us" with Reply. On a space
+we set up, a message older than 60 days now counts as history: the line sits
+under "Set up by us, not claimed" ("Set up by us; last heard from them on
+5 Sep 2024. Tell them about their Owner account."), and its button opens the
+template "Owner account: a space we know". Dates from another year now show
+the year.
+For the six spaces we put on Premium ourselves (DEOS, Monday, Neighbors and
+Nomads, Nomio, Ofis Voyvoda, SOKKOOL), the button opens a new template
+(migration 229), "Owner account: a space we know, already on Premium", which
+tells them they already have Premium instead of offering it.

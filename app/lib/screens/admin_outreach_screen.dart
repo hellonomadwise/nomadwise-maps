@@ -3689,7 +3689,10 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
     if (d.inHours < 24) return d.inHours == 1 ? 'an hour ago' : '${d.inHours} hours ago';
     if (d.inDays == 1) return 'yesterday';
     if (d.inDays < 14) return '${d.inDays} days ago';
-    return 'on ${DateFormat('d MMM').format(at)}';
+    // The year too when it was not this year ("on 5 Sep 2024").
+    return at.year == DateTime.now().year
+        ? 'on ${DateFormat('d MMM').format(at)}'
+        : 'on ${DateFormat('d MMM y').format(at)}';
   }
 
   static String _lasted(int secs) => secs < 90
@@ -4832,6 +4835,10 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
       c['is_test'] == true;
 
   /// Everything that needs us, most urgent first; a line once only.
+  /// A message older than this, on a space we set up, is history
+  /// rather than something to answer.
+  static const _staleWroteDays = 60;
+
   List<_Task> _tasks() {
     final b = _board;
     if (b == null) return const [];
@@ -4926,13 +4933,24 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
     // 4. Set up by us, never claimed.
     for (final c in b['ours'] ?? const <Map<String, dynamic>>[]) {
       if (_wroteSince(c, c['last_in_at'])) continue; // waiting for them
-      if (c['last_in_at'] != null) {
+      final inAt = DateTime.tryParse('${c['last_in_at'] ?? ''}');
+      // A message from them in the last two months still wants an
+      // answer. An old one (Ofis Voyvoda wrote in Sep 2024, and that
+      // was dealt with at the time) is history: the next move is to
+      // tell them about their Owner account (Jonathan, 29 Oct 2026).
+      if (inAt != null &&
+          DateTime.now().difference(inAt).inDays <= _staleWroteDays) {
         add('reply', c,
-            'Wrote to us ${_agoOf(c['last_in_at'])}. Set up by us, not claimed yet.');
+            'Wrote to us ${_ago(inAt.toLocal())}. Set up by us, not claimed yet.');
         continue;
       }
-      add('owner_ready', c,
-          'Set up by us and never claimed. Tell them their Owner account is ready.');
+      add(
+          'owner_ready',
+          c,
+          inAt == null
+              ? 'Set up by us and never claimed. Tell them their Owner account is ready.'
+              : 'Set up by us; last heard from them ${_ago(inAt.toLocal())}. '
+                  'Tell them about their Owner account.');
     }
     return out;
   }
@@ -5087,7 +5105,14 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
         case 'add_address':
           if (p != null) await _openNewPage(p, write: false);
         case 'owner_ready':
-          if (c != null) await _reply(c, template: 'reply_we_know_you');
+          // Already on Premium because we put them on it: the email
+          // says so instead of offering it (migration 229).
+          if (c != null) {
+            await _reply(c,
+                template: '${c['listing_tier'] ?? ''}' == 'verified'
+                    ? 'reply_we_know_you_premium'
+                    : 'reply_we_know_you');
+          }
         default:
           if (c != null) await _reply(c);
       }
