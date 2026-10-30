@@ -74,7 +74,7 @@ const List<_Node> _kNodes = [
   _Node('claimed', 'CLAIMED', 150, 328, 100, sub: 'FREE PROFILE'),
   _Node('loginnow', 'LOGS IN', 100, 428, 100),
   _Node('nologin', 'NO LOGIN', 300, 428, 100),
-  _Node('remind', 'REMINDER SEQUENCE', 300, 518, 170, sub: 'EMAIL 1 · 2 · 3', bar: true),
+  _Node('remind', 'REMINDER SEQUENCE', 290, 518, 210, sub: 'EMAIL 1 · 2 · 3', bar: true),
   _Node('never', 'NEVER', 355, 618, 86, block: true),
   _Node('cc', 'OWNER ACCOUNT', 100, 618, 130),
   _Node('updated', 'SUBMITS EDIT', 100, 718, 120),
@@ -1239,22 +1239,38 @@ class _FlowPainter extends CustomPainter {
       } else {
         canvas.drawRRect(r, sp);
       }
-      _text(canvas, n.label, Offset(n.x, n.y + (n.sub != null ? -4 : 0)), 9.5,
+      final tx = n.key == 'remind' ? n.x - 28 : n.x;
+      _text(canvas, n.label, Offset(tx, n.y + (n.sub != null ? -4 : 0)), 9.5,
           color: text, weight: n.strip ? FontWeight.w500 : FontWeight.w700);
       if (n.sub != null) {
-        _text(canvas, n.sub!, Offset(n.x, n.y + 7), 6.8, color: sub, weight: FontWeight.w400, spacing: .8);
+        _text(canvas, n.sub!, Offset(tx, n.y + 7), 6.8, color: sub, weight: FontWeight.w400, spacing: .8);
       }
       final count = counts[n.key];
       if (count != null && (n.block || n.result != null || (n.strip && !n.off) || n.key == 'remind')) {
-        _text(canvas, '$count', Offset(n.x, n.y + _kH / 2 + 12), 11,
-            color: n.block ? Brand.goldTextDark : _flow);
-        // movement since [against] days ago, beside the count
         final was = prev?[n.key];
-        if (prev != null && !n.strip) {
-          final d = count - (was ?? 0);
+        final d = (prev != null && !n.strip) ? count - (was ?? 0) : 0;
+        final bad = n.block || n.result == 'lost' || n.result == 'dormant';
+        final good = (d > 0) != bad;
+        if (n.key == 'remind') {
+          // held inside the bar: a badge on its right, clear of the line down
+          final label = '$count WAITING';
+          final tp = TextPainter(
+            text: TextSpan(text: label, style: const TextStyle(fontSize: 7.5, color: Colors.white, fontWeight: FontWeight.w700, letterSpacing: .8, fontFamily: 'Roboto')),
+            textDirection: ui.TextDirection.ltr,
+          )..layout();
+          final bw = tp.width + 12, bh = 14.0;
+          final bx = n.x + n.w / 2 - bw - 6, by = n.y - bh / 2;
+          canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(bx, by, bw, bh), const Radius.circular(7)), Paint()..color = _flow);
+          tp.paint(canvas, Offset(bx + 6, by + (bh - tp.height) / 2));
           if (d != 0) {
-            final bad = n.block || n.result == 'lost' || n.result == 'dormant';
-            final good = (d > 0) != bad;
+            _text(canvas, d > 0 ? '+$d' : '$d', Offset(n.x + n.w / 2 + 6, n.y), 7.5,
+                color: good ? Brand.success : Brand.goldTextDark, weight: FontWeight.w600, spacing: 0, align: TextAlign.left);
+          }
+        } else {
+          _text(canvas, '$count', Offset(n.x, n.y + _kH / 2 + 12), 11,
+              color: n.block ? Brand.goldTextDark : _flow);
+          // movement since [against] days ago, beside the count
+          if (d != 0) {
             _text(canvas, d > 0 ? '+$d' : '$d', Offset(n.x + 14, n.y + _kH / 2 + 12), 7.5,
                 color: good ? Brand.success : Brand.goldTextDark, weight: FontWeight.w600, spacing: 0, align: TextAlign.left);
           }
