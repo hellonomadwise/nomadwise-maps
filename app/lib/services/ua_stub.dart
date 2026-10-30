@@ -10,3 +10,9 @@ bool sendBeacon(String url, String body, [Map<String, String>? headers]) =>
 
 /// Off the web: the device setting reaches the app through MediaQuery.
 bool prefersReducedMotion() => false;
+
+/// Off the web: no browser history; the app's own back handles steps.
+bool pushStep(int depth) => false;
+void goHistory(int delta) {}
+void setStepPopHandler(void Function(int? depth)? cb) {}
+int? currentStep() => null;

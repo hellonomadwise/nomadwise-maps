@@ -77,3 +77,58 @@ bool prefersReducedMotion() {
     return false;
   }
 }
+
+// ---- the browser's Back and Forward on a form with steps ----
+
+void Function(int? depth)? _stepPop;
+bool _stepPopWired = false;
+
+/// Web: adds a browser history entry for a step of a form (the claim
+/// page), so the browser's Back goes to the step before instead of
+/// leaving the page. Added while the visitor taps, so Chrome does not
+/// skip it on Back. Marked as the app framework's own kind of entry
+/// ('flutter': true), which it leaves alone. Returns true on the web.
+bool pushStep(int depth) {
+  try {
+    html.window.history.pushState(
+        {'flutter': true, 'claimStep': depth}, '', html.window.location.href);
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+/// Web: moves [delta] entries through the browser history (-1 is Back).
+void goHistory(int delta) => html.window.history.go(delta);
+
+/// Web: [cb] gets the step of the entry the browser moved to with Back
+/// or Forward: the depth given to [pushStep], or null for the page's
+/// own entry. The very first entry ('origin') is the app framework's,
+/// which turns it into a back event of its own, so it is skipped here.
+void setStepPopHandler(void Function(int? depth)? cb) {
+  _stepPop = cb;
+  if (_stepPopWired) return;
+  _stepPopWired = true;
+  // Capturing, so it runs before the app framework's own listener, and
+  // stops these events there: only the origin entry is the framework's
+  // to handle (it turns it into a back event).
+  html.window.addEventListener('popstate', (e) {
+    final s = (e as html.PopStateEvent).state;
+    if (s is! Map || s['flutter'] != true) return;
+    e.stopImmediatePropagation();
+    final d = s['claimStep'];
+    _stepPop?.call(d is num ? d.toInt() : null);
+  }, true);
+}
+
+/// Web: the step depth of the history entry the page is on now (after
+/// a reload, or back from Stripe), or null.
+int? currentStep() {
+  try {
+    final s = html.window.history.state;
+    final d = s is Map ? s['claimStep'] : null;
+    return d is num ? d.toInt() : null;
+  } catch (_) {
+    return null;
+  }
+}

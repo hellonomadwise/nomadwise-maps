@@ -253,6 +253,8 @@ class _ClaimScreenState extends State<ClaimScreen> {
           _ => false,
         });
     _step = _Step.plans;
+    _trail = [_Step.plans];
+    _at = 0;
     _resumed = true;
     return true;
   }
@@ -332,8 +334,30 @@ class _ClaimScreenState extends State<ClaimScreen> {
     });
   }
 
-  /// Every change of step goes through here so it is recorded.
-  void _go(_Step next, {String? how}) {
+  // ---- the browser's Back and Forward ----
+  // Each step forward adds a browser history entry (ua.pushStep), so
+  // the browser's Back goes to the step before (Jonathan, 30 Oct 2026:
+  // Back took him off the page; "we will lose customers if this
+  // happens"). _trail[i] is the step shown at history entry i (0 is
+  // the page's own entry); _at is where the browser is now.
+  List<_Step> _trail = [_Step.find];
+  int _at = 0;
+
+  /// The browser moved to entry [depth] (Back or Forward).
+  void _onHistory(int? depth) {
+    final d = depth ?? 0;
+    if (!mounted || d >= _trail.length) return;
+    setState(() {
+      _error = null;
+      final how = d < _at ? 'back' : 'forward';
+      _at = d;
+      _go(_trail[d], how: how, push: false);
+    });
+  }
+
+  /// Every change of step goes through here so it is recorded. A step
+  /// forward ([push]) also adds a browser history entry.
+  void _go(_Step next, {String? how, bool push = true}) {
     if (next == _step) return;
     _track('claim_step', {
       'to': _stepName(next),
@@ -341,6 +365,13 @@ class _ClaimScreenState extends State<ClaimScreen> {
       if (_spaceName.isNotEmpty) 'space': _spaceName,
     });
     _step = next;
+    if (push) {
+      final trail = [..._trail.take(_at + 1), next];
+      if (ua.pushStep(trail.length - 1)) {
+        _trail = trail;
+        _at = trail.length - 1;
+      }
+    }
     // The draft is saved on the way to payment (_startAndPay), so a
     // visitor brought back here really did reach Stripe.
     if (next == _Step.plans) _ringOnce();
@@ -513,6 +544,12 @@ class _ClaimScreenState extends State<ClaimScreen> {
       _watchField(f.key, f.value);
     }
     ua.setPageHideHandler(_onLeave);
+    ua.setStepPopHandler(_onHistory);
+    // Reloaded (or back from Stripe) on an entry of a later step: go
+    // back to the page's first entry, so _trail and _at match the
+    // browser's history again.
+    final depth = ua.currentStep() ?? 0;
+    if (depth > 0) ua.goHistory(-depth);
     // Ring the phone, unless the visitor is a crawler. From the
     // pricing link it waits until a space is found.
     if (!_fromPricing) _ring(seed);
@@ -545,6 +582,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
   @override
   void dispose() {
     ua.setPageHideHandler(null);
+    ua.setStepPopHandler(null);
     _searchTimer?.cancel();
     _placeTimer?.cancel();
     for (final c in [
@@ -610,7 +648,9 @@ class _ClaimScreenState extends State<ClaimScreen> {
           _step == _Step.find) {
         _picked = exact.first;
         _search.text = '${exact.first['name']}';
-        _go(_Step.plans, how: 'link_matched');
+        // Not a tap, so no history entry (Chrome would skip the one
+        // before it); Back still goes to the search, through PopScope.
+        _go(_Step.plans, how: 'link_matched', push: false);
       }
     });
   }
@@ -760,6 +800,8 @@ class _ClaimScreenState extends State<ClaimScreen> {
         'new_space': _picked == null,
       });
       if (!mounted) return;
+      // Our step entries go, so Back from the thank-you page leaves.
+      if (_at > 0) ua.goHistory(-_at);
       Navigator.of(context).pushReplacement(MaterialPageRoute(
           builder: (_) => const ClaimedScreen(free: true)));
     } catch (e) {
@@ -802,7 +844,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
     return PopScope(
       canPop: _step == _Step.find,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _back();
+        if (!didPop) _backHere();
       },
       child: Scaffold(
       backgroundColor: Brand.bg,
@@ -859,7 +901,21 @@ class _ClaimScreenState extends State<ClaimScreen> {
     );
   }
 
+  /// The arrow: the browser's Back while there are entries of ours to
+  /// go back through (they stay in step), else straight to the step
+  /// before.
   void _back() {
+    if (_at > 0) {
+      ua.goHistory(-1);
+      return;
+    }
+    _backHere();
+  }
+
+  /// Back one step without the browser history: in the app, and from
+  /// the page's own entry (a phone's back gesture, or a draft brought
+  /// back on a step after the first).
+  void _backHere() {
     setState(() {
       _error = null;
       _go(
@@ -869,7 +925,10 @@ class _ClaimScreenState extends State<ClaimScreen> {
             _Step.addSpace => _Step.find,
             _Step.find => _Step.find,
           },
-          how: 'back');
+          how: 'back',
+          push: false);
+      _trail = [_step];
+      _at = 0;
     });
   }
 
@@ -1407,10 +1466,17 @@ class _ClaimScreenState extends State<ClaimScreen> {
 
   /// Back to finding the space (or adding it), from steps two and three.
   void _changeSpace() {
+    final target = _picked != null ? _Step.find : _Step.addSpace;
+    _resumed = false;
+    // Back through the browser history to that step, when it is there.
+    final i = _trail.take(_at + 1).toList().lastIndexOf(target);
+    if (i >= 0 && i < _at) {
+      ua.goHistory(i - _at);
+      return;
+    }
     setState(() {
       _error = null;
-      _resumed = false;
-      _go(_picked != null ? _Step.find : _Step.addSpace, how: 'change_space');
+      _go(target, how: 'change_space');
     });
   }
 

@@ -5617,3 +5617,9 @@ The browser's Back button now goes to the step before, as the arrow does,
 instead of leaving the page (Jonathan, 30 Oct: Back on Your details took him to
 nomadwise.io; "we will lose customers if this happens"). Only on step one does
 Back leave the page. (PopScope on the claim page.)
+Tested live: the first Back worked, the second left the site. Chrome skips
+history entries a page adds without a tap, and the app framework's own entry is
+added that way. So each step forward now adds its own browser history entry
+while the visitor taps (ua.pushStep), and Back and Forward move through the
+steps: Your details, the plans, Find your space, then off the page. The arrow
+on the page uses the same history, so the two never disagree.
