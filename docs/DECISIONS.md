@@ -5545,3 +5545,22 @@ the claim page with the plan, and for Premium the period and currency, already
 chosen (ClaimScreen plan/period/currency, also &plan= &period= &currency=). The
 plan lists are now shared by the claim page and the pricing page
 (planFreeGets, planPremiumAdds in widgets/pricing_picker.dart).
+On a laptop the pricing page now fits without scrolling (Jonathan, 30 Oct:
+"it would be good if it could all fit in top fold"): a shorter heading, the
+country picker and Monthly / Yearly on one line, tighter cards. The
+"nomadwise.io" name at the top is one colour (the .io is no longer red).
+
+## 30 Oct 2026: Get Premium is a path of its own
+
+Jonathan: someone who pressed Get Premium on the pricing page should not be
+shown Free again ("this could steer them away"). From Get Premium, the claim
+page shows only Premium: "Your plan: Premium" under the search on steps one and
+two, and the Premium card alone with its price and pay button on the last step.
+A quiet "Prefer to claim for free?" link under it brings both plans back, so it
+is never a dead end. On that path the optional website, Instagram and note are
+folded behind "Add your website, Instagram or a note (optional)". The phone
+number stays required (Jonathan: "lets make it compulsory and see"). Get Free
+from the pricing page keeps both plans, as before.
+In Outreach, a space whose claim page was opened this way says "after choosing
+Premium on the pricing page" (from=pricing_premium; pricing_free for Free), so
+these warm leads stand out under "They showed interest".

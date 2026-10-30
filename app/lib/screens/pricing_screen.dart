@@ -87,6 +87,9 @@ class _PricingScreenState extends State<PricingScreen> {
     });
     Navigator.of(context).push(MaterialPageRoute(
         builder: (_) => ClaimScreen(
+              // Shown in Outreach: "after choosing Premium on the
+              // pricing page".
+              from: 'pricing_$plan',
               plan: plan,
               period: plan == 'premium' ? p?.period : null,
               currency: plan == 'premium' ? p?.currency : null,
@@ -107,7 +110,10 @@ class _PricingScreenState extends State<PricingScreen> {
             _topBar(wide),
             Expanded(
               child: SingleChildScrollView(
-                padding: EdgeInsets.fromLTRB(side, wide ? 48 : 24, side, 40),
+                // Wide: everything fits above the fold on a laptop
+                // (Jonathan, 30 Oct 2026: "it would be good if it could
+                // all fit in top fold").
+                padding: EdgeInsets.fromLTRB(side, wide ? 20 : 24, side, wide ? 20 : 40),
                 child: Center(
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 940),
@@ -117,20 +123,19 @@ class _PricingScreenState extends State<PricingScreen> {
                             : CrossAxisAlignment.stretch,
                         children: [
                           _heading(wide),
-                          SizedBox(height: wide ? 28 : 20),
+                          SizedBox(height: wide ? 16 : 20),
                           _picker(wide),
-                          SizedBox(height: wide ? 40 : 28),
+                          SizedBox(height: wide ? 26 : 28),
                           _plans(wide),
-                          const SizedBox(height: 28),
+                          SizedBox(height: wide ? 14 : 28),
                           Text(
-                              'Both buttons take you to your space, with your '
-                              'plan already chosen. You pay the price for the '
-                              'country your space is in. Already claimed your '
-                              'page? Get Premium from your Owner account.',
+                              'You pay the price for the country your space is '
+                              'in. Already claimed your page? Get Premium from '
+                              'your Owner account.',
                               textAlign:
                                   wide ? TextAlign.center : TextAlign.start,
                               style: const TextStyle(
-                                  fontSize: 13.5,
+                                  fontSize: 13,
                                   height: 1.5,
                                   color: Brand.inkSecondary)),
                         ]),
@@ -145,17 +150,15 @@ class _PricingScreenState extends State<PricingScreen> {
   }
 
   Widget _topBar(bool wide) => Container(
-        height: wide ? 64 : 56,
+        height: wide ? 52 : 56,
         padding: EdgeInsets.symmetric(horizontal: wide ? 40 : 16),
         decoration: const BoxDecoration(
             color: Brand.surface,
             border: Border(bottom: BorderSide(color: Brand.border))),
         child: Row(children: [
-          const Text.rich(
-              TextSpan(children: [
-                TextSpan(text: 'nomadwise'),
-                TextSpan(text: '.io', style: TextStyle(color: Brand.red)),
-              ]),
+          // All one colour (Jonathan, 30 Oct 2026: the .io should not
+          // be red).
+          const Text('nomadwise.io',
               style: TextStyle(
                   fontSize: 19,
                   fontWeight: FontWeight.w800,
@@ -176,32 +179,21 @@ class _PricingScreenState extends State<PricingScreen> {
           crossAxisAlignment:
               wide ? CrossAxisAlignment.center : CrossAxisAlignment.start,
           children: [
-            const Text('PRICING',
-                style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.2,
-                    color: Brand.inkSecondary)),
-            const SizedBox(height: 8),
             Text('Free to be on Nomadwise. Premium to stand out.',
                 textAlign: wide ? TextAlign.center : TextAlign.start,
                 style: TextStyle(
-                    fontSize: wide ? 40 : 27,
+                    fontSize: wide ? 32 : 27,
                     height: 1.2,
                     fontWeight: FontWeight.w800,
                     letterSpacing: -0.5,
                     color: Brand.ink)),
-            const SizedBox(height: 10),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 640),
-              child: Text(
-                  'Every coworking space and laptop-friendly cafe can claim '
-                  'its page for free. Premium is optional, monthly or yearly, '
-                  'and you can cancel any time.',
-                  textAlign: wide ? TextAlign.center : TextAlign.start,
-                  style: const TextStyle(
-                      fontSize: 16, height: 1.5, color: Brand.inkSecondary)),
-            ),
+            const SizedBox(height: 6),
+            Text(
+                'Claiming your page is free. Premium is optional, monthly or '
+                'yearly, and you can cancel any time.',
+                textAlign: wide ? TextAlign.center : TextAlign.start,
+                style: const TextStyle(
+                    fontSize: 15, height: 1.5, color: Brand.inkSecondary)),
           ]);
 
   /// "Where is your space?" first, then Monthly / Yearly (and the
@@ -215,7 +207,7 @@ class _PricingScreenState extends State<PricingScreen> {
             style: TextStyle(fontSize: 13.5, color: Brand.red))
         : LayoutBuilder(
             builder: (context, c) => DropdownMenu<String>(
-                  width: wide ? 340 : c.maxWidth,
+                  width: wide ? 300 : c.maxWidth,
                   menuHeight: 360,
                   enableFilter: true,
                   requestFocusOnTap: true,
@@ -228,43 +220,42 @@ class _PricingScreenState extends State<PricingScreen> {
                   ],
                   onSelected: _pickCountry,
                 ));
-    final where = Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('Where is your space?',
-              style: TextStyle(
-                  fontSize: 14, fontWeight: FontWeight.w700, color: Brand.ink)),
-          const SizedBox(height: 8),
-          dropdown,
-        ]);
-    final pay = p == null
-        ? null
+    const whereLabel = Text('Where is your space?',
+        style: TextStyle(
+            fontSize: 14, fontWeight: FontWeight.w700, color: Brand.ink));
+    final where = wide
+        ? Row(mainAxisSize: MainAxisSize.min, children: [
+            whereLabel,
+            const SizedBox(width: 12),
+            dropdown,
+          ])
         : Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
+            children: [whereLabel, const SizedBox(height: 8), dropdown]);
+    final pay = p == null
+        ? null
+        : Wrap(
+            spacing: 16,
+            runSpacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-                const Text('Pay',
-                    style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: Brand.ink)),
-                const SizedBox(height: 4),
                 PeriodToggle(
                     choice: p, onChanged: (c) => setState(() => _pricing = c)),
                 CurrencyPicker(
                     choice: p, onChanged: (c) => setState(() => _pricing = c)),
               ]);
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: EdgeInsets.symmetric(
+          horizontal: wide ? 16 : 18, vertical: wide ? 10 : 18),
       decoration: BoxDecoration(
           color: Brand.surface,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: Brand.border)),
       child: Wrap(
           spacing: 32,
-          runSpacing: 16,
-          crossAxisAlignment: WrapCrossAlignment.end,
+          runSpacing: 12,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [where, if (pay != null) pay]),
     );
   }
@@ -285,12 +276,12 @@ class _PricingScreenState extends State<PricingScreen> {
       child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Expanded(
             child: Padding(
-                padding: const EdgeInsets.only(top: 16), child: free)),
+                padding: const EdgeInsets.only(top: 10), child: free)),
         const SizedBox(width: 32),
         // The pick, raised.
         Expanded(
             child: Transform.translate(
-                offset: const Offset(0, -12), child: premium)),
+                offset: const Offset(0, -6), child: premium)),
       ]),
     );
   }
@@ -302,13 +293,15 @@ class _PricingScreenState extends State<PricingScreen> {
           letterSpacing: 1.2,
           color: premium ? const Color(0xFFC42A33) : Brand.inkSecondary));
 
-  Widget _bigPrice(String amount, {String? unit, String? was}) => Wrap(
+  Widget _bigPrice(String amount,
+          {String? unit, String? was, double size = 52}) =>
+      Wrap(
           crossAxisAlignment: WrapCrossAlignment.end,
           spacing: 8,
           children: [
             Text(amount,
-                style: const TextStyle(
-                    fontSize: 52,
+                style: TextStyle(
+                    fontSize: size,
                     height: 1,
                     fontWeight: FontWeight.w800,
                     letterSpacing: -1,
@@ -332,7 +325,7 @@ class _PricingScreenState extends State<PricingScreen> {
           ]);
 
   Widget _freeCard(bool wide) => Container(
-        padding: const EdgeInsets.all(28),
+        padding: EdgeInsets.all(wide ? 22 : 28),
         decoration: BoxDecoration(
             color: Brand.surface,
             borderRadius: BorderRadius.circular(18),
@@ -342,29 +335,32 @@ class _PricingScreenState extends State<PricingScreen> {
           const SizedBox(height: 8),
           Align(
               alignment: Alignment.centerLeft,
-              child: _bigPrice(_pricing == null
-                  ? 'Free'
-                  : formatMoney(0, _pricing!.currency))),
-          const SizedBox(height: 8),
+              child: _bigPrice(
+                  _pricing == null
+                      ? 'Free'
+                      : formatMoney(0, _pricing!.currency),
+                  size: wide ? 44 : 52)),
+          const SizedBox(height: 6),
           const Text('Where every space starts. No card needed.',
               style: TextStyle(fontSize: 14, color: Brand.inkSecondary)),
-          const SizedBox(height: 18),
+          SizedBox(height: wide ? 14 : 18),
           OutlinedButton(
             onPressed: () => _toClaim('free'),
             style: OutlinedButton.styleFrom(
-                minimumSize: const Size.fromHeight(48),
+                minimumSize: Size.fromHeight(wide ? 44 : 48),
                 foregroundColor: Brand.ink,
                 side: const BorderSide(color: Brand.ink, width: 1.5),
                 textStyle: const TextStyle(
                     fontSize: 15, fontWeight: FontWeight.w700)),
             child: const Text('Claim your page free'),
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: wide ? 14 : 20),
           const Text('What you get:',
               style: TextStyle(
-                  fontSize: 14, fontWeight: FontWeight.w700, color: Brand.ink)),
-          const SizedBox(height: 12),
-          for (final t in planFreeGets) PlanFeatureRow(t, fontSize: 15),
+                  fontSize: 13.5, fontWeight: FontWeight.w700, color: Brand.ink)),
+          SizedBox(height: wide ? 10 : 12),
+          for (final t in planFreeGets)
+            PlanFeatureRow(t, fontSize: wide ? 14 : 15),
         ]),
       );
 
@@ -378,7 +374,7 @@ class _PricingScreenState extends State<PricingScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SizedBox(
-              height: 52,
+              height: wide ? 44 : 52,
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
@@ -393,7 +389,7 @@ class _PricingScreenState extends State<PricingScreen> {
                         color: Brand.inkMuted)),
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             const Text('Prices are set per country, in your currency.',
                 style: TextStyle(fontSize: 14, color: Brand.inkSecondary)),
           ]);
@@ -408,8 +404,9 @@ class _PricingScreenState extends State<PricingScreen> {
                 unit: yearly ? '/year' : '/month',
                 was: yearly && m * 12 > y
                     ? formatMoney(m * 12, p.currency)
-                    : null),
-            const SizedBox(height: 8),
+                    : null,
+                size: wide ? 44 : 52),
+            const SizedBox(height: 6),
             Text(
                 yearly
                     ? 'Works out at ${formatMoney((y / 12).round(), p.currency)} a '
@@ -421,7 +418,9 @@ class _PricingScreenState extends State<PricingScreen> {
     }
     return Stack(clipBehavior: Clip.none, children: [
       Container(
-        padding: const EdgeInsets.fromLTRB(28, 30, 28, 28),
+        padding: wide
+            ? const EdgeInsets.fromLTRB(22, 24, 22, 22)
+            : const EdgeInsets.fromLTRB(28, 30, 28, 28),
         decoration: BoxDecoration(
             color: Brand.surface,
             borderRadius: BorderRadius.circular(18),
@@ -447,23 +446,23 @@ class _PricingScreenState extends State<PricingScreen> {
                   alignment: Alignment.topLeft,
                   children: [...prev, if (cur != null) cur]),
               child: price),
-          const SizedBox(height: 18),
+          SizedBox(height: wide ? 14 : 18),
           FilledButton(
             onPressed: () => _toClaim('premium'),
             style: FilledButton.styleFrom(
-                minimumSize: const Size.fromHeight(48),
+                minimumSize: Size.fromHeight(wide ? 44 : 48),
                 backgroundColor: Brand.red,
                 textStyle: const TextStyle(
                     fontSize: 15, fontWeight: FontWeight.w700)),
             child: const Text('Get Premium'),
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: wide ? 14 : 20),
           const Text('Everything in Free, plus:',
               style: TextStyle(
-                  fontSize: 14, fontWeight: FontWeight.w700, color: Brand.ink)),
-          const SizedBox(height: 12),
+                  fontSize: 13.5, fontWeight: FontWeight.w700, color: Brand.ink)),
+          SizedBox(height: wide ? 10 : 12),
           for (final t in planPremiumAdds)
-            PlanFeatureRow(t, extra: true, fontSize: 15),
+            PlanFeatureRow(t, extra: true, fontSize: wide ? 14 : 15),
         ]),
       ),
       Positioned(

@@ -119,6 +119,18 @@ class _ClaimScreenState extends State<ClaimScreen> {
 
   bool _sending = false;
 
+  // From the pricing page's Get Premium (Jonathan, 30 Oct 2026: "the
+  // user has already chosen get premium, so why do they need to see
+  // free again"): only Premium is shown, until they ask for the free
+  // plan with the quiet link on the last step.
+  bool _showFree = false;
+  bool get _premiumOnly =>
+      (widget.plan == 'premium' || widget.plan == 'verified') && !_showFree;
+
+  // The optional website, Instagram and note, folded away on the
+  // Premium path so the form is shorter before payment.
+  bool _showExtras = false;
+
   // What Verified costs here (migration 115): loaded for the space's
   // country, with the monthly/yearly and currency choices on it.
   PricingChoice? _pricing;
@@ -470,6 +482,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
     _track('claim_opened', {
       'seed': seed,
       'from': widget.from,
+      if (widget.plan != null) 'plan': widget.plan,
       'referrer': ua.referrer(),
       'device': ua.deviceKind(),
     });
@@ -1160,6 +1173,21 @@ class _ClaimScreenState extends State<ClaimScreen> {
           );
         },
       ),
+      if (_premiumOnly &&
+          !_showExtras &&
+          _siteUrl.text.trim().isEmpty &&
+          _instagram.text.trim().isEmpty &&
+          _note.text.trim().isEmpty) ...[
+        const SizedBox(height: 8),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+              onPressed: () => setState(() => _showExtras = true),
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text(
+                  'Add your website, Instagram or a note (optional)')),
+        ),
+      ] else ...[
       const SizedBox(height: 16),
       _pair(
         wide,
@@ -1195,6 +1223,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
           textCapitalization: TextCapitalization.sentences,
           decoration: _field('Anything we should know? (optional)',
               hint: 'Day pass price, opening hours, a correction...')),
+      ],
       Offstage(
           offstage: true,
           child: TextField(controller: _website, autofocus: false)),
@@ -1344,8 +1373,11 @@ class _ClaimScreenState extends State<ClaimScreen> {
               _resumed
                   ? 'Nothing was charged. Your details are still here, so '
                       'pick a plan when you are ready.'
-                  : 'Claiming is free. Premium is optional, and you can add '
-                      'it now or later from your Owner account.',
+                  : _premiumOnly
+                      ? 'Premium for $_spaceName, monthly or yearly. Cancel '
+                          'any time.'
+                      : 'Claiming is free. Premium is optional, and you can add '
+                          'it now or later from your Owner account.',
               style: TextStyle(
                   color: Brand.inkSecondary,
                   fontSize: wide ? 16 : 14.5,
@@ -1392,16 +1424,32 @@ class _ClaimScreenState extends State<ClaimScreen> {
                 const SizedBox(height: 14),
                 Text(
                     _alreadyPublished
-                        ? 'Either way, we first check you are with the team '
-                            'at $_spaceName, then the page is yours to manage.'
-                        : 'Either way, your space joins our publishing queue '
-                            'and we email you when the page is live. We first '
-                            'check you are with the team, then it is yours to '
-                            'manage.',
+                        ? '${_premiumOnly ? 'We' : 'Either way, we'} first '
+                            'check you are with the team at $_spaceName, then '
+                            'the page is yours to manage.'
+                        : '${_premiumOnly ? 'Your' : 'Either way, your'} space '
+                            'joins our publishing queue and we email you when '
+                            'the page is live. We first check you are with the '
+                            'team, then it is yours to manage.',
                     style: TextStyle(
                         color: Brand.inkSecondary,
                         fontSize: wide ? 14.5 : 13.5,
                         height: 1.5)),
+                // Not a dead end, but quiet: they chose Premium.
+                if (_premiumOnly)
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton(
+                        onPressed: () {
+                          _track('claim_show_free');
+                          setState(() => _showFree = true);
+                        },
+                        style: TextButton.styleFrom(
+                            padding: EdgeInsets.zero,
+                            foregroundColor: Brand.inkMuted,
+                            textStyle: const TextStyle(fontSize: 13)),
+                        child: const Text('Prefer to claim for free?')),
+                  ),
               ]),
         ),
       ],
@@ -1709,6 +1757,15 @@ class _ClaimScreenState extends State<ClaimScreen> {
       button: buttons ? _payButton() : null,
     );
 
+    if (_premiumOnly) {
+      return wide
+          ? Align(
+              alignment: Alignment.centerLeft,
+              child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 520),
+                  child: IntrinsicHeight(child: verified)))
+          : verified;
+    }
     final cards = wide
         ? IntrinsicHeight(
             child:
@@ -1737,23 +1794,28 @@ class _ClaimScreenState extends State<ClaimScreen> {
       Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
           Expanded(
-            child: Text('Two ways to be on Nomadwise',
+            child: Text(
+                _premiumOnly ? 'Your plan: Premium' : 'Two ways to be on Nomadwise',
                 style: TextStyle(
                     fontWeight: FontWeight.w800,
                     fontSize: wide ? 20 : 18,
                     letterSpacing: -0.3)),
           ),
-          Text('Tap one to choose',
-              style: TextStyle(
-                  fontSize: wide ? 13 : 12.5, color: Brand.inkMuted)),
+          if (!_premiumOnly)
+            Text('Tap one to choose',
+                style: TextStyle(
+                    fontSize: wide ? 13 : 12.5, color: Brand.inkMuted)),
         ]),
         SizedBox(height: wide ? 14 : 12),
         _planCards(wide, buttons: false),
         const SizedBox(height: 12),
         Text(
-            'Claiming is free. Premium can be added when you claim or any time '
-            'later from your Owner account, monthly or yearly, cancel any '
-            'time.',
+            _premiumOnly
+                ? 'Find your space above. Your price for its country is shown '
+                    'on the last step, before you pay. Cancel any time.'
+                : 'Claiming is free. Premium can be added when you claim or any '
+                    'time later from your Owner account, monthly or yearly, '
+                    'cancel any time.',
             style: TextStyle(
                 fontSize: wide ? 14 : 13.5,
                 height: 1.5,

@@ -3723,7 +3723,11 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
           '${opens > 1 ? ' ($opens times${visitors > 1 ? ', $visitors visitors' : ''})' : ''}',
       '$far${secs >= 5 ? ' after ${_lasted(secs)}' : ''}',
       // (a claim link we sent says so: from=whatsapp, from=email)
-      if (sentVia == 'whatsapp')
+      if (sentVia == 'pricing_premium')
+        'after choosing Premium on the pricing page'
+      else if (sentVia == 'pricing_free')
+        'from the pricing page (Free)'
+      else if (sentVia == 'whatsapp')
         'through our WhatsApp message'
       else if (sentVia == 'email')
         'through our email'
