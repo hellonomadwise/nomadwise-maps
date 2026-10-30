@@ -82,10 +82,10 @@ const List<_Node> _kNodes = [
   _Node('review', 'YOUR REVIEW', 100, 808, 150, bar: true),
   _Node('approved', 'APPROVED · LIVE', 100, 898, 130, sub: 'CHANGES-LIVE EMAIL'),
   _Node('declined', 'DECLINED', 262, 898, 76, block: true),
-  _Node('premium', 'PREMIUM', 80, 1000, 70, result: 'premium'),
-  _Node('active', 'ACTIVE', 160, 1000, 70, sub: 'COMES BACK', result: 'active'),
-  _Node('dormant', 'DORMANT', 240, 1000, 70, result: 'dormant'),
-  _Node('lost', 'LOST', 320, 1000, 70, result: 'lost'),
+  _Node('premium', 'PREMIUM', 80, 985, 70, result: 'premium'),
+  _Node('active', 'ACTIVE', 160, 985, 70, sub: 'COMES BACK', result: 'active'),
+  _Node('dormant', 'DORMANT', 240, 985, 70, result: 'dormant'),
+  _Node('lost', 'LOST', 320, 985, 70, result: 'lost'),
 ];
 
 const List<List<String>> _kEdges = [
@@ -120,8 +120,8 @@ const Map<String, double> _kVia = {
   'web>claim': 195,
   'out>claim': 195,
   'followup>lost': 378,
-  'left>dormant': 955,
-  'never>lost': 960,
+  'left>dormant': 940,
+  'never>lost': 945,
 };
 
 /// Row labels down the left.
@@ -132,7 +132,7 @@ const List<(String, double)> _kRows = [
   ('LOG IN', 407),
   ('USE', 597),
   ('REVIEW', 787),
-  ('RESULT', 979),
+  ('RESULT', 964),
 ];
 
 final Map<String, _Node> _kByKey = {for (final n in _kNodes) n.key: n};
@@ -752,7 +752,7 @@ class _AdminOwnerFlowScreenState extends State<AdminOwnerFlowScreen>
           return Center(
             child: SizedBox(
               width: w,
-              height: 1100 * scale,
+              height: 1135 * scale,
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTapUp: (d) {
@@ -1136,9 +1136,9 @@ class _FlowPainter extends CustomPainter {
     // faint grid, as on the page
     final grid = Paint()..color = const Color(0x0A142032)..strokeWidth = .6;
     for (double x = 0; x <= 400; x += 40) {
-      canvas.drawLine(Offset(x, 0), Offset(x, 1100), grid);
+      canvas.drawLine(Offset(x, 0), Offset(x, 1135), grid);
     }
-    for (double y = 0; y <= 1100; y += 40) {
+    for (double y = 0; y <= 1135; y += 40) {
       canvas.drawLine(Offset(0, y), Offset(400, y), grid);
     }
 
@@ -1298,13 +1298,13 @@ class _FlowPainter extends CustomPainter {
     }
 
     // the whole dataset: one small square per owner, and the totals
-    _text(canvas, footer, const Offset(20, 1035), 7, color: Brand.inkMuted, weight: FontWeight.w600, spacing: 1, align: TextAlign.left);
+    _text(canvas, footer, const Offset(20, 1062), 7, color: Brand.inkMuted, weight: FontWeight.w600, spacing: 1, align: TextAlign.left);
     final rows = (slots.length / 24).ceil();
     if (prev != null) {
-      _text(canvas, 'GREEN AND AMBER FIGURES: CHANGE SINCE $against DAYS AGO', Offset(20, 1045 + rows * 15.0 + 8), 6.2, color: Brand.inkFaint, weight: FontWeight.w500, spacing: 1, align: TextAlign.left);
+      _text(canvas, 'GREEN AND AMBER FIGURES: CHANGE SINCE $against DAYS AGO', Offset(20, 1076 + rows * 15.0 + 10), 6.2, color: Brand.inkFaint, weight: FontWeight.w500, spacing: 1, align: TextAlign.left);
     }
     for (var i = 0; i < slots.length; i++) {
-      final r = Rect.fromLTWH(20 + (i % 24) * 15.0, 1045 + (i ~/ 24) * 15.0, 11, 11);
+      final r = Rect.fromLTWH(20 + (i % 24) * 15.0, 1076 + (i ~/ 24) * 15.0, 11, 11);
       final rr = RRect.fromRectAndRadius(r, const Radius.circular(2));
       final end = slots[i];
       Color? fill;
