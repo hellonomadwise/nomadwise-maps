@@ -3708,7 +3708,9 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
     final secs = n('secs');
     final far = switch (n('furthest')) {
       3 => 'got as far as choosing a plan',
-      2 => 'began filling in their details',
+      // Since 30 Oct 2026 the plans come before the details (migration
+      // 233): 2 is "saw the plans", 3 "chose one".
+      2 => 'got as far as the plans and prices',
       1 => 'began adding a space',
       _ => 'looked and left',
     };
@@ -3727,6 +3729,8 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
         'after choosing Premium on the pricing page'
       else if (sentVia == 'pricing_free')
         'from the pricing page (Free)'
+      else if (sentVia == 'pricing')
+        'from the pricing page'
       else if (sentVia == 'whatsapp')
         'through our WhatsApp message'
       else if (sentVia == 'email')

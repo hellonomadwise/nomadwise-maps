@@ -13,9 +13,8 @@ import '../services/ua_stub.dart' if (dart.library.html) '../services/ua_web.dar
 import '../theme.dart';
 import '../widgets/phone_field.dart';
 import '../widgets/pricing_picker.dart';
-import '../widgets/ui.dart' show PlanFeatureRow;
+import '../widgets/pricing_plans.dart';
 import '../widgets/email_typo_hint.dart';
-import '../widgets/motion.dart';
 
 /// Claim your space: the owner's way in.
 ///
@@ -46,7 +45,7 @@ class ClaimScreen extends StatefulWidget {
   final String? email;
 
   /// From the pricing page (&plan=premium|free, &period=monthly|yearly,
-  /// &currency=USD): the plan already chosen on step three. The price
+  /// &currency=USD): the plan to lead with. The price
   /// itself still comes from the claimed space's country.
   final String? plan;
   final String? period;
@@ -63,7 +62,10 @@ class ClaimScreen extends StatefulWidget {
   State<ClaimScreen> createState() => _ClaimScreenState();
 }
 
-enum _Step { find, addSpace, about, pay }
+// Jonathan, 30 Oct 2026: find your space first, then the pricing page
+// (Free and Premium, priced for the space's country), then your
+// details, whose button claims for free or goes on to payment.
+enum _Step { find, addSpace, plans, about }
 
 /// Below this the page is one column, above it two.
 const double _wideAt = 900;
@@ -119,32 +121,33 @@ class _ClaimScreenState extends State<ClaimScreen> {
 
   bool _sending = false;
 
-  // From the pricing page's Get Premium (Jonathan, 30 Oct 2026: "the
-  // user has already chosen get premium, so why do they need to see
-  // free again"): only Premium is shown, until they ask for the free
-  // plan with the quiet link on the last step.
-  bool _showFree = false;
-  bool get _premiumOnly =>
-      (widget.plan == 'premium' || widget.plan == 'verified') && !_showFree;
-
   // The optional website, Instagram and note, folded away on the
   // Premium path so the form is shorter before payment.
   bool _showExtras = false;
+
+  // Opened from the pricing link: the phone is rung once a space is
+  // found (step two), not for every look at the pricing page.
+  bool get _fromPricing => widget.from == 'pricing';
+  bool _rang = false;
 
   // What Verified costs here (migration 115): loaded for the space's
   // country, with the monthly/yearly and currency choices on it.
   PricingChoice? _pricing;
   String _pricingCountry = '\u0000';
+  bool _pricingFailed = false;
 
-  /// The plan picked on the overview cards ('free' or 'verified').
-  /// Free to start with; step three leads with whichever is chosen,
-  /// and both buttons stay there, so the choice is never final.
+  /// The plan chosen on step two ('free' or 'verified'). Back from
+  /// Your details, both are there again, so the choice is never final.
   String _plan = 'free';
 
+  /// A button on step two: the plan, then Your details.
   void _choosePlan(String plan) {
-    if (plan == _plan) return;
-    setState(() => _plan = plan);
     _track('claim_plan_pick', {'plan': plan});
+    setState(() {
+      _plan = plan;
+      _error = null;
+      _go(_Step.about, how: plan == 'verified' ? 'premium' : 'free');
+    });
   }
 
   // ---- the draft: back from Stripe with everything still here ----
@@ -156,7 +159,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
 
   /// True when the visitor came back from Stripe's Cancel button
   /// (&cancelled=1 on the return link) or the browser's Back, with a
-  /// draft to pick up: a line on step three says nothing was charged.
+  /// draft to pick up: a line on step two says nothing was charged.
   bool _resumed = false;
 
   Map<String, dynamic> _draft() => {
@@ -190,12 +193,8 @@ class _ClaimScreenState extends State<ClaimScreen> {
         'currency': _pricing?.currency,
       };
 
-  void _saveDraft() {
-    if (_picked == null && _pickedPlace == null) return;
-    SupabaseService.saveClaimDraft(_draft());
-  }
-
-  /// Puts a saved draft back and opens step three. Returns false when
+  /// Puts a saved draft back and opens the plans (step two), with a
+  /// line that nothing was charged. Returns false when
   /// the draft has no space in it.
   bool _applyDraft(Map<String, dynamic> d) {
     final picked = d['picked'];
@@ -253,7 +252,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
           'note' => _note.text.trim().isEmpty,
           _ => false,
         });
-    _step = _Step.pay;
+    _step = _Step.plans;
     _resumed = true;
     return true;
   }
@@ -268,9 +267,20 @@ class _ClaimScreenState extends State<ClaimScreen> {
     final c = _country;
     if (c == _pricingCountry) return;
     _pricingCountry = c;
+    _pricingFailed = false;
+    // Another country: no price until its own has loaded, so step two
+    // never shows (or charges) the last country's. Monthly / Yearly is
+    // kept. (Called from build, so no setState here.)
+    final keep = _pricing?.period;
+    _pricing = null;
     _supabase.pricingFor(c).then((p) {
-      if (!mounted || p == null || _pricingCountry != c) return;
+      if (!mounted || _pricingCountry != c) return;
+      if (p == null) {
+        setState(() => _pricingFailed = true);
+        return;
+      }
       final choice = PricingChoice(p);
+      if (keep != null && _restorePeriod == null) choice.period = keep;
       // A restored draft keeps the period and currency that were chosen.
       if (_restorePeriod == 'monthly' || _restorePeriod == 'yearly') {
         choice.period = _restorePeriod!;
@@ -307,8 +317,10 @@ class _ClaimScreenState extends State<ClaimScreen> {
   static String _stepName(_Step s) => switch (s) {
         _Step.find => 'find',
         _Step.addSpace => 'add_space',
-        _Step.about => 'about',
-        _Step.pay => 'plan',
+        // New names for the new order (find, plans, details), so the
+        // Outreach "got as far as" line reads them right (migration 233).
+        _Step.plans => 'plans',
+        _Step.about => 'details',
       };
 
   void _track(String event, [Map<String, dynamic>? props]) {
@@ -329,7 +341,9 @@ class _ClaimScreenState extends State<ClaimScreen> {
       if (_spaceName.isNotEmpty) 'space': _spaceName,
     });
     _step = next;
-    if (next == _Step.pay) _saveDraft();
+    // The draft is saved on the way to payment (_startAndPay), so a
+    // visitor brought back here really did reach Stripe.
+    if (next == _Step.plans) _ringOnce();
     if (next == _Step.about) {
       _phoneCountry.value ??= PhoneField.isoFor(
           _picked != null ? '${_picked!['country'] ?? ''}' : _newCountry);
@@ -454,7 +468,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
     final cur = (widget.currency ?? '').trim().toUpperCase();
     if (RegExp(r'^[A-Z]{3}$').hasMatch(cur)) _restoreCurrency = cur;
     // Back from Stripe (Cancel there, or the browser's Back button): a
-    // draft saved on the way out puts the visitor on step three with
+    // draft saved on the way out puts the visitor on the plans with
     // their details, unless they arrived from a link for a different
     // space.
     final cancelled = Uri.base.queryParameters.containsKey('cancelled');
@@ -499,20 +513,33 @@ class _ClaimScreenState extends State<ClaimScreen> {
       _watchField(f.key, f.value);
     }
     ua.setPageHideHandler(_onLeave);
-    // Ring the phone, unless the visitor is a crawler. The notice
-    // says roughly where the visitor is (migration 154), so it waits
-    // a moment for that.
-    if (!Analytics.isBot) {
-      final from = widget.from;
-      final referrer = ua.referrer();
-      final agent = ua.userAgent();
-      Analytics.claimGeo(_visit).then((geo) => _supabase.claimOpened(
-          seed: seed,
-          from: from,
-          referrer: referrer,
-          userAgent: agent,
-          geo: geo));
-    }
+    // Ring the phone, unless the visitor is a crawler. From the
+    // pricing link it waits until a space is found.
+    if (!_fromPricing) _ring(seed);
+  }
+
+  /// The "someone opened the claim page" notice. It says roughly where
+  /// the visitor is (migration 154), so it waits a moment for that.
+  void _ring(String seed) {
+    if (Analytics.isBot || _rang) return;
+    _rang = true;
+    final from = widget.from;
+    final referrer = ua.referrer();
+    final agent = ua.userAgent();
+    Analytics.claimGeo(_visit).then((geo) => _supabase.claimOpened(
+        seed: seed,
+        from: from,
+        referrer: referrer,
+        userAgent: agent,
+        geo: geo));
+  }
+
+  /// From the pricing link: ring once, when the space is known, with
+  /// its page (or its name) so the notice says which space it is.
+  void _ringOnce() {
+    if (!_fromPricing || _rang) return;
+    final slug = _picked == null ? '' : '${_picked!['webflow_slug'] ?? ''}';
+    _ring(slug.isNotEmpty ? slug : _spaceName);
   }
 
   @override
@@ -583,7 +610,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
           _step == _Step.find) {
         _picked = exact.first;
         _search.text = '${exact.first['name']}';
-        _go(_Step.about, how: 'link_matched');
+        _go(_Step.plans, how: 'link_matched');
       }
     });
   }
@@ -627,7 +654,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
               ? 'cafe'
               : _newType;
       _placeBusy = false;
-      _go(_Step.about, how: 'google_place');
+      _go(_Step.plans, how: 'google_place');
     });
   }
 
@@ -686,7 +713,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
           '${AppConfig.stripeVerifiedLink}'
               '?client_reference_id=$claimId'
               '&prefilled_email=${Uri.encodeQueryComponent(email)}');
-      // Back or Cancel from Stripe lands on step three with everything
+      // Back or Cancel from Stripe lands on the plans with everything
       // still filled in; a finished payment clears this on the thank-you
       // page.
       await SupabaseService.saveClaimDraft(_draft());
@@ -782,12 +809,29 @@ class _ClaimScreenState extends State<ClaimScreen> {
                     mode: LaunchMode.platformDefault))
             : IconButton(
                 icon: const Icon(Icons.arrow_back), onPressed: _back),
+        // As on the pricing page: owners who already have their page
+        // sign in instead.
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: TextButton(
+                onPressed: () => launchUrl(
+                    Uri.parse(AppConfig.ownerAccountUrl),
+                    webOnlyWindowName: '_self'),
+                child: Text(MediaQuery.sizeOf(context).width >= _wideAt
+                    ? 'Sign in to your Owner account'
+                    : 'Sign in')),
+          ),
+        ],
       ),
       body: LayoutBuilder(builder: (context, box) {
         final wide = box.maxWidth >= _wideAt;
+        // Step two is the pricing page and fits one laptop screen, so
+        // it starts higher.
+        final top = _step == _Step.plans ? 18.0 : 36.0;
         return SingleChildScrollView(
           padding: EdgeInsets.fromLTRB(
-              wide ? 32 : 18, wide ? 36 : 18, wide ? 32 : 18, 64),
+              wide ? 32 : 18, wide ? top : 18, wide ? 32 : 18, 64),
           child: Align(
             alignment: Alignment.topCenter,
             child: ConstrainedBox(
@@ -795,8 +839,8 @@ class _ClaimScreenState extends State<ClaimScreen> {
               child: switch (_step) {
                 _Step.find => _findStep(wide),
                 _Step.addSpace => _addStep(wide),
+                _Step.plans => _plansStep(wide),
                 _Step.about => _aboutStep(wide),
-                _Step.pay => _payStep(wide),
               },
             ),
           ),
@@ -810,8 +854,8 @@ class _ClaimScreenState extends State<ClaimScreen> {
       _error = null;
       _go(
           switch (_step) {
-            _Step.pay => _Step.about,
-            _Step.about => _picked != null ? _Step.find : _Step.addSpace,
+            _Step.about => _Step.plans,
+            _Step.plans => _picked != null ? _Step.find : _Step.addSpace,
             _Step.addSpace => _Step.find,
             _Step.find => _Step.find,
           },
@@ -875,13 +919,15 @@ class _ClaimScreenState extends State<ClaimScreen> {
 
   // ------------------------------------------------------------ step one
 
-  Widget _findStep(bool wide) => _withPlans(
-        wide,
+  /// Step one is the search and nothing else (Jonathan, 30 Oct 2026:
+  /// "the only thing that it shows to begin with, is to find your
+  /// space"). The plans and the price for its country come next.
+  Widget _findStep(bool wide) => _narrow(
         Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           _heading(wide, 1, 'Find your space',
-              'Nomadwise lists thousands of coworking spaces and '
-                  'laptop-friendly cafes. Search for yours below, and if it is '
-                  'not here yet you can add it in the next step.'),
+              'Search for your coworking space or cafe. Next you will see '
+                  'Free and Premium, with the Premium price for your '
+                  'country. Not here yet? You can add it.'),
           SizedBox(height: wide ? 24 : 16),
           TextField(
             controller: _search,
@@ -961,7 +1007,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
             : () => setState(() {
                   _picked = h;
                   _pickedPlace = null;
-                  _go(_Step.about,
+                  _go(_Step.plans,
                       how: onSite ? 'picked_listed' : 'picked_unpublished');
                 }),
       ),
@@ -996,8 +1042,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
 
   // ----------------------------------------------------- step one (add it)
 
-  Widget _addStep(bool wide) => _withPlans(
-        wide,
+  Widget _addStep(bool wide) => _narrow(
         Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           _heading(wide, 1, 'Add your space',
               'Search for your business as it appears on Google Maps. That '
@@ -1047,11 +1092,12 @@ class _ClaimScreenState extends State<ClaimScreen> {
         ]),
       );
 
-  // ------------------------------------------------------------ step two
+  // ---------------------------------------------------------- step three
 
   Widget _aboutStep(bool wide) {
     final fields = <Widget>[
       _pickedCard(wide),
+      _planLine(wide),
       if (_picked == null) ...[
         SizedBox(height: wide ? 22 : 16),
         const Text('What kind of place is it?',
@@ -1173,7 +1219,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
           );
         },
       ),
-      if (_premiumOnly &&
+      if (_plan == 'verified' &&
           !_showExtras &&
           _siteUrl.text.trim().isEmpty &&
           _instagram.text.trim().isEmpty &&
@@ -1239,29 +1285,34 @@ class _ClaimScreenState extends State<ClaimScreen> {
         child: SizedBox(
           width: wide ? 260 : double.infinity,
           child: FilledButton(
-            onPressed: () {
-              final problem = _detailsProblem();
-              if (problem != null) {
-                _track('claim_blocked', {'why': problem});
-                setState(() => _error = problem);
-                return;
-              }
-              setState(() {
-                _error = null;
-                _go(_Step.pay, how: 'continue');
-              });
-            },
+            onPressed: _sending ? null : _submit,
             style: FilledButton.styleFrom(
                 backgroundColor: Brand.red,
                 padding: const EdgeInsets.symmetric(vertical: 16)),
-            child: const Text('Continue'),
+            child: Text(_sending
+                ? 'One moment'
+                : _plan == 'verified'
+                    ? 'Continue to payment'
+                    : 'Claim my page'),
           ),
         ),
       ),
+      const SizedBox(height: 14),
+      Text(
+          _alreadyPublished
+              ? 'We first check you are with the team at $_spaceName, then '
+                  'the page is yours to manage.'
+              : 'Your space joins our publishing queue and we email you when '
+                  'the page is live. We first check you are with the team, '
+                  'then it is yours to manage.',
+          style: TextStyle(
+              color: Brand.inkSecondary,
+              fontSize: wide ? 14.5 : 13.5,
+              height: 1.5)),
     ];
 
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      _heading(wide, 2, 'Your details',
+      _heading(wide, 3, 'Your details',
           'For the owner, or anyone the business has asked to look after '
               'its page: a manager, the marketing lead. Before we hand the '
               'page over, we check you are with the team.'),
@@ -1307,8 +1358,8 @@ class _ClaimScreenState extends State<ClaimScreen> {
         ])
       : Column(children: [a, const SizedBox(height: 16), b]);
 
-  /// The chosen space. [big] is step three's version: the name large,
-  /// no Change button (the back arrow does that).
+  /// The chosen space, with Change (back to the search). [big] draws
+  /// the name larger, without Change.
   Widget _pickedCard(bool wide, {bool big = false}) => Container(
         padding: EdgeInsets.all(wide ? 18 : 14),
         decoration: BoxDecoration(
@@ -1340,488 +1391,201 @@ class _ClaimScreenState extends State<ClaimScreen> {
                 ]),
           ),
           if (!big)
-            TextButton(onPressed: _back, child: const Text('Change')),
+            TextButton(onPressed: _changeSpace, child: const Text('Change')),
         ]),
       );
 
-  // ---------------------------------------------------------- step three
+  /// Back to finding the space (or adding it), from steps two and three.
+  void _changeSpace() {
+    setState(() {
+      _error = null;
+      _resumed = false;
+      _go(_picked != null ? _Step.find : _Step.addSpace, how: 'change_space');
+    });
+  }
 
-  /// Step three, laid out like a pricing page: Monthly / Yearly switch
-  /// and the currency at the top, then Free and Premium side by side,
-  /// each with its price, its button and what it gives. Everything
-  /// fits one laptop screen, so the choice is made without scrolling.
-  /// Claiming is free; Premium is the optional upgrade (Leonie's
-  /// review, 28 Sep: the paid offer alone hid the point of claiming
-  /// for free).
-  Widget _payStep(bool wide) {
+  /// Steps one and "add it": one column, left aligned.
+  Widget _narrow(Widget main) => Align(
+        alignment: Alignment.centerLeft,
+        child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 660),
+            child: SizedBox(width: double.infinity, child: main)),
+      );
+
+  // ------------------------------------------------------------ step two
+
+  /// Step two is the pricing page for this space (Jonathan, 30 Oct 2026:
+  /// find your space first, "and then it presents the pricing page, all
+  /// above the fold"): the space and where it is, Monthly / Yearly and
+  /// the currency, then Free and Premium side by side with the price for
+  /// its country. Each plan's button goes on to Your details. Claiming
+  /// is free; Premium is the optional upgrade (Leonie's review, 28 Sep).
+  Widget _plansStep(bool wide) {
     final p = _pricing;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _heading(wide, 3, 'Choose your plan', ''),
-        SizedBox(height: wide ? 16 : 12),
-        // The space's name, large: it is the thing the owner cares about,
-        // so it gets its own card rather than a mention in a sentence.
-        ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: wide ? 860 : double.infinity),
-          child: _pickedCard(wide, big: true),
-        ),
-        SizedBox(height: wide ? 14 : 10),
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 560),
-          child: Text(
-              _resumed
-                  ? 'Nothing was charged. Your details are still here, so '
-                      'pick a plan when you are ready.'
-                  : _premiumOnly
-                      ? 'Premium for $_spaceName, monthly or yearly. Cancel '
-                          'any time.'
-                      : 'Claiming is free. Premium is optional, and you can add '
-                          'it now or later from your Owner account.',
-              style: TextStyle(
-                  color: Brand.inkSecondary,
-                  fontSize: wide ? 16 : 14.5,
-                  height: 1.5)),
-        ),
-        SizedBox(height: wide ? 18 : 14),
-        ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: wide ? 860 : double.infinity),
-          child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (p != null)
-                  wide
-                      ? Row(children: [
-                          PeriodToggle(
-                              choice: p,
-                              onChanged: (c) => setState(() => _pricing = c)),
-                          const Spacer(),
-                          CurrencyPicker(
-                              choice: p,
-                              onChanged: (c) => setState(() => _pricing = c)),
-                        ])
-                      : Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                              PeriodToggle(
-                                  choice: p,
-                                  onChanged: (c) =>
-                                      setState(() => _pricing = c)),
-                              const SizedBox(height: 6),
-                              CurrencyPicker(
-                                  choice: p,
-                                  onChanged: (c) =>
-                                      setState(() => _pricing = c)),
-                            ]),
-                SizedBox(height: wide ? 14 : 12),
-                _planCards(wide, buttons: true),
-                if (_error != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 14),
-                    child: Text(_error!,
-                        style: const TextStyle(color: Brand.red, fontSize: 13)),
-                  ),
-                const SizedBox(height: 14),
-                Text(
-                    _alreadyPublished
-                        ? '${_premiumOnly ? 'We' : 'Either way, we'} first '
-                            'check you are with the team at $_spaceName, then '
-                            'the page is yours to manage.'
-                        : '${_premiumOnly ? 'Your' : 'Either way, your'} space '
-                            'joins our publishing queue and we email you when '
-                            'the page is live. We first check you are with the '
-                            'team, then it is yours to manage.',
-                    style: TextStyle(
-                        color: Brand.inkSecondary,
-                        fontSize: wide ? 14.5 : 13.5,
-                        height: 1.5)),
-                // Not a dead end, but quiet: they chose Premium.
-                if (_premiumOnly)
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: TextButton(
-                        onPressed: () {
-                          _track('claim_show_free');
-                          setState(() => _showFree = true);
-                        },
-                        style: TextButton.styleFrom(
-                            padding: EdgeInsets.zero,
-                            foregroundColor: Brand.inkMuted,
-                            textStyle: const TextStyle(fontSize: 13)),
-                        child: const Text('Prefer to claim for free?')),
-                  ),
-              ]),
-        ),
-      ],
-    );
-  }
-
-  /// The two buttons on step three, one in each card. The plan chosen
-  /// on the cards gets the filled button; the other stays outlined, so
-  /// both are always one tap away.
-  Widget _planButton({
-    required bool filled,
-    required VoidCallback? onPressed,
-    required String label,
-  }) {
-    const textStyle = TextStyle(fontSize: 15, fontWeight: FontWeight.w700);
-    return filled
-        ? FilledButton(
-            onPressed: onPressed,
-            style: FilledButton.styleFrom(
-                backgroundColor: Brand.red,
-                minimumSize: const Size.fromHeight(48)),
-            child: Text(label, style: textStyle),
-          )
-        : OutlinedButton(
-            onPressed: onPressed,
-            style: OutlinedButton.styleFrom(
-                minimumSize: const Size.fromHeight(48)),
-            child: Text(label, style: textStyle),
-          );
-  }
-
-  Widget _freeButton() => _planButton(
-        filled: _plan == 'free',
-        onPressed: _sending ? null : _claimFree,
-        label: _sending ? 'One moment' : 'Claim for free',
-      );
-
-  Widget _payButton() => _planButton(
-        filled: _plan == 'verified',
-        onPressed: _sending ? null : _startAndPay,
-        label: _sending ? 'One moment' : 'Get Premium: continue to payment',
-      );
-
-  // ------------------------------------------------------- what you get
-
-  /// A step's own content, then both ways to be on Nomadwise below it,
-  /// full width, so it is clear from the first screen that claiming is
-  /// free and Premium is an optional extra.
-  Widget _withPlans(bool wide, Widget main) =>
-      Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Align(
-          alignment: Alignment.centerLeft,
-          child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 660),
-              child: SizedBox(width: double.infinity, child: main)),
-        ),
-        SizedBox(height: wide ? 28 : 22),
-        _plansOverview(wide),
-      ]);
-
-  // The same lists as the pricing page (widgets/pricing_picker.dart).
-  static const _freeGets = planFreeGets;
-  static const _verifiedAdds = planPremiumAdds;
-
-  // ------------------------------------------------------ plan cards
-
-  Widget _pill(String text, {bool on = false}) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-        decoration: BoxDecoration(
-          color: on ? Brand.red : Brand.field,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Text(text,
-            style: TextStyle(
-                fontSize: 10.5,
-                fontWeight: FontWeight.w800,
-                letterSpacing: .5,
-                color: on ? Colors.white : Brand.inkSecondary)),
-      );
-
-  /// "€99  a year": the big figure with its unit beside it.
-  Widget _priceLine(bool wide, String big, String small) => Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
+    final waiting = _pricingFailed || (p != null && p.chosen == null)
+        ? 'See your price at checkout'
+        : 'One moment';
+    final bar = Container(
+      padding: EdgeInsets.symmetric(
+          horizontal: wide ? 16 : 14, vertical: wide ? 10 : 14),
+      decoration: BoxDecoration(
+          color: Brand.surface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Brand.border)),
+      child: Wrap(
+          spacing: 28,
+          runSpacing: 10,
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            Text(big,
-                style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: wide ? 30 : 26,
-                    height: 1,
-                    letterSpacing: -0.8)),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.only(bottom: 3),
-                child: Text(small,
-                    style: TextStyle(
-                        color: Brand.inkSecondary,
-                        fontSize: wide ? 14 : 13.5,
-                        fontWeight: FontWeight.w600)),
-              ),
-            ),
-          ]);
-
-  /// The round tick in a card's corner: filled on the chosen plan.
-  Widget _mark(bool on) => AnimatedContainer(
-        duration: Motion.of(context, const Duration(milliseconds: 150)),
-        width: 24,
-        height: 24,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: on ? Brand.red : Colors.transparent,
-          border: Border.all(
-              color: on ? Brand.red : Brand.border, width: on ? 0 : 1.5),
-        ),
-        child: on
-            ? const Icon(Icons.check_rounded, size: 16, color: Colors.white)
-            : null,
-      );
-
-  /// One plan card. Tapping it selects the plan (red border, tick).
-  /// [button] is the plan's own button on step three; the overview on
-  /// steps one and two has none.
-  Widget _planCard(
-    bool wide, {
-    required String plan,
-    required Widget top,
-    required List<Widget> body,
-    Widget? button,
-  }) {
-    final on = _plan == plan;
-    return Semantics(
-      button: true,
-      selected: on,
-      label: plan == 'free' ? 'Free plan' : 'Premium plan',
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () => _choosePlan(plan),
-          child: AnimatedContainer(
-            duration: Motion.of(context, const Duration(milliseconds: 150)),
-            padding: EdgeInsets.all(wide ? 18 : 16),
-            decoration: BoxDecoration(
-              color: Brand.surface,
-              borderRadius: BorderRadius.circular(_corner),
-              border: Border.all(
-                  color: on ? Brand.red : Brand.border, width: on ? 2 : 1),
-              boxShadow: on ? Brand.shadowFloating : Brand.shadowResting,
-            ),
-            child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Expanded(child: top),
-                    const SizedBox(width: 10),
-                    _mark(on),
+            _spaceLine(wide),
+            if (p != null)
+              Wrap(
+                  spacing: 16,
+                  runSpacing: 6,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    PeriodToggle(
+                        choice: p,
+                        onChanged: (c) => setState(() => _pricing = c)),
+                    CurrencyPicker(
+                        choice: p,
+                        onChanged: (c) => setState(() => _pricing = c)),
                   ]),
-                  if (button != null) ...[
-                    const SizedBox(height: 14),
-                    button,
-                  ],
-                  const SizedBox(height: 12),
-                  const Divider(height: 1, color: Brand.hairline),
-                  const SizedBox(height: 12),
-                  ...body,
-                  if (wide) const Spacer(),
-                ]),
-          ),
-        ),
+          ]),
+    );
+    final align = wide ? TextAlign.center : TextAlign.start;
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 940),
+        child: Column(
+            crossAxisAlignment:
+                wide ? CrossAxisAlignment.center : CrossAxisAlignment.stretch,
+            children: [
+              const Text('STEP 2 OF 3',
+                  style: TextStyle(
+                      color: Brand.inkMuted,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.8)),
+              SizedBox(height: wide ? 6 : 4),
+              Text('Free to be on Nomadwise. Premium to stand out.',
+                  textAlign: align,
+                  style: TextStyle(
+                      fontSize: wide ? 30 : 24,
+                      height: 1.2,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.5,
+                      color: Brand.ink)),
+              const SizedBox(height: 6),
+              Text(
+                  _resumed
+                      ? 'Nothing was charged. Your details are still here, so '
+                          'pick a plan when you are ready.'
+                      : 'Claiming your page is free. Premium is optional, '
+                          'monthly or yearly, and you can cancel any time.',
+                  textAlign: align,
+                  style: const TextStyle(
+                      fontSize: 15, height: 1.5, color: Brand.inkSecondary)),
+              SizedBox(height: wide ? 14 : 16),
+              bar,
+              SizedBox(height: wide ? 26 : 20),
+              PricingPlans(
+                pricing: p,
+                wide: wide,
+                waiting: waiting,
+                onFree: () => _choosePlan('free'),
+                onPremium: () => _choosePlan('verified'),
+              ),
+              SizedBox(height: wide ? 14 : 24),
+              Text(
+                  'You pay the price for the country your space is in. '
+                  'Your details come next.',
+                  textAlign: align,
+                  style: const TextStyle(
+                      fontSize: 13, height: 1.5, color: Brand.inkSecondary)),
+            ]),
       ),
     );
   }
 
-  /// Free and Premium side by side (stacked on a phone), Free first.
-  /// With [buttons], each card carries its own button (step three);
-  /// without, it is the overview under the search box, where the
-  /// Premium price is "around a day pass a month" until a space, and
-  /// so a country, is known.
-  Widget _planCards(bool wide, {required bool buttons}) {
-    Widget line(String text, {bool plus = false}) =>
-        PlanFeatureRow(text, extra: plus, fontSize: wide ? 13.5 : 13);
-    // A Wrap, so a long pill (MAKE THE MOST OF NOMADWISE) moves under
-    // the name on a narrow phone instead of running off the card.
-    Widget title(String name, {bool verified = false, required Widget pill}) =>
-        Wrap(
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: 10,
-            runSpacing: 6,
-            children: [
-              Row(mainAxisSize: MainAxisSize.min, children: [
-                Text(name,
-                    style: TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: wide ? 20 : 19)),
-                if (verified) ...[
-                  const SizedBox(width: 6),
-                  const Icon(Icons.verified, color: Brand.success, size: 19),
-                ],
-              ]),
-              pill,
-            ]);
-    Widget sub(String text) => Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: Text(text,
-              style: const TextStyle(fontSize: 13, color: Brand.inkSecondary)),
-        );
-
-    // On the overview (no space picked yet) neither card shows a
-    // figure: a sentence in the price slot, the same weight on both
-    // cards, so nothing reads as a bait or a placeholder. Step three
-    // has the real numbers.
-    Widget lead(String text) => Text(text,
-        style: TextStyle(
-            fontSize: wide ? 16 : 15,
-            fontWeight: FontWeight.w700,
-            height: 1.3));
-
-    final free = _planCard(
-      wide,
-      plan: 'free',
-      top: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        title('Free', pill: _pill('WHERE EVERY SPACE STARTS')),
-        const SizedBox(height: 10),
-        if (buttons) ...[
-          _priceLine(wide, '€0', 'always'),
-          // The same check for both plans; Premium claims are taken
-          // first (the one incentive to decide now, Jonathan, 3 Oct).
-          // No "no card, nothing to pay, ever" (Leonie, 23 Oct).
-          sub('Claiming is free. A person checks your claim in the order '
-              'claims arrive.'),
-        ] else ...[
-          lead('Claim your page and make it yours'),
-          sub('Claiming is free.'),
-        ],
-      ]),
-      body: [for (final t in _freeGets) line(t)],
-      button: buttons ? _freeButton() : null,
-    );
-
-    // The Premium price. On step three it is the chosen period and
-    // currency for this space; before that, "around a day pass a
-    // month" unless the country is already known.
-    final p = _pricing;
-    final Widget priceLine;
-    final String priceSub;
-    if (!buttons) {
-      // No figure before a space is picked: the cheapest country's
-      // "from €4" reads as a bait to an owner in Lisbon who then sees
-      // €10, and "priced for your country" invites the same
-      // comparison. The anchor the prices were set by is true
-      // everywhere.
-      priceLine = lead('About the price of a day pass a month');
-      priceSub = 'Monthly or yearly subscription, cancel any time. See '
-          'your price when you pick your space.';
-    } else if (p != null && p.chosen != null) {
-      final yearly = p.period == 'yearly';
-      priceLine = _priceLine(wide, formatMoney(p.chosen!, p.currency),
-          yearly ? 'a year' : 'a month');
-      final perMonth = p.yearly == null
-          ? null
-          : formatMoney(p.yearly! / 12, p.currency);
-      final months = p.monthsFree.round();
-      const first = ' Premium claims are checked first, so your Premium '
-          'features go on sooner.';
-      priceSub = (yearly
-              ? (perMonth == null
-                  ? 'Billed once a year. Cancel any time.'
-                  : '$perMonth a month, billed once a year. Cancel any time.')
-              : (p.yearly == null
-                  ? 'Billed monthly. Cancel any time.'
-                  : 'Billed monthly. Yearly is ${formatMoney(p.yearly!, p.currency)}'
-                      '${months >= 1 ? ', $months month${months == 1 ? '' : 's'} free' : ''}.')) +
-          first;
-    } else {
-      // Prices not in Stripe yet: the payment link's price.
-      priceLine = _priceLine(wide, '€99', 'a year');
-      priceSub = 'Billed once a year. Cancel any time. Premium claims are '
-          'checked first, so your Premium features go on sooner.';
-    }
-
-    final verified = _planCard(
-      wide,
-      plan: 'verified',
-      top: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        // A fact, not an opinion: "Recommended" reads as "of course they
-        // would say that" (Jonathan). Premium, as Leonie put it (23 Oct):
-        // make the most of Nomadwise.
-        title('Premium',
-            verified: true, pill: _pill('MAKE THE MOST OF NOMADWISE', on: true)),
-        const SizedBox(height: 10),
-        priceLine,
-        sub(priceSub),
-      ]),
-      body: [
-        const Padding(
-            padding: EdgeInsets.only(bottom: 8),
-            child: Text('Everything in Free, plus:',
-                style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w700,
-                    color: Brand.inkSecondary)),
+  /// The space on step two's bar: its name, where it is, and Change.
+  Widget _spaceLine(bool wide) => Row(mainAxisSize: MainAxisSize.min, children: [
+        const Icon(Icons.storefront_outlined, color: Brand.inkMuted, size: 22),
+        const SizedBox(width: 10),
+        Flexible(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: wide ? 360 : double.infinity),
+            child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(_spaceName,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          color: Brand.ink)),
+                  if (_where.isNotEmpty)
+                    Text(_where,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: 12.5, color: Brand.inkSecondary)),
+                ]),
           ),
-        for (final t in _verifiedAdds) line(t, plus: true),
-      ],
-      button: buttons ? _payButton() : null,
-    );
-
-    if (_premiumOnly) {
-      return wide
-          ? Align(
-              alignment: Alignment.centerLeft,
-              child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 520),
-                  child: IntrinsicHeight(child: verified)))
-          : verified;
-    }
-    final cards = wide
-        ? IntrinsicHeight(
-            child:
-                Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              Expanded(child: free),
-              const SizedBox(width: 16),
-              Expanded(child: verified),
-            ]),
-          )
-        : Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            if (_plan == 'verified' && buttons) ...[
-              verified,
-              const SizedBox(height: 12),
-              free,
-            ] else ...[
-              free,
-              const SizedBox(height: 12),
-              verified,
-            ],
-          ]);
-    return cards;
-  }
-
-  /// The overview under the search box on steps one and two.
-  Widget _plansOverview(bool wide) =>
-      Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-          Expanded(
-            child: Text(
-                _premiumOnly ? 'Your plan: Premium' : 'Two ways to be on Nomadwise',
-                style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: wide ? 20 : 18,
-                    letterSpacing: -0.3)),
-          ),
-          if (!_premiumOnly)
-            Text('Tap one to choose',
-                style: TextStyle(
-                    fontSize: wide ? 13 : 12.5, color: Brand.inkMuted)),
-        ]),
-        SizedBox(height: wide ? 14 : 12),
-        _planCards(wide, buttons: false),
-        const SizedBox(height: 12),
-        Text(
-            _premiumOnly
-                ? 'Find your space above. Your price for its country is shown '
-                    'on the last step, before you pay. Cancel any time.'
-                : 'Claiming is free. Premium can be added when you claim or any '
-                    'time later from your Owner account, monthly or yearly, '
-                    'cancel any time.',
-            style: TextStyle(
-                fontSize: wide ? 14 : 13.5,
-                height: 1.5,
-                color: Brand.inkSecondary)),
+        ),
+        const SizedBox(width: 4),
+        TextButton(onPressed: _changeSpace, child: const Text('Change')),
       ]);
 
+  /// On Your details: the plan chosen on step two, and a way back to it.
+  Widget _planLine(bool wide) {
+    final p = _pricing;
+    final premium = _plan == 'verified';
+    final price = premium && p != null && p.chosen != null
+        ? ', ${formatMoney(p.chosen!, p.currency)} '
+            '${p.period == 'yearly' ? 'a year' : 'a month'}'
+        : '';
+    return Container(
+      margin: const EdgeInsets.only(top: 10),
+      padding: EdgeInsets.fromLTRB(wide ? 18 : 14, 4, 6, 4),
+      decoration: BoxDecoration(
+        color: Brand.surface,
+        borderRadius: BorderRadius.circular(_corner),
+        border: Border.all(
+            color: premium ? Brand.red : Brand.border, width: premium ? 1.5 : 1),
+      ),
+      child: Row(children: [
+        Icon(premium ? Icons.verified : Icons.check_circle_outline,
+            size: 20, color: premium ? Brand.success : Brand.inkMuted),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text('Your plan: ${premium ? 'Premium' : 'Free'}$price',
+              style: const TextStyle(
+                  fontSize: 14.5, fontWeight: FontWeight.w700, color: Brand.ink)),
+        ),
+        TextButton(onPressed: _back, child: const Text('Change plan')),
+      ]),
+    );
+  }
+
+  /// The last button: claims for free, or saves the claim and goes on
+  /// to payment.
+  void _submit() {
+    final problem = _detailsProblem();
+    if (problem != null) {
+      _track('claim_blocked', {'why': problem});
+      setState(() => _error = problem);
+      return;
+    }
+    if (_plan == 'verified') {
+      _startAndPay();
+    } else {
+      _claimFree();
+    }
+  }
 }
 
 /// Where Stripe sends the owner back to after paying (and where the

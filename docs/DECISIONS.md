@@ -5582,3 +5582,31 @@ Siargao; Tasmania; Hawaii; Mexico City. Spellings with no label (usa, holland,
 viet nam, majorca) stay out of the list and only help pricing_for() read what
 people type. To add a place later: one row in pricing_aliases with alias in
 lower case, the country code and a label.
+
+## 30 Oct 2026: find your space first, then the pricing page (migration 233)
+
+Jonathan: "for the pricing page, the only thing that it shows to begin with, is
+to find your space. so they maintain curiosity", then "find your space, or if
+claiming a space, and then it presents the pricing page, all above the fold".
+The claim page and nomadmaps.io/pricing are now one flow:
+1. Find your space: the search and "My space isn't here, add it", nothing
+   else. A link from a space's own page (?claim=<slug>) skips this step.
+2. The pricing page for that space: its name and where it is (with Change),
+   Monthly / Yearly and the currency, then Free and Premium side by side
+   (Premium first on a phone) with the price for the space's country. Fits a
+   laptop screen. The country dropdown is gone: the space says where it is.
+   (The places list from migration 232 still helps pricing_for() read a
+   space's country, such as Madeira.)
+3. Your details, with "Your plan: Premium, EUR 99 a year" and Change plan at
+   the top. The last button is "Continue to payment" (Premium) or "Claim my
+   page" (Free).
+Removed: the Premium-only path and "Prefer to claim for free?" (both plans are
+on step two now), the plan overview under the search, and the old step three.
+From the pricing link the "someone opened the claim page" ping waits until a
+space is found, so plain visits to the pricing page do not ring the phone;
+Outreach then says "from the pricing page". Back from Stripe lands on step two
+with "Nothing was charged". The step names in the events are now 'plans' and
+'details'; migration 233 and the Claim journeys view read both the old and the
+new names (2 = saw the plans, 3 = chose a plan). Plan cards shared in
+widgets/pricing_plans.dart. The page header has "Sign in to your Owner
+account", as the pricing page had.

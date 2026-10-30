@@ -7,7 +7,7 @@ import '../theme.dart';
 /// Admin only: every visit to the claim page, told as a story.
 ///
 /// One card per opening of nomadmaps.io/?claim: where the visitor came
-/// from, how far they got (Find, Space chosen, Owner details, Plan), how
+/// from, how far they got (Find, Space chosen, Plans, Chose a plan), how
 /// it ended (went to Stripe, claimed free, or left, and on which step
 /// after how long), and, opened up, everything they did in order with
 /// the seconds since the page opened.
@@ -44,15 +44,20 @@ class _Visit {
       .firstOrNull ??
       {};
 
-  /// Furthest step reached: 0 find, 1 space chosen, 2 about, 3 plan.
+  /// Furthest step reached: 0 find, 1 space chosen, 2 plans seen,
+  /// 3 plan chosen. Since 30 Oct 2026 the order is find, plans
+  /// ('plans'), details ('details'): reaching details means a plan was
+  /// chosen. Before that it was find, details ('about'), plan ('plan').
   int get furthest {
     var f = 0;
     for (final e in events) {
       final p = _props(e);
       final n = e['name'];
       final step = '${p['to'] ?? p['step'] ?? ''}';
-      if (n == 'claim_step' && step == 'about') f = f < 2 ? 2 : f;
-      if (n == 'claim_step' && step == 'plan') f = 3;
+      if (n == 'claim_step' && (step == 'about' || step == 'plans')) {
+        f = f < 2 ? 2 : f;
+      }
+      if (n == 'claim_step' && (step == 'plan' || step == 'details')) f = 3;
       if (n == 'claim_to_payment' || n == 'claim_free') f = 3;
       if (n == 'claim_step' && step == 'add_space') f = f < 1 ? 1 : f;
       if (n == 'claim_typed') f = f < 2 ? 2 : f;
@@ -72,7 +77,7 @@ class _Visit {
   (String, Color, Color) get outcome {
     final names = events.map((e) => e['name']).toSet();
     if (names.contains('claim_to_payment')) {
-      return ('Chose Verified, went to Stripe', Brand.success, Brand.successTint);
+      return ('Chose Premium, went to Stripe', Brand.success, Brand.successTint);
     }
     if (names.contains('claim_free')) {
       return ('Claimed for free', Brand.success, Brand.successTint);
@@ -120,7 +125,9 @@ String _stepLabel(String s) => switch (s) {
       'find' => 'Find your space',
       'add_space' => 'Add your space',
       'about' => 'Owner details',
-      'plan' => 'the Claimed or Verified choice',
+      'details' => 'Owner details',
+      'plans' => 'the plans and prices',
+      'plan' => 'the Free or Premium choice',
       _ => s,
     };
 
@@ -345,8 +352,8 @@ class _ClaimJourneysScreenState extends State<ClaimJourneysScreen> {
         Row(children: [
           tile('Opened', n),
           tile('Chose a space', chose),
-          tile('Owner details', about),
-          tile('Claimed or Verified', plan),
+          tile('Saw the plans', about),
+          tile('Chose a plan', plan),
           tile('To Stripe', paid),
           tile('Claimed (free)', free),
         ]),
@@ -500,7 +507,7 @@ class _ClaimJourneysScreenState extends State<ClaimJourneysScreen> {
   }
 
   Widget _progress(int furthest) {
-    const labels = ['Find', 'Space chosen', 'Owner details', 'Claimed or Verified'];
+    const labels = ['Find', 'Space chosen', 'Plans and prices', 'Chose a plan'];
     return Row(children: [
       for (var i = 0; i < labels.length; i++) ...[
         Expanded(
