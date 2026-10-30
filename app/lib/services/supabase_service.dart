@@ -2020,8 +2020,9 @@ class SupabaseService {
   /// Owner flow (migration 203): every real owner with the path they
   /// took through the map, the claim-page numbers, review speed and
   /// the ticks.
-  Future<Map<String, dynamic>> adminOwnerFlow() async {
-    final r = await _db.rpc('admin_owner_flow');
+  Future<Map<String, dynamic>> adminOwnerFlow({required DateTime asOf}) async {
+    final r = await _db.rpc('admin_owner_flow',
+        params: {'p_as_of': asOf.toUtc().toIso8601String()});
     return r is Map ? Map<String, dynamic>.from(r) : <String, dynamic>{};
   }
 

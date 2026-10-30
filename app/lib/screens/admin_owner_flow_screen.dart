@@ -36,7 +36,7 @@ class AdminOwnerFlowScreen extends StatefulWidget {
 }
 
 // ---------------------------------------------------------------------
-// The map: boxes and the lines between them, on a 400 x 1080 canvas
+// The map: boxes and the lines between them, on a 400 x 1100 canvas
 // that is scaled to fit.
 
 class _Node {
@@ -252,6 +252,7 @@ class _Owner {
   final bool waiting;
 
   String get email => '${m['email'] ?? ''}';
+  DateTime? get claimedAt => DateTime.tryParse('${m['claimed_at'] ?? ''}')?.toLocal();
   String get space => '${m['space'] ?? ''}'.trim().isEmpty ? email : '${m['space']}';
   String get who => '${m['who'] ?? ''}';
   String get city => '${m['city'] ?? ''}';
@@ -334,7 +335,38 @@ class _AdminOwnerFlowScreenState extends State<AdminOwnerFlowScreen>
   final _supabase = SupabaseService();
   bool _loading = true;
   String? _error;
-  List<_Owner> _owners = const [];
+  List<_Owner> _all = const []; // every real owner, as of now
+  List<_Owner> _all7 = const []; // as the map stood 7 days ago
+  List<_Owner> _all30 = const []; // and 30 days ago
+  /// The period: owners by when they claimed. all | month | last | three
+  String _period = 'all';
+  /// Movement against 7 or 30 days ago.
+  int _against = 7;
+  List<_Owner> get _owners => _inPeriod(_all);
+  List<_Owner> get _prev => _inPeriod(_against == 7 ? _all7 : _all30);
+  (DateTime?, DateTime?) get _periodRange {
+    final now = DateTime.now();
+    switch (_period) {
+      case 'month':
+        return (DateTime(now.year, now.month, 1), null);
+      case 'last':
+        return (DateTime(now.year, now.month - 1, 1), DateTime(now.year, now.month, 1));
+      case 'three':
+        return (DateTime(now.year, now.month - 2, 1), null);
+    }
+    return (null, null);
+  }
+  List<_Owner> _inPeriod(List<_Owner> xs) {
+    final (from, to) = _periodRange;
+    if (from == null && to == null) return xs;
+    return [
+      for (final o in xs)
+        if (o.claimedAt != null &&
+            (from == null || !o.claimedAt!.isBefore(from)) &&
+            (to == null || o.claimedAt!.isBefore(to)))
+          o
+    ];
+  }
   int _visitors = 0;
   Map<String, dynamic> _review = const {};
   DateTime? _since;
@@ -369,13 +401,22 @@ class _AdminOwnerFlowScreenState extends State<AdminOwnerFlowScreen>
 
   Future<void> _load() async {
     try {
-      final r = await _supabase.adminOwnerFlow();
+      final now = DateTime.now();
+      final rs = await Future.wait([
+        _supabase.adminOwnerFlow(asOf: now),
+        _supabase.adminOwnerFlow(asOf: now.subtract(const Duration(days: 7))),
+        _supabase.adminOwnerFlow(asOf: now.subtract(const Duration(days: 30))),
+      ]);
+      final r = rs[0];
+      List<_Owner> parse(Map<String, dynamic> x) => [
+            for (final o in (x['owners'] as List? ?? const []))
+              if (o is Map) _Owner(Map<String, dynamic>.from(o))
+          ];
       if (!mounted) return;
       setState(() {
-        _owners = [
-          for (final o in (r['owners'] as List? ?? const []))
-            if (o is Map) _Owner(Map<String, dynamic>.from(o))
-        ];
+        _all = parse(rs[0]);
+        _all7 = parse(rs[1]);
+        _all30 = parse(rs[2]);
         _visitors = (r['visitors'] as num?)?.toInt() ?? 0;
         _review = r['review'] is Map ? Map<String, dynamic>.from(r['review']) : {};
         _since = DateTime.tryParse('${r['since'] ?? ''}')?.toLocal();
@@ -517,14 +558,14 @@ class _AdminOwnerFlowScreenState extends State<AdminOwnerFlowScreen>
     try {
       await _supabase.adminOwnerFlowTick(o.email, !o.done, o.next);
       // keep the map where it is: refresh the owners' ticks only
-      final r = await _supabase.adminOwnerFlow();
+      final r = await _supabase.adminOwnerFlow(asOf: DateTime.now());
       final fresh = {
         for (final x in (r['owners'] as List? ?? const []))
           if (x is Map) '${x['email']}': x['tick']
       };
       if (!mounted) return;
       setState(() {
-        for (final ow in _owners) {
+        for (final ow in _all) {
           ow.m['tick'] = fresh[ow.email];
         }
       });
@@ -619,14 +660,78 @@ class _AdminOwnerFlowScreenState extends State<AdminOwnerFlowScreen>
   }
 
   Widget _intro() {
-    final since = _since == null ? '' : ' since ${DateFormat('d MMM').format(_since!)}';
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Text(
-        '${_owners.length} real owners$since · tap an amber box or a result to see who is there and what pushes them along',
-        style: const TextStyle(fontSize: 12.5, color: Brand.inkSecondary),
-      ),
-    );
+    Widget chip(String k, String label) {
+      final on = _period == k;
+      return ChoiceChip(
+        label: Text(label),
+        selected: on,
+        showCheckmark: false,
+        visualDensity: VisualDensity.compact,
+        labelStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: on ? Colors.white : Brand.inkSecondary),
+        selectedColor: Brand.ink,
+        backgroundColor: Brand.surface,
+        side: BorderSide(color: on ? Brand.ink : Brand.border),
+        onSelected: (_) {
+          if (_period == k) return;
+          setState(() {
+            _period = k;
+            _selected = null;
+          });
+          _replay();
+        },
+      );
+    }
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Wrap(spacing: 6, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
+        chip('all', 'All time'),
+        chip('month', 'This month'),
+        chip('last', 'Last month'),
+        chip('three', 'Last 3 months'),
+        const SizedBox(width: 6),
+        Text(_periodLabel(), style: const TextStyle(fontSize: 12, color: Brand.inkMuted)),
+      ]),
+      const SizedBox(height: 6),
+      const Text('Tap an amber box or a result to see who is there and what pushes them along.',
+          style: TextStyle(fontSize: 12, color: Brand.inkMuted)),
+    ]);
+  }
+
+  /// "11 owners · claimed 21 Sep to 30 Oct"
+  String _periodLabel() {
+    final xs = _owners;
+    if (xs.isEmpty) return 'no owners claimed in this period';
+    final ds = [for (final o in xs) if (o.claimedAt != null) o.claimedAt!]..sort();
+    if (ds.isEmpty) return '${xs.length} owners';
+    final f = DateFormat('d MMM');
+    return '${xs.length} owner${xs.length == 1 ? '' : 's'} · claimed ${f.format(ds.first)} to ${f.format(ds.last)}';
+  }
+
+  /// What each box's count was [against] days ago, so the map can show
+  /// movement. Null while the beads are still running.
+  Map<String, int>? _prevCounts() {
+    if (_nextBead < _owners.length || !_beads.every((b) => b.finished)) return null;
+    final m = <String, int>{};
+    for (final o in _prev) {
+      for (final k in o.path) {
+        final n = _kByKey[k];
+        if (n != null && (n.block || n.result != null)) m[k] = (m[k] ?? 0) + 1;
+      }
+      if (o.waiting) m['remind'] = (m['remind'] ?? 0) + 1;
+    }
+    return m;
+  }
+
+  /// "11 owners: 3 active · 5 dormant · 0 lost · 3 in reminders"
+  String _footer() {
+    final xs = _owners;
+    int n(String e) => xs.where((o) => o.end == e).length;
+    final parts = <String>[];
+    if (n('premium') > 0) parts.add('${n('premium')} premium');
+    parts.add('${n('active')} active');
+    parts.add('${n('dormant')} dormant');
+    parts.add('${n('lost')} lost');
+    parts.add('${n('waiting')} in reminders');
+    return '${xs.length} OWNERS: ${parts.join(' · ').toUpperCase()}';
   }
 
   Widget _card({required Widget child, EdgeInsets? padding}) => Container(
@@ -647,7 +752,7 @@ class _AdminOwnerFlowScreenState extends State<AdminOwnerFlowScreen>
           return Center(
             child: SizedBox(
               width: w,
-              height: 1080 * scale,
+              height: 1100 * scale,
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTapUp: (d) {
@@ -669,6 +774,10 @@ class _AdminOwnerFlowScreenState extends State<AdminOwnerFlowScreen>
                     lit: _lit,
                     selected: _selected,
                     slots: [for (final o in _owners) _slots[o.email] == true ? o.end : ''],
+                    prev: _prevCounts(),
+                    against: _against,
+                    footer: _footer(),
+                    header: _periodLabel().toUpperCase(),
                   ),
                 ),
               ),
@@ -816,6 +925,16 @@ class _AdminOwnerFlowScreenState extends State<AdminOwnerFlowScreen>
 
   Widget _stats() {
     int n(bool Function(_Owner) f) => _owners.where(f).length;
+    int np(bool Function(_Owner) f) => _prev.where(f).length;
+    final pOwners = _prev.length;
+    final pClaimed = np((o) => o.has('claimed'));
+    final pLogin = np((o) => o.has('cc'));
+    final pSubmitted = np((o) => o.has('updated'));
+    final pApproved = np((o) => o.has('approved'));
+    final pBack = np((o) => o.has('approved') && (o.end == 'active' || o.end == 'premium'));
+    final pPremium = np((o) => o.end == 'premium');
+    final pWaiting = np((o) => o.end == 'waiting');
+    final pLost = np((o) => o.end == 'lost' || o.end == 'dormant');
     final claimed = n((o) => o.has('claimed'));
     final recovered = n((o) => o.has('followup') && o.has('claimed'));
     final login = n((o) => o.has('cc'));
@@ -839,29 +958,69 @@ class _AdminOwnerFlowScreenState extends State<AdminOwnerFlowScreen>
     final within = _review['within_24h'];
     final reviewed = _review['reviewed'];
 
-    Widget row(String k, int v, {Color? color}) => Padding(
-          padding: const EdgeInsets.symmetric(vertical: 3),
-          child: Row(children: [
-            Expanded(child: Text(k, style: const TextStyle(fontSize: 12.5, color: Brand.inkSecondary))),
-            Text('$v', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: color ?? Brand.ink, fontFeatures: const [ui.FontFeature.tabularFigures()])),
-          ]),
+    // movement: the change since [_against] days ago, green when it is
+    // good news, amber when it is not (more lost or dormant)
+    Widget row(String k, int v, {Color? color, int? prev, bool upIsGood = true}) {
+      Widget delta = const SizedBox(width: 44);
+      if (prev != null) {
+        final d = v - prev;
+        final good = d == 0 ? null : (d > 0) == upIsGood;
+        delta = SizedBox(
+          width: 44,
+          child: Text(
+            d == 0 ? '·' : (d > 0 ? '+$d' : '$d'),
+            textAlign: TextAlign.right,
+            style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+                color: good == null ? Brand.inkFaint : (good ? Brand.success : Brand.goldTextDark),
+                fontFeatures: const [ui.FontFeature.tabularFigures()]),
+          ),
         );
+      }
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 3),
+        child: Row(children: [
+          Expanded(child: Text(k, style: const TextStyle(fontSize: 12.5, color: Brand.inkSecondary))),
+          Text('$v', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: color ?? Brand.ink, fontFeatures: const [ui.FontFeature.tabularFigures()])),
+          delta,
+        ]),
+      );
+    }
+    Widget againstChip(int d) {
+      final on = _against == d;
+      return InkWell(
+        onTap: () => setState(() => _against = d),
+        borderRadius: BorderRadius.circular(4),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          child: Text('vs $d days ago',
+              style: TextStyle(fontSize: 10.5, letterSpacing: .6, fontWeight: FontWeight.w600,
+                  color: on ? Brand.ink : Brand.inkFaint,
+                  decoration: on ? TextDecoration.underline : null)),
+        ),
+      );
+    }
 
     return _card(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('THE NUMBERS', style: TextStyle(fontSize: 10.5, letterSpacing: 1.2, fontWeight: FontWeight.w600, color: Brand.inkMuted)),
+        Row(children: [
+          const Expanded(child: Text('THE NUMBERS', style: TextStyle(fontSize: 10.5, letterSpacing: 1.2, fontWeight: FontWeight.w600, color: Brand.inkMuted))),
+          againstChip(7),
+          againstChip(30),
+        ]),
         const SizedBox(height: 8),
-        row('Claim-page visitors (distinct)', _visitors),
-        row('Owners who started a claim', _owners.length),
-        row('Claimed profile', claimed),
+        row('Claim-page visitors (distinct, all time)', _visitors),
+        row('Owners who started a claim', _owners.length, prev: pOwners),
+        row('Claimed profile', claimed, prev: pClaimed),
         if (recovered > 0) row('… of which recovered by the "was this you?" email', recovered),
-        row('Logged in (now or after reminders)', login),
-        row('Submitted an edit', submitted),
-        row('Edit approved by you', approved),
-        row('Came back after approval', back),
-        row('Premium (paying)', premium, color: Brand.success),
-        row('Still in the reminder sequence', waiting),
-        row('Lost or dormant', lost, color: Brand.goldTextDark),
+        row('Logged in (now or after reminders)', login, prev: pLogin),
+        row('Submitted an edit', submitted, prev: pSubmitted),
+        row('Edit approved by you', approved, prev: pApproved),
+        row('Came back after approval', back, prev: pBack),
+        row('Premium (paying)', premium, color: Brand.success, prev: pPremium),
+        row('Still in the reminder sequence', waiting, prev: pWaiting, upIsGood: false),
+        row('Lost or dormant', lost, color: Brand.goldTextDark, prev: pLost, upIsGood: false),
         if (reviewed != null) ...[
           const SizedBox(height: 8),
           Text('Your review: average ${avg ?? '-'} h, $within of $reviewed edits within 24 h.',
@@ -933,6 +1092,10 @@ class _FlowPainter extends CustomPainter {
   final Map<String, double> lit;
   final String? selected;
   final List<String> slots; // one per owner: the result, or '' while running
+  final Map<String, int>? prev; // each box's count [against] days ago, once the run is over
+  final int against;
+  final String footer; // the totals line under the squares
+  final String header; // the period, top right
 
   _FlowPainter({
     required this.scale,
@@ -941,6 +1104,10 @@ class _FlowPainter extends CustomPainter {
     required this.lit,
     required this.selected,
     required this.slots,
+    required this.prev,
+    required this.against,
+    required this.footer,
+    required this.header,
   });
 
   static const _flow = Color(0xFF2B8FBF); // the owner's path
@@ -957,7 +1124,7 @@ class _FlowPainter extends CustomPainter {
       textDirection: ui.TextDirection.ltr,
       textAlign: align,
     )..layout();
-    final dx = align == TextAlign.center ? at.dx - tp.width / 2 : at.dx;
+    final dx = align == TextAlign.center ? at.dx - tp.width / 2 : align == TextAlign.right ? at.dx - tp.width : at.dx;
     tp.paint(c, Offset(dx, at.dy - tp.height / 2));
   }
 
@@ -969,12 +1136,14 @@ class _FlowPainter extends CustomPainter {
     // faint grid, as on the page
     final grid = Paint()..color = const Color(0x0A142032)..strokeWidth = .6;
     for (double x = 0; x <= 400; x += 40) {
-      canvas.drawLine(Offset(x, 0), Offset(x, 1080), grid);
+      canvas.drawLine(Offset(x, 0), Offset(x, 1100), grid);
     }
-    for (double y = 0; y <= 1080; y += 40) {
+    for (double y = 0; y <= 1100; y += 40) {
       canvas.drawLine(Offset(0, y), Offset(400, y), grid);
     }
 
+    // the period, top right
+    _text(canvas, header, const Offset(396, 12), 6.8, color: Brand.inkMuted, weight: FontWeight.w600, spacing: 1, align: TextAlign.right);
     // row labels
     for (final r in _kRows) {
       _text(canvas, r.$1, Offset(4, r.$2), 7.5, color: Brand.inkMuted, weight: FontWeight.w500, spacing: 1.1, align: TextAlign.left);
@@ -1079,6 +1248,17 @@ class _FlowPainter extends CustomPainter {
       if (count != null && (n.block || n.result != null || (n.strip && !n.off) || n.key == 'remind')) {
         _text(canvas, '$count', Offset(n.x, n.y + _kH / 2 + 12), 11,
             color: n.block ? Brand.goldTextDark : _flow);
+        // movement since [against] days ago, beside the count
+        final was = prev?[n.key];
+        if (prev != null && !n.strip) {
+          final d = count - (was ?? 0);
+          if (d != 0) {
+            final bad = n.block || n.result == 'lost' || n.result == 'dormant';
+            final good = (d > 0) != bad;
+            _text(canvas, d > 0 ? '+$d' : '$d', Offset(n.x + 14, n.y + _kH / 2 + 12), 7.5,
+                color: good ? Brand.success : Brand.goldTextDark, weight: FontWeight.w600, spacing: 0, align: TextAlign.left);
+          }
+        }
       }
     }
 
@@ -1117,9 +1297,14 @@ class _FlowPainter extends CustomPainter {
       _text(canvas, t, Offset(pos.dx + 12, pos.dy - 8), 6.5, color: Brand.inkMuted, weight: FontWeight.w500, spacing: 1, align: TextAlign.left);
     }
 
-    // one small square per owner under the results
+    // the whole dataset: one small square per owner, and the totals
+    _text(canvas, footer, const Offset(20, 1035), 7, color: Brand.inkMuted, weight: FontWeight.w600, spacing: 1, align: TextAlign.left);
+    final rows = (slots.length / 24).ceil();
+    if (prev != null) {
+      _text(canvas, 'GREEN AND AMBER FIGURES: CHANGE SINCE $against DAYS AGO', Offset(20, 1045 + rows * 15.0 + 8), 6.2, color: Brand.inkFaint, weight: FontWeight.w500, spacing: 1, align: TextAlign.left);
+    }
     for (var i = 0; i < slots.length; i++) {
-      final r = Rect.fromLTWH(20 + i * 15.0, 1045, 11, 11);
+      final r = Rect.fromLTWH(20 + (i % 24) * 15.0, 1045 + (i ~/ 24) * 15.0, 11, 11);
       final rr = RRect.fromRectAndRadius(r, const Radius.circular(2));
       final end = slots[i];
       Color? fill;

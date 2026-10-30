@@ -4925,3 +4925,26 @@ drops it off, owners still inside the reminder sequence have no step
 (nothing to do by hand), and the steps only name things that exist
 today: no "send the monthly numbers email" while there is no such
 email; a short note from Jonathan instead.
+
+## 30 Oct 2026: the Owner flow shows its whole dataset, a period, and movement (migration 204)
+
+Jonathan: "before it was clearer to see the total people in the whole
+funnel, being 11, but here in the bottom I can only see 8, and then
+above in the sequence is the remaining 3 ... want to clearly see the
+total dataset here, and the time period ... different periods, this
+month, last month, last 3 months ... wanting to be able to see
+movement, so we can see how things are improving or getting worse."
+- The period sits top right of the map ("11 owners, claimed 21 Sep to
+  30 Oct") and a totals line under the squares ("11 owners: 3 active,
+  5 dormant, 0 lost, 3 in reminders"), one square per owner, wrapping
+  at 24. Chips above the map: All time, This month, Last month, Last 3
+  months, by when the owner claimed.
+- Movement without waiting for snapshots: admin_owner_flow now also
+  takes a date and answers as the map stood then, from the timestamps
+  already kept (claims, logins, reminders, edits, reviews up to that
+  moment; Premium as it stands today). The screen loads now, 7 days
+  ago and 30 days ago. Each number in The numbers has its change
+  beside it, green when good, amber when not (more lost or dormant),
+  with a "vs 7 days ago / vs 30 days ago" switch; each result and
+  amber box on the map shows its change once the beads have landed.
+  The zero-argument function stays for the Monday review.
