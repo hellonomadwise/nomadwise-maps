@@ -8,7 +8,12 @@
 -- edits and reviews only up to that moment), so the screen can show
 -- "vs 7 days ago" and "vs 30 days ago" without waiting for
 -- snapshots. Premium is read as it stands today (Stripe history is
--- not kept). Ticks are today's. Pure ASCII. Safe to apply twice.
+-- not kept). Ticks are today's.
+-- 30 Oct, later: claim-page visitors now count real people from the
+-- claim_opened events (team devices and bots left out), as Analytics
+-- does; claim_visits.seed is the space looked at, not a visitor, so the
+-- old figure was wrong and included the team.
+-- Pure ASCII. Safe to apply twice.
 -- ============================================================
 
 -- The zero-argument version stays (the weekly review calls it); this one
@@ -24,9 +29,15 @@ declare
 begin
   if not coalesce(public.is_admin(), false) then raise exception 'admin only'; end if;
 
-  select count(distinct seed), count(distinct seed) filter (where created_at > t - interval '30 days')
+  -- claim-page visitors: real people, as the Analytics screen counts them
+  -- (claim_opened events; team devices and known bots left out). Not
+  -- claim_visits, whose seed is the space looked at, not the visitor.
+  select count(distinct anon_id), count(distinct anon_id) filter (where created_at > t - interval '30 days')
     into v_visitors, v_visitors_30
-    from public.claim_visits where created_at <= t;
+    from public.app_events
+   where name = 'claim_opened' and created_at <= t
+     and anon_id not in (select anon_id from public.team_devices)
+     and anon_id not in (select anon_id from public.bot_visitors);
 
   select jsonb_build_object(
       'avg_hours', round(coalesce(avg(extract(epoch from (reviewed_at - submitted_at)) / 3600), 0)::numeric, 1),
@@ -134,7 +145,7 @@ begin
     'visitors', v_visitors,
     'visitors_30d', v_visitors_30,
     'review', v_review,
-    'since', (select min(created_at) from public.claim_visits),
+    'since', (select min(created_at) from public.app_events where name = 'claim_opened'),
     'as_of', t);
 end $$;
 

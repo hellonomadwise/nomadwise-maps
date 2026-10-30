@@ -4948,3 +4948,11 @@ movement, so we can see how things are improving or getting worse."
   with a "vs 7 days ago / vs 30 days ago" switch; each result and
   amber box on the map shows its change once the beads have landed.
   The zero-argument function stays for the Monday review.
+Also, 30 Oct: Jonathan asked whether the numbers exclude him and the
+team's tests. The owners do (owner_flow_team_emails, plus any claim
+whose owner name says "test"), and so does the review speed. The
+claim-page visitors figure did not: it counted claim_visits.seed,
+which is the space the visitor came for, not the visitor, and so
+included the team. It now counts real people from the claim_opened
+events with team devices and known bots left out, the way Analytics
+does: 49 people since 21 Sep, not 35.
