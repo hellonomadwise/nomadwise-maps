@@ -5511,3 +5511,18 @@ For the six spaces we put on Premium ourselves (DEOS, Monday, Neighbors and
 Nomads, Nomio, Ofis Voyvoda, SOKKOOL), the button opens a new template
 (migration 229), "Owner account: a space we know, already on Premium", which
 tells them they already have Premium instead of offering it.
+
+## 30 Oct 2026: "Ask for more details" on an enquiry (migration 230)
+
+An enquiry for Fora, 22 Manchester Square said only "Tuesday 3": too little to
+pass on. Each enquiry's More menu now has "Ask for more details...": it shows a
+short email to the nomad (day or dates, how many people, what they need), opens
+it in our own email or copies it, and "I sent it" notes that we asked
+(enquiries.asked_at). The enquiry stays in the list with "You asked ... for more
+details on <date>" until they answer; their answer is added in Review and send
+and passed on. "Not asked after all" takes the note back. Nothing is sent from
+Nomad Maps.
+
+On nomadwise.io, the enquiry pop-up's message box now asks "When do you need it,
+for how many people, and what for?" and will not send under 20 characters
+(site script EnquiryDetails, coworking pages only).

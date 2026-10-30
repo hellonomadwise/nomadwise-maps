@@ -1191,6 +1191,12 @@ class SupabaseService {
     });
   }
 
+  /// Admin: notes that we asked the nomad for more details from our
+  /// own inbox (migration 230); [undo] takes the note back. The
+  /// enquiry stays waiting.
+  Future<void> enquiryAsked(String id, {bool undo = false}) =>
+      _db.rpc('admin_enquiry_asked', params: {'p_id': id, 'p_undo': undo});
+
   /// Admin: closes a waiting enquiry: 'handled', 'unreachable' (the
   /// nomad can be sent the space's website) or 'spam'.
   Future<void> closeEnquiry(String id, String reason,

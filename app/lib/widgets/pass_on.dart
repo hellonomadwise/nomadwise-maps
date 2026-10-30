@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -37,6 +38,10 @@ class PassOnCard extends StatelessWidget {
   bool get _matched => e['venue_id'] != null;
 
   bool get _verified => e['tier'] == 'verified';
+
+  /// When we asked the nomad for more details (migration 230), if we did.
+  DateTime? get _asked =>
+      DateTime.tryParse('${e['asked_at'] ?? ''}')?.toLocal();
 
   static String _when(String? ts) {
     final t = ts == null ? null : DateTime.tryParse(ts)?.toLocal();
@@ -258,6 +263,130 @@ class PassOnCard extends StatelessWidget {
     }
   }
 
+  String get _space {
+    final v = (e['venue_name'] ?? '').toString().trim();
+    if (v.isNotEmpty) return v;
+    final l = (e['listing_text'] ?? '').toString().split(',').first.trim();
+    return l.isEmpty ? 'the space' : l;
+  }
+
+  /// "Ask for more details" (Jonathan, 30 Oct 2026: an enquiry that
+  /// said only "Tuesday 3"). The question goes from our own inbox; this
+  /// only prepares it and, with "I sent it", notes that we asked. The
+  /// enquiry stays here until they answer and it is passed on.
+  Future<void> _askDetails(BuildContext context) async {
+    final email = (e['email'] ?? '').toString().trim();
+    final subject = TextEditingController(text: 'Your enquiry about $_space');
+    final body = TextEditingController(
+        text: 'Hi ${_first == 'them' ? 'there' : _first},\n\n'
+            'Thanks for your enquiry about $_space. So I can pass it to the '
+            'right person, could you tell me a little more: which day or '
+            'dates, how many people, and what you are looking for (a day '
+            'pass, a desk, a meeting room or an office)?\n\n'
+            'Jonathan');
+    String? note;
+    final sent = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setD) => AlertDialog(
+          title: const Text('Ask for more details'),
+          content: SizedBox(
+            width: 520,
+            child: SingleChildScrollView(
+              child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('To: ${e['name'] ?? 'them'}  <$email>',
+                        style: const TextStyle(
+                            fontSize: 13.5, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 10),
+                    TextField(
+                        controller: subject,
+                        decoration:
+                            const InputDecoration(labelText: 'Subject')),
+                    const SizedBox(height: 10),
+                    TextField(
+                        controller: body,
+                        minLines: 6,
+                        maxLines: 12,
+                        decoration: const InputDecoration(labelText: 'Email')),
+                    const SizedBox(height: 8),
+                    Wrap(spacing: 6, children: [
+                      TextButton.icon(
+                          onPressed: () async {
+                            final uri = Uri.tryParse('mailto:$email'
+                                '?subject=${Uri.encodeComponent(subject.text.trim())}'
+                                '&body=${Uri.encodeComponent(body.text.replaceAll('\r\n', '\n').replaceAll('\n', '\r\n'))}');
+                            if (uri != null) {
+                              try {
+                                await launchUrl(uri);
+                              } catch (_) {}
+                            }
+                            setD(() => note = 'Opened in your email app. '
+                                'Send it from there.');
+                          },
+                          icon: const Icon(Icons.open_in_new, size: 16),
+                          label: const Text('Open in my email')),
+                      TextButton.icon(
+                          onPressed: () async {
+                            await Clipboard.setData(
+                                ClipboardData(text: body.text));
+                            setD(() => note = 'Email copied.');
+                          },
+                          icon: const Icon(Icons.copy, size: 16),
+                          label: const Text('Copy email')),
+                    ]),
+                    if (note != null)
+                      Text(note!,
+                          style: const TextStyle(
+                              fontSize: 12.5, color: Brand.success)),
+                    const SizedBox(height: 6),
+                    const Text(
+                        'Nothing is sent from here. Send it from your own '
+                        'inbox, then press I sent it: the enquiry stays in '
+                        'this list, marked as asked, until they answer and '
+                        'you pass it on.',
+                        style: TextStyle(
+                            fontSize: 12, height: 1.4, color: Brand.inkMuted)),
+                  ]),
+            ),
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel')),
+            FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('I sent it')),
+          ],
+        ),
+      ),
+    );
+    subject.dispose();
+    body.dispose();
+    if (sent != true || !context.mounted) return;
+    try {
+      await supabase.enquiryAsked('${e['id']}');
+      if (!context.mounted) return;
+      _snack(context, 'Noted: you asked $_first for more details.');
+      await onDone();
+    } catch (err) {
+      if (context.mounted) _snack(context, 'That did not work: $err', bad: true);
+    }
+  }
+
+  Future<void> _askUndo(BuildContext context) async {
+    try {
+      await supabase.enquiryAsked('${e['id']}', undo: true);
+      if (!context.mounted) return;
+      _snack(context, 'Taken back: not marked as asked.');
+      await onDone();
+    } catch (err) {
+      if (context.mounted) _snack(context, 'That did not work: $err', bad: true);
+    }
+  }
+
   Future<void> _attach(BuildContext context) async {
     final listing = (e['listing_text'] ?? '').toString();
     final picked = await chooseSpace(listing.split(',').first.trim());
@@ -347,6 +476,21 @@ class PassOnCard extends StatelessWidget {
                 style: const TextStyle(
                     fontSize: 13.5, height: 1.5, color: Brand.ink)),
           ),
+          if (_asked != null) ...[
+            const SizedBox(height: 8),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+              decoration: BoxDecoration(
+                  color: Brand.goldTint, borderRadius: BorderRadius.circular(8)),
+              child: Text(
+                  'You asked $_first for more details on '
+                  '${DateFormat('d MMM').format(_asked!)}. When they answer, '
+                  'add it in Review and send and pass it on.',
+                  style: const TextStyle(
+                      fontSize: 13, height: 1.4, color: Brand.goldTextDark)),
+            ),
+          ],
           const SizedBox(height: 12),
           Wrap(
               spacing: 8,
@@ -370,8 +514,18 @@ class PassOnCard extends StatelessWidget {
                       child: const Text('Their page')),
                 PopupMenuButton<String>(
                   tooltip: 'More',
-                  onSelected: (r) => _close(context, r),
+                  onSelected: (r) => switch (r) {
+                    'ask' => _askDetails(context),
+                    'ask_undo' => _askUndo(context),
+                    _ => _close(context, r),
+                  },
                   itemBuilder: (_) => [
+                    const PopupMenuItem(
+                        value: 'ask', child: Text('Ask for more details...')),
+                    if (_asked != null)
+                      const PopupMenuItem(
+                          value: 'ask_undo',
+                          child: Text('Not asked after all')),
                     const PopupMenuItem(
                         value: 'handled', child: Text('Already handled')),
                     if (_matched)
