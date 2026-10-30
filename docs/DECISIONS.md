@@ -5564,3 +5564,21 @@ from the pricing page keeps both plans, as before.
 In Outreach, a space whose claim page was opened this way says "after choosing
 Premium on the pricing page" (from=pricing_premium; pricing_free for Free), so
 these warm leads stand out under "They showed interest".
+
+## 30 Oct 2026: places that are not countries, on the pricing page (migration 232)
+
+Jonathan: "Madeira isn't in the list. There might be specific places which even
+though they are not countries, they might be searched for". The pricing page
+dropdown now also lists places owners think of as home, shown with their
+country and priced as it: "Madeira (Portugal)", "Bali (Indonesia)",
+"Tenerife (Spain)", "Dubai (United Arab Emirates)", "England (United Kingdom)".
+Typing "made" finds Madeira; typing "portugal" shows Portugal, Madeira and the
+Azores. The list is the pricing_aliases rows that have a label (new column):
+Madeira, Azores; Canary Islands, Tenerife, Gran Canaria, Lanzarote,
+Fuerteventura, Balearic Islands, Mallorca, Ibiza, Menorca; Sicily, Sardinia;
+Corsica; Crete; Gozo; England, Scotland, Wales, Northern Ireland; Dubai;
+Zanzibar; Goa; Bali, Lombok; Phuket, Koh Samui, Koh Phangan; Langkawi;
+Siargao; Tasmania; Hawaii; Mexico City. Spellings with no label (usa, holland,
+viet nam, majorca) stay out of the list and only help pricing_for() read what
+people type. To add a place later: one row in pricing_aliases with alias in
+lower case, the country code and a label.

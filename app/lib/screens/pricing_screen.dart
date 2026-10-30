@@ -214,9 +214,13 @@ class _PricingScreenState extends State<PricingScreen> {
                   hintText: _countries.isEmpty ? 'Loading countries' : 'Choose a country',
                   leadingIcon: const Icon(Icons.public, size: 18),
                   dropdownMenuEntries: [
+                    // Countries, plus places people search for that are
+                    // not countries ("Madeira (Portugal)"). A place's
+                    // value is its own name, which pricing_for() knows.
                     for (final c in _countries)
                       DropdownMenuEntry(
-                          value: '${c['name']}', label: '${c['name']}'),
+                          value: '${c['value'] ?? c['name']}',
+                          label: '${c['name']}'),
                   ],
                   onSelected: _pickCountry,
                 ));
