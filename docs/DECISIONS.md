@@ -5610,3 +5610,10 @@ with "Nothing was charged". The step names in the events are now 'plans' and
 new names (2 = saw the plans, 3 = chose a plan). Plan cards shared in
 widgets/pricing_plans.dart. The page header has "Sign in to your Owner
 account", as the pricing page had.
+On Your details the plan line just says "Your plan: Premium, EUR 39 a year",
+with no "Change plan" button (Jonathan: it was the first thing he saw after
+choosing Premium). The back arrow goes back to the plans.
+The browser's Back button now goes to the step before, as the arrow does,
+instead of leaving the page (Jonathan, 30 Oct: Back on Your details took him to
+nomadwise.io; "we will lose customers if this happens"). Only on step one does
+Back leave the page. (PopScope on the claim page.)

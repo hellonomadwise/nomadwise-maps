@@ -795,7 +795,16 @@ class _ClaimScreenState extends State<ClaimScreen> {
 
   Widget _page(BuildContext context) {
     _ensurePricing();
-    return Scaffold(
+    // The browser's Back button (and a phone's back gesture) goes to the
+    // step before, like the arrow, instead of leaving for the page the
+    // visitor came from (Jonathan, 30 Oct 2026: "we will lose customers
+    // if this happens"). Only on step one does Back leave the page.
+    return PopScope(
+      canPop: _step == _Step.find,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _back();
+      },
+      child: Scaffold(
       backgroundColor: Brand.bg,
       appBar: AppBar(
         titleSpacing: 20,
@@ -846,6 +855,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
           ),
         );
       }),
+      ),
     );
   }
 
@@ -1540,7 +1550,9 @@ class _ClaimScreenState extends State<ClaimScreen> {
         TextButton(onPressed: _changeSpace, child: const Text('Change')),
       ]);
 
-  /// On Your details: the plan chosen on step two, and a way back to it.
+  /// On Your details: the plan chosen on step two. No "Change plan"
+  /// (Jonathan, 30 Oct 2026: it was the first thing he saw after
+  /// choosing Premium); the back arrow goes back to the plans.
   Widget _planLine(bool wide) {
     final p = _pricing;
     final premium = _plan == 'verified';
@@ -1550,7 +1562,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
         : '';
     return Container(
       margin: const EdgeInsets.only(top: 10),
-      padding: EdgeInsets.fromLTRB(wide ? 18 : 14, 4, 6, 4),
+      padding: EdgeInsets.symmetric(horizontal: wide ? 18 : 14, vertical: 14),
       decoration: BoxDecoration(
         color: Brand.surface,
         borderRadius: BorderRadius.circular(_corner),
@@ -1566,7 +1578,6 @@ class _ClaimScreenState extends State<ClaimScreen> {
               style: const TextStyle(
                   fontSize: 14.5, fontWeight: FontWeight.w700, color: Brand.ink)),
         ),
-        TextButton(onPressed: _back, child: const Text('Change plan')),
       ]),
     );
   }
