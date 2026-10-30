@@ -5623,3 +5623,13 @@ added that way. So each step forward now adds its own browser history entry
 while the visitor taps (ua.pushStep), and Back and Forward move through the
 steps: Your details, the plans, Find your space, then off the page. The arrow
 on the page uses the same history, so the two never disagree.
+
+## 30 Oct 2026: nomadmaps.io/spaces forwards to the pricing page
+
+The old spaces page ("Verified for 99 EUR a year", "a place above every free
+listing in your city and area") was still reachable: from the map's menu ("Own
+a space?"), from old emails (migration 83's "See how Verified works" button,
+long since replaced) and from search engines. It now forwards to
+nomadmaps.io/pricing (find your space, then Free and Premium for its country),
+marked noindex with the pricing page as canonical. The map menu links to
+/pricing directly.

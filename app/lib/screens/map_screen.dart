@@ -1914,7 +1914,7 @@ class _MapScreenState extends State<MapScreen> {
             sub: 'Manage your listing on nomadwise.io, free or with Premium',
             onTap: () {
               Navigator.pop(context);
-              launchUrl(Uri.parse('https://nomadmaps.io/spaces'),
+              launchUrl(Uri.parse('https://nomadmaps.io/pricing'),
                   mode: LaunchMode.platformDefault);
             },
           ),
