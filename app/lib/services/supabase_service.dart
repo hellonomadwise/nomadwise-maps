@@ -1674,6 +1674,22 @@ class SupabaseService {
     }
   }
 
+  /// Every country with a price (migration 231), A to Z, for the
+  /// pricing page's "Where is your space?": [{iso, name}]. Empty when
+  /// it could not be loaded.
+  Future<List<Map<String, dynamic>>> pricingCountries() async {
+    try {
+      final r = await _db.rpc('pricing_country_list');
+      if (r is List) {
+        return [
+          for (final x in r)
+            if (x is Map) Map<String, dynamic>.from(x)
+        ];
+      }
+    } catch (_) {}
+    return const [];
+  }
+
   /// Records a claim before the owner goes to Stripe and returns
   /// {claim_id, venue_id}. The claim id rides along in the payment link.
   /// What Verified costs for a space in this country (migration 115):

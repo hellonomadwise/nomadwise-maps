@@ -5,6 +5,7 @@ import 'config.dart';
 import 'screens/admin_gate.dart';
 import 'screens/claim_screen.dart';
 import 'screens/owner_screen.dart';
+import 'screens/pricing_screen.dart';
 import 'screens/sign_in_link_screen.dart';
 import 'screens/admin_outreach_screen.dart' show UnsubscribeScreen;
 import 'screens/enquiry_screen.dart';
@@ -59,6 +60,8 @@ class NomadwiseMapsApp extends StatelessWidget {
     // static build needs no routing:
     //   ?enquire=<slug>  the Send an enquiry form on a Verified page
     //   ?claim[=<name or slug>][&from=<page>]  the owner's claim-and-pay flow
+    //   ?pricing         Free and Premium, price by country (also
+    //                    nomadmaps.io/pricing)
     //   ?claimed         where Stripe returns them after paying
     //   ?owner           the Owner account (manage my listing)
     //   ?update=<slug>   Something need updating? (anyone; owners are
@@ -95,11 +98,18 @@ class NomadwiseMapsApp extends StatelessWidget {
       // "Add a tag" on a listing page: who are you first, then the
       // owner claims, a visitor says what the place has.
       home = UpdateScreen(slug: _param('tag') ?? '', tags: true);
+    } else if (_has('pricing') || _path.startsWith('/pricing')) {
+      home = const PricingScreen();
     } else if (_has('claimed')) {
       home = const ClaimedScreen();
     } else if (_has('claim') || _path.startsWith('/claim')) {
       home = ClaimScreen(
-          seed: _param('claim'), from: _param('from'), email: _param('email'));
+          seed: _param('claim'),
+          from: _param('from'),
+          email: _param('email'),
+          plan: _param('plan'),
+          period: _param('period'),
+          currency: _param('currency'));
     } else if (_has('admin') || _path.startsWith('/admin')) {
       home = AdminGate(section: _param('admin'));
     } else if (_has('unsubscribe')) {

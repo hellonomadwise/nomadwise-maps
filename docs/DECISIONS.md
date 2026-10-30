@@ -5526,3 +5526,22 @@ Nomad Maps.
 On nomadwise.io, the enquiry pop-up's message box now asks "When do you need it,
 for how many people, and what for?" and will not send under 20 characters
 (site script EnquiryDetails, coworking pages only).
+
+## 30 Oct 2026: a pricing page for spaces (migration 231)
+
+nomadmaps.io/pricing (also ?pricing): Free and Premium for anyone, before
+claiming. It asks "Where is your space?" first (a country dropdown you can type
+into) and shows the Premium price only once a country is chosen: Jonathan did
+not want it guessed from the device, as a VPN or a travelling owner would see
+the wrong price. Prices come from pricing_for(), as on the claim page, so they
+always match checkout; the list of countries from pricing_country_list()
+(migration 231). Built on the six pricing-table rules Jonathan shared: the
+price speaks first; more room between the plans than inside them; Premium is
+the one to pick (red border, the MAKE THE MOST OF NOMADWISE pill, the only filled
+button); it sits raised; Yearly comes first with "2 months free" and the twelve
+monthly payments struck through; the price changes in place when the country,
+period or currency changes. On a phone Premium comes first. Both buttons open
+the claim page with the plan, and for Premium the period and currency, already
+chosen (ClaimScreen plan/period/currency, also &plan= &period= &currency=). The
+plan lists are now shared by the claim page and the pricing page
+(planFreeGets, planPremiumAdds in widgets/pricing_picker.dart).

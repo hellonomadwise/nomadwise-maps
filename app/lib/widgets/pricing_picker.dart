@@ -2,6 +2,28 @@ import 'package:flutter/material.dart';
 
 import '../theme.dart';
 
+/// What each plan gives, for the claim page and the pricing page alike.
+/// Leonie's wording, 23 Oct (CR-29): regrouped, nothing taken away.
+/// WiFi is not listed: owners do not edit it (it comes from tests).
+const planFreeGets = [
+  'Your page on Nomadwise, with your own photos and description',
+  'Your Owner account, to keep your hours, prices and contact details '
+      'up to date',
+  'Optimised to be found on Google and by AI assistants',
+  '2 free enquiries from nomads',
+];
+
+/// The paid plan is Premium; the badge it brings is still called
+/// Verified by Nomadwise.
+const planPremiumAdds = [
+  'Verified by Nomadwise badge on your page',
+  "Top positioning on your region's page",
+  'Promote your events and offers on your page',
+  'Unlimited enquiries from nomads, straight to your inbox',
+  'Your Instagram and WhatsApp on your page',
+  'Remove ads from your page',
+];
+
 /// Money the way each currency writes it: "€10", "£8.50", "$17",
 /// "A$25". Whole amounts drop the decimals.
 String formatMoney(num minor, String currency) {

@@ -44,7 +44,21 @@ class ClaimScreen extends StatefulWidget {
 
   /// The owner's email, when a founder sent the link (&email=).
   final String? email;
-  const ClaimScreen({super.key, this.seed, this.from, this.email});
+
+  /// From the pricing page (&plan=premium|free, &period=monthly|yearly,
+  /// &currency=USD): the plan already chosen on step three. The price
+  /// itself still comes from the claimed space's country.
+  final String? plan;
+  final String? period;
+  final String? currency;
+  const ClaimScreen(
+      {super.key,
+      this.seed,
+      this.from,
+      this.email,
+      this.plan,
+      this.period,
+      this.currency});
   @override
   State<ClaimScreen> createState() => _ClaimScreenState();
 }
@@ -253,8 +267,12 @@ class _ClaimScreenState extends State<ClaimScreen> {
           choice.currencies.contains(_restoreCurrency)) {
         choice.currency = _restoreCurrency!;
       }
-      _restorePeriod = null;
-      _restoreCurrency = null;
+      // Kept until a country is known: from the pricing page they must
+      // survive the fallback prices shown before a space is picked.
+      if (c.isNotEmpty) {
+        _restorePeriod = null;
+        _restoreCurrency = null;
+      }
       setState(() => _pricing = choice);
     });
   }
@@ -414,6 +432,15 @@ class _ClaimScreenState extends State<ClaimScreen> {
     if ((widget.email ?? '').contains('@')) {
       _ownerEmail.text = widget.email!.trim();
     }
+    // Chosen on the pricing page; a saved draft below can still win.
+    if (widget.plan == 'premium' || widget.plan == 'verified') {
+      _plan = 'verified';
+    }
+    if (widget.period == 'monthly' || widget.period == 'yearly') {
+      _restorePeriod = widget.period;
+    }
+    final cur = (widget.currency ?? '').trim().toUpperCase();
+    if (RegExp(r'^[A-Z]{3}$').hasMatch(cur)) _restoreCurrency = cur;
     // Back from Stripe (Cancel there, or the browser's Back button): a
     // draft saved on the way out puts the visitor on step three with
     // their details, unless they arrived from a link for a different
@@ -1435,25 +1462,9 @@ class _ClaimScreenState extends State<ClaimScreen> {
         _plansOverview(wide),
       ]);
 
-  // Leonie's wording, 23 Oct (CR-29): regrouped, nothing taken away.
-  // WiFi is not listed: owners do not edit it (it comes from tests).
-  static const _freeGets = [
-    'Your page on Nomadwise, with your own photos and description',
-    'Your Owner account, to keep your hours, prices and contact details '
-        'up to date',
-    'Optimised to be found on Google and by AI assistants',
-    '2 free enquiries from nomads',
-  ];
-  // The paid plan is Premium (CR-30); the badge it brings is still
-  // called Verified by Nomadwise.
-  static const _verifiedAdds = [
-    'Verified by Nomadwise badge on your page',
-    "Top positioning on your region's page",
-    'Promote your events and offers on your page',
-    'Unlimited enquiries from nomads, straight to your inbox',
-    'Your Instagram and WhatsApp on your page',
-    'Remove ads from your page',
-  ];
+  // The same lists as the pricing page (widgets/pricing_picker.dart).
+  static const _freeGets = planFreeGets;
+  static const _verifiedAdds = planPremiumAdds;
 
   // ------------------------------------------------------ plan cards
 
