@@ -1,0 +1,18 @@
+{
+  "newly_applied": [
+    {
+      "file": "migration231_opening_line.sql",
+      "status": "applied"
+    }
+  ],
+  "failed": [],
+  "error": null,
+  "share_pages": {
+    "venues": 1044,
+    "found": 5310,
+    "with_picture": 6342,
+    "skipped": 169,
+    "live_picture": true,
+    "seconds": 6.0
+  }
+}
