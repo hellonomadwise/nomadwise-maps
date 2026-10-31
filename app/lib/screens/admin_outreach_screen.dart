@@ -1359,6 +1359,15 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
       return '$b\n\nIf you would rather not hear from us again: $unsubLink';
     }
 
+    // The same email as it is pasted into Spark: "Kind regards," stays,
+    // the name and role under it go, because Spark adds the sender's
+    // own signature there (Jonathan, 31 Oct 2026: "it shouldn't include
+    // my signature if I'm going to copy and paste it into spark"). The
+    // log keeps the full words.
+    String pasteBody() => ownInboxBody().replaceFirst(
+        RegExp(r'Kind regards,\s*\n\s*Jonathan Heavens\s*\n\s*Cofounder - Nomadwise\.io'),
+        'Kind regards,');
+
     // Gets the email ready to be sent from our own mailbox by hand.
     // Where the computer's mail app can take a link (a Mac with Spark
     // as its default), the draft opens there; on Windows the address,
@@ -1400,9 +1409,9 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
           }
           return;
         }
-        // Without our sign-off: Spark adds the sender's own signature
+        // Without our signature: Spark adds the sender's own
         // (Jonathan, 26 Oct 2026: it showed twice). The log keeps it.
-        final text = ownInboxBody();
+        final text = pasteBody();
         // The designed version first (Jonathan, 10 Oct 2026: Spark
         // showed the bare text, long links and no button); a browser
         // may refuse it, and then the plain text is copied. The draft
@@ -1674,7 +1683,7 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
                               for (final part in <(String, String)>[
                                 ('address', '${c['email']}'),
                                 ('subject', subject.text.trim()),
-                                ('email', ownInboxBody()),
+                                ('email', pasteBody()),
                               ])
                                 TextButton.icon(
                                     onPressed: () async {
