@@ -148,7 +148,12 @@ class Analytics {
       r'bot|crawl|spider|slurp|headless|lighthouse|phantom|selenium|'
       r'puppeteer|playwright|bingpreview|facebookexternalhit|'
       r'whatsapp|telegram|discord|skype|preview|python|curl|wget|'
-      r'monitor|pingdom|uptime',
+      r'monitor|pingdom|uptime|'
+      // Google's other crawlers do not say "bot" ("GoogleOther",
+      // "Google-InspectionTool"); on 31 Oct and 1 Nov GoogleOther
+      // opened the claim page from blog pages and rang the phone.
+      r'googleother|google-inspectiontool|google-extended|'
+      r'\(compatible;',
       caseSensitive: false);
 
   /// Automated browsers (crawlers, link-preview fetchers, uptime

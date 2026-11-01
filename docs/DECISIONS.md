@@ -5633,3 +5633,15 @@ long since replaced) and from search engines. It now forwards to
 nomadmaps.io/pricing (find your space, then Free and Premium for its country),
 marked noindex with the pricing page as canonical. The map menu links to
 /pricing directly.
+
+## 1 Nov 2026: Google's "GoogleOther" crawler no longer rings the phone
+
+Jonathan asked about two "Claim page opened" notices at night, from blog pages,
+"looking from United States". Neither visit shows in PostHog, and the claim
+page's own record (claim_visits) has the user agent "... (compatible;
+GoogleOther)": Google's crawler following the "List your business" link, not a
+person. 23 of 81 claim page openings in the last 14 days were crawlers like
+this. The bot check (Analytics.isBot) looked for "bot" in the name, which
+GoogleOther does not have. It now also knows GoogleOther,
+Google-InspectionTool, Google-Extended and any "(compatible;" crawler, so
+these visits send no events and no phone notice.
