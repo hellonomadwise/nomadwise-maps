@@ -187,7 +187,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         ? DateTime.tryParse('${v['listing_paid_at']}')
         : null;
     if (paid != null && (owner == null || paid.isAfter(owner))) {
-      return ('Verified', paid);
+      return ('Premium', paid);
     }
     return owner == null ? null : ('Claimed', owner);
   }
@@ -2065,7 +2065,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                               live ? Brand.success : Brand.inkSecondary,
                               live ? Brand.successTint : Brand.field),
                           if (tier != 'free')
-                            pill('Verified', Brand.logoNavy,
+                            pill('Premium', Brand.logoNavy,
                                 Brand.logoTealTint),
                           if (owner.isNotEmpty)
                             pill('Claimed', Brand.goldTextDark, Brand.goldTint),
@@ -2138,7 +2138,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
           'started' => 'started, not finished',
           'awaiting_approval' => 'paid, waiting for a decision',
           'free_pending' => 'free, waiting for a decision',
-          'paid' => 'Verified, approved',
+          'paid' => 'Premium, approved',
           'free' => 'free, approved',
           'rejected' => 'turned down',
           'abandoned' => 'abandoned',
@@ -3460,10 +3460,10 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         label: 'Owners',
         count: _held.length + _paid.length + _orders.length + _started.length,
         color: Brand.success,
-        hint: 'Everyone who has claimed a page, free or Verified. Claims '
+        hint: 'Everyone who has claimed a page, free or Premium. Claims '
             'waiting for a decision first, then payments needing a match, '
             'then forms started but not finished (last 30 days), then the '
-            'Verified listings (paid, or made Verified by us) and the free '
+            'Premium listings (paid, or made Premium by us) and the free '
             'pages with an owner on record.',
         empty: 'No claims or owners yet. Open a released page and tap '
             'Listing plan to mark the first one Verified.'
@@ -3476,7 +3476,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         hint: 'Nomads who used Send an enquiry on a page with no owner yet, '
             'or that is Claimed. Pass each one on to the space: their reply '
             'goes straight to the nomad, and the email invites them to claim '
-            'their page (or, if Claimed, mentions Verified). Verified spaces get '
+            'their page (or, if Claimed, mentions Premium). Premium spaces get '
             'theirs directly and never show here.',
         empty: 'No enquiries waiting. Enquiries for pages without an owner, '
             'or Claimed pages, land here to pass on.'
@@ -3488,7 +3488,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         color: Brand.goldTextDark,
         hint: 'Changes owners submitted from their Owner account: '
             'description, prices, hours, amenities, photos, contact, and on '
-            'Verified pages the message for the advert slot. Nothing is on '
+            'Premium pages the promotion or event for the advert slot. Nothing is on '
             'the page until you put it there. Send back anything that '
             'oversells; the note reaches the owner.',
         empty: 'No owner changes waiting.'
@@ -4505,7 +4505,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         ]),
         Text(
             '${[v['city'], v['country']].where((x) => (x ?? '').toString().isNotEmpty).join(', ')}'
-            '  ·  ${verified ? 'Verified' : 'Claimed'}  ·  ${d['owner_email'] ?? ''}'
+            '  ·  ${verified ? 'Premium' : 'Claimed'}  ·  ${d['owner_email'] ?? ''}'
             '  ·  submitted ${_ago(d['submitted_at'])}',
             style: const TextStyle(fontSize: 12, color: Brand.inkSecondary)),
         const SizedBox(height: 10),
@@ -5623,7 +5623,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     final nPaid = all.where(isPaid).length;
     final choices = [
       ('all', 'All', all.length, Brand.ink),
-      ('verified', 'Verified', nPaid, Brand.success),
+      ('verified', 'Premium', nPaid, Brand.success),
       ('free', 'Claimed', all.length - nPaid, Brand.inkSecondary),
     ];
     final shown = switch (_ownerFilter) {
@@ -5662,7 +5662,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
               _ownerFilter == 'free'
                   ? 'None yet. An approved claim lands here.'
                   : _ownerFilter == 'verified'
-                      ? 'No Verified listings yet.'
+                      ? 'No Premium listings yet.'
                       : 'None yet.',
               style: const TextStyle(fontSize: 12.5, color: Brand.inkMuted)),
         ),
@@ -6074,7 +6074,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
               icon: const Icon(Icons.check, size: 18),
               label: Text(free
                   ? 'Approve, they own the page'
-                  : 'Approve, make it Verified')),
+                  : 'Approve, make it Premium')),
           TextButton(
               onPressed: () => _rejectClaim(c, spaceName),
               child: const Text('Reject')),
@@ -6249,7 +6249,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(c['status'] == 'free_pending'
               ? '$spaceName: owner recorded. The plan stays free.'
-              : '$spaceName is now Verified. The page updates at '
+              : '$spaceName is now Premium. The page updates at '
                   'the next push.')));
       await _load();
     } catch (e) {
@@ -6389,7 +6389,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
           subtitle: const Text(
               'Open the member area for any listing, claimed or not, as '
               'its owner would see it: waiting for the check, free or '
-              'Verified. A preview; nothing is saved.',
+              'Premium. A preview; nothing is saved.',
               style: TextStyle(fontSize: 12.5, color: Brand.inkSecondary)),
           trailing: const Icon(Icons.chevron_right, color: Brand.inkMuted),
           onTap: _pickOwnerPreview,
@@ -6614,7 +6614,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       await _supabase.attachStripeOrder(o['id'], picked['id']);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('${picked['name']} is now Verified. The page '
+          content: Text('${picked['name']} is now Premium. The page '
               'updates within a minute or two.')));
       await _load();
     } catch (e) {
@@ -7719,7 +7719,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
               TextButton(
                   onPressed: () => _editPlan(v),
                   child: Text(
-                      v['listing_tier'] == 'verified' ? 'Verified' : 'Plan',
+                      v['listing_tier'] == 'verified' ? 'Premium' : 'Plan',
                       style: TextStyle(
                           fontSize: 12,
                           color: v['listing_tier'] == 'verified'
@@ -9059,7 +9059,8 @@ class _ListingPlanPageState extends State<_ListingPlanPage> {
           constraints: const BoxConstraints(maxWidth: 640),
           child: ListView(padding: const EdgeInsets.all(16), children: [
             const Text(
-                'Verified is the paid plan: the badge on the page and the '
+                'Premium is the paid plan: the Verified by Nomadwise badge on '
+                'the page and the '
                 'map pin, a place above every free listing in its city and '
                 'area, and the '
                 'Send an enquiry button sending enquiries to the address '
@@ -9085,7 +9086,7 @@ class _ListingPlanPageState extends State<_ListingPlanPage> {
                     label: Text(hasOwner ? 'Claimed' : 'Listed')),
                 const ButtonSegment(
                     value: 'verified',
-                    label: Text('Verified'),
+                    label: Text('Premium'),
                     icon: Icon(Icons.verified, size: 16)),
               ],
               selected: {_tier},

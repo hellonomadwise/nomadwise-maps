@@ -425,7 +425,7 @@ class _MoneyCardState extends State<MoneyCard> {
     final lines = <String>[];
     if (m == null) {
       // Not read yet, or the database change is not in: what is known.
-      tiles.add(stat('$verifiedShown', 'Verified'));
+      tiles.add(stat('$verifiedShown', 'Premium'));
       lines.add(_moneyLoaded
           ? 'The payment numbers could not be read just now.'
           : 'Reading the payment numbers.');
@@ -465,11 +465,11 @@ class _MoneyCardState extends State<MoneyCard> {
                 : ''),
         stat(
             '$verified',
-            'Verified',
+            'Premium',
             verified == 0
                 ? ''
                 : verifiedClaimed != verified
-                    // some were made Verified on a page nobody claimed
+                    // some were made Premium on a page nobody claimed
                     ? '$verifiedClaimed of them on a claimed page'
                     : claimed > 0
                         ? '${_share(verified, claimed)} of the claimed pages'
@@ -480,10 +480,10 @@ class _MoneyCardState extends State<MoneyCard> {
             verified == 0
                 ? ''
                 : paying == 0
-                    ? 'none of the Verified yet'
+                    ? 'none of the Premium yet'
                     : payingReal <= 0
-                        ? 'none of the Verified yet'
-                        : '${_share(payingReal, verified)} of the Verified'),
+                        ? 'none of the Premium yet'
+                        : '${_share(payingReal, verified)} of the Premium'),
         stat(
             _cash(_amount(m['mrr_eur']), 'EUR'),
             'a month (MRR)',
@@ -505,25 +505,25 @@ class _MoneyCardState extends State<MoneyCard> {
       if (tests > 0) {
         lines.add(tests == 1
             ? '1 test page (one of us, marked in Outreach) is left out of '
-                'claimed and Verified.'
+                'claimed and Premium.'
             : '$tests test pages (one of us, marked in Outreach) are left '
-                'out of claimed and Verified.');
+                'out of claimed and Premium.');
       }
       if (byUs > 0) {
         lines.add(byUs == 1
-            ? '1 Verified listing pays nothing (made Verified by us, or on '
+            ? '1 Premium listing pays nothing (made Premium by us, or on '
                 'a free code).'
-            : '$byUs Verified listings pay nothing (made Verified by us, or '
+            : '$byUs Premium listings pay nothing (made Premium by us, or '
                 'on a free code).');
       }
       if (unmatched > 0) {
         lines.add(unmatched == 1
             ? '1 more subscription is paying but is not attached to a '
-                'Verified listing (a claim waiting for your decision, a '
+                'Premium listing (a claim waiting for your decision, a '
                 'payment to match, or a listing set back to free by hand). '
                 'Its money is counted.'
             : '$unmatched more subscriptions are paying but are not '
-                'attached to a Verified listing (claims waiting for your '
+                'attached to a Premium listing (claims waiting for your '
                 'decision, payments to match, or listings set back to free '
                 'by hand). Their money is counted.');
       }

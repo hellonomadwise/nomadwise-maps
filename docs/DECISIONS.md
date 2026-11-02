@@ -5666,3 +5666,13 @@ these visits send no events and no phone notice.
 - Still open (Webflow): "Send an enquiry" is hidden on every live listing page,
   Premium ones included, by the button's show/hide rule in the Designer. To fix
   there with Jonathan's go.
+
+## 2 Nov 2026: "Premium" in the Control centre too
+
+Jonathan: the Money card still said "6 Verified". The admin now says Premium
+for the paid plan everywhere it means the plan: the Money card (Premium,
+"none of the Premium yet", "Premium listings pay nothing"), the Owners
+section's note, filter and pills, the claim and approval buttons ("Approve,
+make it Premium"), the confirmations and the Listing plan switch. Kept: the
+badge name "Verified by Nomadwise", "Verified in the app" (a checked space),
+and the Webflow switch that is still called "Verified".
