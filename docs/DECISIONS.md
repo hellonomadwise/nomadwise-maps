@@ -5645,3 +5645,24 @@ this. The bot check (Analytics.isBot) looked for "bot" in the name, which
 GoogleOther does not have. It now also knows GoogleOther,
 Google-InspectionTool, Google-Extended and any "(compatible;" crawler, so
 these visits send no events and no phone notice.
+
+## 2 Nov 2026: Leonie's CR-22 review of the Owner account preview
+
+- No "Managed by its owner" mark in the Owner account preview: it was dropped
+  from the live page on 26 Oct (CR-25), so the preview matches.
+- "Request change" beside the location and WiFi line under the page title, in
+  the same style as Edit. Owners do not edit WiFi speed, location or name; the
+  button opens a short form (WiFi speed / Location / Name and a note) that
+  arrives in Inbox & support as "Change request (WiFi speed): ...". The grey
+  line under it says WiFi speed is checked by Nomadwise.
+- Free pages show the real partner advert in the preview, in full colour, with
+  Remove ad, instead of a grey box (Leonie: a grey box gives no reason to remove
+  it). The banner is the one the live page shows first (Webflow Ad
+  Visibilities, lowest Order): Ubigi Asia for Indonesia, Thailand, Japan and
+  Vietnam; Ubigi Europe for Portugal and the UK; Ubigi Spain for Spain; else
+  SafetyWing. If the image cannot load, the old grey box shows.
+- The "Your message" tab is now "Promotions and events", the same name as the
+  card on the live page and in My listing.
+- Still open (Webflow): "Send an enquiry" is hidden on every live listing page,
+  Premium ones included, by the button's show/hide rule in the Designer. To fix
+  there with Jonathan's go.

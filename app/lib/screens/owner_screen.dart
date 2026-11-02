@@ -1733,7 +1733,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
       section('Photos', ['Add your own photos']),
       section('Passes and prices', ['Day pass', 'Week pass', 'Month pass']),
       section('Opening hours', ['Monday', 'Tuesday', 'Wednesday']),
-      section('Your message', ['An event or offer for your page']),
+      section('Promotions and events', ['An event or offer for your page']),
     ]);
     return ClipRRect(
       borderRadius: BorderRadius.circular(8),
@@ -1865,7 +1865,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
         children: [
           if (_showTip && !_isPreview) _bookmarkTip(),
           // My listing saves part by part (Save change); the bar stays
-          // for Your message.
+          // for Promotions and events.
           if (_tab == _Tab.message && _verified) _actionBar(wide),
           _statusBanner(),
           // Build next is a board of its own, full width; so is the
@@ -2047,7 +2047,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
   Widget _nav(bool wide) {
     final items = [
       (_Tab.listing, Icons.edit_note_outlined, 'My listing'),
-      (_Tab.message, Icons.campaign_outlined, 'Your message'),
+      (_Tab.message, Icons.campaign_outlined, 'Promotions and events'),
       (_Tab.membership, Icons.workspace_premium_outlined, 'Plan & billing'),
       // CR-26: the badges for their own website. A placeholder until
       // the designs are agreed with Leonie (Jonathan, 24 Oct).
@@ -3274,6 +3274,156 @@ class _OwnerScreenState extends State<OwnerScreen> {
         label: Text(label, softWrap: false),
       );
 
+  /// "Request change", in the same style as Edit: WiFi speed, location
+  /// and name are not edited here (Leonie, 2 Nov 2026).
+  Widget _requestButton() => OutlinedButton.icon(
+        onPressed: _requestChange,
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size(0, 40),
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          foregroundColor: _edInk,
+          backgroundColor: Colors.white,
+          side: const BorderSide(color: _edBorder),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+        ),
+        icon: const Icon(Icons.edit_outlined, size: 15),
+        label: const Text('Request change', softWrap: false),
+      );
+
+  /// A short message to Nomadwise about the WiFi speed, the location or
+  /// the name. It arrives in Inbox & support like any other message.
+  Future<void> _requestChange() async {
+    final v = _venue;
+    if (v == null) return;
+    const hints = {
+      'WiFi speed': 'For example: our WiFi is now 300 Mbps since we '
+          'upgraded in October.',
+      'Location': 'For example: we moved to Jalan Pantai 12, two streets '
+          'further down.',
+      'Name': 'For example: our name is now Sunrise Coworking.',
+    };
+    final note = TextEditingController();
+    var what = 'WiFi speed';
+    var sending = false;
+    String? error;
+    final sent = await showDialog<bool>(
+      context: context,
+      // Closed only with Cancel or after sending, so a send in progress
+      // always finishes inside the dialog.
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setD) => PopScope(
+          canPop: !sending,
+          child: AlertDialog(
+          scrollable: true,
+          title: const Text('Request a change'),
+          content: SizedBox(
+            width: 440,
+            child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                      'Your WiFi speed, location and name are checked by '
+                      'Nomadwise, so they are not edited here. Tell us '
+                      'what should change and we will look at it.',
+                      style: TextStyle(
+                          fontSize: 13.5,
+                          height: 1.45,
+                          color: Brand.inkSecondary)),
+                  const SizedBox(height: 14),
+                  Wrap(spacing: 8, runSpacing: 8, children: [
+                    for (final w in hints.keys)
+                      ChoiceChip(
+                        label: Text(w),
+                        selected: what == w,
+                        onSelected: (_) => setD(() => what = w),
+                      ),
+                  ]),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: note,
+                    autofocus: true,
+                    minLines: 3,
+                    maxLines: 6,
+                    maxLength: 1000,
+                    textCapitalization: TextCapitalization.sentences,
+                    decoration: InputDecoration(
+                      labelText: 'What should change?',
+                      hintText: hints[what],
+                      hintMaxLines: 3,
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                  if (error != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(error!,
+                          style: const TextStyle(
+                              fontSize: 13, color: Brand.red)),
+                    ),
+                  const SizedBox(height: 6),
+                  const Text(
+                      'This sends a message to Nomadwise in Inbox & '
+                      'support. Your page stays as it is until we change '
+                      'it.',
+                      style: TextStyle(fontSize: 12, color: Brand.inkMuted)),
+                ]),
+          ),
+          actions: [
+            TextButton(
+                onPressed: sending ? null : () => Navigator.pop(ctx, false),
+                child: const Text('Cancel')),
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: _edRed),
+              onPressed: sending
+                  ? null
+                  : () async {
+                      final text = note.text.trim();
+                      if (text.length < 3) {
+                        setD(() => error = 'Write what should change.');
+                        return;
+                      }
+                      if (_isPreview) {
+                        Navigator.pop(ctx, true);
+                        return;
+                      }
+                      setD(() {
+                        sending = true;
+                        error = null;
+                      });
+                      try {
+                        await _supabase.ownerChatSend(
+                            '${v['id']}', 'Change request ($what): $text');
+                        if (ctx.mounted) Navigator.pop(ctx, true);
+                      } catch (_) {
+                        if (!ctx.mounted) return;
+                        setD(() {
+                          sending = false;
+                          error = 'That did not send. Please try again.';
+                        });
+                      }
+                    },
+              child: Text(sending ? 'Sending' : 'Send to Nomadwise',
+                  softWrap: false),
+            ),
+          ],
+        ),
+        ),
+      ),
+    );
+    // After the closing animation, so the field is gone first.
+    Future.delayed(const Duration(milliseconds: 400), note.dispose);
+    if (sent == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(_isPreview
+              ? 'Preview: the owner\'s request goes to Inbox & support.'
+              : 'Sent. We will reply in Inbox & support.')));
+    }
+  }
+
   Widget _waitingChip() => Container(
         margin: const EdgeInsets.only(top: 8),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -3752,7 +3902,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
       );
 
   /// Promotions and events in the sidebar: locked on a free page; on a
-  /// Premium page the message as it shows, with Edit (Your message tab).
+  /// Premium page the message as it shows, with Edit (Promotions and events tab).
   Widget _promoPart() {
     if (!_verified) {
       return Semantics(
@@ -3830,8 +3980,37 @@ class _OwnerScreenState extends State<OwnerScreen> {
         pad: const EdgeInsets.fromLTRB(20, 18, 20, 18));
   }
 
-  /// The advert as it shows on a free page, in grey, with Remove ad.
-  Widget _greyAdvert() => ClipRRect(
+  /// The partner adverts nomadwise.io shows in a free page's sidebar
+  /// (Webflow's Ad Visibilities, lowest Order first): Ubigi for the
+  /// countries it has a banner for, else SafetyWing.
+  static const _adBase =
+      'https://cdn.prod.website-files.com/64b6780f84d27e4bfd91f2d6/';
+  static const _adAsia = '68628fc900d45a3390a90cce_Banner_EN_Asia_200x600.webp';
+  static const _adEurope =
+      '6862786288a17bc32f58ddf7_Banner_EN_Europe_200x600.webp';
+  static const _adSpain = '68628b7eb63b4a0b098ed39e_Banner_EN_Spain_200x600.webp';
+  static const _adDefault = '6a57a9b549b2fbe54414964b_SafetyWing%20Banner%202.webp';
+  static const _adByCountry = {
+    'indonesia': _adAsia,
+    'thailand': _adAsia,
+    'japan': _adAsia,
+    'vietnam': _adAsia,
+    'portugal': _adEurope,
+    'united kingdom': _adEurope,
+    'england': _adEurope,
+    'scotland': _adEurope,
+    'wales': _adEurope,
+    'northern ireland': _adEurope,
+    'spain': _adSpain,
+  };
+
+  /// The advert as it shows on a free page: the real partner banner, in
+  /// full colour, with Remove ad (Leonie, 2 Nov 2026: a grey box gives
+  /// no reason to remove it).
+  Widget _partnerAdvert() {
+    final country = '${_venue?['country'] ?? ''}'.trim().toLowerCase();
+    final ad = _adByCountry[country] ?? _adDefault;
+    return ClipRRect(
         borderRadius: BorderRadius.circular(16),
         child: Container(
           decoration: BoxDecoration(
@@ -3839,31 +4018,12 @@ class _OwnerScreenState extends State<OwnerScreen> {
               borderRadius: BorderRadius.circular(16)),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Container(
-              constraints: const BoxConstraints(minHeight: 200),
-              color: const Color(0xFFE3E7EB),
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-              child: const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('ADVERT',
-                        style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: .8,
-                            color: _edMuted)),
-                    SizedBox(height: 8),
-                    Text('A partner advert, for example an eSIM for travellers',
-                        style: TextStyle(
-                            fontSize: 19,
-                            fontWeight: FontWeight.w800,
-                            height: 1.2,
-                            color: Color(0xFF4A5562))),
-                    SizedBox(height: 8),
-                    Text(
-                        'Shown in grey here. On your live page it shows in '
-                        'full colour.',
-                        style: TextStyle(fontSize: 13, color: _edMuted)),
-                  ]),
+              color: Colors.white,
+              constraints: const BoxConstraints(maxHeight: 560),
+              child: Image.network('$_adBase$ad',
+                  fit: BoxFit.contain,
+                  semanticLabel: 'The partner advert on your page',
+                  errorBuilder: (_, __, ___) => _advertPlaceholder()),
             ),
             Container(
               color: Colors.white,
@@ -3896,6 +4056,35 @@ class _OwnerScreenState extends State<OwnerScreen> {
           ]),
         ),
       );
+  }
+
+  /// What shows if the advert image cannot load.
+  Widget _advertPlaceholder() => Container(
+              constraints: const BoxConstraints(minHeight: 200),
+              color: const Color(0xFFE3E7EB),
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+              child: const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('ADVERT',
+                        style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: .8,
+                            color: _edMuted)),
+                    SizedBox(height: 8),
+                    Text('A partner advert, for example an eSIM for travellers',
+                        style: TextStyle(
+                            fontSize: 19,
+                            fontWeight: FontWeight.w800,
+                            height: 1.2,
+                            color: Color(0xFF4A5562))),
+                    SizedBox(height: 8),
+                    Text(
+                        'Your live page shows a partner advert here.',
+                        style: TextStyle(fontSize: 13, color: _edMuted)),
+                  ]),
+            );
 
   Widget _listingTab(bool wide) {
     final v = _venue!;
@@ -4160,77 +4349,86 @@ class _OwnerScreenState extends State<OwnerScreen> {
                   height: 1.2,
                   color: _pageInk)),
           const SizedBox(height: 10),
-          Wrap(
-              spacing: 18,
-              runSpacing: 8,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                if (area.isNotEmpty)
-                  Row(mainAxisSize: MainAxisSize.min, children: [
-                    const Icon(Icons.location_on, size: 18, color: _pageRed),
-                    const SizedBox(width: 4),
-                    Text(area,
-                        style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: _pageRed)),
-                  ]),
-                if (country.isNotEmpty)
-                  Text(country,
-                      style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                          color: _pageInk)),
-                if (_verified)
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(
-                        color: const Color(0xFFE4F2EA),
-                        borderRadius: BorderRadius.circular(6)),
-                    child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                      Icon(Icons.verified, size: 15, color: Color(0xFF1F6B41)),
-                      SizedBox(width: 5),
-                      Text('Verified by Nomadwise',
-                          style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF1F6B41))),
+          // Where it is and its WiFi, with Request change on the right
+          // (Leonie, 2 Nov 2026): owners do not edit these, they ask us.
+          // No "Managed by its owner" mark: dropped from the live page
+          // on 26 Oct, so not here either.
+          Builder(builder: (context) {
+            final facts = Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                    Wrap(
+                        spacing: 18,
+                        runSpacing: 8,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          if (area.isNotEmpty)
+                            Row(mainAxisSize: MainAxisSize.min, children: [
+                              const Icon(Icons.location_on, size: 18, color: _pageRed),
+                              const SizedBox(width: 4),
+                              Text(area,
+                                  style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w700,
+                                      color: _pageRed)),
+                            ]),
+                          if (country.isNotEmpty)
+                            Text(country,
+                                style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                    color: _pageInk)),
+                          if (_verified)
+                            Container(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                              decoration: BoxDecoration(
+                                  color: const Color(0xFFE4F2EA),
+                                  borderRadius: BorderRadius.circular(6)),
+                              child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                                Icon(Icons.verified, size: 15, color: Color(0xFF1F6B41)),
+                                SizedBox(width: 5),
+                                Text('Verified by Nomadwise',
+                                    style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w700,
+                                        color: Color(0xFF1F6B41))),
+                              ]),
+                            )
+                          else
+                            _lockedChip('Verified badge', 'badge'),
+                        ]),
+                  const SizedBox(height: 10),
+                    Wrap(spacing: 20, runSpacing: 8, children: [
+                      if (v['wifi_speed_mbps'] != null)
+                        stat(Icons.wifi, '${v['wifi_speed_mbps']}Mbps'),
+                      if (v['google_rating_snapshot'] != null)
+                        stat(
+                            Icons.star,
+                            '${v['google_rating_snapshot']} '
+                            '(${v['google_reviews_snapshot'] ?? 0})',
+                            color: const Color(0xFFF4B23E)),
+                      stat(Icons.laptop, isCafe ? 'Cafe' : 'Coworking Space'),
                     ]),
-                  )
-                else
-                  _lockedChip('Verified badge', 'badge'),
-              ]),
-          const SizedBox(height: 10),
-          Wrap(spacing: 20, runSpacing: 8, children: [
-            if (v['wifi_speed_mbps'] != null)
-              stat(Icons.wifi, '${v['wifi_speed_mbps']}Mbps'),
-            if (v['google_rating_snapshot'] != null)
-              stat(
-                  Icons.star,
-                  '${v['google_rating_snapshot']} '
-                  '(${v['google_reviews_snapshot'] ?? 0})',
-                  color: const Color(0xFFF4B23E)),
-            stat(Icons.laptop, isCafe ? 'Cafe' : 'Coworking Space'),
-          ]),
-          // As the live page shows a claimed space (the "Nomadwise
-          // Offers" mark, migration 216).
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-            decoration: BoxDecoration(
-                color: const Color(0xFFEAF4F4),
-                borderRadius: BorderRadius.circular(8)),
-            child: const Text('\u2713 Managed by its owner',
-                style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF1F3340))),
-          ),
+                ]);
+            return wide
+                ? Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Expanded(child: facts),
+                    const SizedBox(width: 12),
+                    _requestButton(),
+                  ])
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                        facts,
+                        const SizedBox(height: 10),
+                        _requestButton(),
+                      ]);
+          }),
           const SizedBox(height: 8),
           const Text(
-              'Your name, ratings and WiFi tests come from Google and from '
-              'nomads. To change your name, write to us in Inbox & support.',
+              'WiFi speed is checked by Nomadwise. To change your WiFi '
+              'speed, location or name, press Request change.',
               style: TextStyle(fontSize: 12, color: Brand.inkMuted)),
           const SizedBox(height: 18),
           _keyed('photos', photosPart),
@@ -4437,7 +4635,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
       // A Premium page shows no adverts.
       if (!_verified) ...[
         const SizedBox(height: 16),
-        _greyAdvert(),
+        _partnerAdvert(),
       ],
     ]);
 
@@ -5381,11 +5579,27 @@ class _OwnerScreenState extends State<OwnerScreen> {
         ]),
       );
 
-  /// The advert slot as it shows today: a Verified page's own message
-  /// when one is written, else the partner advert.
+  /// The advert slot as it shows today: a Premium page's own promotion
+  /// or event when one is written, else the partner advert.
   Widget _advertSlot() {
     if (_verified && _mentionTitle.text.trim().isNotEmpty) {
       return _mentionCard();
+    }
+    // A free page: the real partner advert, as on the live page.
+    if (!_verified) {
+      final country = '${_venue?['country'] ?? ''}'.trim().toLowerCase();
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          color: Colors.white,
+          constraints: const BoxConstraints(maxHeight: 420),
+          child: Image.network(
+              '$_adBase${_adByCountry[country] ?? _adDefault}',
+              fit: BoxFit.contain,
+              semanticLabel: 'The partner advert on this page',
+              errorBuilder: (_, __, ___) => _advertPlaceholder()),
+        ),
+      );
     }
     return Container(
       width: double.infinity,
@@ -5402,7 +5616,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
         Text(
             _verified
                 ? 'Your own event or offer replaces this advert. Write it '
-                    'under Your message.'
+                    'under Promotions and events.'
                 : 'A partner advert shows here. Premium pages show their '
                     'own event or offer instead.',
             style: const TextStyle(
@@ -5610,7 +5824,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
     if (!_verified) {
       return _panel(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('Your message, in place of an advert',
+          const Text('Promotions and events, in place of an advert',
               style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
           const SizedBox(height: 8),
           const Text(
@@ -5633,7 +5847,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
     }
     final editor = _panel(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('Your message, in place of an advert',
+        const Text('Promotions and events, in place of an advert',
             style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
         const SizedBox(height: 4),
         const Text(
@@ -5755,7 +5969,8 @@ class _OwnerScreenState extends State<OwnerScreen> {
               style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
           const SizedBox(height: 4),
           const Text(
-              'Your message takes the advert\'s place at the foot of your '
+              'Your promotion or event takes the advert\'s place at the '
+              'foot of your '
               'page\'s sidebar: on the right on a computer, after the '
               'details on a phone.',
               style: TextStyle(color: Brand.inkMuted, fontSize: 12, height: 1.4)),
