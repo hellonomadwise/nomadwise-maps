@@ -30,6 +30,13 @@ class ChatThread extends StatefulWidget {
   /// True when this side is Nomadwise (the founder's screen).
   final bool team;
 
+  /// Changes or takes back one of our messages while it is unsent (not
+  /// emailed nor read; migration 234) and returns the conversation
+  /// after it. When set, such a message shows Edit and Delete.
+  final Future<List<Map<String, dynamic>>> Function(String id, String body)?
+      edit;
+  final Future<List<Map<String, dynamic>>> Function(String id)? remove;
+
   /// The small note above the box.
   final String note;
 
@@ -56,6 +63,8 @@ class ChatThread extends StatefulWidget {
     required this.load,
     required this.send,
     required this.team,
+    this.edit,
+    this.remove,
     required this.note,
     required this.emptyTitle,
     required this.emptyText,
@@ -182,7 +191,10 @@ class _ChatThreadState extends State<ChatThread> {
   }
 
   static String _signature(List<Map<String, dynamic>> rows) =>
-      rows.map((m) => '${m['id']}:${m['read']}').join(',');
+      rows
+          .map((m) =>
+              '${m['id']}:${m['read']}:${m['unsent']}:${'${m['body']}'.hashCode}')
+          .join(',');
 
   void _toEnd() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -229,6 +241,96 @@ class _ChatThreadState extends State<ChatThread> {
     }
   }
 
+  /// Edit or Delete on an unsent message of ours: the change is made,
+  /// then the conversation is shown as it is after it.
+  Future<void> _change(
+      Future<List<Map<String, dynamic>>> Function() doIt) async {
+    if (_sending) return;
+    setState(() {
+      _sending = true;
+      _error = null;
+      _lookFailed = false;
+    });
+    _sends++;
+    try {
+      final rows = await doIt();
+      if (!mounted) return;
+      setState(() => _sending = false);
+      _show(rows);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _sending = false;
+        _error = _plain(e);
+      });
+      // what is there now (it may have gone by email meanwhile)
+      _look();
+    }
+  }
+
+  Future<void> _editMessage(Map<String, dynamic> m) async {
+    final edit = widget.edit;
+    if (edit == null) return;
+    final box = TextEditingController(text: '${m['body'] ?? ''}');
+    final words = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Edit message'),
+        content: SizedBox(
+          width: 460,
+          child: TextField(
+            controller: box,
+            autofocus: true,
+            minLines: 2,
+            maxLines: 8,
+            maxLength: 4000,
+            textCapitalization: TextCapitalization.sentences,
+            decoration: const InputDecoration(
+                border: OutlineInputBorder(), counterText: ''),
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(box.text.trim()),
+              child: const Text('Save')),
+        ],
+      ),
+    );
+    // (disposed once the dialog's closing animation is over)
+    Future.delayed(const Duration(milliseconds: 500), box.dispose);
+    if (!mounted) return;
+    if (words == null || words.isEmpty || words == '${m['body']}'.trim()) {
+      return;
+    }
+    await _change(() => edit('${m['id']}', words));
+  }
+
+  Future<void> _deleteMessage(Map<String, dynamic> m) async {
+    final remove = widget.remove;
+    if (remove == null) return;
+    final yes = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete this message?'),
+        content: const Text(
+            'It has not been emailed or read yet, so they will never see it.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Delete')),
+        ],
+      ),
+    );
+    if (yes != true || !mounted) return;
+    await _change(() => remove('${m['id']}'));
+  }
+
   static String _plain(Object e) {
     final s = '$e';
     final m = RegExp(r'message: (.+?)(, code:|, details:|\)$)').firstMatch(s);
@@ -256,6 +358,10 @@ class _ChatThreadState extends State<ChatThread> {
     final at = DateTime.tryParse('${m['at'] ?? ''}')?.toLocal();
     final read = m['read'] == true;
     final byEmail = m['email'] == true;
+    // ours and not yet emailed nor read: it can still be changed
+    final unsent = mine &&
+        m['unsent'] == true &&
+        (widget.edit != null || widget.remove != null);
     final author = '${m['author'] ?? ''}'.trim();
     // Whose words these are, above the other side's messages.
     final from = mine
@@ -324,6 +430,25 @@ class _ChatThreadState extends State<ChatThread> {
                 ],
               ]),
             ),
+            if (unsent)
+              Wrap(spacing: 2, children: [
+                if (widget.edit != null)
+                  TextButton(
+                      onPressed: _sending ? null : () => _editMessage(m),
+                      style: TextButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          textStyle: const TextStyle(fontSize: 12)),
+                      child: const Text('Edit')),
+                if (widget.remove != null)
+                  TextButton(
+                      onPressed: _sending ? null : () => _deleteMessage(m),
+                      style: TextButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          textStyle: const TextStyle(fontSize: 12)),
+                      child: const Text('Delete')),
+              ]),
           ]),
     );
   }

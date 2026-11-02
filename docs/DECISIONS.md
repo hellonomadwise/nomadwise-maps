@@ -5676,3 +5676,25 @@ section's note, filter and pills, the claim and approval buttons ("Approve,
 make it Premium"), the confirmations and the Listing plan switch. Kept: the
 badge name "Verified by Nomadwise", "Verified in the app" (a checked space),
 and the Webflow switch that is still called "Verified".
+
+## 2 Nov 2026: Outreach replies log themselves, and other CR-17 changes (migration 234)
+
+- Replies log themselves. When a space in Outreach emails hello@ (its
+  address is the box's email), the email goes on its box as "They wrote"
+  and the box moves to Replied, the same as pressing "They replied". The
+  phones are told, once an hour per space. Out-of-office answers and our
+  own addresses are left out. This needs a forwarding rule in the hello@
+  mailbox that sends its mail to the Postmark inbound address. A space
+  writing from a different address than the one on its box is not
+  matched. Emails from anybody else are no longer kept beyond the sender
+  and subject (7 days).
+- Next up shows "Answer <space>" when a box has been in Replied for two
+  days or more. Answering from Outreach, or pressing "I sent it" after
+  answering by email, takes it off.
+- Chats: our own message can be edited or deleted until it is emailed to
+  the owner or read by them. It is emailed a minute or two after the last
+  message, so the window is short.
+- The "changes are live" email no longer has the "Your page: <link>" line
+  (the See my page button does that job), and "Owner account" is the link
+  itself instead of a long web address. Emails can now have links in words,
+  written [words](https://...); the plain-text copy shows "words (link)".

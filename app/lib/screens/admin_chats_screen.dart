@@ -274,14 +274,19 @@ class _AdminChatsScreenState extends State<AdminChatsScreen> {
           SupabaseService.chatRowsOf(await _supabase.adminChat(id)),
       send: (body) async =>
           SupabaseService.chatRowsOf(await _supabase.adminChatSend(id, body)),
+      edit: (mid, body) async => SupabaseService.chatRowsOf(
+          await _supabase.adminChatEdit(mid, body)),
+      remove: (mid) async =>
+          SupabaseService.chatRowsOf(await _supabase.adminChatDelete(mid)),
       onLoaded: (_) {
         // opened: their messages are seen, so the list's number goes
         final i = _chats.indexWhere((x) => '${x['venue_id']}' == id);
         if (i >= 0 && ((_chats[i]['unread'] as num?) ?? 0) > 0) _load();
       },
       note: 'What you write appears in their Owner account, and is '
-          'emailed to them about a minute after your last message, '
-          'unless they are reading along here.',
+          'emailed to them a minute or two after your last message, '
+          'unless they are reading along here. Until then you can edit '
+          'or delete it.',
       emptyTitle: 'No messages yet',
       emptyText: owner.isEmpty
           ? 'Write first if you like. They are emailed what you write.'

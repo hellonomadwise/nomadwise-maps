@@ -2810,6 +2810,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     final lookLocal = count(look, 'local');
     final signup = part('signup');
     final newPage = part('new_page');
+    final waitReply = part('replied_wait');
     final webflow = _drafts.length + _approvedTonight.length;
 
     final first = <_NextJob>[
@@ -2838,6 +2839,19 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                 'and we could not tell which space it is for.',
             'Open payments',
             () => _nextUpHere('payments', 'paid')),
+      // A space that wrote back two days ago or more and has not had
+      // our answer (migration 234): the one waiting longest.
+      if (count(waitReply) > 0)
+        _NextJob(
+            'replied',
+            'Answer ${name(waitReply)}',
+            '${count(waitReply) == 1 ? 'This space wrote back' : '${count(waitReply)} spaces wrote back'} '
+                'two or more days ago and ${count(waitReply) == 1 ? 'is' : 'are'} '
+                'still waiting for our answer. Reply from Outreach, or if you '
+                'answered by email, press "I sent it" on the box so it moves on.',
+            'Open in Outreach',
+            () => _nextUpOpen(
+                'replied', const AdminOutreachScreen(initialStep: 'replied'))),
       // A space whose claim page was opened and that did not claim
       // (migration 153): somebody there is interested now.
       if (count(look) > 0)

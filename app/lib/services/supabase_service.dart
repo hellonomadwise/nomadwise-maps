@@ -1920,6 +1920,20 @@ class SupabaseService {
     return r is Map ? Map<String, dynamic>.from(r) : <String, dynamic>{};
   }
 
+  /// One of our chat messages changed, or taken back, while it is
+  /// still unsent (not emailed nor read; migration 234). Returns the
+  /// chat as admin_chat does.
+  Future<Map<String, dynamic>> adminChatEdit(String id, String body) async {
+    final r = await _db
+        .rpc('admin_chat_edit', params: {'p_id': id, 'p_body': body});
+    return r is Map ? Map<String, dynamic>.from(r) : <String, dynamic>{};
+  }
+
+  Future<Map<String, dynamic>> adminChatDelete(String id) async {
+    final r = await _db.rpc('admin_chat_delete', params: {'p_id': id});
+    return r is Map ? Map<String, dynamic>.from(r) : <String, dynamic>{};
+  }
+
   /// The number beside "Chats": messages from owners nobody has opened.
   Future<int> adminChatsUnread() async {
     var n = 0;
