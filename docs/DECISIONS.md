@@ -5710,3 +5710,17 @@ device, so each of us opens on our own. We both sign in with the same
 account, so the name is picked from the list, not read from the sign-in.
 Nobody is told when a box is given to them. The numbers on the tabs follow
 the "Showing" choice; the stage counts on Everything do not.
+
+## 2 Nov 2026: Every enquiry for a space is remembered on its Outreach box (migration 236)
+
+Leonie, on Immy's enquiry for Fora (22 Manchester Square): we asked Immy for
+more details, heard nothing, and so never passed it on. She asked for a way
+to keep that, so it comes up when we write to the space. Now each Outreach
+box shows how many people asked about the space through Nomadwise, how many
+of those were passed on, how many booked, and when the last one came ("2
+people asked about them through Nomadwise · none passed on to them · last 29
+Oct"), in gold when none were passed on and green when some were. The same
+words are added to the space's line on To do and Waiting. A space that gets
+an enquiry and has no Outreach box gets one (unclaimed spaces only), so it is
+there when we come to write; the three such spaces, Fora among them, were
+added now.

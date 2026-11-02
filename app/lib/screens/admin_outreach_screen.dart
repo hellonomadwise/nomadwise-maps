@@ -204,6 +204,19 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
     }
   }
 
+  /// " 2 people asked about them through Nomadwise, none passed on."
+  /// for a To do or Waiting line (migration 236); '' when nobody has.
+  String _askedNote(Object? venueId) {
+    final cu = _customers['${venueId ?? ''}'];
+    if (cu == null) return '';
+    final asked = (cu['asked'] as num?)?.toInt() ?? 0;
+    final sent = (cu['sent'] as num?)?.toInt() ?? 0;
+    if (asked == 0) return '';
+    return ' $asked ${asked == 1 ? 'person' : 'people'} asked about them '
+        'through Nomadwise'
+        '${sent == 0 ? ', none passed on' : sent < asked ? ', $sent passed on' : ''}.';
+  }
+
   /// The name on a box, as a small chip.
   Widget _whoChip(Map<String, dynamic>? c) {
     final a = '${c?['assigned_to'] ?? ''}'.trim();
@@ -3270,6 +3283,35 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
           'Everything holds the numbers and every list, as before.'
     ),
     (
+      Icons.mark_email_read_outlined,
+      'How messages get in here',
+      'Emails to hello@: a copy comes to Nomad Maps. A reply from a space '
+          'in Outreach goes on its box (in History) and the box moves to '
+          'Replied. An owner answering one of our chat emails goes into '
+          'Chats. Anything else stays only in the hello@ inbox in Spark.\n'
+          'Emails we send from Outreach are logged by themselves. If you '
+          'answer from Spark instead, press "I sent it" in the Reply '
+          'window so the box moves on.\n'
+          'WhatsApp, Instagram or a phone call: "Log what they wrote" in '
+          'the box\'s three dots for their message, "Note and follow-up '
+          'date" for our own note.\n'
+          'Website forms on nomadwise.io go to the Control centre, under '
+          'Enquiries to pass on. Every enquiry also shows on the space\'s '
+          'box here ("2 people asked about them through Nomadwise"), '
+          'passed on or not.\n'
+          'Claims, owner changes and owner chats happen in the app, so '
+          'they are here already.\n'
+          'A space that waits on us for two days shows in Next up.'
+    ),
+    (
+      Icons.person_outline,
+      'Whose box it is',
+      'In a box\'s three dots: Assign to Jonathan or Assign to Leonie. '
+          'The name shows on the box, and "Showing:" at the top picks '
+          'whose boxes you see. Each device remembers its choice. Nobody '
+          'is told when a box is given to them; it appears in their view.'
+    ),
+    (
       Icons.groups_outlined,
       'Who is in it (the first row of chips)',
       'Wrote to us: they emailed hello@, filled in a form on the site, '
@@ -3601,28 +3643,47 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
                             decoration: onSite ? TextDecoration.underline : null)),
                   ),
                 ),
-              // Customers we sent them (migration 193): what a hello can
-              // open with.
+              // Who asked about them through us (migrations 193, 236):
+              // what a hello can open with, passed on or not (Leonie,
+              // 2 Nov 2026: "so we can bring it up whenever we might
+              // outreach to them").
               if (_customers['${c['venue_id']}'] case final cu?)
-                Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-                    decoration: BoxDecoration(
-                        color: Brand.successTint,
-                        borderRadius: BorderRadius.circular(8)),
-                    child: Text(
-                        'We sent them ${cu['sent']} '
-                        '${cu['sent'] == 1 ? 'customer' : 'customers'}'
-                        '${(cu['booked'] as num? ?? 0) > 0 ? ', ${cu['booked']} booked' : ''}'
-                        '${_when(cu['last']).isEmpty ? '' : ' · last ${_when(cu['last'])}'}',
-                        style: const TextStyle(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w600,
-                            color: Brand.success)),
-                  ),
-                ),
+                Builder(builder: (_) {
+                  final asked = (cu['asked'] as num?)?.toInt() ??
+                      (cu['sent'] as num?)?.toInt() ??
+                      0;
+                  final sent = (cu['sent'] as num?)?.toInt() ?? 0;
+                  final booked = (cu['booked'] as num?)?.toInt() ?? 0;
+                  final lastAsked = _when(cu['last_asked'] ?? cu['last']);
+                  final words = [
+                    '$asked ${asked == 1 ? 'person' : 'people'} asked about '
+                        'them through Nomadwise',
+                    sent == 0
+                        ? 'none passed on to them'
+                        : sent == asked
+                            ? 'all passed on'
+                            : '$sent passed on',
+                    if (booked > 0) '$booked booked',
+                    if (lastAsked.isNotEmpty) 'last $lastAsked',
+                  ].join(' · ');
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 9, vertical: 5),
+                      decoration: BoxDecoration(
+                          color: sent > 0 ? Brand.successTint : Brand.goldTint,
+                          borderRadius: BorderRadius.circular(8)),
+                      child: Text(words,
+                          style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w600,
+                              color: sent > 0
+                                  ? Brand.success
+                                  : Brand.goldTextDark)),
+                    ),
+                  );
+                }),
             ]),
           ),
           PopupMenuButton<String>(
@@ -5219,7 +5280,7 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
       bg: bg,
       name: t.name,
       sub: t.sub,
-      why: t.why,
+      why: t.why + _askedNote(c?['venue_id'] ?? p?['venue_id']),
       open: open,
       onToggle: c == null
           ? null
@@ -5418,7 +5479,7 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
       name: '${c['space_name'] ?? c['venue_name'] ?? c['email'] ?? 'A space'}',
       sub: _placeLine(c['kind'], c['city'] ?? c['venue_city'],
           c['country'] ?? c['venue_country']),
-      why: '$wrote$next',
+      why: '$wrote$next${_askedNote(c['venue_id'])}',
       open: open,
       onToggle: () => setState(() => open ? _rowOpen.remove(id) : _rowOpen.add(id)),
       actions: [
