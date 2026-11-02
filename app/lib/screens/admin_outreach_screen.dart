@@ -160,14 +160,81 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
   // opens where it was left.
   static const _keyGroup = 'outreach_group';
   static const _keyStage = 'outreach_stage';
+  static const _keyWho = 'outreach_who';
+
+  // Whose boxes show (migration 235, Leonie 2 Nov 2026): '' everyone's,
+  // a name, or 'none' for nobody's yet. Kept on this device, so each of
+  // us opens on our own.
+  static const _team = ['Jonathan', 'Leonie'];
+  String _who = '';
+
+  bool _whoOk(Map<String, dynamic>? c) {
+    if (_who.isEmpty) return true;
+    final a = '${c?['assigned_to'] ?? ''}'.trim();
+    return _who == 'none' ? a.isEmpty : a == _who;
+  }
+
+  void _setWho(String who) {
+    setState(() => _who = who);
+    SharedPreferences.getInstance()
+        .then((p) => p.setString(_keyWho, who))
+        .catchError((_) => false);
+  }
+
+  /// "Assign to ..." lines for a box's three dots.
+  List<(String, String)> _assignMenu(Map<String, dynamic> c) {
+    final a = '${c['assigned_to'] ?? ''}'.trim();
+    return [
+      for (final t in _team)
+        if (t != a) ('assign:$t', 'Assign to $t'),
+      if (a.isNotEmpty) ('assign:', 'Unassign'),
+    ];
+  }
+
+  Future<void> _assign(Map<String, dynamic> c, String who) async {
+    try {
+      await _supabase.outreachAssign('${c['id']}', who.isEmpty ? null : who);
+      if (!mounted) return;
+      setState(() => c['assigned_to'] = who.isEmpty ? null : who);
+      final name = '${c['space_name'] ?? 'This space'}';
+      _snack(who.isEmpty ? '$name is nobody\'s now.' : '$name is $who\'s now.');
+      _load();
+    } catch (e) {
+      if (mounted) _snack(_plain(e), bad: true);
+    }
+  }
+
+  /// The name on a box, as a small chip.
+  Widget _whoChip(Map<String, dynamic>? c) {
+    final a = '${c?['assigned_to'] ?? ''}'.trim();
+    if (a.isEmpty) return const SizedBox.shrink();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+          color: Brand.logoTealTint, borderRadius: BorderRadius.circular(20)),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        const Icon(Icons.person_outline, size: 12, color: Brand.logoNavy),
+        const SizedBox(width: 3),
+        Text(a,
+            style: const TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w700,
+                color: Brand.logoNavy)),
+      ]),
+    );
+  }
 
   Future<void> _loadRemembered() async {
     try {
       final p = await SharedPreferences.getInstance();
       final g = p.getString(_keyGroup);
       final st = p.getString(_keyStage);
+      final who = p.getString(_keyWho);
       if (mounted) {
         setState(() {
+          if (who != null && (who.isEmpty || who == 'none' || _team.contains(who))) {
+            _who = who;
+          }
           if (g != null && _groups.any((x) => x.$1 == g)) _group = g;
           if (st != null &&
               (_stages.any((x) => x.$1 == st) ||
@@ -3496,6 +3563,7 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
                   _stageChip('${c['stage']}'),
                 if (c['is_test'] == true)
                   _chip('TEST', bg: Brand.goldTint, fg: Brand.goldTextDark),
+                if ('${c['assigned_to'] ?? ''}'.trim().isNotEmpty) _whoChip(c),
                 if (_topicLabel(c['topic']) != null)
                   _chip(_topicLabel(c['topic'])!.toUpperCase(),
                       bg: c['aside'] == true ? Brand.accentTint : Brand.field,
@@ -3566,6 +3634,7 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
               'test' => _setTest(c),
               'topic' => _pickTopic(c),
               'delete' => _delete(c),
+              _ when k.startsWith('assign:') => _assign(c, k.substring(7)),
               _ => _setStage(c, k),
             },
             itemBuilder: (_) => [
@@ -3573,6 +3642,9 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
               const PopupMenuItem(value: 'note', child: Text('Note and follow-up date')),
               const PopupMenuItem(value: 'in', child: Text('Log what they wrote')),
               const PopupMenuItem(value: 'topic', child: Text('What it was about')),
+              const PopupMenuDivider(),
+              for (final m in _assignMenu(c))
+                PopupMenuItem(value: m.$1, child: Text(m.$2)),
               const PopupMenuDivider(),
               for (final s in _stages)
                 if (s.$1.isNotEmpty && s.$1 != c['stage'] && s.$1 != 'verified')
@@ -5179,14 +5251,18 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
               icon: const Icon(Icons.facebook, size: 16),
               label: const Text('Facebook')),
       ],
+      who: c,
       menu: [
         ('edit', 'Edit details'),
+        if (c != null) ..._assignMenu(c),
         // A space set up by us has a page of its own: it is not
         // taken off, it waits until they claim.
         if (t.kind != 'owner_ready') ('remove', 'Remove from To do...'),
       ],
       onMenu: (k) async {
-        if (k == 'edit') {
+        if (k.startsWith('assign:')) {
+          if (c != null) await _assign(c, k.substring(7));
+        } else if (k == 'edit') {
           if (c != null) {
             await _editContact(c);
           } else if (p != null) {
@@ -5214,12 +5290,20 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
     required List<(String, String)> menu,
     required Future<void> Function(String) onMenu,
     Widget? detail,
+    Map<String, dynamic>? who,
   }) {
     final narrow = MediaQuery.sizeOf(context).width < 600;
     final info = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(name,
-          style: const TextStyle(
-              fontSize: 15, fontWeight: FontWeight.w700, color: Brand.ink)),
+      Wrap(
+          spacing: 8,
+          runSpacing: 4,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Text(name,
+                style: const TextStyle(
+                    fontSize: 15, fontWeight: FontWeight.w700, color: Brand.ink)),
+            if ('${who?['assigned_to'] ?? ''}'.trim().isNotEmpty) _whoChip(who),
+          ]),
       if (sub.isNotEmpty)
         Padding(
           padding: const EdgeInsets.only(top: 2),
@@ -5343,14 +5427,18 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
         TextButton(
             onPressed: () => _reply(c), child: const Text('Follow up now')),
       ],
+      who: c,
       menu: [
         ('edit', 'Edit details'),
+        ..._assignMenu(c),
         if (!(c['owner'] is Map && (c['owner'] as Map)['mine'] == false))
           ('remove', 'Remove from Waiting...'),
       ],
-      onMenu: (k) => k == 'edit'
-          ? _editContact(c)
-          : _remove(id, '${c['space_name'] ?? 'this space'}', c: c),
+      onMenu: (k) => k.startsWith('assign:')
+          ? _assign(c, k.substring(7))
+          : k == 'edit'
+              ? _editContact(c)
+              : _remove(id, '${c['space_name'] ?? 'this space'}', c: c),
       detail: open ? _card(c) : null,
     );
   }
@@ -5423,8 +5511,9 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
                 : Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                        for (final c in _doneRows[k.$1]!) _doneRow(k.$1, c),
-                        if (_doneRows[k.$1]!.isEmpty)
+                        for (final c in _doneRows[k.$1]!)
+                          if (_whoOk(c)) _doneRow(k.$1, c),
+                        if (!_doneRows[k.$1]!.any(_whoOk))
                           const Padding(
                             padding: EdgeInsets.all(12),
                             child: Text('Nobody here.',
@@ -5485,8 +5574,11 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
           OutlinedButton(
               onPressed: () => _bringBack(c), child: const Text('Bring back')),
       ],
-      menu: const [('edit', 'Edit details')],
-      onMenu: (_) => _editContact(c),
+      who: c,
+      menu: [('edit', 'Edit details'), ..._assignMenu(c)],
+      onMenu: (k) => k.startsWith('assign:')
+          ? _assign(c, k.substring(7))
+          : _editContact(c),
       detail: open ? _card(c) : null,
     );
   }
@@ -5790,8 +5882,9 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
   }
 
   Widget _screen(BuildContext context, List<Map<String, dynamic>>? rows) {
-    final tasks = _tasks();
-    final waiting = _waitingRows(tasks);
+    final allTasks = _tasks();
+    final waiting = _waitingRows(allTasks).where(_whoOk).toList();
+    final tasks = allTasks.where((t) => _whoOk(t.c)).toList();
     final intro = switch (_tab) {
       'todo' => 'What needs you, most urgent first. Work from the top; '
           'whatever is left waits for next time. Nothing is sent by itself.',
@@ -5845,6 +5938,26 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
                               icon: const Icon(Icons.help_outline, size: 18),
                               label: const Text('How it works')),
                         ]),
+                        const SizedBox(height: 8),
+                        // Whose boxes (migration 235).
+                        Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              const Text('Showing:',
+                                  style: TextStyle(
+                                      fontSize: 12.5,
+                                      color: Brand.inkSecondary)),
+                              for (final w in [
+                                ('', 'Everyone\'s'),
+                                for (final t in _team) (t, '$t\'s'),
+                                ('none', 'Nobody\'s yet'),
+                              ])
+                                _pill(w.$2,
+                                    on: _who == w.$1,
+                                    onTap: () => _setWho(w.$1)),
+                            ]),
                         const SizedBox(height: 8),
                         _boardTabs(tasks.length, waiting.length),
                         if (_tab == 'todo')
@@ -6030,7 +6143,8 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
                                 style: TextStyle(color: Brand.inkMuted)),
                           )
                         else ...[
-                          for (final c in rows) _card(c),
+                          for (final c in rows)
+                            if (_whoOk(c)) _card(c),
                           if (rows.length >= 200)
                             Padding(
                               padding: const EdgeInsets.all(12),

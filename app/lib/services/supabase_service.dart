@@ -1766,6 +1766,11 @@ class SupabaseService {
     ];
   }
 
+  /// Gives a box in Outreach to one of us ('Jonathan' or 'Leonie'), or
+  /// takes the name off ([who] null). Migration 235.
+  Future<void> outreachAssign(String id, String? who) =>
+      _db.rpc('admin_outreach_assign', params: {'p_id': id, 'p_who': who});
+
   /// The path through Outreach (migration 148): how many spaces stand
   /// on each step, before and after they claim. Null when it cannot
   /// be read; the rest of the screen works without it.

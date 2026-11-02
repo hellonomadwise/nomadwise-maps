@@ -5698,3 +5698,15 @@ and the Webflow switch that is still called "Verified".
   (the See my page button does that job), and "Owner account" is the link
   itself instead of a long web address. Emails can now have links in words,
   written [words](https://...); the plain-text copy shows "words (link)".
+
+## 2 Nov 2026: Outreach boxes can be given to Jonathan or Leonie (migration 235)
+
+Leonie: each space's box can be assigned, so we can see who is dealing with
+which and hand one over. In a box's three dots: "Assign to Jonathan",
+"Assign to Leonie", or "Unassign". The name shows as a small chip on the box,
+on To do, Waiting, Done and Everything. A "Showing:" row at the top picks
+Everyone's, Jonathan's, Leonie's or Nobody's yet. The choice is kept on each
+device, so each of us opens on our own. We both sign in with the same
+account, so the name is picked from the list, not read from the sign-in.
+Nobody is told when a box is given to them. The numbers on the tabs follow
+the "Showing" choice; the stage counts on Everything do not.
