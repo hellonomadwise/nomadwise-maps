@@ -5976,3 +5976,9 @@ slick, as if we are a fully funded series A SaaS". Built:
   people, when, time) and Done, which returns you to the Enquire button you
   used. Esc, X or a click outside close it; Tab stays inside; arrow keys move
   along tabs and choices; no motion for people who ask their device for less.
+
+## Outreach: see the whole email when tidying old replies (3 Nov 2026)
+
+Jonathan: "to be able to determine what action to take, I need to be able to see the full email … currently it's cutting it off."
+
+The "Old replies to settle" window showed only the first 140 characters of each reply. Each line now has "Show the full email", which opens the whole message in place (scrolls if long, text can be selected and copied), and "Show less" to fold it again. When there is more than one message with that space, "All messages (n)" opens the full back-and-forth. Display only; nothing about the data changed.

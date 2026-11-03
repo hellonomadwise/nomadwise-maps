@@ -5373,6 +5373,9 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
         ].join('\n');
     var done = 0;
     final busy = <String>{};
+    // Lines showing the whole email (Jonathan, 3 Nov 2026: "I need to be
+    // able to see the full email" to decide).
+    final full = <String>{};
     await showDialog<void>(
       context: context,
       builder: (ctx) => StatefulBuilder(builder: (ctx, set) {
@@ -5449,15 +5452,66 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
                                       fontSize: 12.5,
                                       color: Brand.inkSecondary)),
                               if ('${c['last_in'] ?? ''}'.trim().isNotEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 4),
-                                  child: Text(
-                                      '"${_clip('${c['last_in']}'.trim(), 140)}"',
-                                      style: const TextStyle(
-                                          fontSize: 12.5,
-                                          fontStyle: FontStyle.italic,
-                                          color: Brand.inkSecondary)),
-                                ),
+                                Builder(builder: (_) {
+                                  final msg = '${c['last_in']}'.trim();
+                                  final long = msg.length > 140 || msg.contains('\n');
+                                  final open = full.contains('${c['id']}');
+                                  return Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        if (open)
+                                          Container(
+                                            width: double.infinity,
+                                            margin: const EdgeInsets.only(top: 6),
+                                            padding: const EdgeInsets.all(12),
+                                            constraints: const BoxConstraints(maxHeight: 320),
+                                            decoration: BoxDecoration(
+                                                color: Brand.bg,
+                                                borderRadius: BorderRadius.circular(10)),
+                                            child: SingleChildScrollView(
+                                              child: SelectableText(msg,
+                                                  style: const TextStyle(
+                                                      fontSize: 13.5,
+                                                      height: 1.5,
+                                                      color: Brand.ink)),
+                                            ),
+                                          )
+                                        else
+                                          Padding(
+                                            padding: const EdgeInsets.only(top: 4),
+                                            child: Text(
+                                                '"${_clip(msg.replaceAll(RegExp(r'\s+'), ' '), 140)}"',
+                                                style: const TextStyle(
+                                                    fontSize: 12.5,
+                                                    fontStyle: FontStyle.italic,
+                                                    color: Brand.inkSecondary)),
+                                          ),
+                                        Wrap(spacing: 4, children: [
+                                          if (long)
+                                            TextButton(
+                                                onPressed: () => set(() => open
+                                                    ? full.remove('${c['id']}')
+                                                    : full.add('${c['id']}')),
+                                                child: Text(open
+                                                    ? 'Show less'
+                                                    : 'Show the full email')),
+                                          if (((c['message_count'] as num?) ?? 0) > 1)
+                                            TextButton(
+                                                onPressed: () async {
+                                                  try {
+                                                    final ms = await _supabase
+                                                        .outreachMessages('${c['id']}');
+                                                    if (!mounted) return;
+                                                    _showHistory(c, ms);
+                                                  } catch (e) {
+                                                    if (mounted) _snack(_plain(e), bad: true);
+                                                  }
+                                                },
+                                                child: Text(
+                                                    'All messages (${c['message_count']})')),
+                                        ]),
+                                      ]);
+                                }),
                               const SizedBox(height: 8),
                               Wrap(spacing: 6, runSpacing: 6, children: [
                                 OutlinedButton(
