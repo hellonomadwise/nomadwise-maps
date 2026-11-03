@@ -5811,3 +5811,14 @@ the middle: "Search any space, city, owner, email or claim", with Ctrl K (Cmd K
 on a Mac) shown in it. It opens the same search as before. The small box in
 the menu is gone. On a phone, Today has the same box at the top of the page,
 and the other screens keep their search icon.
+
+## 3 Nov 2026: the Owner account's menu runs down the left edge
+
+Jonathan, on the Owner account (and Team edit): "Promotions and events" was
+cut off ("Promotions and eve...") in the narrow menu card; "this left sidebar
+should be all on the left side", like the Stay22 dashboard. On a computer the
+menu is now a full-height white column down the left edge of the screen (252
+wide), with the signed-in line, where enquiries go and the "What should we
+build next" note under it; the space's name, the status and the tab sit to its
+right. Labels wrap instead of being cut. On a phone nothing changes (the tabs
+along the top).

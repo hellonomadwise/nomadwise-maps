@@ -1948,6 +1948,43 @@ class _OwnerScreenState extends State<OwnerScreen> {
             side,
           ],
         ]);
+    // On a computer the menu is a full-height column down the left
+    // edge, as in most members' areas (Jonathan, 3 Nov 2026: the
+    // labels were cut off in the narrow card, "this left sidebar
+    // should be all on the left side").
+    if (wide) {
+      return Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Container(
+          width: 252,
+          decoration: const BoxDecoration(
+              color: Brand.surface,
+              border: Border(right: BorderSide(color: Brand.border))),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(12, 20, 12, 24),
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  nav,
+                  if (!_ideasNoteClosed && _tab != _Tab.ideas) ...[
+                    const SizedBox(height: 12),
+                    _ideasNote(),
+                  ],
+                ]),
+          ),
+        ),
+        Expanded(
+          child: _frame(
+            wide,
+            maxWidth: 1180,
+            Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              _spaceHeader(v, wide),
+              const SizedBox(height: 14),
+              body,
+            ]),
+          ),
+        ),
+      ]);
+    }
     return _frame(
       wide,
       maxWidth: 1180,
@@ -1955,22 +1992,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
         _spaceHeader(v, wide),
         const SizedBox(height: 14),
         if (wide)
-          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            SizedBox(
-              width: 210,
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    nav,
-                    if (!_ideasNoteClosed && _tab != _Tab.ideas) ...[
-                      const SizedBox(height: 12),
-                      _ideasNote(),
-                    ],
-                  ]),
-            ),
-            const SizedBox(width: 20),
-            Expanded(child: body),
-          ])
+          const SizedBox.shrink()
         else ...[
           nav,
           if (!_ideasNoteClosed && _tab != _Tab.ideas) ...[
@@ -2149,12 +2171,11 @@ class _OwnerScreenState extends State<OwnerScreen> {
           decoration: BoxDecoration(
               color: on ? Brand.accentTint : Colors.transparent,
               borderRadius: BorderRadius.circular(8)),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
+          child: Row(children: [
             Icon(it.$2, size: 19, color: on ? Brand.red : Brand.inkSecondary),
             const SizedBox(width: 10),
-            Flexible(
+            Expanded(
               child: Text(it.$3,
-                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                       fontWeight: on ? FontWeight.w800 : FontWeight.w600,
                       color: on ? Brand.red : Brand.ink,
@@ -2208,8 +2229,8 @@ class _OwnerScreenState extends State<OwnerScreen> {
         ),
       );
     }
-    return _panel(
-      pad: 10,
+    return Padding(
+      padding: EdgeInsets.zero,
       child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
