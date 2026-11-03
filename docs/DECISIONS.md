@@ -5926,3 +5926,15 @@ built it:
   send, the message sent), and by a second reviewer (periods for bundles like
   "10 Day Passes", VAT notes, scroll lock, a stale thank-you, Webflow's own
   submit, focus inside the phone sheet), all fixed.
+Same day, after seeing it live on a laptop: the page's main column there is
+about 640px, so the cards were squeezed beside the enquiry. The layout now
+follows the column: 820px or wider, the enquiry beside the cards (as on a big
+screen); narrower, the cards two across with the enquiry under them and a
+small floating bar ("Hot desk · Enquire") that takes you down to it; on a
+phone the bar opens the enquiry full screen.
+Jonathan, seeing it live: "within the current layout and template, it looks a
+bit big". Scaled down to the template: heading 21px, card titles 17px, prices
+21px, rows 14px with less padding, photos 110px tall, fields 40px, Send 44px,
+panel 320px, calendar days 34px. Phones keep bigger touch targets and 16px
+fields (so an iPhone does not zoom in). The enquiry now sits beside the cards
+from a 760px column.
