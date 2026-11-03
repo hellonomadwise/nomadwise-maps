@@ -383,6 +383,10 @@ class _AdminOwnerFlowScreenState extends State<AdminOwnerFlowScreen>
   (DateTime?, DateTime?) get _periodRange {
     final now = DateTime.now();
     switch (_period) {
+      case 'week':
+        // Monday to today
+        final mon = DateTime(now.year, now.month, now.day - (now.weekday - 1));
+        return (mon, null);
       case 'month':
         return (DateTime(now.year, now.month, 1), null);
       case 'last':
@@ -720,6 +724,7 @@ class _AdminOwnerFlowScreenState extends State<AdminOwnerFlowScreen>
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Wrap(spacing: 6, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
         chip('all', 'All time'),
+        chip('week', 'This week'),
         chip('month', 'This month'),
         chip('last', 'Last month'),
         chip('three', 'Last 3 months'),
