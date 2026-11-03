@@ -219,7 +219,7 @@ class _UpdateScreenState extends State<UpdateScreen> {
           const SizedBox(height: 6),
           const Text(
               'Go back to the page and try the link again, or email '
-              'hello@nomadwise.io with what has changed.',
+              'spaces@nomadwise.io with what has changed.',
               textAlign: TextAlign.center,
               style: TextStyle(color: Brand.inkMuted, height: 1.5)),
           const SizedBox(height: 16),

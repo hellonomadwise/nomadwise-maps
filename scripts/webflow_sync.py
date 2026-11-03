@@ -1700,7 +1700,7 @@ for v in retire_:
 # nightly rotation gives it a "9xx" rank; sorted Z to A) and the
 # Enquiry Email (coworking-space-email-3). A live page is republished
 # so the badge shows within minutes; a draft just gets the fields.
-DEFAULT_ENQUIRY_EMAIL = 'hello@nomadwise.io'
+DEFAULT_ENQUIRY_EMAIL = 'spaces@nomadwise.io'  # migration 237: coworking mail lives in spaces@
 # The Request a booking button links to a form on Nomad Maps that the
 # booking-requests build adds; until then the switch stays off for
 # everyone so no page shows a button that leads nowhere.

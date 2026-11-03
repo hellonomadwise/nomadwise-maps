@@ -3,7 +3,8 @@
 Enquiries from the nomadwise.io pop-up -> Nomad Maps (migration 113).
 
 The Send an enquiry pop-up on the listing pages is a Webflow form
-("Research Form"). Webflow emails each one to hello@nomadwise.io and
+("Research Form"). Webflow emails each one to the address set in its form
+settings (spaces@nomadwise.io from 3 Nov 2026) and
 keeps it; this reads them over the Webflow API and files each one in
 the enquiries table through import_webflow_enquiry(), which decides
 where it goes: straight to a Verified space, or into "Enquiries to pass

@@ -5724,3 +5724,19 @@ words are added to the space's line on To do and Waiting. A space that gets
 an enquiry and has no Outreach box gets one (unclaimed spaces only), so it is
 there when we come to write; the three such spaces, Fora among them, were
 added now.
+
+## 3 Nov 2026: coworking mail goes from spaces@nomadwise.io (migration 237, CR-34)
+
+spaces@nomadwise.io is now its own mailbox, shared by Jonathan and Leonie in
+Spark. Everything on the coworking side comes from it and is copied to it:
+owner emails (claims, approvals, changes live, sign-in reminders, chats),
+Outreach emails to spaces, enquiries to spaces, and the emails to nomads about
+their enquiry. The sender shows as "Nomadwise Spaces <spaces@nomadwise.io>"
+(Jonathan: neutral, so either of us can answer). hello@ stays for everything
+else: the nomadwise.io website chat, partners and general mail, and the app's
+terms page. The app's words ("Questions: spaces@nomadwise.io", the claim page,
+the Owner account, Outreach's help) say spaces@. The Webflow sync's default
+enquiry address is spaces@. Outside the code: spaces@ forwards a copy of its
+mail to the Postmark inbound address (as hello@ does, and hello@ keeps doing
+so for older threads), and the Supabase sign-in email's sender is set to
+spaces@ in the Supabase dashboard.

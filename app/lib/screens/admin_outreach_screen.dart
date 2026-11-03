@@ -19,7 +19,7 @@ import '../widgets/email_typo_hint.dart';
 /// Outreach (migration 121): every cafe, coworking or coliving space
 /// we are talking to, in one list. Who they are, what they wrote,
 /// which stage they are at, and a Reply button that fills one of our
-/// templates with their details, sends it from hello@nomadwise.io and
+/// templates with their details, sends it from spaces@nomadwise.io and
 /// logs it. Founders only.
 class AdminOutreachScreen extends StatelessWidget {
   const AdminOutreachScreen({super.key, this.initialStep, this.initialQuery});
@@ -1834,7 +1834,7 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
                         'email ready to send by hand from Spark: use it '
                         'for invitations to spaces that have not written '
                         'to us. "Send from here" goes out at once from '
-                        'hello@nomadwise.io: use it to answer someone who '
+                        'spaces@nomadwise.io: use it to answer someone who '
                         'wrote. Either way an unsubscribe line is added if '
                         'the email has none.',
                         style: const TextStyle(
@@ -3285,10 +3285,11 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
     (
       Icons.mark_email_read_outlined,
       'How messages get in here',
-      'Emails to hello@: a copy comes to Nomad Maps. A reply from a space '
+      'Emails to spaces@ (and to hello@, for older threads): a copy comes to '
+          'Nomad Maps. A reply from a space '
           'in Outreach goes on its box (in History) and the box moves to '
           'Replied. An owner answering one of our chat emails goes into '
-          'Chats. Anything else stays only in the hello@ inbox in Spark.\n'
+          'Chats. Anything else stays only in the inbox, in Spark.\n'
           'Emails we send from Outreach are logged by themselves. If you '
           'answer from Spark instead, press "I sent it" in the Reply '
           'window so the box moves on.\n'
@@ -3314,7 +3315,7 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
     (
       Icons.groups_outlined,
       'Who is in it (the first row of chips)',
-      'Wrote to us: they emailed hello@, filled in a form on the site, '
+      'Wrote to us: they emailed us, filled in a form on the site, '
           'or claimed their page.\n'
           'Listed, unclaimed: they have a page on nomadwise.io that nobody '
           'has claimed.\n'
@@ -3438,7 +3439,7 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
       'Writing to a space',
       'Press Reply on its card and pick a template. Their name, space, '
           'claim link and price fill in. Read it and change anything.\n'
-          '"Send from here" goes at once from hello@nomadwise.io. Use it to '
+          '"Send from here" goes at once from spaces@nomadwise.io. Use it to '
           'answer someone who wrote to us.\n'
           '"From my own inbox" gets the email ready to send by hand from '
           'Spark: on a Mac the draft opens there; on Windows, where Spark '
@@ -6265,7 +6266,7 @@ class _UnsubscribeScreenState extends State<UnsubscribeScreen> {
                     r['ok'] == true
                         ? 'Done. We will not email ${r['email'] ?? 'you'} again'
                             '${r['space'] != null ? ' about ${r['space']}' : ''}. '
-                            'If you change your mind, write to hello@nomadwise.io.'
+                            'If you change your mind, write to spaces@nomadwise.io.'
                         : 'That link did not match anything, so there is nothing '
                             'to switch off. If you keep getting emails from us, '
                             'reply to one and we stop.',

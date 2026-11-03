@@ -1523,7 +1523,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
                     webOnlyWindowName: '_self'),
                 child: const Text('Claim it for free')),
           ]),
-          const Text('Questions: hello@nomadwise.io',
+          const Text('Questions: spaces@nomadwise.io',
               style: TextStyle(color: Brand.inkMuted, fontSize: 12.5)),
         ]),
       );

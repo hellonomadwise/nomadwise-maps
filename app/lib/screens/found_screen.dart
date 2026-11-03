@@ -85,7 +85,7 @@ class _FoundScreenState extends State<FoundScreen> {
                       child: Text(
                           'This link is not valid any more. If you are still '
                           'looking for a place to work, write to '
-                          'hello@nomadwise.io and we will help.',
+                          'spaces@nomadwise.io and we will help.',
                           style: TextStyle(fontSize: 16, height: 1.5)),
                     )
                   : _form(v),

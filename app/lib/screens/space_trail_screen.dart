@@ -130,7 +130,7 @@ class _SpaceTrailScreenState extends State<SpaceTrailScreen> {
                             const SizedBox(height: 12),
                             const Text(
                                 'Owners\' replies to our emails go to '
-                                'hello@nomadwise.io, so they are in that inbox '
+                                'spaces@nomadwise.io, so they are in that inbox '
                                 'rather than here. Email text is kept from 29 Sep '
                                 '2026; older emails show their subject only.',
                                 style: TextStyle(

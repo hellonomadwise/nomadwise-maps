@@ -5366,8 +5366,8 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                         fontWeight: FontWeight.w700, fontSize: 16)),
                 const SizedBox(height: 4),
                 Text(
-                    'Sent to ${(v['listing_enquiry_email'] ?? '').toString().isEmpty ? 'hello@nomadwise.io' : v['listing_enquiry_email']}, '
-                    'with a copy to hello@nomadwise.io.',
+                    'Sent to ${(v['listing_enquiry_email'] ?? '').toString().isEmpty ? 'spaces@nomadwise.io' : v['listing_enquiry_email']}, '
+                    'with a copy to spaces@nomadwise.io.',
                     style: const TextStyle(
                         fontSize: 12.5, color: Brand.inkMuted)),
                 const SizedBox(height: 10),
@@ -5499,7 +5499,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     }
     if (verified) {
       lines.add(Text(
-          'Enquiries to ${(v['listing_enquiry_email'] ?? '').toString().isEmpty ? 'hello@nomadwise.io (none set)' : v['listing_enquiry_email']}',
+          'Enquiries to ${(v['listing_enquiry_email'] ?? '').toString().isEmpty ? 'spaces@nomadwise.io (none set)' : v['listing_enquiry_email']}',
           style: const TextStyle(fontSize: 12.5)));
       if (renews != null) {
         final when = DateFormat('d MMM yyyy').format(renews);
@@ -9125,7 +9125,7 @@ class _ListingPlanPageState extends State<_ListingPlanPage> {
                 decoration: const InputDecoration(
                     labelText: 'Enquiry email (enquiries go here)',
                     helperText:
-                        'Leave empty to send them to hello@nomadwise.io.',
+                        'Leave empty to send them to spaces@nomadwise.io.',
                     helperMaxLines: 2)),
             if (_tier == 'verified') ...[
               const SizedBox(height: 12),

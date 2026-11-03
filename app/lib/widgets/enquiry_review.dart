@@ -122,7 +122,7 @@ class _EnquiryReviewScreenState extends State<EnquiryReviewScreen> {
                 '${spaces[t.id]!['subject'] ?? ''}',
                 '${spaces[t.id]!['body'] ?? ''}'),
         if (widget.tellCustomer && nomad != null)
-          _Draft(null, 'To $_first', 'Replies come to hello@nomadwise.io',
+          _Draft(null, 'To $_first', 'Replies come to spaces@nomadwise.io',
               '${nomad['to'] ?? ''}', '${nomad['subject'] ?? ''}',
               '${nomad['body'] ?? ''}'),
       ];
@@ -367,7 +367,7 @@ class _EmailCardState extends State<_EmailCard> {
                               'become links.')),
                 ])
               : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  meta('From', 'Jonathan at Nomadwise <hello@nomadwise.io>'),
+                  meta('From', 'Nomadwise Spaces <spaces@nomadwise.io>'),
                   meta('To', d.to.text),
                   meta('Reply', d.replyTo),
                   meta('Subject', d.subject.text),

@@ -162,7 +162,7 @@ class _EnquiryScreenState extends State<EnquiryScreen> {
           const SizedBox(height: 6),
           const Text(
               'Go back to nomadwise.io and try the button again, or email '
-              'hello@nomadwise.io and we will pass your enquiry on.',
+              'spaces@nomadwise.io and we will pass your enquiry on.',
               textAlign: TextAlign.center,
               style: TextStyle(color: Brand.inkMuted, height: 1.5)),
           const SizedBox(height: 16),

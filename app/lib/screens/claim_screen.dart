@@ -1091,7 +1091,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
         title: Text('$name is already on Premium'),
         content: const Text(
             'Someone has already claimed this listing. If that was not you, '
-            'email hello@nomadwise.io and we will look into it.'),
+            'email spaces@nomadwise.io and we will look into it.'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
@@ -1099,7 +1099,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
             style: FilledButton.styleFrom(backgroundColor: Brand.red),
             onPressed: () {
               Navigator.pop(ctx);
-              launchUrl(Uri.parse('mailto:hello@nomadwise.io?subject='
+              launchUrl(Uri.parse('mailto:spaces@nomadwise.io?subject='
                   '${Uri.encodeComponent('About the listing for $name')}'));
             },
             child: const Text('Email us'),
@@ -1154,7 +1154,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
               )),
           const SizedBox(height: 16),
           const Text(
-              'Not on Google Maps? Email hello@nomadwise.io and we will add '
+              'Not on Google Maps? Email spaces@nomadwise.io and we will add '
               'you by hand.',
               style:
                   TextStyle(color: Brand.inkMuted, fontSize: 12.5, height: 1.5)),
@@ -1780,7 +1780,7 @@ class _ClaimedScreenState extends State<ClaimedScreen> {
                     icon: const Icon(Icons.arrow_back, size: 16),
                     label: const Text('Back to nomadwise.io')),
                 const SizedBox(height: 14),
-                const Text('Questions? hello@nomadwise.io',
+                const Text('Questions? spaces@nomadwise.io',
                     style: TextStyle(color: Brand.inkMuted, fontSize: 12.5)),
               ]),
             ),
