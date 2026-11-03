@@ -5938,3 +5938,7 @@ bit big". Scaled down to the template: heading 21px, card titles 17px, prices
 panel 320px, calendar days 34px. Phones keep bigger touch targets and 16px
 fields (so an iPhone does not zoom in). The enquiry now sits beside the cards
 from a 760px column.
+Live check after that: the site's own styles make every form label bold with
+space under it and give every line 20px, so the price notes looked bold and
+the rows tall. The cards now set their own label weight, margin and line
+height.

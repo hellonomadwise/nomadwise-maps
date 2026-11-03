@@ -187,6 +187,10 @@
     var css = [
       '.nwp{margin:28px 0 8px;font-family:inherit;color:#2C2C2C}',
       '.nwp *{box-sizing:border-box}',
+      // The site styles every label bold with space under it; not ours.
+      '.nwp label,.nwp-sheet label{margin:0;font-weight:400}',
+      '.nwp label.nwp-lab,.nwp-sheet label.nwp-lab{font-weight:500}',
+      '.nwp-rname,.nwp-rnote,.nwp-rprice{line-height:1.3}',
       '.nwp h2.nwp-h{margin:0 0 4px;font-size:21px;font-weight:700;line-height:1.25}',
       '.nwp-sub{margin:0 0 12px;font-size:14px;color:#5E6670}',
       '.nwp-chips{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px}',
