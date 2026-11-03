@@ -14,7 +14,9 @@ Two jobs, both inside the ten-minute website push:
      update  the product's name, price, details or category
      remove  take the product off the live page and archive it
      add     make a new product, copied from a sibling for the page's
-             settings (currency, country, photo, commission)
+             settings (currency, country, photo, commission); a page's
+             first product takes them from the page itself, and
+             switches the page's price list on (Products On)
    and for each Undo, the reverse. A live product is republished so the
    change shows. The result is reported back with product_change_done().
 
@@ -53,6 +55,7 @@ WEBFLOW_API = 'https://api.webflow.com'
 PRODUCTS_ID = '67c95ef09fb5dd1f966918df'
 CATEGORIES_ID = '6823b9053b6034fd12de5158'
 CURRENCIES_ID = '67c95f1d6ed71330510b57a1'
+SPACES_ID = '65fa86d0e0379bf78d52448d'   # the coworking and cafe pages
 PAGE = 100
 PAUSE = 1.1   # between Webflow calls: 60 a minute is the ceiling
 
@@ -316,8 +319,8 @@ def is_live(item):
         and not item.get('isArchived')
 
 
-def publish(item_id):
-    res = wf_write(f'/v2/collections/{PRODUCTS_ID}/items/publish', 'POST',
+def publish(item_id, collection=PRODUCTS_ID):
+    res = wf_write(f'/v2/collections/{collection}/items/publish', 'POST',
                    {'itemIds': [item_id]}) or {}
     time.sleep(PAUSE)
     # Webflow answers 200 and lists what it could not publish.
@@ -434,12 +437,65 @@ def slugify(x):
 
 # New products made in this run, by space (for their place in the list).
 _added = {}
+# A page's first product made in this run, by space: the sibling for
+# the rest of that page's new products.
+_made_first = {}
 
 
 def type_id(name):
     """The old "Product Type ID": the name in one word (DayPass)."""
     words = re.findall(r'[A-Za-z0-9()]+', name or '')
     return ''.join(w[:1].upper() + w[1:] for w in words)[:80] or 'Product'
+
+
+# The pages read in this run for a first product, by Webflow id.
+_pages = {}
+
+
+def first_product_settings(venue):
+    """For a page with no products yet (OUR HQ, 3 Nov 2026: its first
+    prices could not be added, there was nothing to copy): the settings
+    a product copies from its siblings, taken from the page itself. The
+    country and photos are the page's own; no commission (none agreed);
+    VAT left as the price says."""
+    cms = venue.get('webflow_cms_id')
+    if not cms:
+        raise ValueError('This page is not on the website yet, so its '
+                         'prices cannot go on it. Try again once it is live.')
+    if cms not in _pages:
+        try:
+            _pages[cms] = wf(f'/v2/collections/{SPACES_ID}/items/{cms}') or {}
+        except RuntimeError as e:
+            if getattr(e, 'code', None) == 404:
+                raise ValueError('This page could not be found on the '
+                                 'website.') from None
+            raise
+        time.sleep(PAUSE)
+    page = _pages[cms]
+    pfd = page.get('fieldData') or {}
+    return page, {
+        'coworking-space': cms,
+        'commission-percentage': 0,
+        'withholding-tax-covered': False,
+        'country-of-product': pfd.get('country'),
+        'images': pfd.get('image-reference'),
+        'price-text-colour': '#333',
+    }
+
+
+def prices_on(page):
+    """A page's price list shows only with "Products On" switched on:
+    switched on (and the page republished, when it is live) with its
+    first product."""
+    pfd = page.get('fieldData') or {}
+    if pfd.get('products-on'):
+        return
+    wf_write(f"/v2/collections/{SPACES_ID}/items/{page['id']}", 'PATCH',
+             {'fieldData': {'products-on': True}})
+    time.sleep(PAUSE)
+    pfd['products-on'] = True
+    if is_live(page):
+        publish(page['id'], SPACES_ID)
 
 
 def make_new(c):
@@ -449,12 +505,16 @@ def make_new(c):
     final = c.get('final') or {}
     venue = c.get('venue') or {}
     sibling_id = c.get('sibling')
-    if not sibling_id:
-        raise ValueError('This page has no products on the website yet, so '
-                         'there is nothing to copy its settings from. Add '
-                         'the first one in Webflow.')
-    sib = get_item(sibling_id)
-    sfd = sib.get('fieldData') or {}
+    # Two adds to a page with no products in the same run: the second
+    # copies the first (made a moment ago) like any other sibling.
+    sibling_id = sibling_id or _made_first.get(venue.get('id'))
+    page = None
+    if sibling_id:
+        sib = get_item(sibling_id)
+        sfd = sib.get('fieldData') or {}
+    else:
+        page, sfd = first_product_settings(venue)
+        sib = page
     r = refs()
     name = tidy(final.get('name'))
     base = slugify(f"{venue.get('webflow_slug') or venue.get('name') or 'space'}-{name}")[:200]
@@ -488,7 +548,8 @@ def make_new(c):
                           else sfd.get('vat-included-2'),
         'images': sfd.get('images'),
         'price-text-colour': sfd.get('price-text-colour') or '#333',
-        'starting-from': False,
+        # The page's first price is the one shown as "from" on a phone.
+        'starting-from': page is not None,
         'category-2': r['cat_id'].get(final.get('category') or 'coworking'),
         'affiliate-model-applied': False,
     }
@@ -538,9 +599,13 @@ def make_new(c):
         if not item_id:
             raise RuntimeError(f'Webflow gave no id for the new product: {made}')
     time.sleep(PAUSE)
-    # Shown only where the page's other products are live.
+    # Shown only where the page's other products are live (for a first
+    # product: where the page itself is live).
     if is_live(sib):
         publish(item_id)
+    if page is not None:
+        prices_on(page)
+        _made_first[venue.get('id')] = item_id
     _added[venue.get('id')] = _added.get(venue.get('id'), 0) + 1
     return item_id, chosen
 

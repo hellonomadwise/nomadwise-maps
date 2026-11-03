@@ -5877,3 +5877,18 @@ update, and then it says please review."
   the four meeting rooms by the hour with their sizes).
 - The prices stay in the description too; the owner can take them out there
   if they like.
+
+## 3 Nov 2026: a page's first prices go up by themselves
+
+OUR HQ's first prices (approved in Price check) all failed with "This page
+has no products on the website yet, so there is nothing to copy its settings
+from. Add the first one in Webflow." Every newly claimed page without prices
+would have hit the same wall. Now (scripts/webflow_products.py) a page's
+first product takes its settings from the page itself: the page's country
+and photos, no commission (none agreed), VAT as the price says. It is marked
+as the page's "from" price, and the page's "Products On" switch is turned on
+(and the page republished) so the price list shows. Further prices added in
+the same run copy that first one as usual. A page that is not on the website
+yet says so instead.
+For OUR HQ itself the first price (Day pass) was made by hand in Webflow,
+Products On switched on, and the other seven went through the push.
