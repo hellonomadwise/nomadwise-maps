@@ -267,6 +267,26 @@ class SupabaseService {
     return Map<String, dynamic>.from(res as Map);
   }
 
+  /// Owner: sends a pasted price list to be read (migration 242).
+  /// Returns its number; the prices come from [ownerPriceReadAnswer].
+  Future<int> ownerPriceRead(
+      String venueId, String text, String currency) async {
+    final r = await _db.rpc('owner_price_read', params: {
+      'p_venue': venueId,
+      'p_text': text,
+      'p_currency': currency,
+    });
+    return (r as num).toInt();
+  }
+
+  /// {status: 'waiting'}, {status: 'done', currency, prices, note} or
+  /// {status: 'error', error}. Each price: name, category, amount,
+  /// from, note.
+  Future<Map<String, dynamic>> ownerPriceReadAnswer(int id) async {
+    final r = await _db.rpc('owner_price_read_answer', params: {'p_ask': id});
+    return Map<String, dynamic>.from(r as Map);
+  }
+
   /// Uploads one owner photo; returns its public link.
   Future<String> ownerUploadPhoto(Uint8List bytes, String ext) async {
     final uid = currentUser!.id;

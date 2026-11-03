@@ -2914,7 +2914,22 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
             () => _showTool('chats')),
       // A space that wrote back two days ago or more and has not had
       // our answer (migration 234): the one waiting longest.
-      if (count(waitReply) > 0)
+      // ...and when the one waiting longest wrote over a month ago, the
+      // first job is to settle the old ones (3 Nov 2026).
+      if (count(waitReply) > 0 &&
+          (DateTime.tryParse('${waitReply['at'] ?? ''}')?.isBefore(
+                  DateTime.now().subtract(const Duration(days: 30))) ??
+              false))
+        _NextJob(
+            'tidyreplies',
+            'Tidy old "they replied" boxes',
+            'Some boxes say a space replied, but the message is over a month '
+                'old. Settle each with one tap: still talking, done with '
+                'them, or not now.',
+            'Tidy them',
+            () => _nextUpOpen(
+                'tidyreplies', const AdminOutreachScreen(tidy: true)))
+      else if (count(waitReply) > 0)
         _NextJob(
             'replied',
             'Answer ${name(waitReply)}',
@@ -3261,7 +3276,9 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   static String _todayCategory(String kind) => switch (kind) {
         'enquiries' || 'claims' || 'payments' || 'chats' || 'replied' =>
           'Someone is waiting on us',
-        'claimlook' || 'signup' || 'newpage' || 'followup' => 'Outreach',
+        'claimlook' || 'signup' || 'newpage' || 'followup' ||
+        'tidyreplies' =>
+          'Outreach',
         'ready' || 'drafts' || 'prices' || 'ownerchanges' || 'updates' ||
         'signups' =>
           'Waiting for your Go',
@@ -3292,6 +3309,10 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
             'Read what they wrote',
             'Write your answer',
             'Send it, or press "I sent it" if you answered by email'
+          ],
+        'tidyreplies' => const [
+            'Read each old reply',
+            'Tap Still talking, Done with them, or Not now'
           ],
         'claimlook' => const [
             'See when they looked, and from where',

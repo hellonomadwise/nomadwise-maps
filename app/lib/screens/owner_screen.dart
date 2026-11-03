@@ -120,6 +120,15 @@ class _OwnerScreenState extends State<OwnerScreen> {
   String _currency = 'EUR';
   // The price list being edited (migration 218): one row per price.
   final List<_PriceRow> _priceRows = [];
+  // Paste a price list (migration 242): Claude reads it and the list
+  // above fills in. A newer paste, or closing the editor, drops an
+  // older answer (_pasteSeq).
+  final _pasteText = TextEditingController();
+  bool _pasteOpen = false;
+  bool _pasteBusy = false;
+  String? _pasteError;
+  String? _pasteDone;
+  int _pasteSeq = 0;
   // "Bookmark this page" tip, until the owner says Got it.
   bool _showTip = false;
   // The small Build next note under the menu, until its X is pressed.
@@ -487,6 +496,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
     for (final r in _priceRows) {
       r.dispose();
     }
+    _pasteText.dispose();
     super.dispose();
   }
 
@@ -2551,6 +2561,328 @@ class _OwnerScreenState extends State<OwnerScreen> {
     _priceMonth.clear();
   }
 
+  /// The description has a price list in it: a currency sign or code
+  /// right by a number, at least twice (OUR HQ's: "hot desks £89,
+  /// dedicated desks £99").
+  bool get _descriptionHasPrices {
+    final t = _description.text;
+    final codes = currencyNames.keys.join('|');
+    final re = RegExp(
+        '([£€\$¥₹฿₩₱₫₺]\\s?\\d)'
+        '|(\\d\\s?[£€₹฿])'
+        '|(\\b($codes)\\s?\\d)|(\\d\\s?($codes)\\b)');
+    return re.allMatches(t).length >= 2;
+  }
+
+  /// The description as plain text for the paste box (no "## ").
+  String get _descriptionPlain => _description.text
+      .replaceAll(RegExp(r'^\s*#{1,6}\s+', multiLine: true), '')
+      .trim();
+
+  /// A database message without the technical wrapping.
+  static String _plainError(Object e) {
+    final s = '$e';
+    final m = RegExp(r'message: (.*?), code:').firstMatch(s);
+    return (m?.group(1) ?? s).replaceFirst('Exception: ', '');
+  }
+
+  /// "Turn into prices": the pasted list goes to Claude (migration
+  /// 242); the answer is read every two seconds for up to a minute and
+  /// a half, then fills the list.
+  Future<void> _readPastedPrices() async {
+    final text = _pasteText.text.trim();
+    if (text.length < 3) {
+      setState(() => _pasteError = 'Paste your price list into the box first.');
+      return;
+    }
+    final seq = ++_pasteSeq;
+    setState(() {
+      _pasteBusy = true;
+      _pasteError = null;
+      _pasteDone = null;
+    });
+    bool stale() => !mounted || seq != _pasteSeq || _editing != 'prices';
+    try {
+      final id =
+          await _supabase.ownerPriceRead('${_venue?['id']}', text, _currency);
+      for (var i = 0; i < 45; i++) {
+        await Future.delayed(const Duration(seconds: 2));
+        if (stale()) return;
+        Map<String, dynamic> a;
+        try {
+          a = await _supabase.ownerPriceReadAnswer(id);
+        } catch (_) {
+          continue; // a blip in the connection: ask again
+        }
+        if (stale()) return;
+        final status = '${a['status'] ?? ''}';
+        if (status == 'waiting') continue;
+        if (status == 'done') {
+          _fillFromPaste(a);
+        } else {
+          setState(() {
+            _pasteBusy = false;
+            _pasteError =
+                '${a['error'] ?? 'Something went wrong. Please try again.'}';
+          });
+        }
+        return;
+      }
+      if (stale()) return;
+      setState(() {
+        _pasteBusy = false;
+        _pasteError = 'No answer after a minute and a half. Please try again.';
+      });
+    } catch (e) {
+      if (stale()) return;
+      setState(() {
+        _pasteBusy = false;
+        _pasteError = _plainError(e);
+      });
+    }
+  }
+
+  /// Puts the prices Claude read into the list. A price with the same
+  /// name as one already there updates it; the rest are added (up to
+  /// the 40 the list holds). Empty rows go first.
+  void _fillFromPaste(Map<String, dynamic> a) {
+    final found = [
+      for (final p in (a['prices'] as List? ?? const []))
+        if (p is Map) Map<String, dynamic>.from(p)
+    ];
+    if (found.isEmpty) {
+      setState(() {
+        _pasteBusy = false;
+        _pasteError = 'We could not find any prices in that text. Check it '
+            'has the amounts in it, or add the prices below.';
+      });
+      return;
+    }
+    final blank = _priceRows.where((r) => r.isBlank).toList();
+    var added = 0, updated = 0, full = 0;
+    setState(() {
+      for (final r in blank) {
+        _priceRows.remove(r);
+      }
+      // Matched by name against the prices there before this paste
+      // only, so two of the same name in the pasted list both stay.
+      final before = _priceRows.toList();
+      for (final p in found) {
+        final name = '${p['name'] ?? ''}'.trim();
+        if (name.length < 2) continue;
+        final amount = '${p['amount'] ?? ''}'.trim();
+        final from = p['from'] == true;
+        var note = '${p['note'] ?? ''}'.trim();
+        if (note.length > 120) note = note.substring(0, 120).trim();
+        final cat = '${p['category'] ?? 'coworking'}';
+        final same = before
+            .where((r) =>
+                r.name.text.trim().toLowerCase() == name.toLowerCase())
+            .firstOrNull;
+        if (same != null) {
+          if (amount.isNotEmpty) same.amount.text = Price.cleanAmount(amount);
+          same.from = from;
+          if (note.isNotEmpty && same.note.text.trim().isEmpty) {
+            same.note.text = note;
+          }
+          updated++;
+          continue;
+        }
+        if (_priceRows.length >= 40) {
+          full++;
+          continue;
+        }
+        _priceRows.add(_PriceRow(
+          category: cat,
+          from: from,
+          name: name,
+          amount: amount.isEmpty ? '' : Price.cleanAmount(amount),
+          note: note,
+        ));
+        added++;
+      }
+      final cur = '${a['currency'] ?? ''}'.trim().toUpperCase();
+      final curChanged = cur.length == 3 &&
+          cur != _currency &&
+          currencyNames.containsKey(cur);
+      if (curChanged) _currency = cur;
+      final parts = [
+        if (added > 0) 'added ${added == 1 ? '1 price' : '$added prices'}',
+        if (updated > 0)
+          'updated ${updated == 1 ? '1 price' : '$updated prices'} you had already',
+      ];
+      if (parts.isEmpty) {
+        _pasteBusy = false;
+        _pasteError = full > 0
+            ? 'Your list already has 40 prices, the most it holds. Remove '
+                'some below, then try again.'
+            : 'We could not find any prices in that text. Check it has the '
+                'amounts in it, or add the prices below.';
+        return;
+      }
+      final said = parts.join(' and ');
+      _pasteDone = '${said[0].toUpperCase()}${said.substring(1)} from your '
+          'list${curChanged ? ', in ${Price.name(cur)}' : ''}. Please check '
+          'each one below and change anything that is not right, then press '
+          'Save.'
+          '${full > 0 ? ' $full more did not fit: the list holds 40 prices.' : ''}'
+          '${'${a['note'] ?? ''}'.trim().isEmpty ? '' : ' Note: ${'${a['note']}'.trim()}'}';
+      _pasteBusy = false;
+      _pasteOpen = false;
+      _pasteText.clear();
+      _dirty = true;
+      _editSeq++;
+      _lastEdit = DateTime.now();
+    });
+    // The empty rows' boxes are still on screen in this frame.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      for (final r in blank) {
+        r.dispose();
+      }
+    });
+  }
+
+  /// The "paste your price list" card at the top of the price editor.
+  Widget _pasteCard() {
+    final hasDesc = _descriptionHasPrices;
+    final done = _pasteDone;
+    if (!_pasteOpen) {
+      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        if (done != null)
+          Container(
+            width: double.infinity,
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEAF6EE),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFB9DFC5)),
+            ),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Icon(Icons.check_circle,
+                  size: 20, color: Color(0xFF2E7D4F)),
+              const SizedBox(width: 10),
+              Expanded(
+                  child: Text(done,
+                      style: const TextStyle(
+                          fontSize: 14, height: 1.45, color: _edInk))),
+            ]),
+          ),
+        OutlinedButton.icon(
+          onPressed: _saving
+              ? null
+              : () => setState(() {
+                    _pasteOpen = true;
+                    _pasteError = null;
+                    _pasteDone = null;
+                  }),
+          icon: const Icon(Icons.content_paste, size: 18),
+          label: const Text('Paste your price list'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: _edInk,
+            side: const BorderSide(color: _edBorder),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8)),
+          ),
+        ),
+      ]);
+    }
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7F8FA),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _edBorder),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('Paste your price list',
+            style: TextStyle(
+                fontSize: 15.5, fontWeight: FontWeight.w700, color: _edInk)),
+        const SizedBox(height: 4),
+        const Text(
+            'Copy your prices from your website, a brochure or anywhere '
+            'else, and paste them here. We turn them into separate prices '
+            'for you to check before you save.',
+            style: TextStyle(fontSize: 13.5, height: 1.45, color: _edMuted)),
+        if (hasDesc) ...[
+          const SizedBox(height: 6),
+          TextButton.icon(
+            onPressed: _pasteBusy
+                ? null
+                : () => setState(() {
+                      _pasteText.text = _descriptionPlain;
+                      _pasteError = null;
+                    }),
+            icon: const Icon(Icons.subdirectory_arrow_right, size: 18),
+            label: const Text('Use the prices in my description'),
+            style: TextButton.styleFrom(
+                foregroundColor: _pageRed,
+                padding: const EdgeInsets.symmetric(horizontal: 4)),
+          ),
+        ],
+        const SizedBox(height: 8),
+        TextField(
+          controller: _pasteText,
+          enabled: !_pasteBusy,
+          minLines: 5,
+          maxLines: 12,
+          maxLength: 6000,
+          buildCounter: _nearLimit,
+          keyboardType: TextInputType.multiline,
+          decoration: _dec('Your price list',
+              hint: 'Day pass 18\nHot desk 89 a month\nMeeting room from 15 an hour'),
+        ),
+        if (_pasteError != null) ...[
+          const SizedBox(height: 6),
+          Text(_pasteError!,
+              style: const TextStyle(
+                  fontSize: 13.5, color: Color(0xFFB3261E), height: 1.4)),
+        ],
+        const SizedBox(height: 10),
+        Wrap(
+            spacing: 10,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              FilledButton.icon(
+                onPressed: _pasteBusy || _saving ? null : _readPastedPrices,
+                icon: _pasteBusy
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white))
+                    : const Icon(Icons.auto_awesome, size: 18),
+                label: Text(_pasteBusy
+                    ? 'Reading your prices...'
+                    : 'Turn into prices'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: _pageRed,
+                  disabledBackgroundColor: _pageRed.withValues(alpha: 0.6),
+                  disabledForegroundColor: Colors.white,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+              TextButton(
+                onPressed: () => setState(() {
+                  _pasteSeq++; // drops an answer still on its way
+                  _pasteOpen = false;
+                  _pasteBusy = false;
+                  _pasteError = null;
+                }),
+                child: const Text('Close',
+                    style: TextStyle(color: _edMuted)),
+              ),
+            ]),
+      ]),
+    );
+  }
+
   /// Asks before a price that is on the page now is taken out.
   Future<void> _removePriceRow(_PriceRow r) async {
     if (r.id != null) {
@@ -3104,7 +3436,15 @@ class _OwnerScreenState extends State<OwnerScreen> {
     // The snapshot first: Cancel puts back the old boxes the list
     // empties.
     final snap = _snapshot(part);
-    if (part == 'prices') _loadPriceRows();
+    if (part == 'prices') {
+      _loadPriceRows();
+      // A paste still being read from an earlier visit is dropped.
+      _pasteSeq++;
+      _pasteOpen = false;
+      _pasteBusy = false;
+      _pasteError = null;
+      _pasteDone = null;
+    }
     setState(() {
       _snap = snap;
       _editing = part;
@@ -3152,6 +3492,11 @@ class _OwnerScreenState extends State<OwnerScreen> {
         enq.isNotEmpty &&
         !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(enq)) {
       setState(() => _savedNote = 'Please check the email address.');
+      return;
+    }
+    if (part == 'prices' && _pasteBusy) {
+      setState(() => _savedNote =
+          'Please wait until your price list has been read, then save.');
       return;
     }
     if (part == 'prices' && !_isPreview && !_saving) {
@@ -4343,6 +4688,8 @@ class _OwnerScreenState extends State<OwnerScreen> {
                   'goes live once Nomadwise approves it.',
                   style: muted),
               const SizedBox(height: 12),
+              _pasteCard(),
+              const SizedBox(height: 16),
               _currencyPicker(),
               const SizedBox(height: 16),
               // The prices, grouped as the page groups them.
@@ -4419,7 +4766,44 @@ class _OwnerScreenState extends State<OwnerScreen> {
             if (((_venue?['price_changes_waiting'] as num?) ?? 0) > 0 &&
                 !_sent('prices'))
               _waitingChip(),
-            if (prices.isEmpty)
+            if (prices.isEmpty &&
+                _descriptionHasPrices &&
+                !_sent('prices') &&
+                ((_venue?['price_changes_waiting'] as num?) ?? 0) == 0)
+              // Spaces that typed their price list into the
+              // description (OUR HQ, 3 Nov 2026): one tap to turn it
+              // into prices (migration 242).
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text(
+                    'Your description has prices in it. We can turn them '
+                    'into a price list for you to check.',
+                    style: muted),
+                const SizedBox(height: 10),
+                FilledButton.icon(
+                  onPressed: _saving
+                      ? null
+                      : () {
+                          _startEdit('prices');
+                          setState(() {
+                            _pasteOpen = true;
+                            _pasteDone = null;
+                            _pasteError = null;
+                            _pasteText.text = _descriptionPlain;
+                          });
+                          _readPastedPrices();
+                        },
+                  icon: const Icon(Icons.auto_awesome, size: 18),
+                  label: const Text('Turn them into prices'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: _pageRed,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+              ])
+            else if (prices.isEmpty)
               const Text('No prices yet. Press Edit to add one.',
                   style: muted)
             else

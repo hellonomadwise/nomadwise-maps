@@ -5822,3 +5822,58 @@ wide), with the signed-in line, where enquiries go and the "What should we
 build next" note under it; the space's name, the status and the tab sit to its
 right. Labels wrap instead of being cut. On a phone nothing changes (the tabs
 along the top).
+
+## 3 Nov 2026: tidy old "they replied" boxes, one tap each
+
+14 Outreach boxes said a space had replied, but the last message was weeks or
+months old (many from 2025, brought in with the old history). Since the 2-day
+reminder (migration 234) they would keep asking for an answer in Today. Now:
+- Outreach's To do shows a gold note when boxes like that exist (replied over
+  30 days ago), with "Tidy them, one tap each".
+- The window lists each one (name, city, when they wrote, the start of what
+  they wrote) with three buttons: Still talking (back to Waiting, follow up in
+  a week), Done with them (put aside, noted), Not now (put aside, back in To
+  do in 3 months). Nothing is sent. Each choice is noted on the box.
+- In Today, while the one waiting longest is over a month old, the job is
+  "Tidy old 'they replied' boxes" (it opens Outreach with the window open),
+  in place of "Answer [space]".
+Also on 3 Nov: Fora 22 Manchester Square, Time To Cowork (Lisbon) and The
+Workspace by Amparo, all permanently closed on Google, were set to retire (as
+the Retire button does).
+
+## 3 Nov 2026: the "claim approved" emails open warmly (migration 241)
+
+Jonathan, on the email a new space got when we approved its claim: it opened
+"Done: we have confirmed you are with OUR HQ...". That reads like a note to
+ourselves, not a message to someone who has just joined. Now the free one
+opens "Good news: we've confirmed you're with OUR HQ, so its page on
+Nomadwise is now yours to manage.", and the Premium one "Good news: OUR HQ is
+now on Nomadwise Premium." The "not live yet" line is two shorter sentences:
+"Your page is in our publishing queue. We check every new page before it goes
+live, and we'll email you the link as soon as it is." Nothing else changes.
+
+## 3 Nov 2026: paste a price list, get the prices filled in (migration 242)
+
+Jonathan: several spaces (OUR HQ in Glasgow, for one) typed their whole
+price list into their description, and their Prices part stayed empty. "Copy
+and paste your price list into this field, press a button, and then it will
+update, and then it says please review."
+- The price editor has "Paste your price list". The owner pastes prices from
+  their website, a brochure or anywhere, and presses "Turn into prices".
+  Claude (the key already in Vault) reads it and the list fills in: one price
+  per item, in the right group (coworking, meeting rooms, private offices,
+  other), with the amount, "from" where the text says so, a short note (like
+  "4 people") and the currency. A price with the same name as one already
+  there is updated rather than added twice.
+- A green note then says how many were added and asks the owner to check
+  each one and press Save. Nothing is saved until they do, and every price
+  still goes through Price check before it reaches the page.
+- "Use the prices in my description" fills the box from the description.
+  On the page view, when the description has prices and the Prices part is
+  empty, "Turn them into prices" does it in one tap.
+- 10 a day per space, 300 a day in all. Owners of the space and the founders
+  only. Tried on OUR HQ's description: 8 prices, all correct (private
+  offices from 225 a month, hot desk 89, dedicated desk 99, day pass 18, and
+  the four meeting rooms by the hour with their sizes).
+- The prices stay in the description too; the owner can take them out there
+  if they like.

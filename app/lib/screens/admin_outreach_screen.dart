@@ -23,7 +23,11 @@ import '../widgets/email_typo_hint.dart';
 /// templates with their details, sends it from spaces@nomadwise.io and
 /// logs it. Founders only.
 class AdminOutreachScreen extends StatelessWidget {
-  const AdminOutreachScreen({super.key, this.initialStep, this.initialQuery});
+  const AdminOutreachScreen(
+      {super.key, this.initialStep, this.initialQuery, this.tidy = false});
+
+  /// Opens the tidy-up of old "they replied" boxes at once (from Today).
+  final bool tidy;
 
   /// Opens on one step of the path (from "Next up": the spaces that
   /// looked at claiming).
@@ -41,14 +45,15 @@ class AdminOutreachScreen extends StatelessWidget {
   Widget build(BuildContext context) => Theme(
         data: controlCentreButtons(Theme.of(context)),
         child: _OutreachBody(
-            initialStep: initialStep, initialQuery: initialQuery),
+            initialStep: initialStep, initialQuery: initialQuery, tidy: tidy),
       );
 }
 
 class _OutreachBody extends StatefulWidget {
-  const _OutreachBody({this.initialStep, this.initialQuery});
+  const _OutreachBody({this.initialStep, this.initialQuery, this.tidy = false});
   final String? initialStep;
   final String? initialQuery;
+  final bool tidy;
   @override
   State<_OutreachBody> createState() => _AdminOutreachScreenState();
 }
@@ -5048,6 +5053,12 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
         _allCounts = counts;
         _boardError = null;
       });
+      if (widget.tidy && !_tidyOpened) {
+        _tidyOpened = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _tidyReplies();
+        });
+      }
       for (final k in _doneOpen.toList()) {
         _loadDone(k);
       }
@@ -5295,6 +5306,194 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
     );
   }
 
+  // ------------------------------------------------- old replies tidy-up
+
+  /// Boxes that say "they replied" where their last message is over a
+  /// month old (Jonathan, 3 Nov 2026: in Today they kept asking for an
+  /// answer that was given long ago, or never will be).
+  static const _oldReplyDays = 30;
+  bool _tidyOpened = false;
+
+  List<Map<String, dynamic>> get _oldReplies {
+    final cut = DateTime.now().subtract(const Duration(days: _oldReplyDays));
+    return [
+      for (final c in _board?['replied'] ?? const <Map<String, dynamic>>[])
+        if ('${c['stage']}' == 'replied' &&
+            c['is_test'] != true &&
+            c['aside'] != true &&
+            (DateTime.tryParse('${c['last_in_at'] ?? c['stage_at'] ?? ''}')
+                    ?.isBefore(cut) ??
+                false))
+          c,
+    ];
+  }
+
+  Widget _tidyBanner(int n) => Container(
+        margin: const EdgeInsets.only(bottom: 14),
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+        decoration: BoxDecoration(
+            color: Brand.goldTint, borderRadius: BorderRadius.circular(14)),
+        child: Wrap(
+            spacing: 12,
+            runSpacing: 10,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 520),
+                child: Text(
+                    '$n ${n == 1 ? 'box says' : 'boxes say'} they replied, but '
+                    'the last message is over a month old. Settle '
+                    '${n == 1 ? 'it' : 'them'} so To do only shows what '
+                    'really waits for us.',
+                    style: const TextStyle(
+                        fontSize: 13.5,
+                        height: 1.4,
+                        color: Brand.goldTextDark)),
+              ),
+              FilledButton(
+                  onPressed: _tidyReplies,
+                  child: const Text('Tidy them, one tap each')),
+            ]),
+      );
+
+  /// One window, one line per old reply: Still talking (back to
+  /// Waiting, follow up in a week), Done with them (put aside, the
+  /// reason noted), or Not now (put aside, comes back in 3 months).
+  Future<void> _tidyReplies() async {
+    final rows = List<Map<String, dynamic>>.from(_oldReplies);
+    if (rows.isEmpty) {
+      _snack('No old replies to tidy.');
+      return;
+    }
+    final today = DateFormat('d MMM').format(DateTime.now());
+    String iso(DateTime d) => DateFormat('yyyy-MM-dd').format(d);
+    String notes(Map<String, dynamic> c, String line) => [
+          if ('${c['notes'] ?? ''}'.trim().isNotEmpty) '${c['notes']}'.trim(),
+          line,
+        ].join('\n');
+    var done = 0;
+    final busy = <String>{};
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(builder: (ctx, set) {
+        Future<void> act(Map<String, dynamic> c, String how) async {
+          // one press at a time for each line
+          if (!busy.add('${c['id']}')) return;
+          final now = DateTime.now();
+          final fields = switch (how) {
+            'talking' => {
+                'stage': 'contacted',
+                'follow_up_on': iso(now.add(const Duration(days: 7))),
+                'notes': notes(c, 'Old reply tidied $today: still talking, '
+                    'follow up in a week.'),
+              },
+            'done' => {
+                'stage': 'not_now',
+                'follow_up_on': '',
+                'notes': notes(c, 'Old reply tidied $today: done with them.'),
+              },
+            _ => {
+                'stage': 'not_now',
+                'follow_up_on': iso(now.add(const Duration(days: 90))),
+                'notes': notes(c, 'Old reply tidied $today: not now, ask '
+                    'again in 3 months.'),
+              },
+          };
+          try {
+            await _supabase.outreachUpdate('${c['id']}', fields);
+            done++;
+            if (!ctx.mounted) return;
+            set(() => rows.remove(c));
+            if (rows.isEmpty) Navigator.pop(ctx);
+          } catch (e) {
+            busy.remove('${c['id']}');
+            if (mounted) _snack(_plain(e), bad: true);
+          }
+        }
+
+        return AlertDialog(
+          title: Text('Old replies to settle (${rows.length})'),
+          content: SizedBox(
+            width: 640,
+            child: SingleChildScrollView(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text(
+                        'Each says they replied, over a month ago. Nothing is '
+                        'sent from here.',
+                        style: TextStyle(
+                            fontSize: 13, color: Brand.inkSecondary)),
+                    const SizedBox(height: 12),
+                    for (final c in rows)
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 10),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                            border: Border.all(color: Brand.border),
+                            borderRadius: BorderRadius.circular(10)),
+                        child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('${c['space_name'] ?? c['email'] ?? 'A space'}',
+                                  style: const TextStyle(
+                                      fontSize: 14.5,
+                                      fontWeight: FontWeight.w700)),
+                              Text(
+                                  [
+                                    if ('${c['city'] ?? ''}'.trim().isNotEmpty)
+                                      '${c['city']}'.trim(),
+                                    'they wrote ${_agoOf(c['last_in_at'] ?? c['stage_at'])}',
+                                  ].join(' · '),
+                                  style: const TextStyle(
+                                      fontSize: 12.5,
+                                      color: Brand.inkSecondary)),
+                              if ('${c['last_in'] ?? ''}'.trim().isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 4),
+                                  child: Text(
+                                      '"${_clip('${c['last_in']}'.trim(), 140)}"',
+                                      style: const TextStyle(
+                                          fontSize: 12.5,
+                                          fontStyle: FontStyle.italic,
+                                          color: Brand.inkSecondary)),
+                                ),
+                              const SizedBox(height: 8),
+                              Wrap(spacing: 6, runSpacing: 6, children: [
+                                OutlinedButton(
+                                    onPressed: () => act(c, 'talking'),
+                                    child: const Text('Still talking')),
+                                OutlinedButton(
+                                    onPressed: () => act(c, 'done'),
+                                    child: const Text('Done with them')),
+                                OutlinedButton(
+                                    onPressed: () => act(c, 'later'),
+                                    child: const Text('Not now')),
+                              ]),
+                            ]),
+                      ),
+                    const Text(
+                        'Still talking: back to Waiting, follow up in a week. '
+                        'Done with them: off the lists. Not now: off the lists, '
+                        'back in To do in 3 months.',
+                        style: TextStyle(
+                            fontSize: 12, color: Brand.inkSecondary)),
+                  ]),
+            ),
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Close')),
+          ],
+        );
+      }),
+    );
+    if (!mounted) return;
+    if (done > 0) _snack('$done settled.');
+    await _load();
+  }
+
   Widget _todoView(List<_Task> tasks) {
     if (_board == null) return _boardWaitBox();
     if (tasks.isEmpty) {
@@ -5317,6 +5516,7 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
         ]),
       );
     }
+    final old = _oldReplies;
     const groups = <(String, String)>[
       ('reply', 'They wrote to us'),
       ('follow_up', 'They showed interest'),
@@ -5325,6 +5525,7 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
       ('owner_ready', 'Set up by us, not claimed'),
     ];
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      if (old.isNotEmpty) _tidyBanner(old.length),
       for (final g in groups)
         if (tasks.any((t) => t.kind == g.$1)) ...[
           _groupHeading(g.$2, tasks.where((t) => t.kind == g.$1).length),
