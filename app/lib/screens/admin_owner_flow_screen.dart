@@ -661,7 +661,7 @@ class _AdminOwnerFlowScreenState extends State<AdminOwnerFlowScreen>
                 : wide
                     ? Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Expanded(
-                          flex: 5,
+                          flex: 11,
                           child: SingleChildScrollView(
                             padding: const EdgeInsets.fromLTRB(24, 20, 12, 40),
                             child: Column(children: [
@@ -672,7 +672,7 @@ class _AdminOwnerFlowScreenState extends State<AdminOwnerFlowScreen>
                           ),
                         ),
                         Expanded(
-                          flex: 4,
+                          flex: 7,
                           child: SingleChildScrollView(
                             padding: const EdgeInsets.fromLTRB(12, 20, 24, 40),
                             child: Column(
@@ -785,7 +785,7 @@ class _AdminOwnerFlowScreenState extends State<AdminOwnerFlowScreen>
   Widget _mapCard() => _card(
         padding: const EdgeInsets.fromLTRB(8, 12, 8, 8),
         child: LayoutBuilder(builder: (context, c) {
-          final w = math.min(c.maxWidth, 520.0);
+          final w = math.min(c.maxWidth - 16, 760.0);
           final scale = w / 400;
           return Center(
             child: SizedBox(
