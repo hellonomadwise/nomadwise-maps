@@ -6,13 +6,12 @@
  * listing page (/coworking/<slug>) whose prices are switched on in Nomad
  * Maps (sync_settings 'price_cards': OUR HQ first, then every page).
  *
- * Under the description it shows one card per group of prices
- * (Coworking, Private offices, Meeting rooms, Other) with the page's own
- * photos, the group's "From" price and every price as a choice. The
- * visitor picks ONE price, then says how many people and when (a
- * calendar; for a meeting room also the time and how long), their name
- * and email. On a computer the enquiry sits beside the cards; on a
- * phone a bar at the bottom opens it full screen.
+ * Under the description: on a computer a price list (each group with a
+ * small photo, its "From" price, and every price with its own Enquire
+ * button); on a phone tabs, one group at a time with its photo. Enquire
+ * opens a pop-up (sliding up full screen on a phone) with that price
+ * already chosen: how many people, when (a calendar; for a meeting room
+ * also the start time and how long), name, email, an optional note.
  *
  * Sending goes through the page's own enquiry form (the "Research
  * Form" pop-up), so it reaches Nomad Maps like every enquiry does: the
@@ -48,7 +47,7 @@
   var root = null;      // our section
   var sheet = null;     // the phone enquiry sheet
   var S = {
-    filter: 'all', picked: null, sent: false, sending: false, error: '',
+    tab: 0, bad: null, picked: null, sent: false, sending: false, error: '',
     calOpen: false, monthOffset: 0, date: null, flexible: false,
     people: 'Just me', time: '10:00', length: '1 hour',
     name: '', email: '', message: '', sheetOpen: false, focusKey: null
@@ -183,94 +182,135 @@
   }
 
   // ------------------------------------------------------------- styles
+  // Jonathan, 3 Nov 2026: on a computer a price list (every price with its
+  // own Enquire button, a small photo per group); on a phone tabs (one
+  // group at a time, its photo at full width). Enquire opens a pop-up
+  // with the form: "super slick, as if we are a fully funded series A
+  // SaaS". Motion is turned off for people who ask their device for less.
   function addStyles() {
+    var EASE = 'cubic-bezier(.2,.8,.2,1)';
     var css = [
-      '.nwp{margin:28px 0 8px;font-family:inherit;color:#2C2C2C}',
-      '.nwp *{box-sizing:border-box}',
-      // The site styles every label bold with space under it; not ours.
+      '.nwp,.nwp-sheet{--nwp-red:' + RED + ';--nwp-red-ink:#D7303A;--nwp-teal:' + TEAL + ';--nwp-ink:#2C2C2C;--nwp-muted:#5E6670;--nwp-line:rgba(0,0,0,.08);--nwp-soft:#F8F8FA}',
+      '.nwp *,.nwp-sheet *{box-sizing:border-box}',
       '.nwp label,.nwp-sheet label{margin:0;font-weight:400}',
-      '.nwp label.nwp-lab,.nwp-sheet label.nwp-lab{font-weight:500}',
-      '.nwp-rname,.nwp-rnote,.nwp-rprice{line-height:1.3}',
+      '.nwp{margin:28px 0 8px;font-family:inherit;color:var(--nwp-ink);animation:nwp-in .35s ' + EASE + ' both}',
+      '@keyframes nwp-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}',
       '.nwp h2.nwp-h{margin:0 0 4px;font-size:21px;font-weight:700;line-height:1.25}',
-      '.nwp-sub{margin:0 0 12px;font-size:14px;color:#5E6670}',
-      '.nwp-chips{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px}',
-      '.nwp-chip{min-height:34px;padding:0 12px;border-radius:10px;font-family:inherit;font-weight:500;font-size:13.5px;cursor:pointer;background:#fff;color:#2C2C2C;border:1px solid #C9CED4}',
-      '.nwp-chip[aria-pressed="true"]{background:' + TEAL + ';color:#fff;border-color:' + TEAL + '}',
-      '.nwp-wrap{display:flex;gap:18px;align-items:flex-start}',
-      '.nwp-cards{flex:1 1 0;min-width:0;display:flex;flex-direction:column;gap:14px}',
-      '.nwp-card{background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:10px;overflow:hidden}',
-      '.nwp-photo{display:block;width:100%;height:110px;object-fit:cover;background:#ECEEF1}',
-      '.nwp-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:12px 14px 4px}',
-      '.nwp-title{margin:0;font-size:17px;font-weight:700;line-height:1.25}',
-      '.nwp-spec{font-size:13px;color:#5E6670;margin-top:3px}',
-      '.nwp-big{text-align:right;white-space:nowrap}',
-      '.nwp-from{display:block;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#5E6670}',
-      '.nwp-amt{font-size:21px;font-weight:900;line-height:1.1}',
-      '.nwp-per{font-size:13px;font-weight:500;color:#5E6670}',
-      '.nwp-list{list-style:none;margin:0;padding:2px 8px 8px;display:flex;flex-direction:column;gap:2px}',
-      '.nwp-row{display:flex;align-items:center;gap:10px;padding:6px 8px;min-height:40px;border-radius:10px;cursor:pointer;border:1.5px solid transparent}',
-      '.nwp-row:hover{background:#F8F8FA}',
-      '.nwp-row.on{background:#FFF1F2;border-color:' + RED + '}',
-      '.nwp-row input{width:17px;height:17px;margin:0;accent-color:' + RED + ';flex-shrink:0}',
-      '.nwp-rname{display:block;font-size:14px;font-weight:700}',
-      '.nwp-rnote{display:block;font-size:12px;color:#5E6670;margin-top:1px}',
-      '.nwp-rmain{flex:1 1 auto;min-width:0}',
-      '.nwp-rprice{font-size:14px;font-weight:700;white-space:nowrap}',
-      '.nwp-panel{flex:0 0 320px;position:sticky;top:96px;background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:10px;padding:16px;box-shadow:0 6px 24px rgba(0,0,0,.06)}',
-      '.nwp-f{display:flex;flex-direction:column;gap:11px}',
-      '.nwp-ph{margin:0;font-size:17px;font-weight:700}',
-      '.nwp-empty{margin:0;padding:10px 12px;border-radius:10px;background:#F8F8FA;font-size:13.5px;line-height:1.5;color:#5E6670}',
-      '.nwp-pick{padding:9px 12px;border-radius:10px;background:#FFF1F2;border:1px solid #FFC9CC;display:flex;align-items:center;gap:10px}',
-      '.nwp-pick small{display:block;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#5E6670}',
-      '.nwp-pick b{display:block;font-size:14.5px}',
-      '.nwp-pick span.nwp-pp{display:block;font-size:13px;color:#5E6670}',
-      '.nwp-lab{display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:500}',
-      '.nwp-in{height:40px;border:1px solid #C9CED4;border-radius:10px;padding:0 10px;font-family:inherit;font-weight:400;font-size:14px;background:#fff;color:#2C2C2C;width:100%}',
-      'textarea.nwp-in{height:auto;padding:8px 10px;resize:vertical}',
-      '.nwp-two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}',
-      '.nwp-when{display:flex;align-items:center;gap:8px;height:40px;padding:0 10px;border-radius:10px;background:#fff;cursor:pointer;border:1.5px solid #C9CED4;font-family:inherit;font-weight:400;font-size:14px;color:#2C2C2C;width:100%;text-align:left}',
-      '.nwp-when[aria-expanded="true"]{border-color:' + TEAL + '}',
-      '.nwp-cal{border:1px solid #C9CED4;border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:8px;margin-top:4px}',
+      '.nwp-sub{margin:0 0 14px;font-size:14px;line-height:1.45;color:var(--nwp-muted)}',
+      // shared: the Enquire button
+      '.nwp-enq{flex:none;min-height:34px;padding:0 14px;border-radius:10px;border:1.5px solid var(--nwp-red);background:#fff;color:var(--nwp-red-ink);font-family:inherit;font-weight:700;font-size:13.5px;line-height:1;cursor:pointer;transition:background .15s,color .15s,transform .1s}',
+      '.nwp-enq:hover{background:var(--nwp-red);color:#fff}',
+      '.nwp-enq:active{transform:scale(.97)}',
+      '.nwp button:focus-visible,.nwp-sheet button:focus-visible,.nwp-sheet input:focus-visible,.nwp-sheet select:focus-visible,.nwp-sheet textarea:focus-visible,.nwp-sheet a:focus-visible{outline:2px solid var(--nwp-teal);outline-offset:2px}',
+      // the computer: a price list
+      '.nwp-box{border:1px solid var(--nwp-line);border-radius:10px;overflow:hidden;background:#fff}',
+      '.nwp-grp + .nwp-grp{border-top:1px solid var(--nwp-line)}',
+      '.nwp-gh{display:flex;align-items:center;gap:14px;padding:12px 16px;background:var(--nwp-soft)}',
+      '.nwp-gimg{width:88px;height:66px;border-radius:10px;object-fit:cover;display:block;flex:none;background:#E6E9ED}',
+      '.nwp-gt{flex:1 1 auto;min-width:0}',
+      '.nwp-gt b{display:block;font-size:16px;line-height:1.3}',
+      '.nwp-gt span{display:block;font-size:13px;line-height:1.35;color:var(--nwp-muted);margin-top:2px}',
+      '.nwp-from{text-align:right;white-space:nowrap;line-height:1.1}',
+      '.nwp-from small{display:block;font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--nwp-muted);margin-bottom:2px}',
+      '.nwp-from b{font-size:19px;font-weight:900}',
+      '.nwp-from i{font-style:normal;font-size:13px;color:var(--nwp-muted)}',
+      '.nwp-rows{list-style:none;margin:0;padding:0 16px}',
+      '.nwp-r{display:flex;align-items:center;gap:14px;padding:9px 0;border-bottom:1px solid rgba(0,0,0,.05);transition:background .15s}',
+      '.nwp-r:last-child{border-bottom:0}',
+      '.nwp-rn{flex:1 1 auto;min-width:0;font-size:14.5px;line-height:1.35}',
+      '.nwp-rn b{font-weight:700}',
+      '.nwp-rn span{color:var(--nwp-muted);font-size:13px}',
+      '.nwp-rp{font-size:14.5px;font-weight:700;white-space:nowrap}',
+      // the phone: tabs
+      '.nwp-tabs{display:flex;overflow-x:auto;scrollbar-width:none;background:var(--nwp-soft);border-bottom:1px solid var(--nwp-line)}',
+      '.nwp-tabs::-webkit-scrollbar{display:none}',
+      '.nwp-tab{flex:0 0 auto;min-height:56px;padding:8px 14px;border:0;background:transparent;color:var(--nwp-ink);text-align:left;cursor:pointer;font-family:inherit;box-shadow:inset 0 -3px 0 transparent;transition:box-shadow .2s,background .2s}',
+      '.nwp-tab[aria-selected="true"]{background:#fff;box-shadow:inset 0 -3px 0 var(--nwp-red)}',
+      '.nwp-tab b{display:block;font-size:14.5px;line-height:1.3}',
+      '.nwp-tab span{display:block;font-size:12.5px;color:var(--nwp-muted);line-height:1.3}',
+      '.nwp-tp{animation:nwp-in .25s ' + EASE + ' both}',
+      '.nwp-timg{display:block;width:100%;aspect-ratio:16/10;object-fit:cover;background:#E6E9ED}',
+      '.nwp-tp .nwp-rows{padding:2px 14px 6px}',
+      '.nwp-tp .nwp-r{padding:10px 0}',
+      '.nwp-tp .nwp-rn{display:flex;flex-direction:column}',
+      '.nwp-tp .nwp-enq{min-height:40px}',
+      '.nwp-tp .nwp-r{gap:12px}',
+      // the pop-up
+      '.nwp-sheet{position:fixed;inset:0;z-index:2147483002;display:none;align-items:center;justify-content:center;padding:24px;font-family:Roboto,sans-serif;color:var(--nwp-ink);background:rgba(20,32,50,0);-webkit-backdrop-filter:blur(0);backdrop-filter:blur(0);transition:background .2s,backdrop-filter .2s,-webkit-backdrop-filter .2s}',
+      '.nwp-sheet.open{display:flex}',
+      '.nwp-sheet.in{background:rgba(20,32,50,.5);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}',
+      '.nwp-dlg{position:relative;background:#fff;border-radius:10px;width:100%;max-width:480px;max-height:calc(100vh - 48px);display:flex;flex-direction:column;box-shadow:0 24px 64px rgba(20,32,50,.28),0 2px 8px rgba(20,32,50,.08);overflow:hidden;opacity:0;transform:translateY(10px) scale(.98);transition:opacity .2s ' + EASE + ',transform .24s ' + EASE + '}',
+      '.nwp-sheet.in .nwp-dlg{opacity:1;transform:none}',
+      '.nwp-hd{display:flex;align-items:center;gap:12px;padding:14px 12px 14px 16px;border-bottom:1px solid var(--nwp-line)}',
+      '.nwp-hd img{width:52px;height:40px;border-radius:10px;object-fit:cover;flex:none;background:#E6E9ED}',
+      '.nwp-hd-t{flex:1 1 auto;min-width:0}',
+      '.nwp-hd-t small{display:block;font-size:12px;color:var(--nwp-muted);line-height:1.3}',
+      '.nwp-hd-t h2{margin:0;font-size:16.5px;font-weight:700;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+      '.nwp-chipp{flex:none;font-size:13px;font-weight:700;padding:5px 9px;border-radius:10px;background:#FFF1F2;color:var(--nwp-red-ink);white-space:nowrap}',
+      '.nwp-x{flex:none;width:38px;height:38px;border:0;border-radius:10px;background:transparent;color:var(--nwp-ink);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s}',
+      '.nwp-x:hover{background:var(--nwp-soft)}',
+      '.nwp-bd{flex:1 1 auto;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:16px;overscroll-behavior:contain}',
+      '.nwp-fl{display:flex;flex-direction:column;gap:7px}',
+      '.nwp-fl > .nwp-lt{font-size:13px;font-weight:500;color:var(--nwp-ink)}',
+      '.nwp-fl > .nwp-lt i{font-style:normal;font-weight:400;color:var(--nwp-muted)}',
+      '.nwp-seg{display:flex;flex-wrap:wrap;gap:6px}',
+      '.nwp-sg{min-height:38px;padding:0 13px;border-radius:10px;border:1.5px solid #D5DAE0;background:#fff;color:var(--nwp-ink);font-family:inherit;font-size:14px;font-weight:500;cursor:pointer;transition:border-color .15s,background .15s,color .15s}',
+      '.nwp-sg:hover{border-color:#AEB6BF}',
+      '.nwp-sg[aria-checked="true"]{border-color:var(--nwp-teal);background:var(--nwp-teal);color:#fff}',
+      '.nwp-in{height:42px;border:1.5px solid #D5DAE0;border-radius:10px;padding:0 12px;font-family:inherit;font-size:15px;background:#fff;color:var(--nwp-ink);width:100%;transition:border-color .15s,box-shadow .15s}',
+      '.nwp-in:focus{border-color:var(--nwp-teal);box-shadow:0 0 0 3px rgba(5,67,79,.12);outline:none}',
+      '.nwp-in.bad{border-color:#D93025;box-shadow:0 0 0 3px rgba(217,48,37,.10)}',
+      'textarea.nwp-in{height:auto;min-height:64px;padding:10px 12px;resize:vertical;line-height:1.45}',
+      '.nwp-hint{font-size:12.5px;color:#C5221F;min-height:0}',
+      '.nwp-hint:empty{display:none}',
+      '.nwp-two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}',
+      '.nwp-when{display:flex;align-items:center;gap:10px;height:42px;padding:0 12px;border-radius:10px;background:#fff;cursor:pointer;border:1.5px solid #D5DAE0;font-family:inherit;font-size:15px;color:var(--nwp-ink);width:100%;text-align:left;transition:border-color .15s}',
+      '.nwp-when:hover{border-color:#AEB6BF}',
+      '.nwp-when[aria-expanded="true"]{border-color:var(--nwp-teal)}',
+      '.nwp-when .nwp-chev{margin-left:auto;transition:transform .2s}',
+      '.nwp-when[aria-expanded="true"] .nwp-chev{transform:rotate(180deg)}',
+      '.nwp-cal{border:1px solid var(--nwp-line);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:10px;animation:nwp-in .2s ' + EASE + ' both;background:#fff;box-shadow:0 6px 18px rgba(20,32,50,.06)}',
       '.nwp-quick{display:flex;gap:6px;flex-wrap:wrap}',
-      '.nwp-q{min-height:30px;padding:0 10px;border-radius:10px;font-family:inherit;font-weight:500;font-size:12.5px;cursor:pointer;background:#F8F8FA;color:#2C2C2C;border:1.5px solid #F8F8FA}',
-      '.nwp-q.on{background:#FFF1F2;border-color:' + RED + '}',
+      '.nwp-q{min-height:32px;padding:0 11px;border-radius:10px;font-family:inherit;font-weight:500;font-size:13px;cursor:pointer;background:var(--nwp-soft);color:var(--nwp-ink);border:1.5px solid var(--nwp-soft);transition:border-color .15s}',
+      '.nwp-q:hover{border-color:#D5DAE0}',
+      '.nwp-q.on{background:#FFF1F2;border-color:var(--nwp-red)}',
       '.nwp-mh{display:flex;align-items:center;justify-content:space-between}',
-      '.nwp-mh b{font-size:14px}',
-      '.nwp-nav{width:32px;height:32px;border:0;border-radius:10px;background:#F8F8FA;color:#2C2C2C;cursor:pointer;display:flex;align-items:center;justify-content:center}',
+      '.nwp-mh b{font-size:14.5px}',
+      '.nwp-nav{width:34px;height:34px;border:0;border-radius:10px;background:var(--nwp-soft);color:var(--nwp-ink);cursor:pointer;display:flex;align-items:center;justify-content:center}',
       '.nwp-nav:disabled{color:#B4BAC1;cursor:default}',
-      '.nwp-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px}',
-      '.nwp-wd{text-align:center;font-size:11px;font-weight:700;color:#5E6670;padding-bottom:2px}',
-      '.nwp-d{height:34px;border-radius:10px;font-family:inherit;font-weight:400;font-size:13.5px;cursor:pointer;background:#fff;color:#2C2C2C;border:1px solid transparent;padding:0}',
-      '.nwp-d:hover:not(:disabled){border-color:#C9CED4}',
-      '.nwp-d.today{font-weight:700;border-color:' + TEAL + '}',
-      '.nwp-d.on{background:' + RED + ';color:#fff;font-weight:700;border-color:' + RED + '}',
+      '.nwp-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px}',
+      '.nwp-wd{text-align:center;font-size:11px;font-weight:700;color:var(--nwp-muted);padding-bottom:2px}',
+      '.nwp-d{height:36px;border-radius:10px;font-family:inherit;font-size:14px;cursor:pointer;background:#fff;color:var(--nwp-ink);border:1px solid transparent;padding:0;transition:background .12s,border-color .12s}',
+      '.nwp-d:hover:not(:disabled){background:var(--nwp-soft)}',
+      '.nwp-d.today{font-weight:700;border-color:var(--nwp-teal)}',
+      '.nwp-d.on{background:var(--nwp-red);color:#fff;font-weight:700;border-color:var(--nwp-red)}',
       '.nwp-d:disabled{color:#B4BAC1;cursor:default;text-decoration:line-through;background:transparent}',
       '.nwp-d.blank{visibility:hidden}',
-      '.nwp-send{min-height:44px;border:0;border-radius:10px;font-family:inherit;font-weight:700;font-size:16px;cursor:pointer;background:' + RED + ';color:#fff;width:100%}',
-      '.nwp-send:disabled{background:#ECEEF1;color:#5E6670;cursor:default}',
-      '.nwp-small{margin:0;font-size:12px;line-height:1.5;color:#5E6670}',
-      '.nwp-small a{color:' + TEAL + '}',
-      '.nwp-err{margin:0;font-size:13px;color:#B3261E}',
-      '.nwp-done{display:flex;flex-direction:column;gap:12px}',
-      '.nwp-tick{width:40px;height:40px;border-radius:10px;background:#E6F4EA;color:#1E7A43;display:flex;align-items:center;justify-content:center}',
-      '.nwp-link{min-height:40px;border:0;border-radius:10px;background:transparent;color:' + TEAL + ';font-family:inherit;font-weight:500;font-size:14px;cursor:pointer}',
-      '.nwp-bar{position:fixed;left:0;right:0;bottom:0;z-index:9990;background:#fff;border-top:1px solid rgba(0,0,0,.08);box-shadow:0 -6px 18px rgba(0,0,0,.06);padding:12px 16px calc(12px + env(safe-area-inset-bottom));display:none;align-items:center;gap:12px;font-family:Roboto,sans-serif;color:#2C2C2C}',
-      '.nwp-bar b{display:block;font-size:14px}.nwp-bar span{display:block;font-size:12px;color:#5E6670}',
-      '.nwp-bar button{min-height:44px;padding:0 18px;border:0;border-radius:10px;background:' + RED + ';color:#fff;font:700 16px Roboto,sans-serif;cursor:pointer}',
-      '.nwp-sheet{position:fixed;inset:0;z-index:9995;background:#fff;display:none;flex-direction:column;font-family:Roboto,sans-serif;color:#2C2C2C}',
-      '.nwp-sheet.open{display:flex}',
-      '.nwp-sh{display:flex;align-items:center;gap:8px;padding:10px 8px;border-bottom:1px solid rgba(0,0,0,.08)}',
-      '.nwp-sh h2{margin:0;font-size:18px;font-weight:700}',
-      '.nwp-x{width:44px;height:44px;border:0;border-radius:10px;background:transparent;color:#2C2C2C;cursor:pointer;display:flex;align-items:center;justify-content:center}',
-      '.nwp-sb{flex:1 1 auto;overflow-y:auto;padding:14px 16px 24px}',
-      // Laptop width: the cards two across, the enquiry under them.
-      '.nwp.stack .nwp-wrap{flex-direction:column;align-items:stretch}',
-      '.nwp.stack .nwp-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}',
-      '.nwp.stack .nwp-panel{position:static;flex:none;width:100%;max-width:480px}',
-      '.nwp-bar.show{display:flex}',
-      // Phone: the bar opens the enquiry full screen.
-      '@media (max-width: 767px){.nwp-panel{display:none}.nwp.stack .nwp-cards{display:flex}.nwp-row{min-height:46px;padding:8px}.nwp-in,.nwp-when{height:44px;font-size:16px}.nwp-d{height:40px;font-size:15px}.nwp-send{min-height:48px;font-size:17px}.nwp-q{min-height:36px;font-size:14px}.nwp-nav{width:40px;height:40px}}',
-      '@media (min-width: 768px){.nwp-sheet{display:none !important}.nwp-bar{left:auto;right:24px;bottom:24px;width:380px;border:1px solid rgba(0,0,0,.08);border-radius:10px;padding:10px 10px 10px 14px}}'
+      '.nwp-ft{padding:12px 16px calc(14px + env(safe-area-inset-bottom));border-top:1px solid var(--nwp-line);background:#fff;display:flex;flex-direction:column;gap:8px}',
+      '.nwp-err{margin:0;font-size:13px;color:#C5221F}',
+      '.nwp-send{position:relative;min-height:46px;border:0;border-radius:10px;font-family:inherit;font-weight:700;font-size:16px;cursor:pointer;background:var(--nwp-red);color:#fff;width:100%;transition:filter .15s,transform .1s;display:flex;align-items:center;justify-content:center;gap:10px}',
+      '.nwp-send:hover{filter:brightness(.95)}',
+      '.nwp-send:active{transform:scale(.99)}',
+      '.nwp-send[disabled]{cursor:default;filter:none;opacity:.85}',
+      '.nwp-spin{width:18px;height:18px;border-radius:50%;border:2.5px solid rgba(255,255,255,.4);border-top-color:#fff;animation:nwp-rot .7s linear infinite}',
+      '@keyframes nwp-rot{to{transform:rotate(360deg)}}',
+      '.nwp-trust{margin:0;font-size:12px;color:var(--nwp-muted);text-align:center;line-height:1.45}',
+      '.nwp-trust a{color:var(--nwp-teal)}',
+      // sent
+      '.nwp-ok{padding:28px 20px 22px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px}',
+      '.nwp-ok svg circle{stroke-dasharray:151;stroke-dashoffset:151;animation:nwp-draw .5s ' + EASE + ' forwards}',
+      '.nwp-ok svg path{stroke-dasharray:36;stroke-dashoffset:36;animation:nwp-draw .35s .35s ' + EASE + ' forwards}',
+      '@keyframes nwp-draw{to{stroke-dashoffset:0}}',
+      '.nwp-ok h3{margin:4px 0 0;font-size:19px;font-weight:700}',
+      '.nwp-ok p{margin:0;font-size:14px;color:var(--nwp-muted);line-height:1.5;max-width:340px}',
+      '.nwp-sum{width:100%;margin:8px 0 4px;border:1px solid var(--nwp-line);border-radius:10px;text-align:left;font-size:14px}',
+      '.nwp-sum div{display:flex;gap:12px;padding:9px 12px;border-bottom:1px solid rgba(0,0,0,.05)}',
+      '.nwp-sum div:last-child{border-bottom:0}',
+      '.nwp-sum span{width:70px;flex:none;color:var(--nwp-muted)}',
+      '.nwp-done-btn{min-height:44px;width:100%;border:0;border-radius:10px;background:var(--nwp-teal);color:#fff;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer}',
+      // phone: the pop-up slides up and fills the screen
+      '@media (max-width: 767px){.nwp-sheet{padding:0;align-items:flex-end}.nwp-dlg{max-width:none;max-height:none;height:100%;border-radius:0;transform:translateY(100%);opacity:1;transition:transform .3s ' + EASE + '}.nwp-sheet.in .nwp-dlg{transform:none}.nwp-in,.nwp-when{height:46px;font-size:16px}.nwp-sg{min-height:42px;font-size:15px}.nwp-d{height:40px;font-size:15px}.nwp-send{min-height:50px;font-size:17px}.nwp-q{min-height:36px;font-size:14px}.nwp-nav{width:40px;height:40px}.nwp-two{grid-template-columns:1fr}.nwp-x{width:44px;height:44px}}',
+      '@media (prefers-reduced-motion: reduce){.nwp,.nwp *,.nwp-sheet,.nwp-sheet *{animation:none !important;transition:none !important}}'
     ].join('\n');
     var st = document.createElement('style');
     st.id = 'nwp-css';
@@ -279,10 +319,16 @@
   }
 
   // ------------------------------------------------------------ the page
-  var ICON_CAL = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5E6670" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg>';
+  var ICON_CAL = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5E6670" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg>';
+  var ICON_CHEV = '<svg class="nwp-chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5E6670" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg>';
   var ICON_L = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>';
   var ICON_R = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"></path></svg>';
-  var ICON_TICK = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>';
+  var ICON_X = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg>';
+  var ICON_OK = '<svg width="60" height="60" viewBox="0 0 52 52" fill="none" aria-hidden="true"><circle cx="26" cy="26" r="24" stroke="#1E7A43" stroke-width="2.5"></circle><path d="M15 27l7 7 15-16" stroke="#1E7A43" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></path></svg>';
+
+  var PEOPLE = ['Just me', '2', '3 to 5', '6 to 10', 'More than 10'];
+  var PEOPLE_LABEL = { 'Just me': 'Just me', '2': '2', '3 to 5': '3–5', '6 to 10': '6–10', 'More than 10': '10+' };
+  var LENGTHS = ['1 hour', '2 hours', '3 hours', 'Half a day', 'All day'];
 
   function photos() {
     var out = [];
@@ -292,31 +338,64 @@
     });
     return out;
   }
-
-  function cardsHtml() {
+  function photoFor(gi) {
     var pics = photos();
-    var html = '';
+    return pics.length ? pics[(gi + 1) % pics.length] : '';
+  }
+  function groupOf(id) {
+    for (var i = 0; i < data.groups.length; i++) {
+      for (var j = 0; j < data.groups[i].items.length; j++) {
+        if (data.groups[i].items[j].id === id) return i;
+      }
+    }
+    return 0;
+  }
+
+  function enqBtn(it) {
+    return '<button type="button" class="nwp-enq" data-a="enq" data-v="' + esc(it.id) + '" data-k="e-' + esc(it.id) + '" aria-label="Enquire about ' + esc(it.full) + '">Enquire</button>';
+  }
+
+  // The computer: every group, every price, an Enquire on each.
+  function listHtml() {
+    var h = '<div class="nwp-box">';
     data.groups.forEach(function (g, gi) {
-      if (S.filter !== 'all' && S.filter !== g.key) return;
-      var pic = pics.length ? pics[(gi + 1) % pics.length] : '';
-      html += '<article class="nwp-card">' +
-        (pic ? '<img class="nwp-photo" src="' + esc(pic) + '" alt="" loading="lazy">' : '') +
-        '<div class="nwp-top"><div><h3 class="nwp-title">' + esc(g.title) + '</h3>' +
-        '<div class="nwp-spec">' + esc(g.spec) + '</div></div>' +
-        '<div class="nwp-big">' + (g.fromWord ? '<span class="nwp-from">' + g.fromWord + '</span>' : '') +
-        '<span class="nwp-amt">' + esc(g.price) + '</span><span class="nwp-per">' + esc(g.per) + '</span></div></div>' +
-        '<ul class="nwp-list">';
+      var pic = photoFor(gi);
+      h += '<section class="nwp-grp" aria-label="' + esc(g.title) + '"><div class="nwp-gh">' +
+        (pic ? '<img class="nwp-gimg" src="' + esc(pic) + '" alt="" loading="lazy">' : '') +
+        '<div class="nwp-gt"><b>' + esc(g.title) + '</b><span>' + esc(g.spec) + '</span></div>' +
+        '<div class="nwp-from">' + (g.fromWord ? '<small>FROM</small>' : '') + '<b>' + esc(g.price) + '</b><i>' + esc(g.per) + '</i></div></div>' +
+        '<ul class="nwp-rows">';
       g.items.forEach(function (it) {
-        var on = S.picked === it.id;
-        html += '<li><label class="nwp-row' + (on ? ' on' : '') + '">' +
-          '<input type="radio" name="nwp-price" value="' + esc(it.id) + '" data-k="r-' + esc(it.id) + '"' + (on ? ' checked' : '') + '>' +
-          '<span class="nwp-rmain"><span class="nwp-rname">' + esc(it.name) + '</span>' +
-          (it.note ? '<span class="nwp-rnote">' + esc(it.note) + '</span>' : '') + '</span>' +
-          '<span class="nwp-rprice">' + esc(it.priceText) + '</span></label></li>';
+        h += '<li class="nwp-r"><span class="nwp-rn"><b>' + esc(it.name) + '</b>' + (it.note ? ' <span>· ' + esc(it.note) + '</span>' : '') + '</span>' +
+          '<span class="nwp-rp">' + esc(it.priceText) + '</span>' + enqBtn(it) + '</li>';
       });
-      html += '</ul></article>';
+      h += '</ul></section>';
     });
-    return html;
+    return h + '</div>';
+  }
+
+  // The phone: one group at a time.
+  function tabsHtml() {
+    var gi = Math.min(S.tab, data.groups.length - 1);
+    var g = data.groups[gi];
+    var h = '<div class="nwp-box">';
+    if (data.groups.length > 1) {
+      h += '<div class="nwp-tabs" role="tablist" aria-label="Kinds of space">';
+      data.groups.forEach(function (x, i) {
+        var on = i === gi;
+        h += '<button type="button" class="nwp-tab" role="tab" id="nwp-tab-' + i + '" aria-controls="nwp-tp" aria-selected="' + on + '" tabindex="' + (on ? 0 : -1) + '" data-a="tab" data-v="' + i + '" data-k="t' + i + '">' +
+          '<b>' + esc(x.title) + '</b><span>' + (x.fromWord ? 'from ' : '') + esc(x.price) + esc(x.per.replace('/month', '/mo').replace('/hour', '/hr')) + '</span></button>';
+      });
+      h += '</div>';
+    }
+    var pic = photoFor(gi);
+    h += '<div class="nwp-tp" id="nwp-tp" role="tabpanel" aria-labelledby="nwp-tab-' + gi + '" data-gi="' + gi + '">' +
+      (pic ? '<img class="nwp-timg" src="' + esc(pic) + '" alt="">' : '') + '<ul class="nwp-rows">';
+    g.items.forEach(function (it) {
+      h += '<li class="nwp-r"><span class="nwp-rn"><b>' + esc(it.name) + '</b>' + (it.note ? '<span>' + esc(it.note) + '</span>' : '') + '</span>' +
+        '<span class="nwp-rp">' + esc(it.priceText) + '</span>' + enqBtn(it) + '</li>';
+    });
+    return h + '</ul></div></div>';
   }
 
   function calendarHtml(kind) {
@@ -352,101 +431,119 @@
     return h + '</div></div>';
   }
 
-  function formHtml(where) {
+  function segHtml(field, options, labels, value, name) {
+    var h = '<div class="nwp-seg" role="radiogroup" aria-label="' + esc(name) + '">';
+    options.forEach(function (o, i) {
+      var on = value === o;
+      h += '<button type="button" class="nwp-sg" role="radio" aria-checked="' + on + '" tabindex="' + (on ? 0 : -1) + '" data-a="seg" data-f="' + field + '" data-v="' + esc(o) + '" data-k="' + field + i + '">' + esc(labels ? labels[o] : o) + '</button>';
+    });
+    return h + '</div>';
+  }
+
+  // The pop-up's inside: the price, the form, Send; or "Sent".
+  function modalHtml() {
     var it = pickedItem();
+    if (!it) return '';
+    var gi = groupOf(it.id);
+    var pic = photoFor(gi);
+    var head = '<div class="nwp-hd">' + (pic ? '<img src="' + esc(pic) + '" alt="">' : '') +
+      '<div class="nwp-hd-t"><small>Enquire at ' + esc(data.space) + '</small><h2 id="nwp-dlg-h">' + esc(it.full) + '</h2></div>' +
+      '<span class="nwp-chipp">' + esc(it.priceText) + '</span>' +
+      '<button type="button" class="nwp-x" data-a="close" data-k="x" aria-label="Close">' + ICON_X + '</button></div>';
     if (S.sent) {
-      return '<div class="nwp-done"><div class="nwp-tick">' + ICON_TICK + '</div>' +
-        '<h3 class="nwp-ph">Sent to ' + esc(data.space) + '</h3>' +
-        '<p class="nwp-small" style="font-size:15px;color:#2C2C2C">You asked about ' + esc(S.sentAbout) + '. ' + esc(data.space) +
-        ' replies to you by email, at ' + esc(S.email) + '.</p>' +
-        '<button type="button" class="nwp-link" data-a="again" data-k="again">Ask about something else</button></div>';
+      var rows = [['What', it.full + ' (' + it.priceText + ')'], ['People', S.people], ['When', S.sentWhen]];
+      if (S.sentTime) rows.push(['Time', S.sentTime]);
+      var sum = '<div class="nwp-sum">' + rows.map(function (r) { return '<div><span>' + esc(r[0]) + '</span><b>' + esc(r[1]) + '</b></div>'; }).join('') + '</div>';
+      return head + '<div class="nwp-bd"><div class="nwp-ok" role="status">' + ICON_OK +
+        '<h3>Enquiry sent</h3><p>' + esc(data.space) + ' will reply to you by email at <b>' + esc(S.email) + '</b>.</p>' + sum +
+        '<button type="button" class="nwp-done-btn" data-a="close" data-k="done">Done</button></div></div>';
     }
     var kind = kindOf(it);
     var whenLabel = kind === 'start' ? 'When would you like to start?' : 'Which day?';
-    var whenText = S.flexible ? "I'm flexible on dates" : (S.date ? fmtDate(S.date) : 'Pick a date');
-    var h = '<div class="nwp-f">';
-    if (where === 'panel') h += '<h3 class="nwp-ph">Ask ' + esc(data.space) + '</h3>';
-    if (!it) {
-      h += '<p class="nwp-empty">Pick a price to start. You can ask about one thing at a time.</p>';
-    } else {
-      h += '<div class="nwp-pick"><span style="flex:1 1 auto"><small>You\'re asking about</small><b>' + esc(it.full) + '</b>' +
-        '<span class="nwp-pp">' + esc(it.priceText) + (it.note ? ' · ' + esc(it.note) : '') + '</span></span>' +
-        (where === 'sheet' ? '<button type="button" class="nwp-link" data-a="close" data-k="change">Change</button>' : '') + '</div>';
-    }
-    h += '<label class="nwp-lab">How many people<select class="nwp-in" data-f="people" data-k="people">';
-    ['Just me', '2', '3 to 5', '6 to 10', 'More than 10'].forEach(function (o) {
-      h += '<option' + (S.people === o ? ' selected' : '') + '>' + o + '</option>';
-    });
-    h += '</select></label>';
-    var wid = 'nwp-when-' + where;
-    h += '<div class="nwp-lab"><span id="' + wid + '">' + whenLabel + '</span>' +
-      '<button type="button" class="nwp-when" data-a="cal" data-k="cal" aria-labelledby="' + wid + '" aria-expanded="' + S.calOpen + '">' + ICON_CAL +
-      '<span style="flex:1 1 auto">' + esc(whenText) + '</span></button>' +
-      (S.calOpen ? calendarHtml(kind) : '') + '</div>';
+    var whenText = S.flexible ? "I'm flexible on dates" : (S.date ? fmtDate(S.date, true) : 'Pick a date');
+    var h = head + '<div class="nwp-bd">';
+    h += '<div class="nwp-fl"><span class="nwp-lt" id="nwp-ppl">How many people?</span>' + segHtml('people', PEOPLE, PEOPLE_LABEL, S.people, 'How many people') + '</div>';
+    h += '<div class="nwp-fl"><span class="nwp-lt" id="nwp-when-l">' + whenLabel + '</span>' +
+      '<button type="button" class="nwp-when" data-a="cal" data-k="cal" aria-labelledby="nwp-when-l" aria-expanded="' + S.calOpen + '">' + ICON_CAL +
+      '<span>' + esc(whenText) + '</span>' + ICON_CHEV + '</button>' + (S.calOpen ? calendarHtml(kind) : '') + '</div>';
     if (kind === 'hour') {
-      h += '<div class="nwp-two"><label class="nwp-lab">From<select class="nwp-in" data-f="time" data-k="time">';
+      h += '<div class="nwp-fl"><label class="nwp-lt" for="nwp-time">Starting at</label><select class="nwp-in" id="nwp-time" data-f="time" data-k="time">';
       for (var hr = 7; hr <= 20; hr++) {
         var tt = (hr < 10 ? '0' : '') + hr + ':00';
         h += '<option' + (S.time === tt ? ' selected' : '') + '>' + tt + '</option>';
       }
-      h += '</select></label><label class="nwp-lab">For how long<select class="nwp-in" data-f="length" data-k="length">';
-      ['1 hour', '2 hours', '3 hours', 'Half a day', 'All day'].forEach(function (o) {
-        h += '<option' + (S.length === o ? ' selected' : '') + '>' + o + '</option>';
-      });
-      h += '</select></label></div>';
+      h += '</select></div><div class="nwp-fl"><span class="nwp-lt">For how long?</span>' + segHtml('length', LENGTHS, null, S.length, 'For how long') + '</div>';
     }
-    h += '<label class="nwp-lab">Your name<input class="nwp-in" type="text" autocomplete="name" maxlength="120" data-f="name" data-k="name" value="' + esc(S.name) + '"></label>' +
-      '<label class="nwp-lab">Your email<input class="nwp-in" type="email" autocomplete="email" maxlength="200" data-f="email" data-k="email" value="' + esc(S.email) + '"></label>' +
-      '<label class="nwp-lab"><span>Anything to add? <span style="font-weight:400;color:#5E6670">(optional)</span></span>' +
-      '<textarea class="nwp-in" rows="2" maxlength="1500" data-f="message" data-k="message">' + esc(S.message) + '</textarea></label>';
-    if (S.error) h += '<p class="nwp-err" role="alert">' + esc(S.error) + '</p>';
-    h += '<button type="button" class="nwp-send" data-a="send" data-k="send"' + (!it || S.sending ? ' disabled' : '') + '>' +
-      (S.sending ? 'Sending...' : (it ? 'Send enquiry' : 'Pick a price to start')) + '</button>' +
-      '<p class="nwp-small">Free, with no obligation. ' + esc(data.space) + ' replies to you by email. By sending you agree to our <a href="/legal-information" target="_blank" rel="noopener">terms</a>.</p>';
-    return h + '</div>';
+    h += '<div class="nwp-two">' +
+      '<div class="nwp-fl"><label class="nwp-lt" for="nwp-name">Your name</label><input class="nwp-in' + (S.bad === 'name' ? ' bad' : '') + '" id="nwp-name" type="text" autocomplete="name" maxlength="120" data-f="name" data-k="name" value="' + esc(S.name) + '"' + (S.bad === 'name' ? ' aria-invalid="true"' : '') + '></div>' +
+      '<div class="nwp-fl"><label class="nwp-lt" for="nwp-email">Your email</label><input class="nwp-in' + (S.bad === 'email' ? ' bad' : '') + '" id="nwp-email" type="email" inputmode="email" autocomplete="email" maxlength="200" data-f="email" data-k="email" value="' + esc(S.email) + '" aria-describedby="nwp-email-hint"' + (S.bad === 'email' ? ' aria-invalid="true"' : '') + '>' +
+      '<span class="nwp-hint" id="nwp-email-hint">' + (S.bad === 'email' ? esc(S.error) : '') + '</span></div></div>';
+    h += '<div class="nwp-fl"><label class="nwp-lt" for="nwp-msg">Anything to add? <i>(optional)</i></label>' +
+      '<textarea class="nwp-in" id="nwp-msg" rows="2" maxlength="1500" data-f="message" data-k="message">' + esc(S.message) + '</textarea></div>';
+    h += '</div><div class="nwp-ft">' +
+      (S.error && S.bad !== 'email' ? '<p class="nwp-err" role="alert">' + esc(S.error) + '</p>' : '') +
+      '<button type="button" class="nwp-send" data-a="send" data-k="send"' + (S.sending ? ' disabled aria-busy="true"' : '') + '>' +
+      (S.sending ? '<span class="nwp-spin" aria-hidden="true"></span>Sending' : 'Send enquiry') + '</button>' +
+      '<p class="nwp-trust">Free, with no obligation. ' + esc(data.space) + ' replies by email. By sending you agree to our <a href="/legal-information" target="_blank" rel="noopener">terms</a>.</p></div>';
+    return h;
   }
 
   function render() {
     if (!root || !data) return;
     var active = document.activeElement;
     var key = S.focusKey || (active && active.getAttribute && active.getAttribute('data-k'));
-    var chips = '';
-    if (data.groups.length > 1) {
-      chips = '<div class="nwp-chips" role="group" aria-label="Show prices for">';
-      [['all', 'All prices']].concat(data.groups.map(function (g) { return [g.key, g.title]; })).forEach(function (c) {
-        chips += '<button type="button" class="nwp-chip" data-a="filter" data-v="' + c[0] + '" data-k="f-' + c[0] + '" aria-pressed="' + (S.filter === c[0]) + '">' + esc(c[1]) + '</button>';
-      });
-      chips += '</div>';
-    }
-    var stack = root.clientWidth < 760;
-    root.className = 'nwp' + (stack ? ' stack' : '');
+    var phone = root.clientWidth < 560;
+    S.phone = phone;
     root.innerHTML =
       '<h2 class="nwp-h">Passes and prices at ' + esc(data.space) + '</h2>' +
-      '<p class="nwp-sub">Pick what you\'re looking for and ask ' + esc(data.space) + ' about it.' +
-      (data.vat ? ' All prices ' + esc(data.vat.replace(/^prices?\s+/i, '')) + '.' : '') + ' Prices are set by ' + esc(data.space) + '.</p>' +
-      chips +
-      '<div class="nwp-wrap"><div class="nwp-cards" role="radiogroup" aria-label="Choose one price">' + cardsHtml() + '</div>' +
-      '<aside class="nwp-panel" aria-label="Your enquiry">' + formHtml('panel') + '</aside></div>';
-    // the phone bar and sheet
-    var it = pickedItem();
-    var bar = document.getElementById('nwp-bar');
-    if (bar) {
-      // The bar: always on a phone; on a laptop only while the
-      // enquiry is under the cards (not beside them).
-      bar.className = 'nwp-bar' + (it && !S.sent && (stack || window.innerWidth < 768) ? ' show' : '');
-      bar.innerHTML = it ? '<span style="flex:1 1 auto;min-width:0"><b>' + esc(it.full) + '</b><span>' + esc(it.priceText) + ' · ' + esc(data.space) + '</span></span>' +
-        '<button type="button" data-a="open" data-k="open">Enquire</button>' : '';
-    }
-    if (sheet) {
-      sheet.className = 'nwp-sheet' + (S.sheetOpen ? ' open' : '');
-      sheet.querySelector('.nwp-sb').innerHTML = formHtml('sheet');
-    }
+      '<p class="nwp-sub">' + (data.vat ? 'All prices ' + esc(data.vat.replace(/^prices?\s+/i, '')) + ', set by ' + esc(data.space) + '. ' : 'Prices set by ' + esc(data.space) + '. ') +
+      'Enquiring is free and there\'s no obligation.</p>' +
+      (phone ? tabsHtml() : listHtml());
+    if (sheet) sheet.querySelector('.nwp-dlg').innerHTML = S.sheetOpen ? modalHtml() : '';
     if (key) {
       var scope = S.sheetOpen && sheet ? sheet : root;
-      var el = scope.querySelector('[data-k="' + key + '"]') || root.querySelector('[data-k="' + key + '"]');
+      var el = scope.querySelector('[data-k="' + key + '"]');
       if (el && el.focus) { try { el.focus({ preventScroll: true }); } catch (e) { el.focus(); } }
     }
     S.focusKey = null;
+  }
+
+  // ------------------------------------------------------- the pop-up
+  var REDUCED = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function openSheet(id, fromKey) {
+    S.picked = id; S.sent = false; S.error = ''; S.bad = null; S.calOpen = false; S.returnKey = fromKey;
+    var it = pickedItem();
+    if (!it) return;
+    var k = kindOf(it);
+    if (S.kindFor !== k) {
+      S.date = k === 'start' ? nextMonday() : addDays(today0(), 1);
+      S.flexible = false; S.kindFor = k;
+      var t = today0();
+      S.monthOffset = (S.date.getFullYear() - t.getFullYear()) * 12 + S.date.getMonth() - t.getMonth();
+    }
+    S.sheetOpen = true;
+    S.focusKey = 'people' + Math.max(0, PEOPLE.indexOf(S.people));
+    document.documentElement.style.overflow = 'hidden';
+    sheet.classList.add('open');
+    render();
+    // next frame: fade and rise in
+    requestAnimationFrame(function () { requestAnimationFrame(function () { sheet.classList.add('in'); }); });
+    track('price_enquiry_opened', { space: data.space, price: it.full, slug: SLUG });
+  }
+  function closeSheet() {
+    if (!S.sheetOpen) return;
+    S.sheetOpen = false;
+    sheet.classList.remove('in');
+    document.documentElement.style.overflow = '';
+    var back = S.returnKey;
+    var finish = function () {
+      sheet.classList.remove('open');
+      if (S.sent) { S.sent = false; S.message = ''; }
+      sheet.querySelector('.nwp-dlg').innerHTML = '';
+      var bt = back && root.querySelector('[data-k="' + back + '"]');
+      if (bt) { try { bt.focus({ preventScroll: true }); } catch (e) { bt.focus(); } }
+    };
+    if (REDUCED) finish(); else setTimeout(finish, S.phone ? 300 : 200);
   }
 
   // ------------------------------------------------------------- events
@@ -455,7 +552,11 @@
     if (!b) return;
     var a = b.getAttribute('data-a'), v = b.getAttribute('data-v');
     S.focusKey = b.getAttribute('data-k');
-    if (a === 'filter') { S.filter = v; }
+    if (a === 'enq') { openSheet(v, b.getAttribute('data-k')); return; }
+    if (a === 'close') { closeSheet(); return; }
+    if (a === 'send') { send(); return; }
+    if (a === 'tab') { S.tab = +v; }
+    else if (a === 'seg') { S[b.getAttribute('data-f')] = v; }
     else if (a === 'cal') { S.calOpen = !S.calOpen; }
     else if (a === 'prev') { S.monthOffset = Math.max(0, S.monthOffset - 1); }
     else if (a === 'next') { S.monthOffset = Math.min(11, S.monthOffset + 1); }
@@ -469,50 +570,48 @@
       }
       S.calOpen = false; S.focusKey = 'cal';
     }
-    else if (a === 'send') { send(); return; }
-    else if (a === 'again') { S.sent = false; S.picked = null; S.message = ''; S.focusKey = null; if (S.sheetOpen) { closeSheet(); return; } }
-    else if (a === 'open') {
-      if (window.innerWidth >= 768) {
-        // A laptop: the enquiry is on the page, under the cards.
-        var pnl = root.querySelector('.nwp-panel');
-        if (pnl) {
-          pnl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          var ppl = pnl.querySelector('[data-k="people"]');
-          if (ppl) setTimeout(function () { try { ppl.focus({ preventScroll: true }); } catch (e) {} }, 400);
-        }
-        return;
-      }
-      S.sheetOpen = true; S.focusKey = 'people'; document.documentElement.style.overflow = 'hidden';
-    }
-    else if (a === 'close') { closeSheet(); return; }
     render();
   }
   function onChange(e) {
-    var t = e.target;
-    if (t.name === 'nwp-price') {
-      S.picked = t.value; S.sent = false; S.error = '';
-      var it = pickedItem();
-      if (it) {
-        if (!S.date && !S.flexible) S.date = kindOf(it) === 'start' ? nextMonday() : addDays(today0(), 1);
-        track('price_card_picked', { space: data.space, price: it.full, slug: SLUG });
-      }
-      S.focusKey = 'r-' + t.value;
-      render();
-      return;
-    }
-    var f = t.getAttribute && t.getAttribute('data-f');
-    if (f) S[f] = t.value;
+    var f = e.target.getAttribute && e.target.getAttribute('data-f');
+    if (f && e.target.tagName !== 'BUTTON') S[f] = e.target.value;
   }
   function onInput(e) {
-    var f = e.target.getAttribute && e.target.getAttribute('data-f');
-    if (f) S[f] = e.target.value;
+    var t = e.target, f = t.getAttribute && t.getAttribute('data-f');
+    if (!f || t.tagName === 'BUTTON') return;
+    S[f] = t.value;
+    // Fixing a flagged field clears the flag as you type.
+    if (S.bad === f && (f !== 'email' || EMAIL_OK(t.value))) {
+      S.bad = null; S.error = '';
+      t.classList.remove('bad'); t.removeAttribute('aria-invalid');
+      var hint = sheet.querySelector('#nwp-email-hint'); if (hint && f === 'email') hint.textContent = '';
+    }
   }
-  function closeSheet() {
-    S.sheetOpen = false;
-    document.documentElement.style.overflow = '';
-    render();
-    var bt = document.querySelector('#nwp-bar button');
-    if (bt) bt.focus();
+  function EMAIL_OK(v) { return /^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(String(v || '').trim()); }
+  // Leaving the email box with a typo: say so there and then.
+  function onFocusOut(e) {
+    var t = e.target;
+    if (!t.getAttribute || t.getAttribute('data-f') !== 'email') return;
+    var v = t.value.trim();
+    if (v && !EMAIL_OK(v)) {
+      S.bad = 'email'; S.error = "That email doesn't look quite right.";
+      t.classList.add('bad'); t.setAttribute('aria-invalid', 'true');
+      var hint = sheet.querySelector('#nwp-email-hint'); if (hint) hint.textContent = S.error;
+    }
+  }
+  // Arrow keys move along the tabs and the one-tap choices.
+  function onKey(e) {
+    var t = e.target;
+    if (!t.getAttribute) return;
+    var role = t.getAttribute('role');
+    if ((role !== 'tab' && role !== 'radio') || ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].indexOf(e.key) < 0) return;
+    var group = t.parentElement ? [].slice.call(t.parentElement.querySelectorAll('[role="' + role + '"]')) : [];
+    var i = group.indexOf(t);
+    if (i < 0) return;
+    e.preventDefault();
+    var n = e.key === 'Home' ? 0 : e.key === 'End' ? group.length - 1
+      : (i + (e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 1) + group.length) % group.length;
+    group[n].click();
   }
 
   // ------------------------------------------------------------ sending
@@ -520,8 +619,9 @@
     var it = pickedItem();
     if (!it || S.sending) return;
     S.name = S.name.trim(); S.email = S.email.trim();
-    if (!S.name) { S.error = 'Please add your name.'; S.focusKey = 'name'; render(); return; }
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(S.email)) { S.error = 'Please check your email address.'; S.focusKey = 'email'; render(); return; }
+    if (!S.name) { S.error = 'Please add your name.'; S.bad = 'name'; S.focusKey = 'name'; render(); return; }
+    if (!EMAIL_OK(S.email)) { S.error = "That email doesn't look quite right."; S.bad = 'email'; S.focusKey = 'email'; render(); return; }
+    S.bad = null;
     var form = document.getElementById('wf-form-Research-Form');
     var box = form && form.closest('.w-form');
     if (!form) { S.error = 'Sorry, this could not be sent from here. Please email spaces@nomadwise.io.'; render(); return; }
@@ -553,6 +653,7 @@
       S.error = nm === 'email-of-customer-2' ? 'Please check your email address.'
         : (nm === 'Name-Of-Customer-2' ? 'Please check your name.' : 'Sorry, this could not be sent. Please email spaces@nomadwise.io.');
       S.focusKey = nm === 'email-of-customer-2' ? 'email' : (nm === 'Name-Of-Customer-2' ? 'name' : null);
+      S.bad = S.focusKey;
       render();
       return;
     }
@@ -575,8 +676,9 @@
     }
     (function wait() {
       if (shown(done)) {
-        S.sending = false; S.sent = true; S.error = ''; S.focusKey = 'again'; S.sentAbout = it.full.charAt(0).toLowerCase() + it.full.slice(1) +
-          (S.flexible ? ', with flexible dates' : (S.date ? (kind === 'start' ? ', starting ' : ', on ') + fmtDate(S.date) : ''));
+        S.sending = false; S.sent = true; S.error = ''; S.focusKey = 'done';
+        S.sentWhen = S.flexible ? 'Flexible on dates' : (S.date ? (kind === 'start' ? 'Starting ' : '') + fmtDate(S.date, true) : 'Not given');
+        S.sentTime = kind === 'hour' ? 'From ' + S.time + ', ' + S.length : '';
         track('price_enquiry_sent', { space: data.space, price: it.full, slug: SLUG });
         // the pop-up form is ready again for the next one
         setTimeout(function () {
@@ -624,29 +726,25 @@
     root.id = 'prices';
     root.setAttribute('aria-label', 'Passes and prices');
     host.insertBefore(root, desc.nextSibling);
-    var bar = document.createElement('div');
-    bar.id = 'nwp-bar';
-    bar.className = 'nwp-bar';
-    document.body.appendChild(bar);
     sheet = document.createElement('div');
     sheet.className = 'nwp-sheet';
-    sheet.setAttribute('role', 'dialog');
-    sheet.setAttribute('aria-modal', 'true');
-    sheet.setAttribute('aria-label', 'Your enquiry');
-    sheet.innerHTML = '<div class="nwp-sh"><button type="button" class="nwp-x" data-a="close" data-k="x" aria-label="Back to prices">' + ICON_L + '</button>' +
-      '<h2>Ask ' + esc(data.space) + '</h2></div><div class="nwp-sb"></div>';
+    sheet.innerHTML = '<div class="nwp-dlg" role="dialog" aria-modal="true" aria-labelledby="nwp-dlg-h"></div>';
     document.body.appendChild(sheet);
-    [root, bar, sheet].forEach(function (el) {
+    // A click on the dimmed page around the pop-up closes it.
+    sheet.addEventListener('mousedown', function (e) { if (e.target === sheet) closeSheet(); });
+    [root, sheet].forEach(function (el) {
       el.addEventListener('click', onClick);
       el.addEventListener('change', onChange);
       el.addEventListener('input', onInput);
+      el.addEventListener('keydown', onKey);
     });
+    sheet.addEventListener('focusout', onFocusOut);
     document.addEventListener('keydown', function (e) {
       if (!S.sheetOpen) return;
       if (e.key === 'Escape') { closeSheet(); return; }
-      // Tab stays inside the sheet while it is open
+      // Tab stays inside the pop-up while it is open
       if (e.key === 'Tab') {
-        var f = [].slice.call(sheet.querySelectorAll('button:not([disabled]),select,input,textarea,a[href]'));
+        var f = [].slice.call(sheet.querySelectorAll('button:not([disabled]):not([tabindex="-1"]),select,input,textarea,a[href]'));
         if (!f.length) return;
         var first = f[0], last = f[f.length - 1];
         if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
@@ -654,20 +752,12 @@
         else if (!sheet.contains(document.activeElement)) { e.preventDefault(); first.focus(); }
       }
     });
-    if (window.matchMedia) {
-      var wide = window.matchMedia('(min-width: 768px)');
-      var onWide = function () { if (wide.matches && S.sheetOpen) closeSheet(); };
-      if (wide.addEventListener) wide.addEventListener('change', onWide); else if (wide.addListener) wide.addListener(onWide);
-    }
     render();
-    // Re-lay out when the page width changes enough to switch layouts.
-    var lastStack = root.classList.contains('stack'), rt = null;
+    // Tabs on a phone, the list on a computer: switch when the column crosses over.
+    var rt = null;
     window.addEventListener('resize', function () {
       clearTimeout(rt);
-      rt = setTimeout(function () {
-        var st = root.clientWidth < 760;
-        if (st !== lastStack) { lastStack = st; render(); }
-      }, 150);
+      rt = setTimeout(function () { if ((root.clientWidth < 560) !== S.phone) render(); }, 150);
     });
     return true;
   }

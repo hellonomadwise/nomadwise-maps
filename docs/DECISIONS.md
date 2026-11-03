@@ -5942,3 +5942,37 @@ Live check after that: the site's own styles make every form label bold with
 space under it and give every line 20px, so the price notes looked bold and
 the rows tall. The cards now set their own label weight, margin and line
 height.
+Jonathan, 3 Nov evening: "as much as I really like the styling of it, it
+doesn't feel right. It feels a bit cramped", and the floating bar bottom right
+on a laptop was not clear. The listing template is a fixed 980px: a 682px
+middle column and a 210px right column, too narrow for the calendar. So:
+- the cards are one per row across the middle column, the page's photo on
+  the left and the prices on the right (photo on top on a phone);
+- picking a price shows "Enquire about <price>" in that card, which opens the
+  enquiry in a centred pop-up (460px; full screen on a phone), like the
+  page's own Send an enquiry pop-up; Esc, the X or a click outside closes it;
+- no floating bar and no enquiry beside or under the cards.
+On a phone (Jonathan's screenshot of the earlier version): the bottom bar sat
+under the chat button and the card did not fill the width. Both went with the
+pop-up version (no bar; cards full width). The enquiry pop-up now also sits
+above the chat button while open (the chat button is at the very top layer),
+so the button never covers Send, and leaves room for the iPhone's home bar.
+After compact mockups (Design canvas, "Compact options"), Jonathan chose: on a
+computer the price list (option B), on a phone the tabs (option A), every
+price with its own Enquire button that opens a pop-up with the form, "super
+slick, as if we are a fully funded series A SaaS". Built:
+- Computer: one box; per group a 88x66 photo, title, spec and From price; each
+  price a row with its price and an outlined Enquire button (fills red on
+  hover).
+- Phone: tabs with each group's From price; the group's photo at 16:10; rows
+  with the price in bold and Enquire.
+- The pop-up: fades and lifts in over a blurred page (slides up full screen
+  on a phone); the header shows the photo, "Enquire at <space>", the price's
+  name and a price tag. One-tap choices for how many people (Just me, 2, 3-5,
+  6-10, 10+) and, for rooms, how long; a calendar inside; name and email side
+  by side; an optional note; Send fixed at the bottom with a spinner while
+  sending. A mistyped email is flagged when you leave the box and cleared as
+  you fix it. Sent: an animated tick, "Enquiry sent", a summary (what,
+  people, when, time) and Done, which returns you to the Enquire button you
+  used. Esc, X or a click outside close it; Tab stays inside; arrow keys move
+  along tabs and choices; no motion for people who ask their device for less.
