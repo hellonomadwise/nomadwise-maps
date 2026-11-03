@@ -5892,3 +5892,37 @@ the same run copy that first one as usual. A page that is not on the website
 yet says so instead.
 For OUR HQ itself the first price (Day pass) was made by hand in Webflow,
 Products On switched on, and the other seven went through the push.
+
+## 3 Nov 2026: price cards and one-price enquiries on listing pages (migration 243)
+
+Jonathan liked OUR HQ's own price cards and asked for the best way to show a
+space's prices and make enquiring easy. Researched 12 coworking sites and 10
+marketplaces (notes in the Nomadwise project, listings/2026-11-03-price-cards-
+and-enquiry.md), mocked it up (Design canvas "Price cards for listing pages"),
+and after his notes (a proper date picker; the site's own look with 10px
+corners, Roboto, red #FF444F, teal #05434F; one price at a time, not ticks)
+built it:
+- nomadmaps.io/prices.js (app/web/prices.js), loaded on nomadwise.io by a small
+  Webflow site script, filled in by the build like chat.js
+  (scripts/export_map.py). It asks page_prices(slug) (migration 243) for the
+  page's live prices (venue_products) and, under the description, shows one
+  card per group (Coworking, Private offices, Meeting rooms, Other) with the
+  page's own photos, the group's "From" price, and every price as a choice.
+- Pick one price; on a computer the enquiry sits beside the cards, on a phone
+  a bar at the bottom opens it full screen. How many people, when (a calendar
+  with Next Monday / 1st of next month / I'm flexible; Today / Tomorrow for a
+  day pass or a room), for a meeting room the time and how long, name, email,
+  optional note.
+- Sending fills the page's existing enquiry pop-up form (Research Form) and
+  sends it through Webflow, so it reaches Nomad Maps exactly as before (import
+  every ten minutes; free pages 2 to the space, then held for Premium). The
+  message reads "Asking about: Hot desk (£89 /mo) / People / Starting / ...".
+- Switch: sync_settings 'price_cards' {"on": false, "slugs": [...]}: OUR HQ
+  only to begin with; "on": true shows it on every listing page with prices.
+- The old booking-engine parts of the template (the hidden product lists, five
+  "Page Request Form" forms, the old prices pop-up) are left as they are,
+  hidden; nothing here uses them.
+- Checked in a headless browser on a computer and a phone (pick, calendar,
+  send, the message sent), and by a second reviewer (periods for bundles like
+  "10 Day Passes", VAT notes, scroll lock, a stale thank-you, Webflow's own
+  submit, focus inside the phone sheet), all fixed.

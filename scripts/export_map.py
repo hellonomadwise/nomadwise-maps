@@ -39,19 +39,22 @@ def fill_chat_box(web_dir, url, key):
     the database's public address and public key, the same two the app
     is built with. They are written into the built file here, so they
     live in GitHub's secrets only. Without them the box stays hidden."""
-    path = os.path.join(web_dir, 'chat.js')
-    try:
-        if not url or not key or not os.path.exists(path):
-            return
-        with open(path, encoding='utf-8') as f:
-            text = f.read()
-        text = (text.replace('__NW_SUPABASE_URL__', url)
-                    .replace('__NW_SUPABASE_KEY__', key))
-        with open(path, 'w', encoding='utf-8') as f:
-            f.write(text)
-        print('chat box: filled in')
-    except OSError as e:
-        print(f'chat box not filled in: {e}')
+    # The price cards on the listing pages (web/prices.js, migration
+    # 243) need the same two.
+    for name in ('chat.js', 'prices.js'):
+        path = os.path.join(web_dir, name)
+        try:
+            if not url or not key or not os.path.exists(path):
+                continue
+            with open(path, encoding='utf-8') as f:
+                text = f.read()
+            text = (text.replace('__NW_SUPABASE_URL__', url)
+                        .replace('__NW_SUPABASE_KEY__', key))
+            with open(path, 'w', encoding='utf-8') as f:
+                f.write(text)
+            print(f'{name}: filled in')
+        except OSError as e:
+            print(f'{name} not filled in: {e}')
 
 
 def main():
