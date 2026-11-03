@@ -5740,3 +5740,11 @@ enquiry address is spaces@. Outside the code: spaces@ forwards a copy of its
 mail to the Postmark inbound address (as hello@ does, and hello@ keeps doing
 so for older threads), and the Supabase sign-in email's sender is set to
 spaces@ in the Supabase dashboard.
+
+## 3 Nov 2026: the website chat on spaces@ too (migration 238)
+
+Jonathan: the nomadwise.io website chat belongs with spaces@ as well. Its
+emails to visitors already come from "Nomadwise Spaces <spaces@nomadwise.io>"
+since migration 237 (they go through send_owner_email); its two "the chat is
+busy, please email ..." messages now say spaces@ too. hello@ is left for
+partners and general mail.
