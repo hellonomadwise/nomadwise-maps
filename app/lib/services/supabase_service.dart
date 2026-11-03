@@ -218,6 +218,11 @@ class SupabaseService {
     }
   }
 
+  /// Team edit (migration 240): a space's details, saved by a founder
+  /// and put on the page at once (no email to anybody).
+  Future<void> adminTeamSave(String venueId, Map<String, dynamic> draft) =>
+      _db.rpc('admin_team_save', params: {'p_venue': venueId, 'p_draft': draft});
+
   /// Admin only: any listing's Owner account data (same shape as
   /// ownerVenues), by venue id or page slug, for the preview.
   Future<Map<String, dynamic>?> adminOwnerView(String key) async {

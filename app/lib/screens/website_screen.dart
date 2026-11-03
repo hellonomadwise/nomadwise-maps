@@ -2121,6 +2121,10 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                               query: '${v['name']}')),
                           icon: const Icon(Icons.send_rounded),
                           label: const Text('Write to them')),
+                      OutlinedButton.icon(
+                          onPressed: () => go(() => _openTeamEdit(id)),
+                          icon: const Icon(Icons.edit_outlined),
+                          label: const Text('Edit details')),
                       if (owner.isNotEmpty)
                         OutlinedButton(
                             onPressed: () => go(() => _openOwnerPreview(id)),
@@ -2193,6 +2197,9 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                       onPressed: () => go(() => _goToGroup('paid')),
                       child: const Text('Show in Owners')),
                   if (vid.isNotEmpty) ...[
+                    TextButton(
+                        onPressed: () => go(() => _openTeamEdit(vid)),
+                        child: const Text('Edit details')),
                     TextButton(
                         onPressed: () => go(() => _openOwnerPreview(vid)),
                         child: const Text('Their Owner account')),
@@ -4350,6 +4357,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       'paid' => [
           MoneyCard(verified: _paid),
           _previewCard(),
+          _teamEditCard(),
           _journeysCard(),
           _insightsCard(),
           _emailsCard(),
@@ -6259,6 +6267,10 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
               country: _countryOf(v) ?? v['country']?.toString(),
               pagePhone: (v['owner_whatsapp'] ?? '').toString()),
           TextButton.icon(
+              onPressed: () => _openTeamEdit('${v['id']}'),
+              icon: const Icon(Icons.edit_outlined, size: 16),
+              label: const Text('Edit details')),
+          TextButton.icon(
               onPressed: () => _openOwnerPreview('${v['id']}'),
               icon: const Icon(Icons.visibility_outlined, size: 16),
               label: const Text('Their Owner account')),
@@ -7039,6 +7051,15 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   void _openOwnerPreview(String key) => Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => OwnerScreen(previewKey: key)));
 
+  /// Team edit (migration 240): a space's details in the Owner
+  /// account's editor, saved straight onto the page.
+  void _openTeamEdit(String key) => Navigator.of(context)
+      .push(MaterialPageRoute(
+          builder: (_) => OwnerScreen(previewKey: key, team: true)))
+      .then((_) {
+        if (mounted) _load();
+      });
+
   Widget _previewCard() => Container(
         margin: const EdgeInsets.only(bottom: 10),
         decoration: BoxDecoration(
@@ -7053,10 +7074,40 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
           subtitle: const Text(
               'Open the member area for any listing, claimed or not, as '
               'its owner would see it: waiting for the check, free or '
-              'Premium. A preview; nothing is saved.',
+              'Premium. A preview; nothing is saved. To change a space, '
+              'use Edit any space\'s details below.',
               style: TextStyle(fontSize: 12.5, color: Brand.inkSecondary)),
           trailing: const Icon(Icons.chevron_right, color: Brand.inkMuted),
           onTap: _pickOwnerPreview,
+        ),
+      );
+
+  /// The way into Team edit for any space (migration 240).
+  Widget _teamEditCard() => Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        decoration: BoxDecoration(
+          color: Brand.surface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Brand.border),
+        ),
+        child: ListTile(
+          leading: const Icon(Icons.edit_outlined, color: Brand.accent),
+          title: const Text('Edit any space\'s details',
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+          subtitle: const Text(
+              'Description, prices, opening hours, facts and links, for '
+              'any listing, claimed or not. Saving puts it on the page; '
+              'it shows on nomadwise.io within about 10 minutes. No email '
+              'goes to the owner.',
+              style: TextStyle(fontSize: 12.5, color: Brand.inkSecondary)),
+          trailing: const Icon(Icons.chevron_right, color: Brand.inkMuted),
+          onTap: () async {
+            final picked = await showDialog<String>(
+                context: context,
+                builder: (_) => _PreviewPicker(
+                    supabase: _supabase, title: 'Which space to edit?'));
+            if (picked != null && mounted) _openTeamEdit(picked);
+          },
         ),
       );
 
@@ -11293,7 +11344,9 @@ class _NewLocationPageState extends State<_NewLocationPage> {
 /// Search any listing by name, for the Owner account preview.
 class _PreviewPicker extends StatefulWidget {
   final SupabaseService supabase;
-  const _PreviewPicker({required this.supabase});
+  final String title;
+  const _PreviewPicker(
+      {required this.supabase, this.title = 'Whose Owner account?'});
   @override
   State<_PreviewPicker> createState() => _PreviewPickerState();
 }
@@ -11329,7 +11382,7 @@ class _PreviewPickerState extends State<_PreviewPicker> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-        title: const Text('Whose Owner account?'),
+        title: Text(widget.title),
         content: SizedBox(
           width: 420,
           height: 380,

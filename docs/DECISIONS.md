@@ -5784,3 +5784,20 @@ Still to come. Part 2: the job happens inside the card (what we know, the
 email, Send), and the Showing filter (Everyone's, Jonathan's, Leonie's).
 Part 3: the five-item menu (Today, Inbox, Spaces, Pages, Owners and money,
 More), one Inbox, and the tidy-up of old "they replied" boxes.
+
+## 3 Nov 2026: Team edit, the team can change a space's details (migration 240)
+
+Leonie opened a space's Owner account from the control centre, changed things,
+saved, and they were gone: that screen is a preview and saves nothing.
+Jonathan: "make it so we can edit coworking space details". Team edit is the
+same editor (description, prices, opening hours, facts, website, Instagram,
+WhatsApp, enquiry address; the promotion on Premium pages), for any space,
+claimed or not, and it saves: admin_team_save files the change as a draft from
+"team" and puts it on at once, the same way "Put on the page" does with an
+owner's change, so the ten-minute website push writes it to nomadwise.io. No
+email goes to anybody; the space's History shows it as the team's. Ways in:
+"Edit details" on a space (the search, its card in Owners, its row), "Edit any
+space's details" in Owners, and "Edit for real" on the preview's dark bar. The
+preview stays a preview. Photos are still changed from the space in the
+control centre (Photos). An empty description leaves the page's own text as
+it is; writing one replaces the page's description.

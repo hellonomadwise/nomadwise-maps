@@ -37,7 +37,12 @@ class OwnerScreen extends StatefulWidget {
   /// Founders only: open this listing's Owner account (venue id or
   /// page slug) in preview, whoever owns it. Nothing is saved.
   final String? previewKey;
-  const OwnerScreen({super.key, this.previewKey});
+
+  /// With [previewKey]: Team edit (migration 240). The same screen, and
+  /// it saves: the team's changes go on the page at once and reach
+  /// nomadwise.io with the ten-minute website push. No email goes out.
+  final bool team;
+  const OwnerScreen({super.key, this.previewKey, this.team = false});
 
   @override
   State<OwnerScreen> createState() => _OwnerScreenState();
@@ -627,6 +632,21 @@ class _OwnerScreenState extends State<OwnerScreen> {
   /// The founders' bar above a preview: which state to look at, and
   /// the reminder that nothing here is saved.
   Widget _previewBar() {
+    if (widget.team) {
+      return Container(
+        width: double.infinity,
+        color: Brand.red,
+        padding: const EdgeInsets.fromLTRB(16, 9, 16, 9),
+        child: const Text(
+            'TEAM EDIT: SAVING CHANGES THE LIVE PAGE ON NOMADWISE.IO. '
+            'NO EMAIL GOES TO THE OWNER.',
+            style: TextStyle(
+                color: Colors.white,
+                fontSize: 11.5,
+                fontWeight: FontWeight.w800,
+                letterSpacing: .4)),
+      );
+    }
     const states = [
       ('waiting_free', 'Claimed, not checked'),
       ('waiting_paid', 'Paid, not checked'),
@@ -648,7 +668,21 @@ class _OwnerScreenState extends State<OwnerScreen> {
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
                   letterSpacing: .5)),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
+          // To change the space for real (migration 240).
+          TextButton.icon(
+            onPressed: () => Navigator.of(context).pushReplacement(
+                MaterialPageRoute(
+                    builder: (_) => OwnerScreen(
+                        previewKey: widget.previewKey, team: true))),
+            style: TextButton.styleFrom(
+                foregroundColor: Colors.white,
+                visualDensity: VisualDensity.compact),
+            icon: const Icon(Icons.edit_outlined, size: 15),
+            label: const Text('Edit for real',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+          ),
+          const SizedBox(width: 6),
           for (final (key, label) in states)
             Padding(
               padding: const EdgeInsets.only(right: 6),
@@ -1055,6 +1089,32 @@ class _OwnerScreenState extends State<OwnerScreen> {
   Future<void> _save({required bool submit}) async {
     final v = _venue;
     if (v == null) return;
+    if (_isPreview && widget.team) {
+      if (_description.text.length > _descriptionMax) {
+        setState(() => _savedNote = 'The description is a little long: '
+            '8,000 characters at most.');
+        return;
+      }
+      setState(() {
+        _saving = true;
+        _savedNote = null;
+      });
+      try {
+        await _supabase.adminTeamSave(v['id'], _collect());
+        await _loadPreview();
+        if (!mounted) return;
+        setState(() {
+          _dirty = false;
+          _savedNote = 'Saved to the page. It shows on nomadwise.io within '
+              'about 10 minutes.';
+        });
+      } catch (e) {
+        if (mounted) setState(() => _savedNote = 'That did not save: $e');
+      } finally {
+        if (mounted) setState(() => _saving = false);
+      }
+      return;
+    }
     if (_isPreview) {
       setState(() => _savedNote = 'Preview: nothing is saved. For the '
           'owner this would ${submit ? 'send the changes to you for review' : 'save a draft'}.');
@@ -1110,7 +1170,9 @@ class _OwnerScreenState extends State<OwnerScreen> {
 
   Future<void> _addPhotos() async {
     if (_isPreview) {
-      setState(() => _savedNote = 'Preview: photos cannot be added here.');
+      setState(() => _savedNote = widget.team
+          ? 'Photos are changed from the space in the control centre (Photos).'
+          : 'Preview: photos cannot be added here.');
       return;
     }
     if (_photos.length >= 5) {
@@ -1141,7 +1203,9 @@ class _OwnerScreenState extends State<OwnerScreen> {
   /// stay where they are.
   Future<void> _replacePhoto(int i) async {
     if (_isPreview) {
-      setState(() => _savedNote = 'Preview: photos cannot be changed here.');
+      setState(() => _savedNote = widget.team
+          ? 'Photos are changed from the space in the control centre (Photos).'
+          : 'Preview: photos cannot be changed here.');
       return;
     }
     try {
@@ -2232,7 +2296,12 @@ class _OwnerScreenState extends State<OwnerScreen> {
             onPressed: _saving ? null : () => _save(submit: true),
             style: FilledButton.styleFrom(
                 backgroundColor: Brand.red, minimumSize: const Size(0, 40)),
-            child: Text(_saving ? 'Sending' : 'Send my changes',
+            child: Text(
+                _saving
+                    ? 'Sending'
+                    : widget.team
+                        ? 'Save to the page'
+                        : 'Send my changes',
                 softWrap: false))
         : null;
     final narrow = MediaQuery.sizeOf(context).width < 600;
@@ -2311,13 +2380,18 @@ class _OwnerScreenState extends State<OwnerScreen> {
                         'Edits are saved as a draft as you go. Submit for '
                             'review when you are ready.');
     final buttons = Wrap(spacing: 8, runSpacing: 8, children: [
-      OutlinedButton(
-          onPressed: _saving ? null : () => _save(submit: false),
-          child: const Text('Save draft')),
+      if (!widget.team)
+        OutlinedButton(
+            onPressed: _saving ? null : () => _save(submit: false),
+            child: const Text('Save draft')),
       FilledButton(
           onPressed: _saving ? null : () => _save(submit: true),
           style: FilledButton.styleFrom(backgroundColor: Brand.red),
-          child: Text(_saving ? 'One moment' : 'Submit for review')),
+          child: Text(_saving
+              ? 'One moment'
+              : widget.team
+                  ? 'Save to the page'
+                  : 'Submit for review')),
     ]);
     final status = Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Icon(icon, size: 17, color: color),
@@ -3100,6 +3174,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
     await _save(submit: true);
     if (!mounted) return;
     final sent = (_savedNote ?? '').startsWith('Sent') ||
+        (_savedNote ?? '').startsWith('Saved to the page') ||
         (_savedNote ?? '').startsWith('Preview');
     if (sent) {
       setState(() {
@@ -3203,6 +3278,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
     await _save(submit: true);
     if (!mounted) return;
     final sent = (_savedNote ?? '').startsWith('Sent') ||
+        (_savedNote ?? '').startsWith('Saved to the page') ||
         (_savedNote ?? '').startsWith('Preview');
     setState(() {
       if (sent) {
@@ -5937,7 +6013,11 @@ class _OwnerScreenState extends State<OwnerScreen> {
           child: FilledButton(
               onPressed: _saving ? null : () => _save(submit: true),
               style: FilledButton.styleFrom(backgroundColor: Brand.red),
-              child: Text(_saving ? 'One moment' : 'Submit for review')),
+              child: Text(_saving
+                  ? 'One moment'
+                  : widget.team
+                      ? 'Save to the page'
+                      : 'Submit for review')),
         ),
         const SizedBox(height: 8),
         const Text('To take the message down, clear the headline and submit.',
