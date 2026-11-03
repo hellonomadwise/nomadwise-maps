@@ -8,6 +8,7 @@ import 'package:flutter/services.dart'
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/venue.dart';
@@ -251,10 +252,15 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     _load();
     _loadCandidateCount();
     _loadNextUp();
-    _markAddress(widget.openTool);
-    if (widget.openTool != null) {
+    // Today is where the team lands (Jonathan, 3 Nov 2026); the
+    // control centre is ?admin=centre.
+    _todayOpen = widget.openTool != 'centre';
+    _loadToday();
+    final tool = widget.openTool == 'centre' ? null : widget.openTool;
+    _markAddress(tool);
+    if (tool != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _showTool(widget.openTool);
+        if (mounted) _showTool(tool);
       });
     }
   }
@@ -265,7 +271,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   /// the menu (plain ?admin=chats stays the phone's Chats on its own).
   void _markAddress(String? tool) {
     if (tool == null) {
-      addr.setAddress('/?admin');
+      addr.setAddress(_todayOpen ? '/?admin' : '/?admin=centre');
     } else {
       addr.setAddress('/?admin=$tool&menu');
     }
@@ -1386,9 +1392,14 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     // beside the menu: it shares its lists and keeps them up to date.
     final centre = KeyedSubtree(
         key: _centreKey,
-        child: _upgradesOpen ? _upgradesHub(wide) : _centre(wide));
+        child: _upgradesOpen
+            ? _upgradesHub(wide)
+            : _todayOpen
+                ? _todayScreen(wide)
+                : _centre(wide));
     return wide
-        ? _besideMenu(_upgradesOpen ? 'upgrades' : null, centre)
+        ? _besideMenu(
+            _upgradesOpen ? 'upgrades' : (_todayOpen ? 'today' : null), centre)
         : centre;
   }
 
@@ -1449,8 +1460,11 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     final nav = Navigator.of(context);
     final home = ModalRoute.of(context);
     if (home != null) nav.popUntil((r) => r == home || r.isFirst);
-    if (k == null) {
-      if (_upgradesOpen) setState(() => _upgradesOpen = false);
+    if (k == null || k == 'today') {
+      setState(() {
+        _upgradesOpen = false;
+        _todayOpen = k == 'today';
+      });
       _markAddress(null);
       _loadNextUp();
       return;
@@ -1540,6 +1554,10 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     }
 
     return switch (key) {
+      'today' => (
+          _inbox == null || !_nextUpRead ? 0 : _todayJobs().length,
+          'things to do today'
+        ),
       'home' => (_todoCount, 'waiting in the control centre (its To do line)'),
       'upgrades' => (
           _updates.length + _closed.length + part('drafts') + part('prices'),
@@ -1675,6 +1693,9 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
             style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
       ),
       _searchBox(),
+      // Today first: every job, one at a time (Jonathan, 3 Nov 2026).
+      item(Icons.today_outlined, 'Today', () => _showTool('today'),
+          on: current == 'today', countOf: 'today'),
       item(Icons.dashboard_outlined, 'Control centre', () => _showTool(null),
           on: current == null, countOf: 'home'),
       // Quality (Jonathan, 21 Oct 2026: Page upgrades renamed, with
@@ -1754,6 +1775,8 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
             // The ones used every day first, the seldom used below
             // the line (Jonathan, 6 Oct 2026).
             itemBuilder: (_) => <PopupMenuEntry<String>>[
+              const PopupMenuItem(value: 'today', child: Text('Today')),
+              const PopupMenuDivider(),
               const PopupMenuItem(
                   value: 'upgrades', child: Text('Quality')),
               const PopupMenuItem(
@@ -2303,6 +2326,10 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
 
   /// From the team link's tools menu: the other team screens.
   void _openTool(String k) {
+    if (k == 'today' || k == 'centre') {
+      _showTool(k == 'today' ? 'today' : null);
+      return;
+    }
     if (k == 'map') {
       launchUrl(Uri.parse('/'), webOnlyWindowName: '_self');
       return;
@@ -2733,6 +2760,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     _supabase.adminChatsUnread().then((c) {
       if (!mounted || c == _chatsUnread) return;
       setState(() => _chatsUnread = c);
+      _todayCheckDone();
       _ringMenu();
     });
     final r = await _supabase.adminNextUp();
@@ -2742,6 +2770,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       if (r != null) _nextUp = r;
       _nextUpRead = true;
     });
+    _todayCheckDone();
     _ringMenu();
   }
 
@@ -2757,6 +2786,12 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   void _nextUpHere(String kind, String groupKey) {
     if (_turns.contains(kind)) _openedTurn = kind;
     _nextUpFolded = true;
+    // A job of Today that lives in the control centre's lists: the
+    // control centre, on that list.
+    if (_todayOpen) {
+      setState(() => _todayOpen = false);
+      _markAddress(null);
+    }
     _goToGroup(groupKey);
   }
 
@@ -2811,6 +2846,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     final signup = part('signup');
     final newPage = part('new_page');
     final waitReply = part('replied_wait');
+    final followUp = part('follow_up');
     final webflow = _drafts.length + _approvedTonight.length;
 
     final first = <_NextJob>[
@@ -2839,6 +2875,16 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                 'and we could not tell which space it is for.',
             'Open payments',
             () => _nextUpHere('payments', 'paid')),
+      // Owners who wrote in their Owner account and nobody has read it
+      // (migration 161): Chats.
+      if (_chatsUnread > 0)
+        _NextJob(
+            'chats',
+            'Answer an owner in Chats',
+            '${n(_chatsUnread, 'message from an owner has', 'messages from owners have')} '
+                'not been read yet.',
+            'Open Chats',
+            () => _showTool('chats')),
       // A space that wrote back two days ago or more and has not had
       // our answer (migration 234): the one waiting longest.
       if (count(waitReply) > 0)
@@ -2852,6 +2898,16 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
             'Open in Outreach',
             () => _nextUpOpen(
                 'replied', const AdminOutreachScreen(initialStep: 'replied'))),
+      // A follow-up date set on a box has come (migration 239).
+      if (count(followUp) > 0)
+        _NextJob(
+            'followup',
+            'Follow up: ${name(followUp)}',
+            '${count(followUp) == 1 ? 'The follow-up date you set has come' : 'The follow-up dates you set have come for ${count(followUp)} spaces'}, '
+                'and nothing has gone to them since.',
+            'Open in Outreach',
+            () => _nextUpOpen('followup',
+                const AdminOutreachScreen(initialStep: 'follow_up'))),
       // A space whose claim page was opened and that did not claim
       // (migration 153): somebody there is interested now.
       if (count(look) > 0)
@@ -3064,6 +3120,600 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
           turn[_turns[(start + i) % _turns.length]]!,
     ];
   }
+
+  // ------------------------------------------------------------- today
+
+  /// Today (Jonathan, 3 Nov 2026: "more intuitive ... very simple
+  /// parts, step by step. Do this next, then this, and then this"):
+  /// the team lands here. Every job from Next up, one at a time: what
+  /// it is, why, the steps it takes, one button that opens where it is
+  /// done, Skip for today, and the ones after it. The control centre
+  /// is one tap away (the menu, or ?admin=centre).
+  bool _todayOpen = true;
+
+  /// A job from the list "Then this", brought to the top by a tap.
+  String? _todayPick;
+
+  /// Skipped for the rest of the day, and how many were done today,
+  /// kept on this device by date.
+  Set<String> _todaySkip = {};
+  int _todayDone = 0;
+  String _todayDate = '';
+
+  /// The job last opened from Today (its kind and title): when it has
+  /// gone from the list, or moved on to another space, it was done.
+  (String, String)? _todayOpened;
+
+  static String _dateKey(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  Future<void> _loadToday() async {
+    final today = _dateKey(DateTime.now());
+    try {
+      final p = await SharedPreferences.getInstance();
+      final same = p.getString('today_date') == today;
+      if (!mounted) return;
+      setState(() {
+        _todayDate = today;
+        _todaySkip =
+            same ? (p.getStringList('today_skip') ?? const []).toSet() : <String>{};
+        _todayDone = same ? (p.getInt('today_done') ?? 0) : 0;
+      });
+      if (!same) {
+        await p.setString('today_date', today);
+        await p.setStringList('today_skip', const []);
+        await p.setInt('today_done', 0);
+      }
+    } catch (_) {
+      _todayDate = today;
+    }
+  }
+
+  void _saveToday() {
+    final date = _todayDate;
+    final skip = _todaySkip.toList();
+    final done = _todayDone;
+    SharedPreferences.getInstance().then((p) async {
+      await p.setString('today_date', date);
+      await p.setStringList('today_skip', skip);
+      await p.setInt('today_done', done);
+    }).catchError((_) {});
+  }
+
+  /// A new day since the screen was opened: start the day afresh.
+  void _todayRollOver() {
+    final today = _dateKey(DateTime.now());
+    if (_todayDate.isEmpty || _todayDate == today) return;
+    _todayDate = today;
+    _todaySkip = <String>{};
+    _todayDone = 0;
+    _saveToday();
+  }
+
+  /// Every job there is now, in order, without the ones skipped today;
+  /// the one picked from "Then this" first.
+  List<_NextJob> _todayJobs() {
+    final all = _nextJobs(_groups())
+        .where((j) => !_todaySkip.contains(j.kind))
+        .toList();
+    final i = all.indexWhere((j) => j.kind == _todayPick);
+    if (i > 0) all.insert(0, all.removeAt(i));
+    return all;
+  }
+
+  void _todayCheckDone() {
+    final opened = _todayOpened;
+    if (opened == null || !mounted) return;
+    final still = _nextJobs(_groups())
+        .any((j) => j.kind == opened.$1 && j.title == opened.$2);
+    if (still) return;
+    setState(() {
+      _todayRollOver();
+      _todayOpened = null;
+      _todayDone++;
+      if (_todayPick == opened.$1) _todayPick = null;
+    });
+    _saveToday();
+  }
+
+  void _todayStart(_NextJob job) {
+    _todayOpened = (job.kind, job.title);
+    job.open();
+  }
+
+  void _todaySkipJob(_NextJob job) {
+    setState(() {
+      _todayRollOver();
+      _todaySkip.add(job.kind);
+      if (_todayPick == job.kind) _todayPick = null;
+    });
+    _saveToday();
+  }
+
+  /// What a job is, in a word or two, above its title.
+  static String _todayCategory(String kind) => switch (kind) {
+        'enquiries' || 'claims' || 'payments' || 'chats' || 'replied' =>
+          'Someone is waiting on us',
+        'claimlook' || 'signup' || 'newpage' || 'followup' => 'Outreach',
+        'ready' || 'drafts' || 'prices' || 'ownerchanges' || 'updates' ||
+        'signups' =>
+          'Waiting for your Go',
+        _ => 'Pages',
+      };
+
+  /// The steps a job takes, the same for every job of its kind.
+  static List<String> _todaySteps(String kind) => switch (kind) {
+        'enquiries' => const [
+            'Read the enquiry',
+            'Choose who it goes to',
+            'Check the emails and send them'
+          ],
+        'claims' => const [
+            'See who is claiming and for which space',
+            'Approve it, or turn it down',
+            'The owner hears from us by email'
+          ],
+        'payments' => const [
+            'Look at the payment',
+            'Match it to its space'
+          ],
+        'chats' => const [
+            'Open the chat and read their message',
+            'Write your answer and send it'
+          ],
+        'replied' => const [
+            'Read what they wrote',
+            'Write your answer',
+            'Send it, or press "I sent it" if you answered by email'
+          ],
+        'claimlook' => const [
+            'See when they looked, and from where',
+            'Write a short note: by email, or WhatsApp',
+            'Check it and send it'
+          ],
+        'signup' => const [
+            'See the account and the space it matches',
+            'Tell them the page is theirs to claim',
+            'Check it and send it'
+          ],
+        'newpage' => const [
+            'Check their new page',
+            'Write hello: by email, or WhatsApp when there is no address',
+            'Check it and send it'
+          ],
+        'followup' => const [
+            'See what we sent them, and when',
+            'Write the follow-up',
+            'Check it and send it'
+          ],
+        'signups' => const [
+            'Find the place on Google',
+            'Queue it for the site, or say why not'
+          ],
+        'updates' => const [
+            'Read the visitor\'s suggestion',
+            'Change the page, or turn it down'
+          ],
+        'ownerchanges' => const [
+            'Compare their change with the page',
+            'Approve it, or send it back with a note'
+          ],
+        'ready' => const [
+            'Read the page we prepared',
+            'Approve it'
+          ],
+        'drafts' => const [
+            'Read the page now beside the upgrade',
+            'Give your Go, or change the words first'
+          ],
+        'prices' => const [
+            'Compare the old prices with the new',
+            'Give your Go'
+          ],
+        'fresh' => const [
+            'Look at the space on the map',
+            'For the site, or not'
+          ],
+        'candidates' => const [
+            'Look at the best bet on the list',
+            'List it, or say why not'
+          ],
+        'photos' => const [
+            'Find better photos of the space',
+            'Add them'
+          ],
+        'page' => const [
+            'Read the page',
+            'Change it, ask for an upgrade, or say there is nothing to change'
+          ],
+        'webflow' => const [
+            'Open the draft in Webflow',
+            'Add the words',
+            'Publish'
+          ],
+        'closed' => const [
+            'Check the place on Google',
+            'Retire the page, or say it is still open'
+          ],
+        'region' => const [
+            'See what is blocking the page',
+            'Fix it (usually the city page)'
+          ],
+        'sitemap' => const [
+            'Add the entries in Webflow',
+            'Mark them as added'
+          ],
+        _ => const ['Open it', 'Do the job'],
+      };
+
+  Widget _todayScreen(bool wide) {
+    final ready = _inbox != null && _nextUpRead;
+    final jobs = ready ? _todayJobs() : const <_NextJob>[];
+    final skipped = ready
+        ? _nextJobs(_groups()).where((j) => _todaySkip.contains(j.kind)).length
+        : 0;
+    final total = _todayDone + jobs.length;
+    final side = MediaQuery.sizeOf(context).width >= 1180;
+    Widget waitingCard() {
+      final w = _nextUp?['waiting'];
+      final m = w is Map ? Map<String, dynamic>.from(w) : const {};
+      int k(String f) => (m[f] as num?)?.toInt() ?? 0;
+      Widget line(String a, int n) => Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Row(children: [
+              Expanded(
+                  child: Text(a,
+                      style: const TextStyle(
+                          fontSize: 13.5, color: Brand.ink))),
+              Text('$n',
+                  style: const TextStyle(
+                      fontSize: 13.5, fontWeight: FontWeight.w800)),
+            ]),
+          );
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+            color: Brand.surface,
+            border: Border.all(color: Brand.border),
+            borderRadius: BorderRadius.circular(14)),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('WAITING ON OTHERS, NOTHING TO DO',
+              style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: .6,
+                  color: Brand.inkSecondary)),
+          line('Spaces we wrote to, no answer yet', k('n')),
+          line('Follow-ups planned for later', k('later')),
+          const SizedBox(height: 8),
+          const Text(
+              'When one of them answers, or a follow-up date comes, it '
+              'moves into Today by itself.',
+              style: TextStyle(
+                  fontSize: 12.5, height: 1.4, color: Brand.inkSecondary)),
+        ]),
+      );
+    }
+
+    Widget thenThis(List<_NextJob> rest) => Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+              color: Brand.surface,
+              border: Border.all(color: Brand.border),
+              borderRadius: BorderRadius.circular(14)),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('THEN THIS',
+                style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: .6,
+                    color: Brand.inkSecondary)),
+            const SizedBox(height: 8),
+            for (var i = 0; i < rest.length && i < 8; i++)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(10),
+                    onTap: () => setState(() => _todayPick = rest[i].kind),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 9),
+                      decoration: BoxDecoration(
+                          border: Border.all(color: Brand.hairline),
+                          borderRadius: BorderRadius.circular(10)),
+                      child: Row(children: [
+                        _todayNumber('${i + 2}', on: false),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(rest[i].title,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                        fontSize: 13.5,
+                                        fontWeight: FontWeight.w700)),
+                                Text(_todayCategory(rest[i].kind),
+                                    style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Brand.inkSecondary)),
+                              ]),
+                        ),
+                      ]),
+                    ),
+                  ),
+                ),
+              ),
+            if (rest.length > 8)
+              Text('and ${rest.length - 8} more',
+                  style: const TextStyle(
+                      fontSize: 12.5, color: Brand.inkSecondary)),
+            if (rest.isEmpty)
+              const Text('Nothing after this one.',
+                  style: TextStyle(fontSize: 13, color: Brand.inkSecondary)),
+          ]),
+        );
+
+    Widget doneCard() => Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 48),
+          decoration: BoxDecoration(
+              color: Brand.surface,
+              border: Border.all(color: Brand.border),
+              borderRadius: BorderRadius.circular(16)),
+          child: Column(children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: const BoxDecoration(
+                  color: Brand.successTint, shape: BoxShape.circle),
+              child: const Icon(Icons.check, size: 30, color: Brand.success),
+            ),
+            const SizedBox(height: 12),
+            const Text('All done for today',
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 6),
+            Text(
+                skipped > 0
+                    ? 'Nothing else needs you. $skipped skipped for today.'
+                    : 'Nothing else needs you.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                    fontSize: 14, color: Brand.inkSecondary)),
+            if (skipped > 0) ...[
+              const SizedBox(height: 12),
+              OutlinedButton(
+                  onPressed: () {
+                    setState(() => _todaySkip.clear());
+                    _saveToday();
+                  },
+                  child: const Text('Show the skipped ones again')),
+            ],
+          ]),
+        );
+
+    Widget jobCard(_NextJob job) {
+      final steps = _todaySteps(job.kind);
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(22, 20, 22, 18),
+        decoration: BoxDecoration(
+            color: Brand.surface,
+            border: Border.all(color: Brand.border),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: Brand.shadowResting),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Wrap(
+              spacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                const Text('DO THIS NEXT',
+                    style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: .6,
+                        color: Brand.accent)),
+                Text(_todayCategory(job.kind),
+                    style: const TextStyle(
+                        fontSize: 12.5, color: Brand.inkSecondary)),
+              ]),
+          const SizedBox(height: 8),
+          Text(job.title,
+              style: const TextStyle(
+                  fontSize: 21, fontWeight: FontWeight.w800, height: 1.25)),
+          const SizedBox(height: 6),
+          Text(job.detail,
+              style: const TextStyle(
+                  fontSize: 14, height: 1.5, color: Brand.inkSecondary)),
+          const SizedBox(height: 16),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+                color: Brand.field, borderRadius: BorderRadius.circular(12)),
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('HOW IT GOES, ${steps.length} STEPS',
+                      style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: .6,
+                          color: Brand.inkSecondary)),
+                  const SizedBox(height: 8),
+                  for (var i = 0; i < steps.length; i++)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Row(children: [
+                        _todayNumber('${i + 1}', on: i == 0),
+                        const SizedBox(width: 10),
+                        Expanded(
+                            child: Text(steps[i],
+                                style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: i == 0
+                                        ? FontWeight.w700
+                                        : FontWeight.w500))),
+                      ]),
+                    ),
+                ]),
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+              spacing: 10,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                FilledButton(
+                    onPressed: () => _todayStart(job),
+                    child: Text(job.button)),
+                if (job.second != null && job.onSecond != null)
+                  OutlinedButton(
+                      onPressed: () {
+                        _todayOpened = (job.kind, job.title);
+                        job.onSecond!();
+                      },
+                      child: Text(job.second!)),
+                TextButton(
+                    onPressed: () => _todaySkipJob(job),
+                    style: TextButton.styleFrom(
+                        foregroundColor: Brand.inkSecondary),
+                    child: const Text('Skip for today')),
+              ]),
+          const SizedBox(height: 8),
+          const Text(
+              'The button opens the screen where you do it. Nothing is sent until '
+              'you press Send there. Come back to Today when it is done: the '
+              'next one is waiting.',
+              style: TextStyle(
+                  fontSize: 12.5, height: 1.4, color: Brand.inkSecondary)),
+        ]),
+      );
+    }
+
+    final first = jobs.isEmpty ? null : jobs.first;
+    final rest = jobs.length > 1 ? jobs.sublist(1) : const <_NextJob>[];
+    final main = first == null ? doneCard() : jobCard(first);
+    final right = Column(children: [
+      if (first != null) ...[thenThis(rest), const SizedBox(height: 14)],
+      waitingCard(),
+    ]);
+    final pct = total == 0 ? 1.0 : _todayDone / total;
+
+    return Scaffold(
+      backgroundColor: Brand.bg,
+      appBar: AppBar(
+        title: const Text('Today'),
+        actions: [
+          IconButton(
+              tooltip: 'Search spaces, owners and claims',
+              onPressed: _openSearch,
+              icon: const Icon(Icons.search)),
+          if (!wide)
+            TextButton(
+                onPressed: () => _showTool(null),
+                child: const Text('Control centre')),
+          const SizedBox(width: 6),
+        ],
+      ),
+      body: !ready
+          ? const Center(child: CircularProgressIndicator(color: Brand.red))
+          : RefreshIndicator(
+              onRefresh: () async {
+                await _loadNextUp();
+              },
+              child: ListView(
+                padding: EdgeInsets.fromLTRB(
+                    wide ? 32 : 14, 18, wide ? 32 : 14, 40),
+                children: [
+                  Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 1120),
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(
+                                jobs.isEmpty
+                                    ? 'Nothing left for today.'
+                                    : '${jobs.length} ${jobs.length == 1 ? 'thing' : 'things'} to do. '
+                                        'Work from the top; whatever is left waits for tomorrow.',
+                                style: const TextStyle(
+                                    fontSize: 14,
+                                    color: Brand.inkSecondary)),
+                            const SizedBox(height: 10),
+                            Row(children: [
+                              Expanded(
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(6),
+                                  child: LinearProgressIndicator(
+                                      value: pct,
+                                      minHeight: 8,
+                                      color: Brand.success,
+                                      backgroundColor: Brand.field),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Text('$_todayDone of $total done today',
+                                  style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                      color: Brand.success)),
+                            ]),
+                            const SizedBox(height: 16),
+                            if (side)
+                              Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(child: main),
+                                    const SizedBox(width: 20),
+                                    SizedBox(width: 330, child: right),
+                                  ])
+                            else ...[
+                              main,
+                              const SizedBox(height: 14),
+                              right,
+                            ],
+                            if (skipped > 0 && first != null) ...[
+                              const SizedBox(height: 12),
+                              Align(
+                                alignment: Alignment.centerLeft,
+                                child: TextButton(
+                                    onPressed: () {
+                                      setState(() => _todaySkip.clear());
+                                      _saveToday();
+                                    },
+                                    child: Text(
+                                        '$skipped skipped for today: show them again')),
+                              ),
+                            ],
+                          ]),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+    );
+  }
+
+  static Widget _todayNumber(String n, {required bool on}) => Container(
+        width: 24,
+        height: 24,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+            color: on ? Brand.accent : Brand.surface,
+            border: Border.all(color: on ? Brand.accent : Brand.border),
+            shape: BoxShape.circle),
+        child: Text(n,
+            style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                color: on ? Colors.white : Brand.inkSecondary)),
+      );
 
   /// One thing at a time (Jonathan, 5 Oct 2026): the next job, why,
   /// and one button that goes straight to it. "Skip for now" shows

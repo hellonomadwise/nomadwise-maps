@@ -5759,3 +5759,28 @@ person, address, notes, stage, who it is assigned to, or why it is on the
 list), in any order. On To do and Waiting, when nothing matches, a "Search
 Everything" button looks further. Everything asks the database once typing
 pauses (for the first word; the other words narrow the list on screen).
+
+## 3 Nov 2026: Today, step by step (part 1 of 3; migration 239)
+
+Jonathan: Nomad Maps needs to be "more intuitive, and to break things down into
+very simple parts, that are step by step. Do this next, then this, and then
+this." Mockup agreed (Nomad Maps: step-by-step Today), built in three parts.
+
+Part 1, now: the admin opens on **Today** (the first item in the menu; the
+control centre is the item under it, and ?admin=centre). Today shows every job
+Next up knows, one at a time: "Do this next", what kind of job it is (someone
+is waiting on us, outreach, waiting for your Go, pages), its title and why,
+"How it goes" in 2 or 3 numbered steps (the same for every job of its kind),
+one button that opens the screen where it is done, and Skip for today (kept on
+this device until midnight). Beside it: "Then this", the jobs after it in
+order (a tap brings one to the top), and "Waiting on others, nothing to do"
+(spaces we wrote to with no answer yet, follow-ups planned for later). A bar
+counts what was done today: a job opened from Today that has left the list, or
+moved on to the next space, counts as done. Two jobs are new to Next up too:
+unread owner Chats, and Outreach follow-ups whose date has come (migration
+239, which also gives the waiting numbers).
+
+Still to come. Part 2: the job happens inside the card (what we know, the
+email, Send), and the Showing filter (Everyone's, Jonathan's, Leonie's).
+Part 3: the five-item menu (Today, Inbox, Spaces, Pages, Owners and money,
+More), one Inbox, and the tidy-up of old "they replied" boxes.

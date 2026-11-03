@@ -91,6 +91,7 @@ class _AdminGateState extends State<AdminGate> {
       const tools = {
         'analytics', 'users', 'pricing', 'outreach', 'upgrades', 'prices',
         'chats', 'sequences', 'ownerflow',
+        'centre', // the control centre itself; plain ?admin is Today
       };
       // ?admin=chats (nomadmaps.io/chats, the icon on a founder's
       // phone): the chats and nothing else, so it opens at once
