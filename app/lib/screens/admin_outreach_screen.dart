@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart'
@@ -148,6 +149,7 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
 
   @override
   void dispose() {
+    _searchWait?.cancel();
     _search.dispose();
     super.dispose();
   }
@@ -173,6 +175,99 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
     final a = '${c?['assigned_to'] ?? ''}'.trim();
     return _who == 'none' ? a.isEmpty : a == _who;
   }
+
+  // The search box above the lists (Jonathan, 3 Nov 2026: "with auto
+  // filtering on the name of a space, or region, or any keyword"). Every
+  // word typed must appear somewhere on the line: its name, place,
+  // person, address, notes, stage or why it is on the list.
+  Timer? _searchWait;
+
+  List<String> get _words => _search.text
+      .toLowerCase()
+      .split(RegExp(r'\s+'))
+      .where((w) => w.isNotEmpty)
+      .toList();
+
+  static String _haystack(Iterable<Object?> parts) {
+    final b = StringBuffer();
+    void add(Object? x) {
+      if (x == null) return;
+      if (x is Map) {
+        x.values.forEach(add);
+      } else if (x is Iterable) {
+        x.forEach(add);
+      } else {
+        b
+          ..write(' ')
+          ..write('$x'.toLowerCase());
+      }
+    }
+
+    parts.forEach(add);
+    return b.toString();
+  }
+
+  bool _hit(Iterable<Object?> parts) {
+    final w = _words;
+    if (w.isEmpty) return true;
+    final h = _haystack(parts);
+    return w.every(h.contains);
+  }
+
+  void _searchChanged() {
+    setState(() {});
+    // Everything asks the database (it holds more than is on screen):
+    // once typing pauses.
+    _searchWait?.cancel();
+    if (_tab == 'all') {
+      _searchWait = Timer(const Duration(milliseconds: 400), () {
+        if (mounted) _load();
+      });
+    }
+  }
+
+  Widget _searchBox() => Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: TextField(
+          controller: _search,
+          onChanged: (_) => _searchChanged(),
+          onSubmitted: (_) => _load(),
+          decoration: InputDecoration(
+            hintText: 'Search by space, city, country, person, email or any word',
+            prefixIcon: const Icon(Icons.search),
+            suffixIcon: _search.text.isEmpty
+                ? null
+                : IconButton(
+                    tooltip: 'Clear',
+                    icon: const Icon(Icons.clear),
+                    onPressed: () {
+                      _search.clear();
+                      _searchWait?.cancel();
+                      setState(() {});
+                      _load();
+                    }),
+            border: const OutlineInputBorder(),
+            isDense: true,
+          ),
+        ),
+      );
+
+  /// Under a list the search has emptied: the way to look further.
+  Widget _searchMiss() => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        child: Column(children: [
+          Text('Nothing here matches "${_search.text.trim()}".',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Brand.inkMuted)),
+          const SizedBox(height: 8),
+          OutlinedButton(
+              onPressed: () {
+                setState(() => _tab = 'all');
+                _load();
+              },
+              child: const Text('Search Everything')),
+        ]),
+      );
 
   void _setWho(String who) {
     setState(() => _who = who);
@@ -288,7 +383,9 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
     try {
       final rows = await _supabase.outreachList(
           stage: _stage,
-          query: _search.text.trim(),
+          // The database looks for the first word; the rest narrow the
+          // list on screen (_hit), so words can come in any order.
+          query: _words.isEmpty ? '' : _words.first,
           group: _group,
           step: _step);
       final counts = await _supabase.outreachCounts(group: _group);
@@ -5152,7 +5249,11 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
         idle: Brand.ink,
         onTap: () {
           setState(() => _tab = key);
-          if (key != 'all') _loadBoard();
+          if (key != 'all') {
+            _loadBoard();
+          } else if (_search.text.trim().isNotEmpty) {
+            _load(); // what was typed on another tab, asked of the database
+          }
         });
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
@@ -5574,8 +5675,8 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                         for (final c in _doneRows[k.$1]!)
-                          if (_whoOk(c)) _doneRow(k.$1, c),
-                        if (!_doneRows[k.$1]!.any(_whoOk))
+                          if (_whoOk(c) && _hit([c])) _doneRow(k.$1, c),
+                        if (!_doneRows[k.$1]!.any((c) => _whoOk(c) && _hit([c])))
                           const Padding(
                             padding: EdgeInsets.all(12),
                             child: Text('Nobody here.',
@@ -5945,8 +6046,14 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
 
   Widget _screen(BuildContext context, List<Map<String, dynamic>>? rows) {
     final allTasks = _tasks();
-    final waiting = _waitingRows(allTasks).where(_whoOk).toList();
-    final tasks = allTasks.where((t) => _whoOk(t.c)).toList();
+    final waiting = _waitingRows(allTasks)
+        .where((c) => _whoOk(c) && _hit([c, _askedNote(c['venue_id'])]))
+        .toList();
+    final tasks = allTasks
+        .where((t) =>
+            _whoOk(t.c) && _hit([t.name, t.sub, t.why, t.c, t.page]))
+        .toList();
+    final searching = _words.isNotEmpty;
     final intro = switch (_tab) {
       'todo' => 'What needs you, most urgent first. Work from the top; '
           'whatever is left waits for next time. Nothing is sent by itself.',
@@ -6022,10 +6129,15 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
                             ]),
                         const SizedBox(height: 8),
                         _boardTabs(tasks.length, waiting.length),
+                        _searchBox(),
                         if (_tab == 'todo')
-                          _todoView(tasks)
+                          searching && tasks.isEmpty && _board != null
+                              ? _searchMiss()
+                              : _todoView(tasks)
                         else if (_tab == 'waiting')
-                          _waitingView(waiting)
+                          searching && waiting.isEmpty && _board != null
+                              ? _searchMiss()
+                              : _waitingView(waiting)
                         else if (_tab == 'done')
                           _doneView()
                         else ...[
@@ -6039,25 +6151,6 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
                         else
                           _wholeCard(),
                         _showingBox(),
-                        TextField(
-                          controller: _search,
-                          onChanged: (_) => setState(() {}),
-                          onSubmitted: (_) => _load(),
-                          decoration: InputDecoration(
-                            hintText: 'Search by space, person, email or city',
-                            prefixIcon: const Icon(Icons.search),
-                            suffixIcon: _search.text.isEmpty
-                                ? null
-                                : IconButton(
-                                    icon: const Icon(Icons.clear),
-                                    onPressed: () {
-                                      _search.clear();
-                                      _load();
-                                    }),
-                            border: const OutlineInputBorder(),
-                            isDense: true,
-                          ),
-                        ),
                         const SizedBox(height: 10),
                         // Who: everyone, or one group.
                         Wrap(spacing: 6, runSpacing: 6, children: [
@@ -6206,7 +6299,7 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
                           )
                         else ...[
                           for (final c in rows)
-                            if (_whoOk(c)) _card(c),
+                            if (_whoOk(c) && _hit([c])) _card(c),
                           if (rows.length >= 200)
                             Padding(
                               padding: const EdgeInsets.all(12),

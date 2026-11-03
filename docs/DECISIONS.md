@@ -5748,3 +5748,14 @@ emails to visitors already come from "Nomadwise Spaces <spaces@nomadwise.io>"
 since migration 237 (they go through send_owner_email); its two "the chat is
 busy, please email ..." messages now say spaces@ too. hello@ is left for
 partners and general mail.
+
+## 3 Nov 2026: one search box above every Outreach tab
+
+Jonathan: the search bar belongs under To do / Waiting / Done / Everything,
+"with auto filtering on the name of a space, or region, or any keyword". The
+box now sits under the tabs on all four. It filters as you type: every word
+typed must appear somewhere on the line (the space's name, city, country,
+person, address, notes, stage, who it is assigned to, or why it is on the
+list), in any order. On To do and Waiting, when nothing matches, a "Search
+Everything" button looks further. Everything asks the database once typing
+pauses (for the first word; the other words narrow the list on screen).
