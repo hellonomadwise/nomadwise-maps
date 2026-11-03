@@ -1426,7 +1426,25 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   _sideMenu(current),
-                  Expanded(child: screen),
+                  // The search across the top, in the middle, above
+                  // every screen (Jonathan, 3 Nov 2026: "not
+                  // immediately obvious ... should be top middle").
+                  Expanded(
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Container(
+                            height: 60,
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            decoration: const BoxDecoration(
+                                color: Brand.surface,
+                                border: Border(
+                                    bottom: BorderSide(color: Brand.border))),
+                            child: Center(child: _topSearch()),
+                          ),
+                          Expanded(child: screen),
+                        ]),
+                  ),
                 ]),
           ),
         ),
@@ -1692,7 +1710,6 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         child: Text('Nomadwise',
             style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
       ),
-      _searchBox(),
       // Today first: every job, one at a time (Jonathan, 3 Nov 2026).
       item(Icons.today_outlined, 'Today', () => _showTool('today'),
           on: current == 'today', countOf: 'today'),
@@ -1912,42 +1929,45 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   /// view, whichever tool is open (Jonathan, 12 Oct 2026: "i don't have
   /// an easy search bar where I can search and access info about a
   /// listing").
-  Widget _searchBox() => Padding(
-        padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+  /// The search across the top of every screen beside the menu: wide,
+  /// in the middle, saying what it finds.
+  Widget _topSearch() => ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 620),
         child: Material(
           color: Brand.field,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(12),
           child: InkWell(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(12),
             onTap: _openSearch,
             child: Container(
-              height: 36,
-              padding: const EdgeInsets.symmetric(horizontal: 10),
+              height: 42,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
               decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Brand.hairline)),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Brand.border)),
               child: Row(children: [
-                const Icon(Icons.search, size: 17, color: Brand.inkMuted),
-                const SizedBox(width: 8),
+                const Icon(Icons.search, size: 20, color: Brand.inkSecondary),
+                const SizedBox(width: 10),
                 const Expanded(
-                    child: Text('Search spaces',
+                    child: Text(
+                        'Search any space, city, owner, email or claim',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                            fontSize: 13, color: Brand.inkSecondary))),
+                            fontSize: 14.5, color: Brand.inkSecondary))),
                 Container(
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                      const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                   decoration: BoxDecoration(
                       color: Brand.surface,
-                      borderRadius: BorderRadius.circular(4),
+                      borderRadius: BorderRadius.circular(5),
                       border: Border.all(color: Brand.border)),
                   child: Text(
                       Theme.of(context).platform == TargetPlatform.macOS
                           ? '⌘K'
                           : 'Ctrl K',
                       style: const TextStyle(
-                          fontSize: 10.5,
+                          fontSize: 11.5,
                           fontWeight: FontWeight.w600,
                           color: Brand.inkMuted)),
                 ),
@@ -3644,6 +3664,10 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                       child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
+                            if (!wide) ...[
+                              _topSearch(),
+                              const SizedBox(height: 14),
+                            ],
                             Text(
                                 jobs.isEmpty
                                     ? 'Nothing left for today.'

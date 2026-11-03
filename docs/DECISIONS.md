@@ -5801,3 +5801,13 @@ space's details" in Owners, and "Edit for real" on the preview's dark bar. The
 preview stays a preview. Photos are still changed from the space in the
 control centre (Photos). An empty description leaves the page's own text as
 it is; writing one replaces the page's description.
+
+## 3 Nov 2026: the search moves to the top middle
+
+Jonathan: the search box in the menu was "not immediately obvious ... should be
+top middle". On a computer, every screen beside the menu (Today, the control
+centre and each tool) now has a bar across the top with a wide search box in
+the middle: "Search any space, city, owner, email or claim", with Ctrl K (Cmd K
+on a Mac) shown in it. It opens the same search as before. The small box in
+the menu is gone. On a phone, Today has the same box at the top of the page,
+and the other screens keep their search icon.
