@@ -82,10 +82,15 @@ const List<_Node> _kNodes = [
   _Node('review', 'YOUR REVIEW', 100, 808, 150, bar: true),
   _Node('approved', 'APPROVED · LIVE', 100, 898, 130, sub: 'CHANGES-LIVE EMAIL'),
   _Node('declined', 'DECLINED', 262, 898, 76, block: true),
-  _Node('premium', 'PREMIUM', 80, 985, 70, result: 'premium'),
-  _Node('active', 'ACTIVE', 160, 985, 70, sub: 'COMES BACK', result: 'active'),
-  _Node('dormant', 'DORMANT', 240, 985, 70, result: 'dormant'),
-  _Node('lost', 'LOST', 320, 985, 70, result: 'lost'),
+  // after approval, by time (Jonathan, 3 Nov 2026): new under 14 days
+  // since approval, active when seen in the last 30, quiet 30 to 60
+  // days since last seen, dormant after 60
+  _Node('premium', 'PREMIUM', 42, 985, 58, result: 'premium'),
+  _Node('new', 'NEW', 106, 985, 58, sub: 'UNDER 14 D', result: 'new'),
+  _Node('active', 'ACTIVE', 170, 985, 58, sub: 'SEEN < 30 D', result: 'active'),
+  _Node('quiet', 'QUIET', 234, 985, 58, sub: '30 TO 60 D', result: 'quiet'),
+  _Node('dormant', 'DORMANT', 298, 985, 58, sub: 'OVER 60 D', result: 'dormant'),
+  _Node('lost', 'LOST', 362, 985, 58, result: 'lost'),
 ];
 
 const List<List<String>> _kEdges = [
@@ -105,9 +110,15 @@ const List<List<String>> _kEdges = [
   ['review', 'approved'],
   ['review', 'declined'],
   ['approved', 'premium'],
+  ['approved', 'new'],
   ['approved', 'active'],
+  ['approved', 'quiet'],
   ['approved', 'dormant'],
+  ['declined', 'new'],
+  ['declined', 'quiet'],
   ['declined', 'dormant'],
+  ['left', 'new'],
+  ['left', 'quiet'],
   ['left', 'dormant'],
   ['never', 'lost'],
   ['noclaim', 'followup'],
@@ -120,8 +131,18 @@ const Map<String, double> _kVia = {
   'web>claim': 195,
   'out>claim': 195,
   'followup>lost': 378,
-  'left>dormant': 940,
-  'never>lost': 945,
+  'left>new': 935,
+  'left>quiet': 935,
+  'left>dormant': 935,
+  'declined>new': 945,
+  'declined>quiet': 945,
+  'declined>dormant': 945,
+  'approved>premium': 955,
+  'approved>new': 955,
+  'approved>active': 955,
+  'approved>quiet': 955,
+  'approved>dormant': 955,
+  'never>lost': 965,
 };
 
 /// Row labels down the left.
@@ -199,17 +220,27 @@ const Map<String, _Lever> _kLevers = {
       'A declined edit with no way forward is a dead end. Tell them what '
           'was declined and how to fix it, kindly, with the link back in.',
       [('MANUAL · EXPLAIN AND INVITE BACK', false)]),
-  'dormant': _Lever(
-      'Changes went live, owner did not come back',
-      'The changes-live email closes the loop once; nothing yet gives them a '
-          'reason to return. A monthly email with the listing\'s numbers '
-          '(views, enquiries, bookings) and one suggested improvement.',
-      [('SYSTEM · MONTHLY NUMBERS EMAIL', true)]),
+  'new': _Lever(
+      'Approved less than 14 days ago',
+      'Too early to judge. The changes-live email has done its job; give them '
+          'a fortnight before reading anything into silence. Nothing to do.',
+      [('SYSTEM · CHANGES-LIVE EMAIL', true)]),
   'active': _Lever(
-      'Logged in again after approval',
-      'These are the owners who get value from the free tier. The Premium '
-          'pitch lands here, with the monthly numbers as the natural moment.',
-      [('MANUAL · PREMIUM CONVERSATION', false), ('SYSTEM · PITCH IN MONTHLY EMAIL', true)]),
+      'Seen in the last 30 days',
+      'Healthy. These are the owners who get value from the free tier, and '
+          'where the Premium conversation belongs.',
+      [('MANUAL · PREMIUM CONVERSATION', false)]),
+  'quiet': _Lever(
+      '30 to 60 days since they were last here',
+      'The nudge window: a short note from you with one real number about '
+          'their page (views this month) earns its keep here. This is where a '
+          'regular email, if we test one, would land.',
+      [('MANUAL · A NOTE WITH ONE NUMBER', false), ('SYSTEM · REGULAR EMAIL, IF TESTED', true)]),
+  'dormant': _Lever(
+      'More than 60 days since they were last here',
+      'Gone, for now. One note; if nothing comes back, leave them and let the '
+          'listing carry on as it is.',
+      [('MANUAL · ONE NOTE', false)]),
   'premium': _Lever(
       'Paying', 'Keep them warm: the monthly numbers, and a reply within a day.',
       [('SYSTEM · MONTHLY NUMBERS EMAIL', true)]),
@@ -270,11 +301,8 @@ class _Owner {
     if (has('noclaim')) return 'noclaim';
     if (has('never')) return 'never';
     if (waiting) return 'waiting';
-    if (has('left')) return 'left';
-    if (has('declined')) return 'declined';
-    if (end == 'dormant') return 'dormant';
-    if (end == 'active') return 'active';
-    if (end == 'premium') return 'premium';
+    if (has('left') && end == 'new') return 'left';
+    if (has('declined') && end == 'new') return 'declined';
     return end;
   }
 
@@ -294,7 +322,12 @@ class _Owner {
       if (_n('applied') > 0) b.add('${_n('applied')} edit${_n('applied') == 1 ? '' : 's'} approved');
       if (_n('declined') > 0) b.add('${_n('declined')} declined');
       if (_n('unsent') > 0) b.add('a draft never sent');
-      if (has('approved')) b.add(_n('days_after_review') > 0 ? 'came back after approval' : 'no visit since approval');
+      if (has('approved')) {
+        final r = m['returned_30'];
+        b.add(r == true ? 'came back within 30 days of approval' : r == false ? 'did not come back within 30 days' : 'approved recently');
+      }
+      final q = m['days_quiet'];
+      if (q is num && q >= 1) b.add('last here ${q.round()} day${q.round() == 1 ? '' : 's'} ago');
     }
     return b.join(' · ');
   }
@@ -308,7 +341,9 @@ class _Owner {
             ? 'Nudge: "your draft is still waiting, one click to send it".'
             : 'Nudge: one quick edit (wifi, prices, photos).',
         'declined' => 'Tell them what was declined and how to fix it.',
-        'dormant' => 'Write to them: ask how the page is working for them, and give them one number (views this month).',
+        'new' => '',
+        'quiet' => 'Write to them: ask how the page is working for them, and give them one number (views this month).',
+        'dormant' => 'One note; if nothing comes back, leave them.',
         'active' => 'Premium conversation.',
         'premium' => 'Write to them: a short check-in, and one number.',
         _ => '',
@@ -326,7 +361,7 @@ class _Bead {
   bool get amber {
     if (seg >= owner.path.length - 1) return false;
     final b = _kByKey[owner.path[seg + 1]];
-    return b != null && (b.block || b.result == 'lost' || b.result == 'dormant');
+    return b != null && (b.block || b.result == 'lost' || b.result == 'dormant' || b.result == 'quiet');
   }
 }
 
@@ -499,7 +534,7 @@ class _AdminOwnerFlowScreenState extends State<AdminOwnerFlowScreen>
         _lit[arrived] = 700;
         if (_soundOn) {
           final nb = _kByKey[arrived]!;
-          final amber = nb.block || nb.result == 'lost' || nb.result == 'dormant';
+          final amber = nb.block || nb.result == 'lost' || nb.result == 'dormant' || nb.result == 'quiet';
           if (amber) {
             sound.playNote(392, 1.2, .06);
           } else {
@@ -727,7 +762,9 @@ class _AdminOwnerFlowScreenState extends State<AdminOwnerFlowScreen>
     int n(String e) => xs.where((o) => o.end == e).length;
     final parts = <String>[];
     if (n('premium') > 0) parts.add('${n('premium')} premium');
+    parts.add('${n('new')} new');
     parts.add('${n('active')} active');
+    parts.add('${n('quiet')} quiet');
     parts.add('${n('dormant')} dormant');
     parts.add('${n('lost')} lost');
     parts.add('${n('waiting')} in reminders');
@@ -931,26 +968,31 @@ class _AdminOwnerFlowScreenState extends State<AdminOwnerFlowScreen>
     final pLogin = np((o) => o.has('cc'));
     final pSubmitted = np((o) => o.has('updated'));
     final pApproved = np((o) => o.has('approved'));
-    final pBack = np((o) => o.has('approved') && (o.end == 'active' || o.end == 'premium'));
+    final pBack = np((o) => o.m['returned_30'] == true);
+    final pBackKnown = np((o) => o.m['returned_30'] != null);
     final pPremium = np((o) => o.end == 'premium');
     final pWaiting = np((o) => o.end == 'waiting');
     final pLost = np((o) => o.end == 'lost' || o.end == 'dormant');
+    final pQuiet = np((o) => o.end == 'quiet');
     final claimed = n((o) => o.has('claimed'));
     final recovered = n((o) => o.has('followup') && o.has('claimed'));
     final login = n((o) => o.has('cc'));
     final submitted = n((o) => o.has('updated'));
     final approved = n((o) => o.has('approved'));
-    final back = n((o) => o.has('approved') && (o.end == 'active' || o.end == 'premium'));
+    final back = n((o) => o.m['returned_30'] == true);
+    final backKnown = n((o) => o.m['returned_30'] != null);
     final premium = n((o) => o.end == 'premium');
     final waiting = n((o) => o.end == 'waiting');
     final lost = n((o) => o.end == 'lost' || o.end == 'dormant');
+    final quiet = n((o) => o.end == 'quiet');
 
     final leaks = <(String, int)>[
       ('Claim page: visited, no claim, follow-up did not bring them back', n((o) => o.has('noclaim') && !o.has('claimed'))),
       ('Login: claimed, never logged in, even after reminders', n((o) => o.has('never'))),
       ('First visit: logged in, looked, changed nothing', n((o) => o.has('left'))),
-      ('Review: edit declined, owner did not return', n((o) => o.has('declined') && o.end == 'dormant')),
-      ('After approval: changes went live, owner never came back', n((o) => o.has('approved') && o.end == 'dormant')),
+      ('Review: edit declined, owner has gone quiet', n((o) => o.has('declined') && (o.end == 'quiet' || o.end == 'dormant'))),
+      ('After approval: changes went live, owner has gone quiet (30 to 60 days)', n((o) => o.has('approved') && o.end == 'quiet')),
+      ('After approval: owner dormant (over 60 days)', n((o) => o.has('approved') && o.end == 'dormant')),
     ]..sort((a, b) => b.$2.compareTo(a.$2));
     final top = leaks.first;
 
@@ -1017,9 +1059,10 @@ class _AdminOwnerFlowScreenState extends State<AdminOwnerFlowScreen>
         row('Logged in (now or after reminders)', login, prev: pLogin),
         row('Submitted an edit', submitted, prev: pSubmitted),
         row('Edit approved by you', approved, prev: pApproved),
-        row('Came back after approval', back, prev: pBack),
+        row('Returned within 30 days of approval${backKnown > 0 ? ' (of $backKnown we can tell)' : ''}', back, prev: pBackKnown > 0 ? pBack : null),
         row('Premium (paying)', premium, color: Brand.success, prev: pPremium),
         row('Still in the reminder sequence', waiting, prev: pWaiting, upIsGood: false),
+        row('Quiet (30 to 60 days)', quiet, color: Brand.goldTextDark, prev: pQuiet, upIsGood: false),
         row('Lost or dormant', lost, color: Brand.goldTextDark, prev: pLost, upIsGood: false),
         if (reviewed != null) ...[
           const SizedBox(height: 8),
@@ -1172,7 +1215,7 @@ class _FlowPainter extends CustomPainter {
         final to = s < b.seg ? metric.length : metric.length * b.k;
         if (to <= 0) continue;
         final nb = _kByKey[path[s + 1]]!;
-        final amber = nb.block || nb.result == 'lost' || nb.result == 'dormant';
+        final amber = nb.block || nb.result == 'lost' || nb.result == 'dormant' || nb.result == 'quiet';
         final fade = b.finished ? .35 : 1.0;
         final glow = Paint()
           ..style = PaintingStyle.stroke
@@ -1211,6 +1254,9 @@ class _FlowPainter extends CustomPainter {
         text = Brand.inkSecondary;
       } else if (n.result == 'premium') {
         stroke = Brand.success;
+      } else if (n.result == 'quiet' || n.result == 'dormant') {
+        stroke = _amber;
+        text = Brand.goldTextDark;
       }
       if (n.off) {
         text = Brand.inkFaint;
@@ -1240,7 +1286,7 @@ class _FlowPainter extends CustomPainter {
         canvas.drawRRect(r, sp);
       }
       final tx = n.key == 'remind' ? n.x - 28 : n.x;
-      _text(canvas, n.label, Offset(tx, n.y + (n.sub != null ? -4 : 0)), 9.5,
+      _text(canvas, n.label, Offset(tx, n.y + (n.sub != null ? -4 : 0)), n.result != null ? 8.5 : 9.5,
           color: text, weight: n.strip ? FontWeight.w500 : FontWeight.w700);
       if (n.sub != null) {
         _text(canvas, n.sub!, Offset(tx, n.y + 7), 6.8, color: sub, weight: FontWeight.w400, spacing: .8);
@@ -1249,7 +1295,7 @@ class _FlowPainter extends CustomPainter {
       if (count != null && (n.block || n.result != null || (n.strip && !n.off) || n.key == 'remind')) {
         final was = prev?[n.key];
         final d = (prev != null && !n.strip) ? count - (was ?? 0) : 0;
-        final bad = n.block || n.result == 'lost' || n.result == 'dormant';
+        final bad = n.block || n.result == 'lost' || n.result == 'dormant' || n.result == 'quiet';
         final good = (d > 0) != bad;
         if (n.key == 'remind') {
           // held inside the bar: a badge on its right, clear of the line down
@@ -1329,9 +1375,14 @@ class _FlowPainter extends CustomPainter {
         case 'premium':
           fill = Brand.success;
           stroke = Brand.success;
+        case 'new':
+          stroke = _flow;
         case 'active':
           fill = _flow;
           stroke = _flow;
+        case 'quiet':
+          fill = Brand.goldTint;
+          stroke = Brand.gold;
         case 'dormant':
           fill = Brand.inkFaint;
           stroke = Brand.inkFaint;

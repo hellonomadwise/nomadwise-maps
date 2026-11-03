@@ -4956,3 +4956,25 @@ which is the space the visitor came for, not the visitor, and so
 included the team. It now counts real people from the claim_opened
 events with team devices and known bots left out, the way Analytics
 does: 49 people since 21 Sep, not 35.
+
+## 3 Nov 2026: the Owner flow's results by time (migration 205)
+
+Jonathan, on OUR HQ (Glasgow), who claimed, logged in and had an edit
+approved within an hour and showed as Dormant: "I'm not sure if we
+should categorise these as dormant, as it implies that something is
+wrong ... there is claimed, logged in, made changes, and then it's
+about how often do they come back, and in what time frames. Maybe we
+should define what dormant means." Defined, with Jonathan's numbers:
+- After approval, by time: New (approved under 14 days ago, nothing
+  to do), Active (seen in the last 30 days), Quiet (30 to 60 days
+  since last seen: the nudge window), Dormant (over 60 days). Looks
+  only and Declined owners follow the same clock from their last
+  visit. Six result boxes: Premium, New, Active, Quiet, Dormant, Lost.
+- "Came back" is now a measure, not a box: returned within 30 days of
+  approval, shown as "x of y we can tell" (owners approved under 30
+  days ago who have not returned are not yet counted either way).
+- Claim-page visitors leave out a crawler that arrived on the claim
+  page from random blog posts (29 visits, 22 Oct to 3 Nov, not one
+  step taken): a visit counts when it came from anywhere but a blog
+  post, or the visitor did something on the page. 56 people, not 85.
+- The Monday review uses the same labels.
