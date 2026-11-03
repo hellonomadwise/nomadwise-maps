@@ -131,18 +131,19 @@ const Map<String, double> _kVia = {
   'web>claim': 195,
   'out>claim': 195,
   'followup>lost': 378,
-  'left>new': 935,
-  'left>quiet': 935,
-  'left>dormant': 935,
-  'declined>new': 945,
-  'declined>quiet': 945,
-  'declined>dormant': 945,
-  'approved>premium': 955,
-  'approved>new': 955,
-  'approved>active': 955,
-  'approved>quiet': 955,
-  'approved>dormant': 955,
-  'never>lost': 965,
+  // everything after review joins one rail above the results
+  'left>new': 950,
+  'left>quiet': 950,
+  'left>dormant': 950,
+  'declined>new': 950,
+  'declined>quiet': 950,
+  'declined>dormant': 950,
+  'approved>premium': 950,
+  'approved>new': 950,
+  'approved>active': 950,
+  'approved>quiet': 950,
+  'approved>dormant': 950,
+  'never>lost': 962,
 };
 
 /// Row labels down the left.
@@ -1339,9 +1340,12 @@ class _FlowPainter extends CustomPainter {
           final i = o.path.indexOf(e[0]);
           return i >= 0 && i + 1 < o.path.length && o.path[i + 1] == e[1];
         }).length;
+        if (took == 0) continue; // an unused branch gets no label
         final m = _edgePath(e[0], e[1]).computeMetrics().first;
-        final mid = m.getTangentForOffset(m.length / 2)!.position;
-        _text(canvas, '${(took * 100 / at).round()}%', Offset(mid.dx, mid.dy - 6), 7, color: Brand.inkFaint, weight: FontWeight.w500, spacing: 0);
+        final nb = _kByKey[e[1]]!;
+        // on the shared rail, label the branch above its result box
+        final at2 = nb.result != null ? Offset(nb.x, nb.y - _kH / 2 - 7) : m.getTangentForOffset(m.length / 2)!.position.translate(0, -6);
+        _text(canvas, '${(took * 100 / at).round()}%', at2, 7, color: Brand.inkFaint, weight: FontWeight.w500, spacing: 0);
       }
     }
 
