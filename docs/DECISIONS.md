@@ -6037,3 +6037,7 @@ Jonathan: "I don't like that the 2 is less wide than 3 to 5. So it should be uni
 Jonathan: transactional emails must "never have ... orange ... It has to be the nomadwise red color. And it should be the nomadwise logo and nomadwise branding", corners 8px. The designed email (email_html, used by owner, claim, enquiry and confirmation emails) used #E0442E, an orange red, for buttons, links, the signature and the "nomadwise" word at the top. All of it is now #FF444F, and the top shows the real logo (the website header logo, saved as app/web/email/nomadwise-logo.png, served at https://nomadmaps.io/email/nomadwise-logo.png, 600x178 shown at 150x44, alt text "nomadwise.io"). Corners were already 8px (migration 246).
 
 Also agreed (not built yet): user-facing pages use Nomadwise red; business-facing areas (the partner area) may use a light blue accent instead, never the dark turquoise.
+
+## "Held for Premium" email shows what was asked (migration 248, 4 Nov 2026)
+
+From Jonathan's open list ("do these"). When a free page has used its 2 free enquiries, the owner's "A new enquiry for X is waiting for you" email now shows what was asked (the Asking about, People, Day or Starting, and Time lines from the enquiry), never who sent it or their message: "Their name, email and message come with Nomadwise Premium." An enquiry from the site's older pop-up, without those lines, says the message, name and email come with Premium.
