@@ -193,7 +193,7 @@
       '.nwp,.nwp-sheet{--nwp-red:' + RED + ';--nwp-red-ink:#D7303A;--nwp-teal:' + TEAL + ';--nwp-ink:#2C2C2C;--nwp-muted:#5E6670;--nwp-line:rgba(0,0,0,.08);--nwp-soft:#F8F8FA}',
       '.nwp *,.nwp-sheet *{box-sizing:border-box}',
       '.nwp label,.nwp-sheet label{margin:0;font-weight:400}',
-      '.nwp{margin:28px 0 8px;font-family:inherit;color:var(--nwp-ink);animation:nwp-in .35s ' + EASE + ' both}',
+      '.nwp{margin:28px 0 36px;font-family:inherit;color:var(--nwp-ink);animation:nwp-in .35s ' + EASE + ' both}',
       '@keyframes nwp-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}',
       '.nwp h2.nwp-h{margin:0 0 4px;font-size:21px;font-weight:700;line-height:1.25}',
       '.nwp-sub{margin:0 0 14px;font-size:14px;line-height:1.45;color:var(--nwp-muted)}',
@@ -405,17 +405,9 @@
     var lead = (first.getDay() + 6) % 7;
     var inMonth = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
     var cells = Math.ceil((lead + inMonth) / 7) * 7;
-    var nm = nextMonday();
-    var firstNext = new Date(t.getFullYear(), t.getMonth() + 1, 1);
-    var quick = kind === 'start'
-      ? [['Next Monday', nm], ['1st of next month', firstNext], ["I'm flexible", 'flex']]
-      : [['Today', t], ['Tomorrow', addDays(t, 1)], ['Next Monday', nm], ["I'm flexible", 'flex']];
-    var h = '<div class="nwp-cal"><div class="nwp-quick">';
-    quick.forEach(function (q, i) {
-      var on = q[1] === 'flex' ? S.flexible : (!S.flexible && sameDay(S.date, q[1]));
-      h += '<button type="button" class="nwp-q' + (on ? ' on' : '') + '" data-a="quick" data-v="' + (q[1] === 'flex' ? 'flex' : q[1].getTime()) + '" data-k="q' + i + '">' + esc(q[0]) + '</button>';
-    });
-    h += '</div><div class="nwp-mh"><button type="button" class="nwp-nav" data-a="prev" data-k="prev" aria-label="Previous month"' + (S.monthOffset <= 0 ? ' disabled' : '') + '>' + ICON_L + '</button>' +
+    // Just the calendar: people are used to picking a date (Jonathan, 3 Nov 2026).
+    var h = '<div class="nwp-cal">';
+    h += '<div class="nwp-mh"><button type="button" class="nwp-nav" data-a="prev" data-k="prev" aria-label="Previous month"' + (S.monthOffset <= 0 ? ' disabled' : '') + '>' + ICON_L + '</button>' +
       '<b aria-live="polite">' + esc(title) + '</b>' +
       '<button type="button" class="nwp-nav" data-a="next" data-k="next" aria-label="Next month"' + (S.monthOffset >= 11 ? ' disabled' : '') + '>' + ICON_R + '</button></div>' +
       '<div class="nwp-grid" role="group" aria-label="' + esc(title) + '">';
@@ -474,10 +466,10 @@
       }
       h += '</select></div><div class="nwp-fl"><span class="nwp-lt">For how long?</span>' + segHtml('length', LENGTHS, null, S.length, 'For how long') + '</div>';
     }
-    h += '<div class="nwp-two">' +
+    h += '' +
       '<div class="nwp-fl"><label class="nwp-lt" for="nwp-name">Your name</label><input class="nwp-in' + (S.bad === 'name' ? ' bad' : '') + '" id="nwp-name" type="text" autocomplete="name" maxlength="120" data-f="name" data-k="name" value="' + esc(S.name) + '"' + (S.bad === 'name' ? ' aria-invalid="true"' : '') + '></div>' +
       '<div class="nwp-fl"><label class="nwp-lt" for="nwp-email">Your email</label><input class="nwp-in' + (S.bad === 'email' ? ' bad' : '') + '" id="nwp-email" type="email" inputmode="email" autocomplete="email" maxlength="200" data-f="email" data-k="email" value="' + esc(S.email) + '" aria-describedby="nwp-email-hint"' + (S.bad === 'email' ? ' aria-invalid="true"' : '') + '>' +
-      '<span class="nwp-hint" id="nwp-email-hint">' + (S.bad === 'email' ? esc(S.error) : '') + '</span></div></div>';
+      '<span class="nwp-hint" id="nwp-email-hint">' + (S.bad === 'email' ? esc(S.error) : '') + '</span></div>';
     h += '<div class="nwp-fl"><label class="nwp-lt" for="nwp-msg">Anything to add? <i>(optional)</i></label>' +
       '<textarea class="nwp-in" id="nwp-msg" rows="2" maxlength="1500" data-f="message" data-k="message">' + esc(S.message) + '</textarea></div>';
     h += '</div><div class="nwp-ft">' +
@@ -761,6 +753,28 @@
     });
     return true;
   }
+
+  // Any enquiry sent from this page (the price list or the site's own
+  // Send an enquiry pop-up): ask for it to be filed now, so the person
+  // gets their confirmation email within minutes (migration 244).
+  function nudge() {
+    try {
+      fetch(URL_ + '/rest/v1/rpc/enquiry_nudge', {
+        method: 'POST', keepalive: true,
+        headers: { apikey: KEY, Authorization: 'Bearer ' + KEY, 'Content-Type': 'application/json' },
+        body: '{}'
+      }).catch(function () {});
+    } catch (e) {}
+  }
+  document.addEventListener('submit', function (ev) {
+    var f = ev.target;
+    if (!f || f.id !== 'wf-form-Research-Form') return;
+    var box = f.parentElement, done = box && box.querySelector('.w-form-done'), t0 = Date.now();
+    (function look() {
+      if (done && getComputedStyle(done).display !== 'none') { setTimeout(nudge, 1500); return; }
+      if (Date.now() - t0 < 60000) setTimeout(look, 500);
+    })();
+  }, true);
 
   function start() {
     fetch(URL_ + '/rest/v1/rpc/page_prices', {

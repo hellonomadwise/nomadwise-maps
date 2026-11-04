@@ -5982,3 +5982,29 @@ slick, as if we are a fully funded series A SaaS". Built:
 Jonathan: "to be able to determine what action to take, I need to be able to see the full email … currently it's cutting it off."
 
 The "Old replies to settle" window showed only the first 140 characters of each reply. Each line now has "Show the full email", which opens the whole message in place (scrolls if long, text can be selected and copied), and "Show less" to fold it again. When there is more than one message with that space, "All messages (n)" opens the full back-and-forth. Display only; nothing about the data changed.
+
+## Enquiry pop-up: just a calendar, name and email on their own lines (3 Nov 2026)
+
+Jonathan: the quick picks ("1st of next month", "I'm flexible") felt strange; "they will just be used to selecting a date". Removed all quick-pick buttons, the calendar alone remains (it still opens on next Monday for monthly options, tomorrow for day and hourly ones). Name and email were squeezed side by side, now each has its own full-width line. More space under the price list so it doesn't sit tight on the map.
+
+## Everyone who enquires gets an email straight away (migration 244, 4 Nov 2026)
+
+Jonathan: "i would kind of expect to receive a confirmation email sent to user who enquired, to confirm the information they submitted, and to let them know what is happening."
+
+Before, the person was only emailed once the enquiry had gone to the space, nothing showed what they had sent, and the import ran every few hours (GitHub's schedule), so even that was late. Enquiries waiting for a founder, held for Premium, or sent to a Verified space's enquiry address got no email at all.
+
+Now, as soon as an enquiry is filed: "Your enquiry has been sent to X" when it went, or "We have your enquiry for X" when it waits for us (the "sent" one follows when it goes). Both repeat what they sent and their details. The page asks for the import to run the moment the form is sent (enquiry_nudge, at most once a minute), so this arrives within minutes, for the price list and the site's own Send an enquiry pop-up alike.
+
+Team tests (any @nomadwise.io address) never go to the space or use one of its free enquiries; the tester gets the email the person would have had, marked [Test]. Added after Jonathan's test enquiry to OUR HQ nearly went to them as free enquiry 1 of 2.
+
+## Outreach: Invite to claim in the old replies window (4 Nov 2026)
+
+Jonathan: "most of the time its going to be that its worth (if we have their email) to reach out to them letting them know that they can now claim their free listing on nomadwise … so an option for this would be great straight away."
+
+Each old reply with an email address now has "Invite to claim" first. It opens the usual email window with the claim email ("We have been in touch before…" for a space on the site, "Listing X on Nomadwise" for one that is not), to read and send; once sent, the line is settled. A space that has already claimed gets its Owner account email instead.
+
+## Outreach: message history as a timeline (4 Nov 2026)
+
+Jonathan: "the timeframe Jul24 for example isn't big enough, its too difficult to get a sense on timeline and which is the oldest to newest".
+
+The history window now opens with a summary ("4 messages over 1 year and 2 months, Jul 2024 to Sep 2025. Last one 1 year and 2 months ago"), shows the newest first with a button to turn it round, and each message has a coloured "We wrote"/"They wrote" tag, the full date in bold ("Thu 11 July 2024"), the time and how long ago, NEWEST/FIRST marks, and the time between messages on the line that joins them.

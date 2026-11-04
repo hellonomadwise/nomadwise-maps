@@ -1414,10 +1414,10 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
 
   /// Writes to a line. [template] is the one to open with, when the
   /// caller knows better than the guess below (To do, migration 225).
-  Future<void> _reply(Map<String, dynamic> c, {String? template}) async {
+  Future<bool> _reply(Map<String, dynamic> c, {String? template}) async {
     if ('${c['email'] ?? ''}'.isEmpty) {
       _snack('No email address for this contact yet. Edit it first.', bad: true);
-      return;
+      return false;
     }
     // A first email to someone who has not written to us goes only to
     // a business address (GDPR). Replies to people who wrote are fine.
@@ -1426,30 +1426,30 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
       if (st == 'no') {
         _snack('This address was marked as personal, so no email. Use '
             'WhatsApp, Instagram or a business address instead.', bad: true);
-        return;
+        return false;
       }
       if (st == 'check' && !await _confirmBusiness(c)) {
         if (mounted && _bizState(c) == 'no') {
           _snack('Marked as a personal address, so no email. Use WhatsApp, '
               'Instagram or a business address instead.', bad: true);
         }
-        return;
+        return false;
       }
-      if (!mounted) return;
+      if (!mounted) return false;
     }
     if (_templates.isEmpty) {
       try {
         _templates = await _supabase.outreachTemplates();
       } catch (e) {
         _snack(_plain(e), bad: true);
-        return;
+        return false;
       }
     }
     if (_templates.isEmpty) {
       _snack('No templates found.', bad: true);
-      return;
+      return false;
     }
-    if (!mounted) return;
+    if (!mounted) return false;
     // The likeliest template first: already on the site, or not.
     final onSite = c['on_site'] == true;
     // Somebody looked at their claim page: the follow-up comes first.
@@ -2011,6 +2011,7 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
           : 'Sent to ${c['email']}.');
       await _load();
     }
+    return sent == true;
   }
 
   /// What a template can have filled in for it, with a word on each.
@@ -4925,47 +4926,172 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
     );
   }
 
+  /// A span of time in words: "same day", "8 days", "3 weeks",
+  /// "5 months", "1 year and 2 months".
+  static String _span(Duration d) {
+    final days = d.inDays.abs();
+    if (days == 0) return 'the same day';
+    if (days == 1) return '1 day';
+    if (days < 14) return '$days days';
+    if (days < 60) return '${(days / 7).round()} weeks';
+    final months = (days / 30.44).round();
+    if (months < 12) return '$months months';
+    final y = months ~/ 12, m = months % 12;
+    final ys = y == 1 ? '1 year' : '$y years';
+    if (m == 0) return ys;
+    return '$ys and ${m == 1 ? '1 month' : '$m months'}';
+  }
+
+  /// Every message with a space, as a timeline (Jonathan, 4 Nov 2026:
+  /// "Jul 24 isn't big enough, it's too difficult to get a sense of
+  /// timeline and which is the oldest to newest"). Newest first, as the
+  /// latest is what the next step answers; one tap turns it round.
   void _showHistory(Map<String, dynamic> c, List<Map<String, dynamic>> ms) {
+    DateTime? at(Map<String, dynamic> m) =>
+        DateTime.tryParse('${m['at'] ?? ''}')?.toLocal();
+    final sorted = List<Map<String, dynamic>>.from(ms)
+      ..sort((a, b) => (at(a) ?? DateTime(1970)).compareTo(at(b) ?? DateTime(1970)));
+    final first = sorted.isEmpty ? null : at(sorted.first);
+    final last = sorted.isEmpty ? null : at(sorted.last);
+    final now = DateTime.now();
+    var newestFirst = true;
+    final dayFmt = DateFormat('EEE d MMMM y');
+    final timeFmt = DateFormat('HH:mm');
+
+    Widget message(Map<String, dynamic> m, bool newest, bool oldest) {
+      final out = m['direction'] == 'out';
+      final d = at(m);
+      final fg = out ? Brand.logoNavy : Brand.red;
+      return Container(
+        decoration: BoxDecoration(
+            color: out ? Brand.logoTealTint : Brand.bg,
+            border: Border.all(
+                color: newest ? fg.withValues(alpha: .45) : Colors.transparent,
+                width: 1.5),
+            borderRadius: BorderRadius.circular(10)),
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                      color: fg, borderRadius: BorderRadius.circular(10)),
+                  child: Text(out ? 'We wrote' : 'They wrote',
+                      style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white)),
+                ),
+                Text(d == null ? 'Date unknown' : dayFmt.format(d),
+                    style: const TextStyle(
+                        fontSize: 15, fontWeight: FontWeight.w700, color: Brand.ink)),
+                if (d != null)
+                  Text(
+                      '${timeFmt.format(d)} · ${now.difference(d).inDays < 1 ? 'today' : '${_span(now.difference(d))} ago'}',
+                      style: const TextStyle(fontSize: 13, color: Brand.inkSecondary)),
+                if (newest)
+                  const Text('NEWEST',
+                      style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: .6,
+                          color: Brand.inkSecondary)),
+                if (oldest && !newest)
+                  const Text('FIRST',
+                      style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: .6,
+                          color: Brand.inkSecondary)),
+              ]),
+          if (m['subject'] != null && '${m['subject']}'.trim().isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text('${m['subject']}',
+                style: const TextStyle(
+                    fontSize: 13.5, fontWeight: FontWeight.w600, color: Brand.ink)),
+          ],
+          if (m['send_error'] != null) ...[
+            const SizedBox(height: 4),
+            Text('Failed: ${m['send_error']}',
+                style: const TextStyle(fontSize: 12.5, color: Brand.red)),
+          ],
+          const SizedBox(height: 8),
+          SelectableText('${m['body'] ?? ''}',
+              style: const TextStyle(fontSize: 13.5, height: 1.45)),
+        ]),
+      );
+    }
+
+    // The time between two messages, on the line that joins them.
+    Widget gap(Duration d) => Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Row(children: [
+            const SizedBox(width: 18),
+            Container(width: 2, height: 26, color: Brand.border),
+            const SizedBox(width: 10),
+            Text('${_span(d)}${d.inDays == 0 ? '' : ' between'}',
+                style: const TextStyle(
+                    fontSize: 12.5,
+                    fontStyle: FontStyle.italic,
+                    color: Brand.inkSecondary)),
+          ]),
+        );
+
     showDialog<void>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('${c['space_name'] ?? c['email']}'),
-        content: SizedBox(
-          width: 600,
-          height: 480,
-          child: ms.isEmpty
-              ? const Text('Nothing yet.')
-              : ListView(children: [
-                  for (final m in ms)
-                    Container(
-                      margin: const EdgeInsets.only(bottom: 10),
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                          color: m['direction'] == 'out'
-                              ? Brand.logoTealTint
-                              : Brand.bg,
-                          borderRadius: BorderRadius.circular(8)),
-                      child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                                '${m['direction'] == 'out' ? 'We wrote' : 'They wrote'}'
-                                ' · ${_when(m['at'])}'
-                                '${m['subject'] != null ? ' · ${m['subject']}' : ''}'
-                                '${m['send_error'] != null ? ' · FAILED: ${m['send_error']}' : ''}',
-                                style: const TextStyle(
-                                    fontSize: 12, color: Brand.inkMuted)),
-                            const SizedBox(height: 4),
-                            SelectableText('${m['body'] ?? ''}',
-                                style: const TextStyle(fontSize: 13, height: 1.4)),
-                          ]),
+      builder: (ctx) => StatefulBuilder(builder: (ctx, set) {
+        final list = newestFirst ? sorted.reversed.toList() : sorted;
+        return AlertDialog(
+          title: Text('${c['space_name'] ?? c['email']}'),
+          content: SizedBox(
+            width: 640,
+            height: 520,
+            child: sorted.isEmpty
+                ? const Text('Nothing yet.')
+                : Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                    Wrap(
+                        spacing: 10,
+                        runSpacing: 8,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Text(
+                              '${sorted.length} ${sorted.length == 1 ? 'message' : 'messages'}'
+                              '${first != null && last != null && sorted.length > 1 ? ' over ${_span(last.difference(first))}, ${DateFormat('MMM y').format(first)} to ${DateFormat('MMM y').format(last)}' : ''}'
+                              '${last != null ? '. Last one ${now.difference(last).inDays < 1 ? 'today' : '${_span(now.difference(last))} ago'}.' : ''}',
+                              style: const TextStyle(
+                                  fontSize: 13.5, color: Brand.inkSecondary)),
+                          if (sorted.length > 1)
+                            TextButton.icon(
+                                onPressed: () => set(() => newestFirst = !newestFirst),
+                                icon: Icon(
+                                    newestFirst ? Icons.arrow_downward : Icons.arrow_upward,
+                                    size: 16),
+                                label: Text(newestFirst
+                                    ? 'Newest first (show oldest first)'
+                                    : 'Oldest first (show newest first)')),
+                        ]),
+                    const SizedBox(height: 10),
+                    Expanded(
+                      child: ListView(children: [
+                        for (var i = 0; i < list.length; i++) ...[
+                          if (i > 0)
+                            gap((at(list[i]) ?? now).difference(at(list[i - 1]) ?? now)),
+                          message(list[i], identical(list[i], sorted.last),
+                              identical(list[i], sorted.first)),
+                        ],
+                      ]),
                     ),
-                ]),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
-        ],
-      ),
+                  ]),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
+          ],
+        );
+      }),
     );
   }
 
@@ -5414,6 +5540,24 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
           }
         }
 
+        // Most of the time the next step is the claim email (Jonathan,
+        // 4 Nov 2026: "an option for this would be great straight
+        // away"). It opens in the usual email window, to read first;
+        // once sent, the line is settled.
+        Future<void> invite(Map<String, dynamic> c) async {
+          if (!busy.add('${c['id']}')) return;
+          final theirOwn = c['stage'] == 'claimed' || c['stage'] == 'verified';
+          final sent = await _reply(c,
+              template: theirOwn
+                  ? null
+                  : (c['on_site'] == true ? 'reply_we_know_you' : 'reply_listing'));
+          busy.remove('${c['id']}');
+          if (!sent || !ctx.mounted) return;
+          done++;
+          set(() => rows.remove(c));
+          if (rows.isEmpty) Navigator.pop(ctx);
+        }
+
         return AlertDialog(
           title: Text('Old replies to settle (${rows.length})'),
           content: SizedBox(
@@ -5423,8 +5567,8 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const Text(
-                        'Each says they replied, over a month ago. Nothing is '
-                        'sent from here.',
+                        'Each says they replied, over a month ago. Emails open '
+                        'for you to read before anything is sent.',
                         style: TextStyle(
                             fontSize: 13, color: Brand.inkSecondary)),
                     const SizedBox(height: 12),
@@ -5514,6 +5658,14 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
                                 }),
                               const SizedBox(height: 8),
                               Wrap(spacing: 6, runSpacing: 6, children: [
+                                if ('${c['email'] ?? ''}'.trim().isNotEmpty)
+                                  FilledButton.icon(
+                                      onPressed: () => invite(c),
+                                      icon: const Icon(Icons.mail_outline, size: 18),
+                                      label: Text(c['stage'] == 'claimed' ||
+                                              c['stage'] == 'verified'
+                                          ? 'Email their Owner account link'
+                                          : 'Invite to claim')),
                                 OutlinedButton(
                                     onPressed: () => act(c, 'talking'),
                                     child: const Text('Still talking')),
@@ -5527,6 +5679,7 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
                             ]),
                       ),
                     const Text(
+                        'Invite to claim: the free claim email, ready to read and send. '
                         'Still talking: back to Waiting, follow up in a week. '
                         'Done with them: off the lists. Not now: off the lists, '
                         'back in To do in 3 months.',
