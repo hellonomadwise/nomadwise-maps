@@ -10,6 +10,8 @@ import '../services/supabase_service.dart';
 import '../theme.dart';
 import '../widgets/motion.dart';
 import 'admin_outreach_screen.dart';
+import 'admin_sequences_screen.dart';
+import 'claim_journeys_screen.dart';
 
 /// Owner flow (migration 203): the space-owner journey as a map, top
 /// to bottom, on real numbers.
@@ -56,7 +58,7 @@ class _Node {
       this.strip = false,
       this.off = false,
       this.result});
-  bool get tappable => block || bar || result != null;
+  bool get tappable => !strip;
 }
 
 const double _kH = 30; // box height on the canvas
@@ -351,6 +353,59 @@ class _Owner {
       };
 }
 
+enum _Verdict { ok, watch, problem, early }
+
+enum _StepKind { now, look, system, build }
+
+class _Step {
+  final String label, detail;
+  final _StepKind kind;
+  final VoidCallback? onTap;
+  const _Step(this.label, this.kind, this.detail, this.onTap);
+  /// For build steps, the ask text, to show "on Monday's page" once asked.
+  String get askItem => switch (label) {
+        '"Was this you?" email' => 'Was this you? email',
+        'Rewrite email 1 with one reason to log in' => 'Rewrite reminder email 1 with one reason to log in',
+        'First visit asks for one edit' => 'First-visit screen asks for one quick edit',
+        'Auto-approve safe fields' => 'Auto-approve safe fields (wifi, hours, prices)',
+        'Regular email to claimed owners' => 'Regular transactional email to claimed owners (test)',
+        _ => label,
+      };
+}
+
+/// A stage of the map with its measure against its target.
+class _Stage {
+  final String key, title, targetKey, measure, nowText;
+  final double now, target;
+  final int sample; // how many the measure rests on; under 4 is too early
+  final bool upIsGood;
+  const _Stage(this.key, this.title, this.targetKey, this.now, this.target, this.measure, this.nowText,
+      {required this.sample, this.upIsGood = true});
+  _Verdict get verdict {
+    if (sample < 4) return _Verdict.early;
+    if (upIsGood) {
+      if (now >= target) return _Verdict.ok;
+      if (now >= target * .7) return _Verdict.watch;
+      return _Verdict.problem;
+    }
+    if (now <= target) return _Verdict.ok;
+    if (now <= target * 1.3) return _Verdict.watch;
+    return _Verdict.problem;
+  }
+  /// How far from healthy, as a share of the target, for ranking.
+  double get gap => target == 0 ? 0 : (upIsGood ? (target - now) : (now - target)) / target;
+  String get targetText {
+    final v = target % 1 == 0 ? target.toInt().toString() : target.toString();
+    return switch (targetKey) {
+      'claim_rate' || 'login_rate' || 'edit_rate' || 'review_24h' || 'return_30' => '$v%',
+      'quiet_share' => 'at most $v%',
+      'outreach_sent_week' => '$v a week',
+      'claims_month' => '$v a month',
+      _ => v,
+    };
+  }
+}
+
 class _Bead {
   final _Owner owner;
   final int index;
@@ -409,6 +464,8 @@ class _AdminOwnerFlowScreenState extends State<AdminOwnerFlowScreen>
   }
   int _visitors = 0;
   Map<String, dynamic> _review = const {};
+  Map<String, dynamic> _sig = const {}; // the numbers behind the verdicts (migration 206)
+  Map<String, dynamic> _targets = const {}; // key -> {value, label, unit}
   DateTime? _since;
 
   late final AnimationController _ticker;
@@ -446,8 +503,10 @@ class _AdminOwnerFlowScreenState extends State<AdminOwnerFlowScreen>
         _supabase.adminOwnerFlow(asOf: now),
         _supabase.adminOwnerFlow(asOf: now.subtract(const Duration(days: 7))),
         _supabase.adminOwnerFlow(asOf: now.subtract(const Duration(days: 30))),
+        _supabase.adminOwnerFlowSignals(),
       ]);
       final r = rs[0];
+      final sig = rs[3];
       List<_Owner> parse(Map<String, dynamic> x) => [
             for (final o in (x['owners'] as List? ?? const []))
               if (o is Map) _Owner(Map<String, dynamic>.from(o))
@@ -459,6 +518,8 @@ class _AdminOwnerFlowScreenState extends State<AdminOwnerFlowScreen>
         _all30 = parse(rs[2]);
         _visitors = (r['visitors'] as num?)?.toInt() ?? 0;
         _review = r['review'] is Map ? Map<String, dynamic>.from(r['review']) : {};
+        _sig = sig;
+        _targets = sig['targets'] is Map ? Map<String, dynamic>.from(sig['targets']) : {};
         _since = DateTime.tryParse('${r['since'] ?? ''}')?.toLocal();
         _loading = false;
         _error = null;
@@ -732,9 +793,47 @@ class _AdminOwnerFlowScreenState extends State<AdminOwnerFlowScreen>
         Text(_periodLabel(), style: const TextStyle(fontSize: 12, color: Brand.inkMuted)),
       ]),
       const SizedBox(height: 6),
-      const Text('Tap an amber box or a result to see who is there and what pushes them along.',
-          style: TextStyle(fontSize: 12, color: Brand.inkMuted)),
+      Builder(builder: (_) {
+        final b = _bottleneck;
+        if (b == null) {
+          return const Text('Every stage is healthy or too early to tell. Tap any box for its numbers and steps.',
+              style: TextStyle(fontSize: 12, color: Brand.inkMuted));
+        }
+        final color = b.verdict == _Verdict.problem ? Brand.accent : Brand.goldTextDark;
+        return InkWell(
+          onTap: () => setState(() => _selected = _firstNodeOf(b.key)),
+          child: Text.rich(TextSpan(children: [
+            TextSpan(text: b.verdict == _Verdict.problem ? 'Bottleneck: ' : 'Watch: ', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: color)),
+            TextSpan(text: '${b.title}, ${b.nowText}, healthy is ${b.targetText}. ', style: const TextStyle(fontSize: 12.5, color: Brand.ink)),
+            const TextSpan(text: 'Tap for the steps.', style: TextStyle(fontSize: 12.5, color: Brand.inkMuted)),
+          ])),
+        );
+      }),
     ]);
+  }
+
+  static String _firstNodeOf(String stage) => switch (stage) {
+        'lead' => 'web', 'claim' => 'claim', 'login' => 'claimed', 'use' => 'cc',
+        'review' => 'review', 'return' => 'active', 'quiet' => 'quiet', 'premium' => 'premium', _ => 'claim',
+      };
+
+  /// The verdict colour for each box, drawn as a dot on the map.
+  Map<String, Color> _verdictDots() {
+    final m = <String, Color>{};
+    for (final st in _stages) {
+      final c = switch (st.verdict) {
+        _Verdict.ok => Brand.success,
+        _Verdict.watch => Brand.gold,
+        _Verdict.problem => Brand.accent,
+        _Verdict.early => null,
+      };
+      if (c == null) continue;
+      final k = _firstNodeOf(st.key);
+      m[k] = c;
+      if (st.key == 'lead') m['out'] = c;
+      if (st.key == 'quiet') m['dormant'] = c;
+    }
+    return m;
   }
 
   /// "11 owners · claimed 21 Sep to 30 Oct"
@@ -821,6 +920,7 @@ class _AdminOwnerFlowScreenState extends State<AdminOwnerFlowScreen>
                     against: _against,
                     footer: _footer(),
                     header: _periodLabel().toUpperCase(),
+                    dots: _verdictDots(),
                   ),
                 ),
               ),
@@ -838,12 +938,237 @@ class _AdminOwnerFlowScreenState extends State<AdminOwnerFlowScreen>
 
   // ---------- who is at a box, and what pushes them along ----------
 
+  // ---------- stages: is it a problem, why, what to press ----------
+
+  /// Which stage a box belongs to.
+  static String _stageOf(String k) => switch (k) {
+        'web' || 'out' => 'lead',
+        'claim' || 'noclaim' || 'followup' => 'claim',
+        'claimed' || 'loginnow' || 'nologin' || 'remind' || 'never' || 'lost' => 'login',
+        'cc' || 'updated' || 'left' => 'use',
+        'review' || 'approved' || 'declined' => 'review',
+        'new' || 'active' => 'return',
+        'quiet' || 'dormant' => 'quiet',
+        'premium' => 'premium',
+        _ => '',
+      };
+
+  num _t(String key, num fallback) {
+    final t = _targets[key];
+    return (t is Map && t['value'] is num) ? t['value'] as num : fallback;
+  }
+  int _s(String key) => (_sig[key] is num) ? (_sig[key] as num).toInt() : 0;
+
+  /// The verdict for a stage from its main measure against its target.
+  _Stage _stage(String key) {
+    int n(bool Function(_Owner) f) => _owners.where(f).length;
+    final now = DateTime.now();
+    switch (key) {
+      case 'lead':
+        final sent = _s('outreach_sent_7d');
+        return _Stage(key, 'Lead in', 'outreach_sent_week', sent.toDouble(), _t('outreach_sent_week', 25).toDouble(),
+            'Outreach emails sent this week', '$sent sent', sample: 99);
+      case 'claim':
+        final v = _s('visitors_30d'), c = _s('claims_30d');
+        final rate = v == 0 ? 0.0 : c * 100 / v;
+        return _Stage(key, 'Claim', 'claim_rate', rate, _t('claim_rate', 25).toDouble(),
+            'Claim-page visitors who claim, last 30 days', '$c of $v (${rate.round()}%)', sample: v);
+      case 'login':
+        final old = _owners.where((o) => o.has('claimed') && o.claimedAt != null && now.difference(o.claimedAt!).inDays >= 14).toList();
+        final inn = old.where((o) => o.has('cc')).length;
+        final rate = old.isEmpty ? 0.0 : inn * 100 / old.length;
+        return _Stage(key, 'Log in', 'login_rate', rate, _t('login_rate', 60).toDouble(),
+            'Claimed 14+ days ago who have logged in', '$inn of ${old.length} (${rate.round()}%)', sample: old.length);
+      case 'use':
+        final inn = n((o) => o.has('cc')), ed = n((o) => o.has('updated'));
+        final rate = inn == 0 ? 0.0 : ed * 100 / inn;
+        return _Stage(key, 'Use', 'edit_rate', rate, _t('edit_rate', 60).toDouble(),
+            'Logged-in owners who submitted an edit', '$ed of $inn (${rate.round()}%)', sample: inn);
+      case 'review':
+        final rv = (_review['reviewed'] as num?)?.toInt() ?? 0, w = (_review['within_24h'] as num?)?.toInt() ?? 0;
+        final rate = rv == 0 ? 0.0 : w * 100 / rv;
+        return _Stage(key, 'Your review', 'review_24h', rate, _t('review_24h', 90).toDouble(),
+            'Edits reviewed within 24 hours', '$w of $rv (${rate.round()}%), average ${_review['avg_hours'] ?? '-'} h', sample: rv);
+      case 'return':
+        final known = n((o) => o.m['returned_30'] != null), back = n((o) => o.m['returned_30'] == true);
+        final rate = known == 0 ? 0.0 : back * 100 / known;
+        return _Stage(key, 'Comes back', 'return_30', rate, _t('return_30', 50).toDouble(),
+            'Back within 30 days of approval', '$back of $known (${rate.round()}%)', sample: known);
+      case 'quiet':
+        final ap = n((o) => o.has('approved')), q = n((o) => o.end == 'quiet' || o.end == 'dormant');
+        final rate = ap == 0 ? 0.0 : q * 100 / ap;
+        return _Stage(key, 'Quiet or dormant', 'quiet_share', rate, _t('quiet_share', 25).toDouble(),
+            'Approved owners who have gone quiet or dormant', '$q of $ap (${rate.round()}%)', sample: ap, upIsGood: false);
+      case 'premium':
+        final pm = n((o) => o.end == 'premium');
+        return _Stage(key, 'Premium', 'premium_count', pm.toDouble(), _t('premium_count', 1).toDouble(),
+            'Paying owners', '$pm', sample: 99);
+    }
+    return _Stage(key, key, '', 0, 0, '', '', sample: 0);
+  }
+
+  List<_Stage> get _stages => [for (final k in const ['lead', 'claim', 'login', 'use', 'review', 'return', 'quiet', 'premium']) _stage(k)];
+
+  /// The worst stage, for the line above the map.
+  _Stage? get _bottleneck {
+    final xs = _stages.where((x) => x.verdict == _Verdict.problem).toList()
+      ..sort((a, b) => a.gap.compareTo(b.gap));
+    if (xs.isNotEmpty) return xs.last;
+    final ws = _stages.where((x) => x.verdict == _Verdict.watch).toList()
+      ..sort((a, b) => a.gap.compareTo(b.gap));
+    return ws.isEmpty ? null : ws.last;
+  }
+
+  /// One or two lines on why, from the signals.
+  String _why(String stage) {
+    switch (stage) {
+      case 'lead':
+        return '${_s('outreach_picked_waiting')} picked by Outreach 5 are still unsent; ${_s('outreach_ready')} spaces with an email are ready to write to. '
+            '${_s('outreach_sent_30d')} sent in 30 days brought ${_s('outreach_replies_30d')} replies and ${_s('from_outreach_30d')} claims.';
+      case 'claim':
+        final st = _sig['claim_stops_30d'] is Map ? Map<String, dynamic>.from(_sig['claim_stops_30d']) : <String, dynamic>{};
+        int g(String k) => (st[k] as num?)?.toInt() ?? 0;
+        final parts = <String>[];
+        if (g('opened') > 0) parts.add('${g('opened')} opened and did nothing');
+        if (g('find') > 0) parts.add('${g('find')} stopped at Find');
+        if (g('about') + g('details') > 0) parts.add('${g('about') + g('details')} stopped at About');
+        if (g('plans') + g('plan') > 0) parts.add('${g('plans') + g('plan')} stopped at the plan');
+        if (g('add_space') > 0) parts.add('${g('add_space')} were adding a new space');
+        return 'Of the visitors who did not claim in the last 30 days: ${parts.isEmpty ? 'no detail yet' : parts.join(', ')}. '
+            '${_s('from_outreach_30d')} of the claims came from our outreach.';
+      case 'login':
+        final w = _owners.where((o) => o.waiting).length, nv = _owners.where((o) => o.has('never')).length;
+        return 'Reminder sequence is ${_sig['seq_enabled'] == true ? 'on' : 'OFF'}: ${_s('seq_step1_30d')} first emails and ${_s('seq_step2_30d')} second emails in 30 days. '
+            '$w owners are inside it now; $nv never logged in after it finished.';
+      case 'use':
+        final left = _owners.where((o) => o.has('left')).length, un = _owners.where((o) => o._n('unsent') > 0).length;
+        return '$left logged in and changed nothing; $un left a draft unsent. The first screen does not yet ask for one quick edit.';
+      case 'review':
+        return 'Average ${_review['avg_hours'] ?? '-'} h, slowest ${_review['max_hours'] ?? '-'} h. The risk is the week you are travelling.';
+      case 'return':
+        final nw = _owners.where((o) => o.end == 'new').length;
+        return '$nw approved in the last 14 days are too new to count. After the changes-live email nothing from us reaches an owner again.';
+      case 'quiet':
+        final q = _owners.where((o) => o.end == 'quiet').map((o) => o.space).join(', ');
+        return q.isEmpty ? 'Nobody has gone quiet yet.' : 'Quiet now: $q. No email from us since their changes went live.';
+      case 'premium':
+        final a = _owners.where((o) => o.end == 'active').length;
+        return '$a owners are active, the ones a Premium conversation fits. Nobody has been asked yet.';
+    }
+    return '';
+  }
+
+  /// The steps for a stage, each with what pressing it does.
+  List<_Step> _steps(String stage) {
+    void outreach([String? q]) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => AdminOutreachScreen(initialQuery: q)));
+    void sequences() => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AdminSequencesScreen()));
+    void journeys() => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ClaimJourneysScreen()));
+    switch (stage) {
+      case 'lead':
+        return [
+          _Step('Send today\'s five', _StepKind.now, 'Outreach, Reply, Send. ${_s('outreach_picked_waiting')} waiting.', () => outreach()),
+          _Step('More spaces with an email', _StepKind.system, 'The scout finds addresses every Wednesday; ${_s('outreach_ready')} ready now.', null),
+        ];
+      case 'claim':
+        return [
+          _Step('See where visitors stop', _StepKind.look, 'Claim journeys: every visit, step by step.', journeys),
+          _Step('Send today\'s five', _StepKind.now, 'More owners on the page who already know us.', () => outreach()),
+          _Step('"Was this you?" email', _StepKind.build, 'Visitor looked at claiming a space but did not: one tap to email the space.', () => _ask('claim', 'Was this you? email')),
+        ];
+      case 'login':
+        return [
+          _Step('Open the reminder sequence', _StepKind.look, 'Who is in it, each email, switches.', sequences),
+          _Step('Rewrite email 1 with one reason to log in', _StepKind.build, 'A stat, a review, a wifi speed to confirm; not a nudge.', () => _ask('login', 'Rewrite reminder email 1 with one reason to log in')),
+        ];
+      case 'use':
+        return [
+          _Step('First visit asks for one edit', _StepKind.build, 'The owner account opens on wifi, prices, photos so the first visit ends with a change.', () => _ask('use', 'First-visit screen asks for one quick edit')),
+        ];
+      case 'review':
+        return [
+          _Step('Auto-approve safe fields', _StepKind.build, 'Wifi, hours and prices go live at once; only text and photos wait for you.', () => _ask('review', 'Auto-approve safe fields (wifi, hours, prices)')),
+        ];
+      case 'return':
+      case 'quiet':
+        return [
+          _Step('Regular email to claimed owners', _StepKind.build, 'Very specific, approved by us, one switch. On Monday\'s page.', () => _ask(stage, 'Regular transactional email to claimed owners (test)')),
+        ];
+      case 'premium':
+        return [
+          _Step('Premium conversation', _StepKind.now, 'Start with the active owners below.', () => outreach()),
+        ];
+    }
+    return const [];
+  }
+
+  Future<void> _ask(String stage, String item) async {
+    try {
+      final r = await _supabase.adminOwnerFlowAsk(stage, item);
+      await _load();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(r['new'] == true
+                ? 'Added to Monday\'s Daily page: "$item". The review brings the numbers.'
+                : 'Already on Monday\'s page: "$item".')));
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not save. $e')));
+    }
+  }
+
+  Future<void> _editTarget(_Stage st) async {
+    final ctl = TextEditingController(text: st.target % 1 == 0 ? st.target.toInt().toString() : st.target.toString());
+    final t = _targets[st.targetKey];
+    final label = (t is Map ? t['label'] : null) ?? st.measure;
+    final unit = (t is Map ? '${t['unit'] ?? ''}' : '');
+    final v = await showDialog<double>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('What counts as healthy?', style: TextStyle(fontSize: 16)),
+        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('$label', style: const TextStyle(fontSize: 13, color: Brand.inkSecondary)),
+          const SizedBox(height: 10),
+          TextField(controller: ctl, autofocus: true, keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: InputDecoration(suffixText: unit, border: const OutlineInputBorder(), isDense: true)),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, double.tryParse(ctl.text.trim())), child: const Text('Save')),
+        ],
+      ),
+    );
+    if (v == null) return;
+    try {
+      await _supabase.adminOwnerFlowTargetSet(st.targetKey, v);
+      await _load();
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not save. $e')));
+    }
+  }
+
+  Widget _verdictChip(_Verdict v) {
+    final (label, color, bg) = switch (v) {
+      _Verdict.ok => ('HEALTHY', Brand.success, Brand.successTint),
+      _Verdict.watch => ('WATCH', Brand.goldTextDark, Brand.goldTint),
+      _Verdict.problem => ('PROBLEM', Brand.accent, Brand.accentTint),
+      _Verdict.early => ('TOO EARLY', Brand.inkMuted, Brand.field),
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(4)),
+      child: Text(label, style: TextStyle(fontSize: 9.5, letterSpacing: 1, fontWeight: FontWeight.w700, color: color)),
+    );
+  }
+
   Widget _detail(String k) {
     final n = _kByKey[k]!;
     final rows = k == 'remind'
         ? _owners.where((o) => o.waiting).toList()
         : _owners.where((o) => o.has(k)).toList();
     final lever = _kLevers[k];
+    final stageKey = _stageOf(k);
+    final st = stageKey.isEmpty ? null : _stage(stageKey);
+    final openAsks = {for (final a in (_sig['open_asks'] as List? ?? const [])) if (a is Map) '${a['item']}'};
     return _card(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
@@ -853,25 +1178,94 @@ class _AdminOwnerFlowScreenState extends State<AdminOwnerFlowScreen>
               TextSpan(text: '   ${rows.length} owner${rows.length == 1 ? '' : 's'}', style: const TextStyle(color: Brand.inkMuted, fontSize: 12.5)),
             ])),
           ),
+          if (st != null) _verdictChip(st.verdict),
           IconButton(
               tooltip: 'Close',
               onPressed: () => setState(() => _selected = null),
               icon: const Icon(Icons.close, size: 18, color: Brand.inkMuted)),
         ]),
-        if (lever != null) ...[
+        if (st != null) ...[
+          const SizedBox(height: 8),
+          // now vs healthy
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(st.measure, style: const TextStyle(fontSize: 11, color: Brand.inkMuted, letterSpacing: .4)),
+                Text(st.nowText, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+              ]),
+            ),
+            InkWell(
+              onTap: () => _editTarget(st),
+              borderRadius: BorderRadius.circular(6),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                  const Text('HEALTHY', style: TextStyle(fontSize: 9.5, color: Brand.inkMuted, letterSpacing: 1)),
+                  Text.rich(TextSpan(children: [
+                    TextSpan(text: st.targetText, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Brand.inkSecondary)),
+                    const WidgetSpan(child: Padding(padding: EdgeInsets.only(left: 4), child: Icon(Icons.edit_outlined, size: 13, color: Brand.inkMuted))),
+                  ])),
+                ]),
+              ),
+            ),
+          ]),
+          const SizedBox(height: 8),
+          Text(_why(stageKey), style: const TextStyle(fontSize: 12.5, color: Brand.inkSecondary, height: 1.45)),
+          const SizedBox(height: 10),
+          const Text('STEPS', style: TextStyle(fontSize: 9.5, color: Brand.inkMuted, letterSpacing: 1.2, fontWeight: FontWeight.w600)),
           const SizedBox(height: 6),
+          for (final sp in _steps(stageKey)) _stepRow(sp, asked: openAsks.contains(sp.askItem)),
+          const Divider(height: 24, color: Brand.hairline),
+        ],
+        if (lever != null) ...[
           Text(lever.title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
           const SizedBox(height: 4),
           Text(lever.text, style: const TextStyle(fontSize: 12.5, color: Brand.inkSecondary, height: 1.45)),
           const SizedBox(height: 8),
           Wrap(spacing: 6, runSpacing: 6, children: [for (final t in lever.tags) _tag(t.$1, t.$2)]),
           const Divider(height: 24, color: Brand.hairline),
-        ] else
-          const SizedBox(height: 8),
+        ],
         if (rows.isEmpty)
           const Text('No owners here.', style: TextStyle(fontSize: 12.5, color: Brand.inkMuted))
         else
           for (final o in rows) _ownerRow(o),
+      ]),
+    );
+  }
+
+  Widget _stepRow(_Step sp, {required bool asked}) {
+    final (kindLabel, color) = switch (sp.kind) {
+      _StepKind.now => ('DO IT NOW', Brand.accent),
+      _StepKind.look => ('LOOK AT', Brand.ink),
+      _StepKind.system => ('RUNS ITSELF', Brand.inkMuted),
+      _StepKind.build => ('BUILD IT', Brand.goldTextDark),
+    };
+    final done = sp.kind == _StepKind.build && asked;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Text(kindLabel, style: TextStyle(fontSize: 8.5, letterSpacing: 1, fontWeight: FontWeight.w700, color: color)),
+              const SizedBox(width: 6),
+              Expanded(child: Text(sp.label, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600))),
+            ]),
+            Text(sp.detail, style: const TextStyle(fontSize: 11.5, color: Brand.inkSecondary)),
+          ]),
+        ),
+        const SizedBox(width: 8),
+        if (sp.onTap != null)
+          done
+              ? const Padding(padding: EdgeInsets.only(top: 4), child: Text('ON MONDAY\'S PAGE', style: TextStyle(fontSize: 9, letterSpacing: .8, color: Brand.success, fontWeight: FontWeight.w700)))
+              : OutlinedButton(
+                  onPressed: sp.onTap,
+                  style: OutlinedButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      textStyle: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600)),
+                  child: Text(sp.kind == _StepKind.build ? 'Add to Monday' : sp.kind == _StepKind.look ? 'Open' : 'Go'),
+                ),
       ]),
     );
   }
@@ -1145,6 +1539,7 @@ class _FlowPainter extends CustomPainter {
   final int against;
   final String footer; // the totals line under the squares
   final String header; // the period, top right
+  final Map<String, Color> dots; // verdict colour per box
 
   _FlowPainter({
     required this.scale,
@@ -1157,6 +1552,7 @@ class _FlowPainter extends CustomPainter {
     required this.against,
     required this.footer,
     required this.header,
+    required this.dots,
   });
 
   static const _flow = Color(0xFF2B8FBF); // the owner's path
@@ -1274,6 +1670,12 @@ class _FlowPainter extends CustomPainter {
       }
       if (isSel) stroke = Brand.ink;
       canvas.drawRRect(r, Paint()..color = fill);
+      final dot = dots[n.key];
+      if (dot != null) {
+        final c = Offset(n.x + n.w / 2 - 1, n.y - _kH / 2 + 1);
+        canvas.drawCircle(c, 4.5, Paint()..color = Brand.surface);
+        canvas.drawCircle(c, 3.2, Paint()..color = dot);
+      }
       final sp = Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = isSel ? 2 : 1.2

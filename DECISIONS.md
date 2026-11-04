@@ -4978,3 +4978,30 @@ should define what dormant means." Defined, with Jonathan's numbers:
   step taken): a visit counts when it came from anywhere but a blog
   post, or the visitor did something on the page. 56 people, not 85.
 - The Monday review uses the same labels.
+
+## 4 Nov 2026: the Owner flow says what is a problem and what to press (migration 206)
+
+Jonathan: "what I'm ultimately wanting to do is to be able to click
+into something ... and go, okay, what is the bottleneck that is
+sitting here? ... how do we go from, this is a problem, to these are
+the steps that we can take in order to improve it." Now every box is
+tappable and opens a card with four parts:
+- Now vs healthy: the stage's measure against a target (claim rate,
+  outreach sent a week, login rate within 14 days, edit rate, review
+  within 24 h, back within 30 days, quiet share, paying owners), a
+  verdict (Healthy, Watch, Problem, Too early under 4 in the sample),
+  and the target editable with a tap (owner_flow_targets).
+- Why: one or two lines from the signals (where claim-page visitors
+  stop, picked but unsent outreach, reminders sent, who is quiet).
+- Steps, each with a button and a kind: Do it now (opens Outreach),
+  Look at (opens Sequences or Claim journeys), Runs itself, Build it
+  (one tap puts the ask on Monday's Daily page with the numbers, via
+  the Owner flow review; owner_flow_asks; shows "on Monday's page"
+  once asked).
+- Who: the owners at that box, with ticks and Write to them.
+The map shows a verdict dot on each stage's first box, and the line
+above the map names the bottleneck (the worst Problem, else the worst
+Watch) and jumps to it.
+First real verdicts: Claim at 18% (healthy 25%) and Outreach at 3
+sent this week (healthy 25) are the problems; review and login are
+healthy; the rest too early.

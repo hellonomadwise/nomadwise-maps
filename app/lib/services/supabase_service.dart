@@ -2070,6 +2070,24 @@ class SupabaseService {
     return r is Map ? Map<String, dynamic>.from(r) : <String, dynamic>{};
   }
 
+  /// Owner flow (migration 206): the numbers behind each stage's verdict,
+  /// the targets and the open "build it" asks.
+  Future<Map<String, dynamic>> adminOwnerFlowSignals() async {
+    final r = await _db.rpc('admin_owner_flow_signals');
+    return r is Map ? Map<String, dynamic>.from(r) : <String, dynamic>{};
+  }
+
+  /// Owner flow: change what counts as healthy for one measure.
+  Future<void> adminOwnerFlowTargetSet(String key, num value) async {
+    await _db.rpc('admin_owner_flow_target_set', params: {'p_key': key, 'p_value': value});
+  }
+
+  /// Owner flow: a "build it" tap, carried to Monday's Daily page by the review.
+  Future<Map<String, dynamic>> adminOwnerFlowAsk(String stage, String item) async {
+    final r = await _db.rpc('admin_owner_flow_ask', params: {'p_stage': stage, 'p_item': item});
+    return r is Map ? Map<String, dynamic>.from(r) : <String, dynamic>{};
+  }
+
   /// Tick (or untick) an owner's next step on the owner flow.
   Future<void> adminOwnerFlowTick(String email, bool done, String step) async {
     await _db.rpc('admin_owner_flow_tick',
