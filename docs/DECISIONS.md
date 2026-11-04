@@ -6008,3 +6008,7 @@ Each old reply with an email address now has "Invite to claim" first. It opens t
 Jonathan: "the timeframe Jul24 for example isn't big enough, its too difficult to get a sense on timeline and which is the oldest to newest".
 
 The history window now opens with a summary ("4 messages over 1 year and 2 months, Jul 2024 to Sep 2025. Last one 1 year and 2 months ago"), shows the newest first with a button to turn it round, and each message has a coloured "We wrote"/"They wrote" tag, the full date in bold ("Thu 11 July 2024"), the time and how long ago, NEWEST/FIRST marks, and the time between messages on the line that joins them.
+
+## Email signature: nomadwise.io (migration 245, 4 Nov 2026)
+
+Jonathan: "the nomadwise in the signature should be nomadwise.io (all nomadwise red)". Every designed email now signs off "Co-founder, nomadwise.io", the whole address in Nomadwise red and linked to the site.
