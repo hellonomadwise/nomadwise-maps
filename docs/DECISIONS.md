@@ -6052,3 +6052,13 @@ header "Send a request to <space>", the button "Send request", the done view
 obligation." Analytics event names (price_enquiry_opened/sent) are unchanged
 so the numbers stay comparable. Emails and the site's own "Send an enquiry"
 button are not changed by this.
+
+## 2026-11-04: "enquiry" becomes "request" in the visitor's emails and the Send button
+
+Follows the price list change. Migration 249 (applied live) changes the three
+emails the visitor gets: "Your request has been sent to ...", "We have your
+request for ...", "Your request for ..." (space unreachable), and "Thank you
+for your request on Nomadwise." Emails to spaces and admin text are unchanged.
+In Webflow (Coworking Template) the "Send an enquiry" buttons and the pop-up
+heading now say "Send a request", and the sent message says "Thanks, your
+request is on its way to the space, who will reply to you directly."
