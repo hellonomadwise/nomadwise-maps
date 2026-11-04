@@ -149,9 +149,10 @@
       items.forEach(function (i) { if (i.period && periods.indexOf(i.period) < 0) periods.push(i.period); });
       var caps = [];
       items.forEach(function (i) {
-        var c = /up to (\d+)/i.exec(i.note); if (c) caps.push(+c[1]);
+        var c = /up to (\d+)/i.exec(i.note); if (c && caps.indexOf(+c[1]) < 0) caps.push(+c[1]);
       });
       var spec;
+      // "4 to 12 people" only when the sizes differ ("3 to 3" never shows).
       if (caps.length > 1) spec = Math.min.apply(null, caps) + ' to ' + Math.max.apply(null, caps) + ' people';
       else spec = items.length + (items.length === 1 ? ' option' : ' options');
       if (periods.length) spec += ' · by ' + periods.map(function (x) { return BY[x]; }).join(' or ').replace(/ or the /g, ' or ');
@@ -254,6 +255,8 @@
       '.nwp-fl > .nwp-lt{font-size:13px;font-weight:500;color:var(--nwp-ink)}',
       '.nwp-fl > .nwp-lt i{font-style:normal;font-weight:400;color:var(--nwp-muted)}',
       '.nwp-seg{display:flex;flex-wrap:wrap;gap:6px}',
+      // People: five buttons of the same width (Jonathan, 4 Nov 2026).
+      '.nwp-seg-people{display:grid;grid-template-columns:repeat(5,minmax(0,1fr))}.nwp-seg-people .nwp-sg{padding:0 4px;white-space:nowrap}',
       '.nwp-sg{min-height:38px;padding:0 13px;border-radius:8px;border:1.5px solid #D5DAE0;background:#fff;color:var(--nwp-ink);font-family:inherit;font-size:14px;font-weight:500;cursor:pointer;transition:border-color .15s,background .15s,color .15s}',
       '.nwp-sg:hover{border-color:#AEB6BF}',
       '.nwp-sg[aria-checked="true"]{border-color:var(--nwp-teal);background:var(--nwp-teal);color:#fff}',
@@ -327,7 +330,7 @@
   var ICON_OK = '<svg width="60" height="60" viewBox="0 0 52 52" fill="none" aria-hidden="true"><circle cx="26" cy="26" r="24" stroke="#1E7A43" stroke-width="2.5"></circle><path d="M15 27l7 7 15-16" stroke="#1E7A43" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></path></svg>';
 
   var PEOPLE = ['Just me', '2', '3 to 5', '6 to 10', 'More than 10'];
-  var PEOPLE_LABEL = { 'Just me': 'Just me', '2': '2', '3 to 5': '3–5', '6 to 10': '6–10', 'More than 10': '10+' };
+  var PEOPLE_LABEL = { 'Just me': 'Just me', '2': '2', '3 to 5': '3-5', '6 to 10': '6-10', 'More than 10': '10+' };
   var LENGTHS = ['1 hour', '2 hours', '3 hours', 'Half a day', 'All day'];
 
   function photos() {
@@ -424,7 +427,7 @@
   }
 
   function segHtml(field, options, labels, value, name) {
-    var h = '<div class="nwp-seg" role="radiogroup" aria-label="' + esc(name) + '">';
+    var h = '<div class="nwp-seg nwp-seg-' + field + '" role="radiogroup" aria-label="' + esc(name) + '">';
     options.forEach(function (o, i) {
       var on = value === o;
       h += '<button type="button" class="nwp-sg" role="radio" aria-checked="' + on + '" tabindex="' + (on ? 0 : -1) + '" data-a="seg" data-f="' + field + '" data-v="' + esc(o) + '" data-k="' + field + i + '">' + esc(labels ? labels[o] : o) + '</button>';

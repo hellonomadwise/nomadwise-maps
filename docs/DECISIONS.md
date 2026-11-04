@@ -6016,3 +6016,18 @@ Jonathan: "the nomadwise in the signature should be nomadwise.io (all nomadwise 
 ## Corners are 8px, as on the live site (4 Nov 2026)
 
 Jonathan: "the border radius should always be, I think it's 8 pixels ... consistent with the styling that we currently have within NomadWise on the live site." Checked on the live OUR HQ page: the gallery photos, the Send an enquiry button and the opening hours box are all 8px (only the old dropdowns and the outer page container are 10px). The price list and enquiry pop-up (app/web/prices.js) move from 10px to 8px. Fully round buttons (close, arrows) stay round.
+
+## Hub53 (Chiang Mai): prices checked and the price list switched on (4 Nov 2026)
+
+Jonathan: show the new price list on a space with many prices too, "cross check that with what the actual live prices are now on the Hub 53 website", done the same way as OUR HQ.
+
+Checked hub53.com/coworking on 4 Nov 2026 against the 30 prices we had (from Aug 2025), through the usual Price check route (import_price_check, batch hub53-2026-11-04, then Go on each, written to Webflow by the website push):
+- 19 updated: passes up 6 to 100 baht (day pass 189 to 195, month 24 hours 3,299 to 3,399...); names tidied in the OUR HQ style with the period in brackets ("Medium office (month)"); the 15 sq m room is now a "large room" private office on their site, so it moved from Meeting rooms to Private offices.
+- 11 removed: the call rooms (now free for members) and the 4-hour, 8-hour and 6-month prices, which their website no longer offers.
+Hub53 added to sync_settings price_cards slugs; still only OUR HQ and Hub53 show the price list.
+
+Price list fix seen on Hub53: the group line said "3 to 3 people" when every size was the same; it now only gives a range when the sizes differ.
+
+## Enquiry pop-up: people buttons the same width, plain hyphens (4 Nov 2026)
+
+Jonathan: "I don't like that the 2 is less wide than 3 to 5. So it should be uniform." and the en dash in "3–5" "reads as if it's AI ... change it to a dash ... as I would write it as a human". The five "How many people?" buttons now share the row equally, and read 3-5 and 6-10 with an ordinary hyphen. House rule from now on: no en or em dashes in anything a visitor reads.
