@@ -1673,8 +1673,8 @@ class _FlowPainter extends CustomPainter {
       final dot = dots[n.key];
       if (dot != null) {
         final c = Offset(n.x + n.w / 2 - 1, n.y - _kH / 2 + 1);
-        canvas.drawCircle(c, 4.5, Paint()..color = Brand.surface);
-        canvas.drawCircle(c, 3.2, Paint()..color = dot);
+        canvas.drawCircle(c, 3.6, Paint()..color = Brand.surface);
+        canvas.drawCircle(c, 2.6, Paint()..color = dot);
       }
       final sp = Paint()
         ..style = PaintingStyle.stroke
@@ -1721,11 +1721,11 @@ class _FlowPainter extends CustomPainter {
                 color: good ? Brand.success : Brand.goldTextDark, weight: FontWeight.w600, spacing: 0, align: TextAlign.left);
           }
         } else {
-          _text(canvas, '$count', Offset(n.x, n.y + _kH / 2 + 12), 11,
+          _text(canvas, '$count', Offset(n.x, n.y + _kH / 2 + 11), 9.5,
               color: n.block ? Brand.goldTextDark : _flow);
           // movement since [against] days ago, beside the count
           if (d != 0) {
-            _text(canvas, d > 0 ? '+$d' : '$d', Offset(n.x + 14, n.y + _kH / 2 + 12), 7.5,
+            _text(canvas, d > 0 ? '+$d' : '$d', Offset(n.x + 12, n.y + _kH / 2 + 11), 6.5,
                 color: good ? Brand.success : Brand.goldTextDark, weight: FontWeight.w600, spacing: 0, align: TextAlign.left);
           }
         }
@@ -1748,11 +1748,13 @@ class _FlowPainter extends CustomPainter {
           return i >= 0 && i + 1 < o.path.length && o.path[i + 1] == e[1];
         }).length;
         if (took == 0) continue; // an unused branch gets no label
-        final m = _edgePath(e[0], e[1]).computeMetrics().first;
         final nb = _kByKey[e[1]]!;
-        // on the shared rail, label the branch above its result box
-        final at2 = nb.result != null ? Offset(nb.x, nb.y - _kH / 2 - 7) : m.getTangentForOffset(m.length / 2)!.position.translate(0, -6);
-        _text(canvas, '${(took * 100 / at).round()}%', at2, 7, color: Brand.inkFaint, weight: FontWeight.w500, spacing: 0);
+        // the results row has its counts under the boxes; several sources
+        // land on one box there, so no percentages (they piled up)
+        if (nb.result != null) continue;
+        final m = _edgePath(e[0], e[1]).computeMetrics().first;
+        final at2 = m.getTangentForOffset(m.length / 2)!.position.translate(0, -6);
+        _text(canvas, '${(took * 100 / at).round()}%', at2, 6.2, color: Brand.inkFaint, weight: FontWeight.w500, spacing: 0);
       }
     }
 
