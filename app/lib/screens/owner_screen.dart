@@ -173,6 +173,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
   String _mentionKind = 'Event';
   bool _dirty = false;
   bool _saving = false;
+  bool _closedBusy = false; // CR-36: setting "temporarily closed"
   String? _savedNote;
   // Autosave: edits are kept as a draft a few seconds after typing
   // stops, so leaving the page (to Go Verified, say) loses nothing
@@ -3655,6 +3656,143 @@ class _OwnerScreenState extends State<OwnerScreen> {
     });
   }
 
+  // ------------------------------------------------ temporarily closed
+  // CR-36 (migration 250): the owner says the space is closed for a
+  // while by picking the day it opens again. It goes on the page at
+  // once, without review, and the page goes back to normal by itself
+  // on that day. Google's own "temporarily closed" is separate.
+
+  static const _monthNames = [
+    'January', 'February', 'March', 'April', 'May', 'June', 'July',
+    'August', 'September', 'October', 'November', 'December'
+  ];
+  static const _weekdayNames = [
+    'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday',
+    'Sunday'
+  ];
+  String _longDay(DateTime d) =>
+      '${_weekdayNames[d.weekday - 1]} ${d.day} ${_monthNames[d.month - 1]} ${d.year}';
+
+  DateTime? get _reopensOn {
+    final raw = '${_venue?['reopens_on'] ?? ''}';
+    if (raw.isEmpty) return null;
+    return DateTime.tryParse(raw);
+  }
+
+  Future<void> _pickReopenDay() async {
+    if (_isPreview && !widget.team) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Preview: nothing is saved. For the owner this '
+              'would mark the page temporarily closed straight away.')));
+      return;
+    }
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final first = today.add(const Duration(days: 1));
+    final last = today.add(const Duration(days: 365));
+    var initial = _reopensOn ?? today.add(const Duration(days: 7));
+    if (initial.isBefore(first)) initial = first;
+    if (initial.isAfter(last)) initial = last;
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: first,
+      lastDate: last,
+      helpText: 'WHEN DO YOU OPEN AGAIN?',
+      confirmText: 'Save',
+    );
+    if (picked == null || !mounted) return;
+    await _setReopenDay(picked);
+  }
+
+  Future<void> _setReopenDay(DateTime? day) async {
+    final v = _venue;
+    if (v == null) return;
+    if (_isPreview && !widget.team) return;
+    setState(() => _closedBusy = true);
+    try {
+      await _supabase.ownerSetClosed('${v['id']}', day);
+      if (!mounted) return;
+      String two(int n) => n.toString().padLeft(2, '0');
+      // Only this part changes, so nothing being edited elsewhere is lost.
+      setState(() {
+        _venues[_current.clamp(0, _venues.length - 1)] = {
+          ...v,
+          'reopens_on': day == null
+              ? null
+              : '${day.year}-${two(day.month)}-${two(day.day)}',
+        };
+      });
+      Analytics.capture(day == null ? 'owner_reopened' : 'owner_closed_until',
+          {'space': v['name']});
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(day == null
+              ? 'Done. Your page no longer says you are closed.'
+              : 'Done. Your page now says you are temporarily closed and '
+                  'open again on ${_longDay(day)}.')));
+    } catch (e) {
+      if (!mounted) return;
+      final msg = '$e'.replaceFirst(RegExp(r'^.*?message: '), '');
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('That did not save: $msg')));
+    } finally {
+      if (mounted) setState(() => _closedBusy = false);
+    }
+  }
+
+  Widget _closedPart() {
+    if (_venue == null) return const SizedBox.shrink();
+    final until = _reopensOn;
+    if (until == null) {
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: TextButton.icon(
+          onPressed: _closedBusy ? null : _pickReopenDay,
+          style: TextButton.styleFrom(
+              foregroundColor: Brand.inkSecondary,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6)),
+          icon: const Icon(Icons.event_busy_outlined, size: 18),
+          label: const Text('Closing for a while? Mark as temporarily closed',
+              style: TextStyle(fontSize: 13.5)),
+        ),
+      );
+    }
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+      decoration: BoxDecoration(
+          color: const Color(0xFFFFF6E5),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: const Color(0xFFF3D28B))),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Row(children: [
+          Icon(Icons.schedule, size: 18, color: Color(0xFFB26B00)),
+          SizedBox(width: 8),
+          Text('Temporarily closed',
+              style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
+                  color: Color(0xFF3A2700))),
+        ]),
+        const SizedBox(height: 6),
+        Text(
+            'Your page says you open again on ${_longDay(until)}. It goes '
+            'back to normal by itself on that day.',
+            style: const TextStyle(
+                fontSize: 13.5, height: 1.45, color: Color(0xFF4A3200))),
+        const SizedBox(height: 10),
+        Wrap(spacing: 8, runSpacing: 6, children: [
+          OutlinedButton(
+              onPressed: _closedBusy ? null : _pickReopenDay,
+              child: const Text('Change the day')),
+          TextButton(
+              onPressed: _closedBusy ? null : () => _setReopenDay(null),
+              style: TextButton.styleFrom(foregroundColor: Brand.red),
+              child: const Text('We are open again')),
+        ]),
+      ]),
+    );
+  }
+
   /// Where the page's enquiries are sent, with Change: at the top of
   /// Inbox & support, not on the page (the live page does not show it).
   Widget _enquiriesCard() {
@@ -5101,12 +5239,14 @@ class _OwnerScreenState extends State<OwnerScreen> {
     final side = Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       _keyed('hours', hoursPart),
       if (_sent('hours')) _waitingChip(),
+      const SizedBox(height: 10),
+      _closedPart(),
       const SizedBox(height: 16),
       _keyed('links', linksPart),
-      // Every page has Send an enquiry; a free one shows how many of its
+      // Every page has Send a request; a free one shows how many of its
       // free enquiries are left under it (CR-31).
       const SizedBox(height: 16),
-      _pageButton('Send an enquiry', wide: true),
+      _pageButton('Send a request', wide: true),
       if (_allowanceLine() != null) ...[
         const SizedBox(height: 12),
         _allowanceLine()!,
@@ -5288,7 +5428,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
       if (_verified) ...[
         Align(
             alignment: Alignment.centerLeft,
-            child: _pageButton('Send an enquiry')),
+            child: _pageButton('Send a request')),
         const SizedBox(height: 12),
       ],
       _tagsBlock(tags, tappable: tappable),
@@ -5976,7 +6116,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
       ]),
       if (_verified) ...[
         const SizedBox(height: 10),
-        _pageButton('Send an enquiry', wide: true),
+        _pageButton('Send a request', wide: true),
       ],
       const SizedBox(height: 10),
       _advertSlot(),

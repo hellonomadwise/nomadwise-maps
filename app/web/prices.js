@@ -779,6 +779,40 @@
     })();
   }, true);
 
+  // ------------------------------------------- temporarily closed
+  // The owner marked the space temporarily closed in their Owner
+  // account (CR-36, migration 250): a notice under the page title until
+  // the day it opens again. Every listing page, price list or not.
+  var DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July',
+    'August', 'September', 'October', 'November', 'December'];
+  function longDay(iso) {
+    var p = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ''));
+    if (!p) return '';
+    var d = new Date(Date.UTC(+p[1], +p[2] - 1, +p[3]));
+    return DAYS[d.getUTCDay()] + ' ' + d.getUTCDate() + ' ' + MONTHS[d.getUTCMonth()] + ' ' + d.getUTCFullYear();
+  }
+  function showClosed(c) {
+    var day = longDay(c && c.reopens_on);
+    if (!day || document.querySelector('.nwp-closed')) return;
+    var h1 = document.querySelector('h1');
+    var box = h1 && h1.parentElement && h1.parentElement.parentElement;
+    if (!box) return;
+    var el = document.createElement('div');
+    el.className = 'nwp-closed';
+    el.setAttribute('role', 'status');
+    el.setAttribute('style', 'display:flex;align-items:flex-start;gap:10px;margin:14px 0 4px;padding:12px 14px;' +
+      'border-radius:8px;background:#FFF6E5;border:1px solid #F3D28B;color:#4A3200;' +
+      'font-family:inherit;font-size:15px;line-height:1.45;max-width:640px;box-sizing:border-box');
+    el.innerHTML =
+      '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#B26B00" stroke-width="2" ' +
+      'stroke-linecap="round" aria-hidden="true" style="flex:none;margin-top:1px">' +
+      '<circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>' +
+      '<div><strong style="display:block;font-weight:700;color:#3A2700">Temporarily closed</strong>' +
+      esc((c.space || 'This space') + ' opens again on ' + day + '.') + '</div>';
+    box.appendChild(el);
+  }
+
   function start() {
     fetch(URL_ + '/rest/v1/rpc/page_prices', {
       method: 'POST',
@@ -786,6 +820,7 @@
       body: JSON.stringify({ p_slug: SLUG })
     }).then(function (r) { return r.ok ? r.json() : null; })
       .then(function (raw) {
+        if (raw && raw.closed) showClosed(raw.closed);
         if (!raw || !raw.show) return;
         data = shape(raw);
         if (!data.groups.length) return;

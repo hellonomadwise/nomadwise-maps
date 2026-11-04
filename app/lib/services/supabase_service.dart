@@ -254,6 +254,21 @@ class SupabaseService {
     return Map<String, dynamic>.from(res as Map);
   }
 
+  /// Owner (or the team in Team edit): the space is temporarily closed
+  /// and opens again on [reopensOn]; null takes it off. Live on the
+  /// page at once, no review (CR-36, migration 250).
+  Future<void> ownerSetClosed(String venueId, DateTime? reopensOn) async {
+    String? day;
+    if (reopensOn != null) {
+      String two(int n) => n.toString().padLeft(2, '0');
+      day = '${reopensOn.year}-${two(reopensOn.month)}-${two(reopensOn.day)}';
+    }
+    await _db.rpc('owner_set_closed', params: {
+      'p_venue': venueId,
+      'p_reopens': day,
+    });
+  }
+
   /// Owner: the price list as the owner left it (migration 218). Each
   /// change waits for a founder's Go in Price check. Returns counts
   /// and any prices that could not be sent, with why.

@@ -6062,3 +6062,19 @@ for your request on Nomadwise." Emails to spaces and admin text are unchanged.
 In Webflow (Coworking Template) the "Send an enquiry" buttons and the pop-up
 heading now say "Send a request", and the sent message says "Thanks, your
 request is on its way to the space, who will reply to you directly."
+
+## 2026-11-04: "Temporarily closed" from the Owner account (CR-36)
+
+An owner marks their space temporarily closed by picking the day it opens
+again (Owner account, under Opening hours: "Closing for a while? Mark as
+temporarily closed"; then "Change the day" or "We are open again"). It is
+live at once, without review: a wrong "closed" only affects them. Team edit
+can set it too. Migration 250: venues.owner_reopens_on (+ set_at, set_by),
+owner_set_closed(venue, day) (owner or admin; day must be after today and
+within a year; null clears), owner_page_extras returns reopens_on while it
+is in the future, and page_prices now also returns "closed" for every page
+(the price list gate is unchanged). prices.js shows a notice under the page
+title, "Temporarily closed. <Space> opens again on <Monday 1 December 2026>.",
+on every listing page until that day, then nothing. Google's own
+business_status is still not shown on the page. The page preview inside the
+Owner account says "Send a request" like the live page.
