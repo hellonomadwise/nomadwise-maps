@@ -6012,3 +6012,7 @@ The history window now opens with a summary ("4 messages over 1 year and 2 month
 ## Email signature: nomadwise.io (migration 245, 4 Nov 2026)
 
 Jonathan: "the nomadwise in the signature should be nomadwise.io (all nomadwise red)". Every designed email now signs off "Co-founder, nomadwise.io", the whole address in Nomadwise red and linked to the site.
+
+## Corners are 8px, as on the live site (4 Nov 2026)
+
+Jonathan: "the border radius should always be, I think it's 8 pixels ... consistent with the styling that we currently have within NomadWise on the live site." Checked on the live OUR HQ page: the gallery photos, the Send an enquiry button and the opening hours box are all 8px (only the old dropdowns and the outer page container are 10px). The price list and enquiry pop-up (app/web/prices.js) move from 10px to 8px. Fully round buttons (close, arrows) stay round.
