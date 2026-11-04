@@ -6041,3 +6041,14 @@ Also agreed (not built yet): user-facing pages use Nomadwise red; business-facin
 ## "Held for Premium" email shows what was asked (migration 248, 4 Nov 2026)
 
 From Jonathan's open list ("do these"). When a free page has used its 2 free enquiries, the owner's "A new enquiry for X is waiting for you" email now shows what was asked (the Asking about, People, Day or Starting, and Time lines from the enquiry), never who sent it or their message: "Their name, email and message come with Nomadwise Premium." An enquiry from the site's older pop-up, without those lines, says the message, name and email come with Premium.
+
+## 2026-11-04: "Enquire" becomes "Request" on the price list
+
+Many visitors are not native English speakers, and "Enquire" is a formal
+British word. Jonathan chose "Request" (short, and close to the word in many
+languages). In app/web/prices.js: the price button says "Request", the pop-up
+header "Send a request to <space>", the button "Send request", the done view
+"Request sent", and the intro "Sending a request is free and there's no
+obligation." Analytics event names (price_enquiry_opened/sent) are unchanged
+so the numbers stay comparable. Emails and the site's own "Send an enquiry"
+button are not changed by this.

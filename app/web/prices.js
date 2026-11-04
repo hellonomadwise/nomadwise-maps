@@ -7,8 +7,8 @@
  * Maps (sync_settings 'price_cards': OUR HQ first, then every page).
  *
  * Under the description: on a computer a price list (each group with a
- * small photo, its "From" price, and every price with its own Enquire
- * button); on a phone tabs, one group at a time with its photo. Enquire
+ * small photo, its "From" price, and every price with its own Request
+ * button); on a phone tabs, one group at a time with its photo. Request
  * opens a pop-up (sliding up full screen on a phone) with that price
  * already chosen: how many people, when (a calendar; for a meeting room
  * also the start time and how long), name, email, an optional note.
@@ -184,8 +184,8 @@
 
   // ------------------------------------------------------------- styles
   // Jonathan, 3 Nov 2026: on a computer a price list (every price with its
-  // own Enquire button, a small photo per group); on a phone tabs (one
-  // group at a time, its photo at full width). Enquire opens a pop-up
+  // own Request button, a small photo per group); on a phone tabs (one
+  // group at a time, its photo at full width). Request opens a pop-up
   // with the form: "super slick, as if we are a fully funded series A
   // SaaS". Motion is turned off for people who ask their device for less.
   function addStyles() {
@@ -198,7 +198,7 @@
       '@keyframes nwp-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}',
       '.nwp h2.nwp-h{margin:0 0 4px;font-size:21px;font-weight:700;line-height:1.25}',
       '.nwp-sub{margin:0 0 14px;font-size:14px;line-height:1.45;color:var(--nwp-muted)}',
-      // shared: the Enquire button
+      // shared: the Request button
       '.nwp-enq{flex:none;min-height:34px;padding:0 14px;border-radius:8px;border:1.5px solid var(--nwp-red);background:#fff;color:var(--nwp-red-ink);font-family:inherit;font-weight:700;font-size:13.5px;line-height:1;cursor:pointer;transition:background .15s,color .15s,transform .1s}',
       '.nwp-enq:hover{background:var(--nwp-red);color:#fff}',
       '.nwp-enq:active{transform:scale(.97)}',
@@ -355,10 +355,10 @@
   }
 
   function enqBtn(it) {
-    return '<button type="button" class="nwp-enq" data-a="enq" data-v="' + esc(it.id) + '" data-k="e-' + esc(it.id) + '" aria-label="Enquire about ' + esc(it.full) + '">Enquire</button>';
+    return '<button type="button" class="nwp-enq" data-a="enq" data-v="' + esc(it.id) + '" data-k="e-' + esc(it.id) + '" aria-label="Request ' + esc(it.full) + '">Request</button>';
   }
 
-  // The computer: every group, every price, an Enquire on each.
+  // The computer: every group, every price, a Request on each.
   function listHtml() {
     var h = '<div class="nwp-box">';
     data.groups.forEach(function (g, gi) {
@@ -442,7 +442,7 @@
     var gi = groupOf(it.id);
     var pic = photoFor(gi);
     var head = '<div class="nwp-hd">' + (pic ? '<img src="' + esc(pic) + '" alt="">' : '') +
-      '<div class="nwp-hd-t"><small>Enquire at ' + esc(data.space) + '</small><h2 id="nwp-dlg-h">' + esc(it.full) + '</h2></div>' +
+      '<div class="nwp-hd-t"><small>Send a request to ' + esc(data.space) + '</small><h2 id="nwp-dlg-h">' + esc(it.full) + '</h2></div>' +
       '<span class="nwp-chipp">' + esc(it.priceText) + '</span>' +
       '<button type="button" class="nwp-x" data-a="close" data-k="x" aria-label="Close">' + ICON_X + '</button></div>';
     if (S.sent) {
@@ -450,7 +450,7 @@
       if (S.sentTime) rows.push(['Time', S.sentTime]);
       var sum = '<div class="nwp-sum">' + rows.map(function (r) { return '<div><span>' + esc(r[0]) + '</span><b>' + esc(r[1]) + '</b></div>'; }).join('') + '</div>';
       return head + '<div class="nwp-bd"><div class="nwp-ok" role="status">' + ICON_OK +
-        '<h3>Enquiry sent</h3><p>' + esc(data.space) + ' will reply to you by email at <b>' + esc(S.email) + '</b>.</p>' + sum +
+        '<h3>Request sent</h3><p>' + esc(data.space) + ' will reply to you by email at <b>' + esc(S.email) + '</b>.</p>' + sum +
         '<button type="button" class="nwp-done-btn" data-a="close" data-k="done">Done</button></div></div>';
     }
     var kind = kindOf(it);
@@ -478,7 +478,7 @@
     h += '</div><div class="nwp-ft">' +
       (S.error && S.bad !== 'email' ? '<p class="nwp-err" role="alert">' + esc(S.error) + '</p>' : '') +
       '<button type="button" class="nwp-send" data-a="send" data-k="send"' + (S.sending ? ' disabled aria-busy="true"' : '') + '>' +
-      (S.sending ? '<span class="nwp-spin" aria-hidden="true"></span>Sending' : 'Send enquiry') + '</button>' +
+      (S.sending ? '<span class="nwp-spin" aria-hidden="true"></span>Sending' : 'Send request') + '</button>' +
       '<p class="nwp-trust">Free, with no obligation. ' + esc(data.space) + ' replies by email. By sending you agree to our <a href="/legal-information" target="_blank" rel="noopener">terms</a>.</p></div>';
     return h;
   }
@@ -492,7 +492,7 @@
     root.innerHTML =
       '<h2 class="nwp-h">Passes and prices at ' + esc(data.space) + '</h2>' +
       '<p class="nwp-sub">' + (data.vat ? 'All prices ' + esc(data.vat.replace(/^prices?\s+/i, '')) + ', set by ' + esc(data.space) + '. ' : 'Prices set by ' + esc(data.space) + '. ') +
-      'Enquiring is free and there\'s no obligation.</p>' +
+      'Sending a request is free and there\'s no obligation.</p>' +
       (phone ? tabsHtml() : listHtml());
     if (sheet) sheet.querySelector('.nwp-dlg').innerHTML = S.sheetOpen ? modalHtml() : '';
     if (key) {
