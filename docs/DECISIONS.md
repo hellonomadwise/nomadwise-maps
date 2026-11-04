@@ -6031,3 +6031,9 @@ Price list fix seen on Hub53: the group line said "3 to 3 people" when every siz
 ## Enquiry pop-up: people buttons the same width, plain hyphens (4 Nov 2026)
 
 Jonathan: "I don't like that the 2 is less wide than 3 to 5. So it should be uniform." and the en dash in "3–5" "reads as if it's AI ... change it to a dash ... as I would write it as a human". The five "How many people?" buttons now share the row equally, and read 3-5 and 6-10 with an ordinary hyphen. House rule from now on: no en or em dashes in anything a visitor reads.
+
+## Emails in Nomadwise red, with the logo (migration 247, 4 Nov 2026)
+
+Jonathan: transactional emails must "never have ... orange ... It has to be the nomadwise red color. And it should be the nomadwise logo and nomadwise branding", corners 8px. The designed email (email_html, used by owner, claim, enquiry and confirmation emails) used #E0442E, an orange red, for buttons, links, the signature and the "nomadwise" word at the top. All of it is now #FF444F, and the top shows the real logo (the website header logo, saved as app/web/email/nomadwise-logo.png, served at https://nomadmaps.io/email/nomadwise-logo.png, 600x178 shown at 150x44, alt text "nomadwise.io"). Corners were already 8px (migration 246).
+
+Also agreed (not built yet): user-facing pages use Nomadwise red; business-facing areas (the partner area) may use a light blue accent instead, never the dark turquoise.
