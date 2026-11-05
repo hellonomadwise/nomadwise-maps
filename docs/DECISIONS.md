@@ -6116,3 +6116,17 @@ already copied still works. The white line logo is traced from the colour
 logo (palms, sun, cloud and wave outlines, ring). The Verified tick on Red
 and Outline is a white disc with the check cut out. The media packs now hold
 all six images for the plan.
+
+## 2026-11-05: Website badges are real SVGs, logo redrawn (CR-26)
+
+Jonathan: the traced white logo looked rough; the badges must be SVG and
+premium. With the site's logo SVG (he pasted it), every badge is now a real
+SVG in app/web/badges (<kind>-<shape>[-red|-outline].svg), with the words
+drawn as shapes in Roboto, so they are sharp at any size and look the same on
+every website. The code owners copy now points at the .svg; the .png files are
+made from the same SVGs (preview in the Owner account, media pack; old copied
+code still works). The white line logo is redrawn from the vector shapes:
+ring, palms and sun filled, clouds and waves as lines; on Red and Outline the
+Verified tick is a white disc with the check cut out and a small gap around
+it. The media packs now also hold the SVGs (svg/ folder). Sources and how to
+remake them: scripts/badges/README.md; icons in brand/.

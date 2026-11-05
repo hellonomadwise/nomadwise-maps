@@ -6419,7 +6419,9 @@ class _OwnerScreenState extends State<OwnerScreen> {
   // nomadwise.io" with the red tick. Each comes as one line or square,
   // with code to paste on the space's website (a plain link to its
   // page) and a media pack ZIP for Instagram and Facebook. The images are
-  // in app/web/badges (nomadmaps.io/badges/...).
+  // in app/web/badges (nomadmaps.io/badges/...). The code on the owner's
+  // website uses the SVG (sharp at any size); the preview here and the
+  // media pack use PNGs made from the same SVGs.
 
   static const _badgeBase = 'https://nomadmaps.io/badges/';
 
@@ -6434,7 +6436,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
     // bigger than its own size.
     return '<a href="$page" target="_blank" rel="noopener" '
         'title="$name on Nomadwise" style="display:inline-block;'
-        'max-width:100%;line-height:0"><img src="$_badgeBase$file.png" '
+        'max-width:100%;line-height:0"><img src="$_badgeBase$file.svg" '
         'alt="$alt" width="$w" height="$h" '
         'style="border:0;max-width:100%;height:auto"></a>';
   }
@@ -6658,7 +6660,8 @@ class _OwnerScreenState extends State<OwnerScreen> {
           const SizedBox(height: 6),
           const Text(
               'For Instagram, Facebook or anywhere else that does not take '
-              'code: both badges in all three styles, as large PNG images.',
+              'code: both badges in all three styles, as large PNG images, '
+              'plus SVG files for designers.',
               style: help),
           const SizedBox(height: 12),
           FilledButton.icon(
