@@ -5007,23 +5007,20 @@ class _OwnerScreenState extends State<OwnerScreen> {
                                     fontSize: 16,
                                     fontWeight: FontWeight.w500,
                                     color: _pageInk)),
+                          // The live page shows Leonie's badge here (5 Nov
+                          // 2026, the verified-badge class in Webflow).
                           if (_verified)
-                            Container(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                              decoration: BoxDecoration(
-                                  color: const Color(0xFFE4F2EA),
-                                  borderRadius: BorderRadius.circular(6)),
-                              child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                                Icon(Icons.verified, size: 15, color: Color(0xFF1F6B41)),
-                                SizedBox(width: 5),
-                                Text('Verified by Nomadwise',
+                            Image.network(
+                                'https://nomadmaps.io/badges/verified-line.png',
+                                width: 154,
+                                height: 32,
+                                semanticLabel: 'Verified by nomadwise.io',
+                                errorBuilder: (_, __, ___) => const Text(
+                                    'Verified by nomadwise.io',
                                     style: TextStyle(
                                         fontSize: 13,
                                         fontWeight: FontWeight.w700,
-                                        color: Color(0xFF1F6B41))),
-                              ]),
-                            )
+                                        color: _pageRed)))
                           else
                             _lockedChip('Verified badge', 'badge'),
                         ]),

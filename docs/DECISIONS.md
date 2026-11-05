@@ -6169,3 +6169,14 @@ names and README. Red kept as one of three styles: Leonie and Jonathan had
 said white alone is enough, but on 5 Nov Jonathan asked for the alternatives
 so owners have a mix; Leonie: "if you believe it's needed we can leave it".
 The badge cards in the Owner account now fit a phone screen (width up to 320).
+
+## 2026-11-05: Listing pages show the new Verified badge (Leonie)
+
+Leonie: make the "Verified by Nomadwise" mark on our own listing pages match
+the website badge. In Webflow the global class verified-badge (the green
+"Verified" chip next to the country on Premium listing pages) now shows
+https://nomadmaps.io/badges/verified-line.svg as a background, 154x32,
+line-height 32px (the site's custom code forces height:auto !important, so
+the height comes from the line height); the word "Verified" stays in the
+markup for screen readers, transparent. Only the listing template uses the
+class. The page preview in the Owner account shows the same badge image.
