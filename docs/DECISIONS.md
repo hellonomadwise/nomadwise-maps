@@ -6257,3 +6257,62 @@ Jonathan chose Postmark for it (in line with Leonie's owner email plan).
   owner_monthly_send(p_test_to => ...) first).
 - Performance tab: number cards are now four to a row on a computer and two on
   a phone, so a lone number does not stretch across the page.
+
+## 2026-11-05: Monthly email minimum, test copies, name and location in Settings, prices as on the page
+
+- Monthly email (migration 255): "Shown in Google search" only from 20 a month
+  (Jonathan: "20 as min"); below that it leads with page views, directions and
+  requests and the checklist, and a space with under 20 and nothing else gets
+  no email. The six-month bars follow the Google number. The Performance tab
+  still shows any Google number above 0. A test copy (owner_monthly_send with
+  p_test_to) now carries a Stop link that switches nothing off. First test
+  copy (Kopi Club, October) sent to hello@nomadwise.io on 5 Nov at
+  Jonathan's request.
+- "Request a change" (Jonathan, 5 Nov): one thing per window, no Wi-Fi /
+  Location / Name choice. On My listing and in Performance it is "Update
+  Wi-Fi speed" only. The name and the location are asked for in Settings,
+  in a new "Your space" panel (each with Request a change); the note on My
+  listing now says to go to Settings for those.
+- My listing's Prices part (Jonathan: "this prices section should reflect how
+  it looks on live") now draws the price list as the live page does
+  (prices.js): groups with a photo, "FROM" price and spec ("3 options · by
+  the day"), every price with its note and a Request button; tabs on a phone
+  (under 560px wide). The grouping rules are prices.js's shape(), ported to
+  Dart (_lpShape); keep the two in step.
+
+## 2026-11-05: The monthly email, simpler (option B with a small grey tip)
+
+The first test copy came out broken: in Postmark's template language a
+detail inside a show/hide block must be written {{../name}}, blocks cannot
+sit inside other blocks, and lists need {{#each}}. The empty "Next step"
+button linked to nothing (Spark warned about an "app:" link).
+
+Jonathan then asked to simplify it ("I think we need to simplify it") and
+chose option B, with the small grey tip from the earlier mock-up instead of
+the big NEXT STEP box. The template "owner-monthly" now has: heading, the
+Google number (from 20) with "up X%" only when last month had 20 or more
+("more than double <month>" from 100%), small boxes for page views,
+directions and requests above 0, a grey "One thing to try in <next month>"
+tip with one link, Open your Owner account, sign-off and footer. No chart,
+no checklist, no free requests line. Migration 256 has the model; the
+template source is scripts/postmark/owner-monthly.html and .txt. Checked
+with Postmark's own renderer (templates/validate) before a second test copy
+went to hello@nomadwise.io.
+
+Later the same evening, after more rounds of options (Kit- and Ahrefs-style
+round-ups, cleaner notes), Jonathan went back to the first mock-up's Email B
+("along this maybe") and then picked "four big numbers" for the numbers
+("go for 2"), because a label on the left and the number on the right is
+hard to read. The live template "owner-monthly" (replaced in Postmark,
+template id 48615465) is now: "OCTOBER 2026 · <SPACE>", "Your page was
+busier this month" (only when Google went up; otherwise "Here is how your
+page did in <month>"), the numbers above 0 two by two (big number, a small
+icon and what it is, a grey note: "Up from 150 in September", "2 of 2 free
+used"), thin lines between them, the six-month Google bars only when this
+month went up (no falling charts), a grey "One thing to try in <next
+month>" tip with a lightbulb, a red Open your Owner account button, and
+"Jonathan and Leonie, nomadwise.io". The icons are PNGs in
+app/web/email/icons (email programs do not show SVG); the numbers grid is
+built in owner_monthly_model as HTML (grid_html) because Postmark's
+template language cannot nest blocks. The header stays the shared
+"nomadwise FOR SPACES" layout from the owner email setup.

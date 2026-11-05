@@ -2473,6 +2473,331 @@ class _OwnerScreenState extends State<OwnerScreen> {
       border: const OutlineInputBorder(),
       isDense: true);
 
+  // ------------------------------------------------ prices, as on the page
+  // The Prices part of My listing shows the price list the way the live
+  // page draws it (prices.js, migration 243): groups with a photo, the
+  // "from" price and a Request on every price; tabs on a phone (Jonathan,
+  // 5 Nov 2026: "this prices section should reflect how it looks on
+  // live"). The rules below are prices.js's shape(), kept in step.
+
+  int _priceTab = 0;
+
+  static const _lpGroups = [
+    ('coworking', 'Coworking'),
+    ('private_office', 'Private offices'),
+    ('meeting_room', 'Meeting rooms'),
+    ('other', 'Other'),
+  ];
+  static const _lpPer = {
+    'hour': '/hr', 'half day': '/half day', 'day': '/day', 'week': '/wk',
+    'month': '/mo', 'year': '/yr'
+  };
+  static const _lpPerLong = {
+    'hour': '/hour', 'half day': '/half day', 'day': '/day', 'week': '/week',
+    'month': '/month', 'year': '/year'
+  };
+  static const _lpBy = {
+    'hour': 'the hour', 'half day': 'the half day', 'day': 'the day',
+    'week': 'the week', 'month': 'the month', 'year': 'the year'
+  };
+
+  static String? _lpPeriod(String name, List<String> details, String cat) {
+    final n = name.toLowerCase().replaceAll('-', ' ');
+    final b = RegExp(r'\((hour|half day|day|week|month|year)\)\s*$').firstMatch(n);
+    if (b != null) return b.group(1);
+    if (RegExp(r'\b\d+\s*(hour|day|week|month)s?\b').hasMatch(n)) return null;
+    if (RegExp(r'\bhalf day\b').hasMatch(n)) return 'half day';
+    if (RegExp(r'\bhourly\b|\bper hour\b').hasMatch(n)) return 'hour';
+    if (RegExp(r'\bmonth(ly)?\b').hasMatch(n)) return 'month';
+    if (RegExp(r'\bweek(ly)?\b').hasMatch(n)) return 'week';
+    if (RegExp(r'\byear(ly)?\b|\bannual\b').hasMatch(n)) return 'year';
+    if (RegExp(r'\bday pass\b|\bfull day\b|\bdaily\b|\b1 day\b').hasMatch(n)) return 'day';
+    final d = details.join(' | ').toLowerCase();
+    if (RegExp(r'\b(price )?per hour\b|\ban hour\b').hasMatch(d)) return 'hour';
+    if (RegExp(r'\b(price )?per month\b|\ba month\b|^monthly\b|\| monthly\b').hasMatch(d)) return 'month';
+    if (RegExp(r'\b(price )?per week\b|\ba week\b').hasMatch(d)) return 'week';
+    if (RegExp(r'\b(price )?per day\b').hasMatch(d)) return 'day';
+    if (cat == 'meeting_room') return 'hour';
+    if (cat == 'private_office') return 'month';
+    return null;
+  }
+
+  /// The groups the page shows: (title, spec, from word, price, per,
+  /// items); each item (name, note, price text).
+  List<(String, String, bool, String, String, List<(String, String, String)>)>
+      _lpShape() {
+    final byCat = <String, List<Map<String, dynamic>>>{};
+    for (final raw in (_venue?['page_products'] as List? ?? const [])) {
+      if (raw is! Map) continue;
+      final p = Map<String, dynamic>.from(raw);
+      final cat0 = '${p['category'] ?? ''}';
+      final cat = _lpGroups.any((g) => g.$1 == cat0) ? cat0 : 'other';
+      final details = [
+        for (final x in (p['details'] is List ? p['details'] as List : const []))
+          if ('$x'.trim().isNotEmpty) '$x'.trim()
+      ];
+      final rawName = '${p['name'] ?? ''}';
+      final period = _lpPeriod(rawName, details, cat);
+      var name = rawName
+          .replaceAll(RegExp(r'\s*\((hour|half day|day|week|month|year)\)\s*$', caseSensitive: false), '')
+          .trim();
+      if (cat == 'meeting_room' && RegExp(r'^meeting room\s+\S', caseSensitive: false).hasMatch(name)) {
+        name = name.replaceFirst(RegExp(r'^meeting room\s+', caseSensitive: false), '');
+      }
+      final amount = p['amount'] is num ? (p['amount'] as num).toDouble() : double.tryParse('${p['amount'] ?? ''}');
+      final label = '${p['label'] ?? ''}'.trim().isNotEmpty
+          ? '${p['label']}'.trim()
+          : amount == null
+              ? 'Price on request'
+              : Price.format('${amount % 1 == 0 ? amount.toInt() : amount}', '${p['currency'] ?? _currency}').trim();
+      var from = false;
+      final notes = <String>[];
+      for (final d in details) {
+        final l = d.toLowerCase();
+        if (RegExp(r'^(per|a|an) (hour|day|week|month|year)$|^monthly$|^daily$|^hourly$').hasMatch(l)) continue;
+        if (RegExp(r'\bvat\b').hasMatch(l) && d.length < 30) continue;
+        if (RegExp(r'^from\b').hasMatch(l) && l.contains(label.toLowerCase())) {
+          from = true;
+          continue;
+        }
+        notes.add(d);
+      }
+      (byCat[cat] ??= []).add({
+        'name': name.isEmpty ? (rawName.isEmpty ? 'Price' : rawName) : name,
+        'note': notes.take(2).join(' · '),
+        'amount': amount,
+        'currency': '${p['currency'] ?? ''}',
+        'label': label,
+        'period': period,
+        'from': from,
+        'text': '${from ? 'from ' : ''}$label${period != null && amount != null ? ' ${_lpPer[period]}' : ''}',
+      });
+    }
+    final out = <(String, String, bool, String, String, List<(String, String, String)>)>[];
+    for (final (key, title) in _lpGroups) {
+      final items = byCat[key];
+      if (items == null || items.isEmpty) continue;
+      final priced = items.where((i) => i['amount'] != null).toList();
+      final oneCur = priced.every((i) => i['currency'] == (priced.isEmpty ? null : priced.first['currency']));
+      Map<String, dynamic>? low;
+      if (priced.isNotEmpty) {
+        low = oneCur
+            ? (priced.toList()..sort((a, b) => (a['amount'] as double).compareTo(b['amount'] as double))).first
+            : priced.first;
+      }
+      final periods = <String>[];
+      for (final i in items) {
+        final pr = i['period'] as String?;
+        if (pr != null && !periods.contains(pr)) periods.add(pr);
+      }
+      final caps = <int>[];
+      for (final i in items) {
+        final c = RegExp(r'up to (\d+)', caseSensitive: false).firstMatch('${i['note']}');
+        if (c != null && !caps.contains(int.parse(c.group(1)!))) caps.add(int.parse(c.group(1)!));
+      }
+      var spec = caps.length > 1
+          ? '${caps.reduce((a, b) => a < b ? a : b)} to ${caps.reduce((a, b) => a > b ? a : b)} people'
+          : '${items.length} ${items.length == 1 ? 'option' : 'options'}';
+      if (periods.isNotEmpty) {
+        spec += ' · by ${periods.map((x) => _lpBy[x]).join(' or ').replaceAll(' or the ', ' or ')}';
+      }
+      out.add((
+        title,
+        spec,
+        low != null && (items.length > 1 || low['from'] == true),
+        low != null ? '${low['label']}' : 'Ask',
+        low != null && low['period'] != null ? _lpPerLong[low['period']]! : '',
+        [for (final i in items) ('${i['name']}', '${i['note']}', '${i['text']}')],
+      ));
+    }
+    return out;
+  }
+
+  /// The price list as the live page draws it, or null when the space
+  /// has no prices on the page yet.
+  Widget? _livePrices(List<String> photos) {
+    final groups = _lpShape();
+    if (groups.isEmpty) return null;
+    const line = Color(0x1F142032);
+    const soft = Color(0xFFF5F6F8);
+    const muted = Color(0xFF5E6670);
+    String? photoFor(int gi) =>
+        photos.isEmpty ? null : photos[(gi + 1) % photos.length];
+    Widget request() => Container(
+          height: 34,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: _pageRed, width: 1.5)),
+          child: const Text('Request',
+              style: TextStyle(
+                  fontSize: 13.5, fontWeight: FontWeight.w700, color: Color(0xFFD42F3A))),
+        );
+    Widget img(String? url, double w, double h) => ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: url == null
+              ? Container(width: w, height: h, color: const Color(0xFFE6E9ED))
+              : Image.network(url,
+                  width: w,
+                  height: h,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) =>
+                      Container(width: w, height: h, color: const Color(0xFFE6E9ED))),
+        );
+    Widget row((String, String, String) it, {bool phone = false}) => Container(
+          padding: EdgeInsets.symmetric(vertical: phone ? 10 : 9),
+          decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: Color(0x0D000000)))),
+          child: Row(children: [
+            Expanded(
+              child: phone
+                  ? Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(it.$1,
+                          style: const TextStyle(
+                              fontSize: 14.5, fontWeight: FontWeight.w700, color: _pageInk)),
+                      if (it.$2.isNotEmpty)
+                        Text(it.$2, style: const TextStyle(fontSize: 13, color: muted)),
+                    ])
+                  : Text.rich(TextSpan(children: [
+                      TextSpan(
+                          text: it.$1,
+                          style: const TextStyle(fontWeight: FontWeight.w700)),
+                      if (it.$2.isNotEmpty)
+                        TextSpan(
+                            text: '  · ${it.$2}',
+                            style: const TextStyle(fontSize: 13, color: muted)),
+                    ]), style: const TextStyle(fontSize: 14.5, height: 1.35, color: _pageInk)),
+            ),
+            const SizedBox(width: 12),
+            Text(it.$3,
+                style: const TextStyle(
+                    fontSize: 14.5, fontWeight: FontWeight.w700, color: _pageInk)),
+            const SizedBox(width: 12),
+            request(),
+          ]),
+        );
+    final space = '${_venue?['name'] ?? 'this space'}';
+    return LayoutBuilder(builder: (context, box) {
+      final phone = box.maxWidth < 560;
+      Widget list;
+      if (!phone) {
+        list = Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          for (var gi = 0; gi < groups.length; gi++)
+            Container(
+              decoration: BoxDecoration(
+                  border: gi == 0 ? null : const Border(top: BorderSide(color: line))),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                Container(
+                  color: soft,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  child: Row(children: [
+                    img(photoFor(gi), 88, 66),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(groups[gi].$1,
+                            style: const TextStyle(
+                                fontSize: 16, fontWeight: FontWeight.w700, color: _pageInk)),
+                        const SizedBox(height: 2),
+                        Text(groups[gi].$2,
+                            style: const TextStyle(fontSize: 13, color: muted)),
+                      ]),
+                    ),
+                    Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                      if (groups[gi].$3)
+                        const Text('FROM',
+                            style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: .8,
+                                color: muted)),
+                      Text.rich(TextSpan(children: [
+                        TextSpan(
+                            text: groups[gi].$4,
+                            style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w900)),
+                        TextSpan(
+                            text: groups[gi].$5,
+                            style: const TextStyle(fontSize: 13, color: muted)),
+                      ]), style: const TextStyle(color: _pageInk)),
+                    ]),
+                  ]),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Column(children: [for (final it in groups[gi].$6) row(it)]),
+                ),
+              ]),
+            ),
+        ]);
+      } else {
+        final gi = _priceTab.clamp(0, groups.length - 1);
+        list = Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          if (groups.length > 1)
+            Container(
+              color: soft,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(children: [
+                  for (var i = 0; i < groups.length; i++)
+                    InkWell(
+                      onTap: () => setState(() => _priceTab = i),
+                      child: Container(
+                        constraints: const BoxConstraints(minHeight: 56),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: i == gi ? Colors.white : Colors.transparent,
+                          border: Border(
+                              bottom: BorderSide(
+                                  color: i == gi ? _pageRed : Colors.transparent, width: 3)),
+                        ),
+                        child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(groups[i].$1,
+                                  style: const TextStyle(
+                                      fontSize: 14.5, fontWeight: FontWeight.w700, color: _pageInk)),
+                              Text(
+                                  '${groups[i].$3 ? 'from ' : ''}${groups[i].$4}'
+                                  '${groups[i].$5.replaceAll('/month', '/mo').replaceAll('/hour', '/hr')}',
+                                  style: const TextStyle(fontSize: 12.5, color: muted)),
+                            ]),
+                      ),
+                    ),
+                ]),
+              ),
+            ),
+          if (photoFor(gi) != null)
+            AspectRatio(
+              aspectRatio: 16 / 10,
+              child: Image.network(photoFor(gi)!,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(color: const Color(0xFFE6E9ED))),
+            ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 2, 14, 6),
+            child: Column(children: [for (final it in groups[gi].$6) row(it, phone: true)]),
+          ),
+        ]);
+      }
+      return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Text('Prices set by $space. Sending a request is free and there\'s no obligation.',
+            style: const TextStyle(fontSize: 14, height: 1.45, color: muted)),
+        const SizedBox(height: 14),
+        Container(
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: line)),
+          child: list,
+        ),
+      ]);
+    });
+  }
+
   static const _priceKinds = [
     ('coworking', 'Coworking passes'),
     ('meeting_room', 'Meeting rooms'),
@@ -3869,10 +4194,11 @@ class _OwnerScreenState extends State<OwnerScreen> {
         label: Text(label, softWrap: false),
       );
 
-  /// "Request change", in the same style as Edit: WiFi speed, location
-  /// and name are not edited here (Leonie, 2 Nov 2026).
+  /// "Update Wi-Fi speed", in the same style as Edit: the speed is
+  /// checked by Nomadwise, so owners ask us (Leonie, 2 Nov 2026). The
+  /// name and the location are asked for in Settings (Jonathan, 5 Nov).
   Widget _requestButton() => OutlinedButton.icon(
-        onPressed: _requestChange,
+        onPressed: () => _requestChange('wifi'),
         style: OutlinedButton.styleFrom(
           minimumSize: const Size(0, 40),
           padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -3883,24 +4209,46 @@ class _OwnerScreenState extends State<OwnerScreen> {
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
         ),
-        icon: const Icon(Icons.edit_outlined, size: 15),
-        label: const Text('Request change', softWrap: false),
+        icon: const Icon(Icons.wifi, size: 15),
+        label: const Text('Update Wi-Fi speed', softWrap: false),
       );
 
-  /// A short message to Nomadwise about the WiFi speed, the location or
-  /// the name. It arrives in Inbox & support like any other message.
-  Future<void> _requestChange() async {
+  /// A short message to Nomadwise about one thing we check: the Wi-Fi
+  /// speed (from My listing and Performance), or the name or location
+  /// (from Settings). One thing per window, no choice to make (Jonathan,
+  /// 5 Nov 2026). It arrives in Inbox & support like any other message.
+  Future<void> _requestChange([String kind = 'wifi']) async {
     final v = _venue;
     if (v == null) return;
-    const hints = {
-      'WiFi speed': 'For example: our WiFi is now 300 Mbps since we '
-          'upgraded in October.',
-      'Location': 'For example: we moved to Jalan Pantai 12, two streets '
-          'further down.',
-      'Name': 'For example: our name is now Sunrise Coworking.',
+    // title, intro, field label, example, name in the message to us
+    final (title, intro, label, hint, what) = switch (kind) {
+      'name' => (
+          'Change your name',
+          'Your name on Nomadwise is checked by us before it changes on '
+              'your page. Tell us the new name and we will look at it.',
+          'New name',
+          'For example: our name is now Sunrise Coworking.',
+          'Name'
+        ),
+      'location' => (
+          'Change your location',
+          'Your address and pin on the map are checked by us before they '
+              'change on your page. Tell us where you are now.',
+          'New address',
+          'For example: we moved to Jalan Pantai 12, two streets further '
+              'down.',
+          'Location'
+        ),
+      _ => (
+          'Update your Wi-Fi speed',
+          'The Wi-Fi speed on your page is checked by Nomadwise. Tell us '
+              'your speed and we will update it.',
+          'Your Wi-Fi speed',
+          'For example: 300 Mbps since we upgraded in October.',
+          'Wi-Fi speed'
+        ),
     };
     final note = TextEditingController();
-    var what = 'WiFi speed';
     var sending = false;
     String? error;
     final sent = await showDialog<bool>(
@@ -3913,30 +4261,18 @@ class _OwnerScreenState extends State<OwnerScreen> {
           canPop: !sending,
           child: AlertDialog(
           scrollable: true,
-          title: const Text('Request a change'),
+          title: Text(title),
           content: SizedBox(
             width: 440,
             child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                      'Your WiFi speed, location and name are checked by '
-                      'Nomadwise, so they are not edited here. Tell us '
-                      'what should change and we will look at it.',
-                      style: TextStyle(
+                  Text(intro,
+                      style: const TextStyle(
                           fontSize: 13.5,
                           height: 1.45,
                           color: Brand.inkSecondary)),
-                  const SizedBox(height: 14),
-                  Wrap(spacing: 8, runSpacing: 8, children: [
-                    for (final w in hints.keys)
-                      ChoiceChip(
-                        label: Text(w),
-                        selected: what == w,
-                        onSelected: (_) => setD(() => what = w),
-                      ),
-                  ]),
                   const SizedBox(height: 14),
                   TextField(
                     controller: note,
@@ -3946,8 +4282,8 @@ class _OwnerScreenState extends State<OwnerScreen> {
                     maxLength: 1000,
                     textCapitalization: TextCapitalization.sentences,
                     decoration: InputDecoration(
-                      labelText: 'What should change?',
-                      hintText: hints[what],
+                      labelText: label,
+                      hintText: hint,
                       hintMaxLines: 3,
                       border: const OutlineInputBorder(),
                     ),
@@ -4959,6 +5295,8 @@ class _OwnerScreenState extends State<OwnerScreen> {
             else if (prices.isEmpty)
               const Text('No prices yet. Press Edit to add one.',
                   style: muted)
+            else if (_livePrices(photos) != null)
+              _livePrices(photos)!
             else
               for (final (name, price) in prices)
                 Padding(
@@ -5059,8 +5397,8 @@ class _OwnerScreenState extends State<OwnerScreen> {
           }),
           const SizedBox(height: 8),
           const Text(
-              'WiFi speed is checked by Nomadwise. To change your WiFi '
-              'speed, location or name, press Request change.',
+              'Wi-Fi speed is checked by Nomadwise. To change your name or '
+              'location, go to Settings.',
               style: TextStyle(fontSize: 12, color: Brand.inkMuted)),
           const SizedBox(height: 18),
           _keyed('photos', photosPart),
@@ -7228,6 +7566,37 @@ class _OwnerScreenState extends State<OwnerScreen> {
     );
   }
 
+  /// One line of "Your space" in Settings: what it is now, and a way to
+  /// ask for a change.
+  Widget _spaceRow(String title, String now, String kind, {bool first = false}) =>
+      Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+            border: first
+                ? null
+                : const Border(top: BorderSide(color: Color(0xFFECEDF0)))),
+        child: Row(children: [
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(title,
+                  style: const TextStyle(fontSize: 12.5, color: Brand.inkSecondary)),
+              const SizedBox(height: 2),
+              Text(now.isEmpty ? 'Not set' : now,
+                  style: const TextStyle(
+                      fontSize: 14.5, fontWeight: FontWeight.w600, color: Brand.ink)),
+            ]),
+          ),
+          const SizedBox(width: 12),
+          TextButton(
+            onPressed: () => _requestChange(kind),
+            style: TextButton.styleFrom(
+                foregroundColor: _perfRed,
+                textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+            child: const Text('Request a change'),
+          ),
+        ]),
+      );
+
   Widget _settingsTab(bool wide) {
     const head = TextStyle(
         fontWeight: FontWeight.w700, fontSize: 16, color: Brand.ink);
@@ -7249,6 +7618,28 @@ class _OwnerScreenState extends State<OwnerScreen> {
                     fontSize: 14.5, fontWeight: FontWeight.w600, color: Brand.ink)),
             const SizedBox(height: 16),
             _enquiriesCard(),
+          ]),
+        ),
+        const SizedBox(height: 16),
+        // Name and location: owners ask, we check (Jonathan, 5 Nov 2026:
+        // these belong in Settings, not on the listing).
+        _panel(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('Your space', style: head),
+            const SizedBox(height: 4),
+            const Text(
+                'Nomadwise checks these before they change on your page.',
+                style: muted),
+            const SizedBox(height: 8),
+            _spaceRow('Name', '${_venue?['name'] ?? ''}', 'name', first: true),
+            _spaceRow(
+                'Location',
+                [
+                  for (final k in ['neighbourhood', 'city', 'country'])
+                    if ('${_venue?[k] ?? ''}'.trim().isNotEmpty)
+                      '${_venue?[k]}'.trim()
+                ].join(', '),
+                'location'),
           ]),
         ),
         const SizedBox(height: 16),
