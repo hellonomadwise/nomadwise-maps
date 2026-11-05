@@ -6221,3 +6221,39 @@ month chart; always end with "Get more from your page".
   Latest requests, Get more from your page (progress, NEXT STEP with its
   button, the checklist with Add; Wi-Fi is "Tell us", as Nomadwise checks
   it). The Add buttons open My listing with that part ready to edit.
+
+## 2026-11-05: The monthly performance email (step 4), from Postmark
+
+Jonathan chose Postmark for it (in line with Leonie's owner email plan).
+
+- Postmark template "owner-monthly" (Standard, layout "nomadwise-layout"),
+  source in scripts/postmark/owner-monthly.html and .txt. It is the merged
+  A + B + C design: big "Shown in Google search" with "up X% on <month>" only
+  when it went up; tiles for page views, asked for directions and requests,
+  each only above 0; "You have used X of your 2 free requests" on free pages
+  that used some (life of the page, not per month); six months of Google
+  bars once three months have numbers; "Get more from your page" with
+  progress, NEXT STEP and the checklist; Open your Owner account; footer with
+  Choose which emails you get and Stop monthly updates.
+- Its own transactional stream "monthly" (Monthly performance (owners)), so
+  its reputation stays apart from lifecycle and enquiries.
+- Migration 253: owner_monthly_model (the template model), owner_monthly_send
+  (month, test address, one space, dry run), owner_monthly_run and the cron
+  job owner-monthly (09:23 UTC on the 4th to the 10th: sends last month once
+  Search Console has the whole month, or on the 8th regardless). One email
+  per space per month (owner_emails kind monthly, ref
+  monthly:<space>:<YYYY-MM>); payload left out so owner_emails_retry does not
+  re-post it to /email. A space with nothing at all that month gets no email
+  (Jonathan: only activity worth showing). A space whose owner joined (claim
+  approved) in the last 10 days of the month, or later, gets no email for that
+  month; its first one comes the month after (Jonathan, 5 Nov: "it will kind
+  of be pointless"). Test sends ignore this rule.
+- "Stop monthly updates" opens nomadmaps.io/stop/?t=<token>: a page with one
+  button (so mail programs that check links do not switch it off), which calls
+  owner_email_pref_off. stop.js gets the public key filled in at build time
+  like prices.js (scripts/export_map.py).
+- Editing the template later: pg_net has no PUT, so it is delete and create
+  again through the API (the template goes live on save; test with
+  owner_monthly_send(p_test_to => ...) first).
+- Performance tab: number cards are now four to a row on a computer and two on
+  a phone, so a lone number does not stretch across the page.

@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Monthly updates · Nomadwise</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+  body{margin:0;background:#F7F8F9;font-family:Roboto,Arial,sans-serif;color:#1F2328}
+  .wrap{max-width:480px;margin:0 auto;padding:40px 16px}
+  .logo{font-size:22px;font-weight:800;color:#FF444F;letter-spacing:-.3px}
+  .logo small{font-size:12px;font-weight:700;color:#5C6773;letter-spacing:1.2px;margin-left:6px}
+  .card{margin-top:16px;background:#fff;border:1px solid rgba(20,32,50,.10);border-radius:8px;padding:28px 24px}
+  h1{margin:0 0 10px;font-size:22px;line-height:1.3;font-weight:800}
+  p{margin:0 0 14px;font-size:15px;line-height:1.55;color:#4A525C}
+  button{width:100%;height:48px;border:0;border-radius:8px;background:#1F2328;color:#fff;font:700 16px Roboto,Arial,sans-serif;cursor:pointer}
+  button[disabled]{opacity:.6;cursor:default}
+  a{color:#D42F3A;font-weight:700;text-decoration:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="logo">nomadwise<small>FOR SPACES</small></div>
+  <div class="card" id="card">
+    <h1>Stop the monthly update?</h1>
+    <p>You will no longer get the email at the start of each month about how your page did. Requests from people and updates about your page still reach you.</p>
+    <button id="go" type="button">Stop monthly updates</button>
+    <p id="msg" style="margin:14px 0 0" hidden></p>
+  </div>
+</div>
+<script src="stop.js"></script>
+</body>
+</html>

@@ -6743,7 +6743,9 @@ class _OwnerScreenState extends State<OwnerScreen> {
       ));
     } else {
       children.add(LayoutBuilder(builder: (context, c) {
-        final cols = c.maxWidth >= 720 ? stats.length : (stats.length == 1 ? 1 : 2);
+        // Four to a row on a computer, two on a phone; a lone number
+        // keeps its card size instead of stretching across the page.
+        final cols = c.maxWidth >= 720 ? 4 : 2;
         const gap = 12.0;
         // (a hair under, so rounding never pushes a card to a new row)
         final w = (c.maxWidth - gap * (cols - 1)) / cols - 0.5;

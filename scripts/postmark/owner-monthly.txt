@@ -1,0 +1,28 @@
+YOUR MONTH ON NOMADWISE, {{month_upper}}
+
+Hi {{first_name}}, here is how {{space}} did in {{month_name}}.
+{{#show_google}}
+Shown in Google search: {{google}}{{#has_up}} ({{up_text}}){{/has_up}}
+{{google_note}}
+{{/show_google}}
+{{#tiles}}{{label_text}}: {{value}}
+{{/tiles}}{{#show_free}}
+You have used {{free_used}} of your {{free_limit}} free requests. With Premium, every request comes straight to your inbox: {{premium_url}}
+{{/show_free}}
+GET MORE FROM YOUR PAGE ({{parts_done}} of {{parts_total}} done)
+Each part you add gives people one more reason to choose {{space}}, and helps Google show your page more often.
+{{#has_next}}
+Next step: {{next_title}}
+{{next_why}}
+{{next_url}}
+{{/has_next}}
+{{#steps}}{{text_mark}} {{label}}: {{why}}
+{{/steps}}
+Open your Owner account: {{account_url}}
+
+Thanks for being on Nomadwise,
+Jonathan and Leonie
+
+You get this once a month because you manage {{space}} on Nomadwise. Numbers are for 1 to {{last_day}} {{month_name}}.
+Choose which emails you get: {{settings_url}}
+Stop monthly updates: {{stop_url}}

@@ -41,7 +41,9 @@ def fill_chat_box(web_dir, url, key):
     live in GitHub's secrets only. Without them the box stays hidden."""
     # The price cards on the listing pages (web/prices.js, migration
     # 243) need the same two.
-    for name in ('chat.js', 'prices.js'):
+    # The "Stop monthly updates" page (web/stop/stop.js, migration 253)
+    # too.
+    for name in ('chat.js', 'prices.js', os.path.join('stop', 'stop.js')):
         path = os.path.join(web_dir, name)
         try:
             if not url or not key or not os.path.exists(path):
