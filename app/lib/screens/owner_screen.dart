@@ -6558,7 +6558,8 @@ class _OwnerScreenState extends State<OwnerScreen> {
   }
 
   // ------------------------------------------------ website badges
-  // CR-26 (5 Nov 2026): Leonie's white badges with the Nomadwise logo.
+  // CR-26 (5 Nov 2026): Leonie's badges with the Nomadwise logo (her
+  // final files, 5 Nov: pill 210/212x44, square 104x104, corners 8px).
   // Free pages get "Find us on nomadwise.io", Premium pages "Verified by
   // nomadwise.io" with the red tick. Each comes as one line or square,
   // with code to paste on the space's website (a plain link to its
@@ -6600,7 +6601,8 @@ class _OwnerScreenState extends State<OwnerScreen> {
     final pick = _badgeStyles.firstWhere((x) => x.$1 == style);
     final file = '$base${pick.$3}';
     return Container(
-        width: 320,
+        // fits a phone: never wider than the screen allows
+        width: (MediaQuery.sizeOf(context).width - 64).clamp(220.0, 320.0),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
             color: Colors.white,
@@ -6774,18 +6776,18 @@ class _OwnerScreenState extends State<OwnerScreen> {
           Wrap(spacing: 16, runSpacing: 16, children: [
             _badgeCard(
                 'One line',
-                'Fits a footer or a sidebar. ${_verified ? 270 : 268} pixels '
+                'Fits a footer or a sidebar. ${_verified ? 212 : 210} pixels '
                     'wide.',
                 '$kind-line',
-                _verified ? 270 : 268,
-                48,
+                _verified ? 212 : 210,
+                44,
                 '$words nomadwise.io'),
             _badgeCard(
                 'Square',
-                'For a corner or a column. 128 by 128 pixels.',
+                'For a corner or a column. 104 by 104 pixels.',
                 '$kind-square',
-                128,
-                128,
+                104,
+                104,
                 '$words nomadwise.io'),
           ]),
           const SizedBox(height: 18),

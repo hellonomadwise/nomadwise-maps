@@ -6156,3 +6156,16 @@ listings/2026-11-05-owner-performance-and-settings.md).
   button, the mobile map link). No cookies: sessionStorage only. Reason:
   PostHog only sees visitors who accept cookies (median 2 views a page a
   month), too low to show owners.
+
+## 2026-11-05: Website badges are Leonie's final files (CR-26)
+
+Leonie sent her final media pack (all distances centred, a reduced logo on the
+outline version for better visibility). Her SVGs and PNGs replace the
+generated ones in app/web/badges under the same names, so code owners already
+copied keeps working (it now shows her badge). Sizes: pill 210x44 (Find us on)
+/ 212x44 (Verified by), square 104x104. Corners changed from her 10px to 8px
+(house rule). Her "plus" is Premium: the media packs use "premium" in the
+names and README. Red kept as one of three styles: Leonie and Jonathan had
+said white alone is enough, but on 5 Nov Jonathan asked for the alternatives
+so owners have a mix; Leonie: "if you believe it's needed we can leave it".
+The badge cards in the Owner account now fit a phone screen (width up to 320).
