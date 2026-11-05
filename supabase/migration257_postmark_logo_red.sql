@@ -15,6 +15,12 @@
 -- "nomadwise.io"), "FOR SPACES" lined up beside it, and Nomadwise red
 -- #FF444F everywhere. Then it pushes the layout and all templates to
 -- Postmark again (they stay "[Not live yet]" until approved).
+--
+-- It also fixes the "replace what is in Postmark" path of
+-- pm_layout_push / pm_template_push: it called net.http_request, which
+-- this database's pg_net does not have (the first try of this migration
+-- failed on it). Updates now go straight to Postmark with a PUT through
+-- the http extension, and any error is kept in push_error.
 -- ============================================================
 
 do $$
@@ -46,6 +52,72 @@ begin
       end if;
     end if;
   end loop;
+end $$;
+
+-- updates to Postmark: synchronous PUT (pg_net has no PUT here)
+create or replace function public.pm_put(p_path text, p_body jsonb) returns int
+language plpgsql security definer set search_path to 'public' as $$
+declare r record;
+begin
+  select * into r from extensions.http(('PUT', 'https://api.postmarkapp.com/' || p_path,
+    array[extensions.http_header('X-Postmark-Server-Token', public.pm_token()),
+          extensions.http_header('Accept', 'application/json')],
+    'application/json', p_body::text)::extensions.http_request);
+  if r.status not between 200 and 299 then
+    raise warning 'Postmark PUT % failed: % %', p_path, r.status, left(r.content, 300);
+  end if;
+  return r.status;
+end $$;
+revoke all on function public.pm_put(text, jsonb) from public, anon, authenticated;
+
+create or replace function public.pm_layout_push(p_force boolean default false) returns bigint
+language plpgsql security definer set search_path to 'public' as $$
+declare
+  req bigint;
+  body jsonb := jsonb_build_object(
+    'Name', 'Nomadwise email layout', 'Alias', 'nomadwise-layout', 'TemplateType', 'Layout',
+    'HtmlBody', public.pm_layout_html(), 'TextBody', public.pm_layout_text());
+begin
+  if p_force then
+    return public.pm_put('templates/nomadwise-layout', body);
+  end if;
+  select net.http_post(
+    url := 'https://api.postmarkapp.com/templates', body := body,
+    headers := jsonb_build_object('X-Postmark-Server-Token', public.pm_token(),
+                                  'Accept', 'application/json', 'Content-Type', 'application/json'))
+    into req;
+  return req;
+end $$;
+
+create or replace function public.pm_template_push(p_alias text, p_force boolean default false) returns bigint
+language plpgsql security definer set search_path to 'public' as $$
+declare
+  t   public.email_templates%rowtype;
+  req bigint;
+  st  int;
+  body jsonb;
+begin
+  select * into t from public.email_templates where alias = p_alias;
+  if not found then raise exception 'No template %', p_alias; end if;
+  if t.postmark_id is not null and not p_force then return null; end if;
+  body := jsonb_build_object(
+    'Name', case when t.live then t.name else '[Not live yet] ' || t.name end,
+    'Alias', t.alias, 'TemplateType', 'Standard', 'LayoutTemplate', 'nomadwise-layout',
+    'Subject', t.subject, 'HtmlBody', t.html_body, 'TextBody', t.text_body);
+  if t.postmark_id is null then
+    select net.http_post(url := 'https://api.postmarkapp.com/templates', body := body,
+      headers := jsonb_build_object('X-Postmark-Server-Token', public.pm_token(),
+                                    'Accept', 'application/json', 'Content-Type', 'application/json'))
+      into req;
+    update public.email_templates set push_req = req, pushed_at = now(), push_error = null where alias = p_alias;
+    return req;
+  end if;
+  st := public.pm_put('templates/' || t.alias, body);
+  update public.email_templates
+     set push_req = null, pushed_at = now(),
+         push_error = case when st between 200 and 299 then null else 'PUT status ' || st end
+   where alias = p_alias;
+  return st;
 end $$;
 
 -- stored templates (built from the helpers when seeded)
