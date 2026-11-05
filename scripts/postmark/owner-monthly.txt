@@ -10,7 +10,3 @@ Open your Owner account: {{account_url}}
 
 Jonathan and Leonie
 nomadwise.io
-
-You get this once a month because you manage {{space}} on Nomadwise. Numbers are for 1 to {{last_day}} {{month_name}}.
-Choose which emails you get: {{settings_url}}
-Stop monthly updates: {{stop_url}}

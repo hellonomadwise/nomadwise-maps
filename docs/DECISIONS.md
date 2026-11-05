@@ -6320,3 +6320,7 @@ template language cannot nest blocks. The header stays the shared
 ## 6 Nov 2026: "enquiries" is "requests" for owners and nomads
 
 Jonathan: change the Owner account wording to requests, to match the website's "Send a request". Changed every word owners or nomads see in the Owner account, the claim form, the plan picker, Plan & billing (including the cancel reason "Not enough requests yet") and the request form. Code names, database columns, analytics events and the team's own control centre keep "enquiry".
+
+## 6 Nov 2026: monthly email footer links sit in the grey area
+
+Jonathan: "Choose which emails you get" and "Stop monthly updates" go in the grey area below the white card. The monthly email now uses its own layout, "nomadwise-layout-monthly" (scripts/postmark/owner-monthly-layout.sql): the shared layout plus those lines at the top of the grey footer. The shared layout is untouched. The owner-monthly template (now id 48615927) lost its own footer paragraph.
