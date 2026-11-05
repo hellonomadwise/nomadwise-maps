@@ -285,6 +285,15 @@ class SupabaseService {
     return {for (final e in m.entries) e.key: e.value == true};
   }
 
+  /// Owner: the Performance tab (migration 252) for the last 30, 91 or
+  /// 365 days: Google, page views, directions, requests, months,
+  /// searches, latest requests and the page checklist.
+  Future<Map<String, dynamic>> ownerPerformance(String venueId, int days) async {
+    final r = await _db.rpc('owner_performance',
+        params: {'p_venue': venueId, 'p_days': days});
+    return Map<String, dynamic>.from(r as Map);
+  }
+
   /// Owner: the price list as the owner left it (migration 218). Each
   /// change waits for a founder's Go in Price check. Returns counts
   /// and any prices that could not be sent, with why.

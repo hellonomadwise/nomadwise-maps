@@ -6745,7 +6745,8 @@ class _OwnerScreenState extends State<OwnerScreen> {
       children.add(LayoutBuilder(builder: (context, c) {
         final cols = c.maxWidth >= 720 ? stats.length : (stats.length == 1 ? 1 : 2);
         const gap = 12.0;
-        final w = (c.maxWidth - gap * (cols - 1)) / cols;
+        // (a hair under, so rounding never pushes a card to a new row)
+        final w = (c.maxWidth - gap * (cols - 1)) / cols - 0.5;
         return Wrap(spacing: gap, runSpacing: gap, children: [
           for (final s in stats)
             SizedBox(width: w, child: _perfStat(s.$1, s.$2, s.$3, s.$4)),
@@ -6757,7 +6758,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
       children.add(_perfFreeNote(freeUsed, freeLimit));
     }
 
-    final chart = monthsWithData >= 1 && live ? _perfMonths(months) : null;
+    final chart = monthsWithData >= 2 && live ? _perfMonths(months) : null;
     final searches = queries.isNotEmpty ? _perfSearches(queries) : null;
     final reqs = latest.isNotEmpty ? _perfLatest(latest) : null;
     final more = _perfMore(p['parts']);

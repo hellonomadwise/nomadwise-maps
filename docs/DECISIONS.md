@@ -6189,3 +6189,35 @@ the "Verified by" lettering is the same outline as in her line badge, scaled
 by 24/23, which matches her file exactly) with PNGs at 2x and 4x. The
 verified-badge class now uses it at 190x30, line-height 30px, corners 6px. The
 Owner account preview shows verified-chip.png at 171x27.
+
+## 2026-11-05: Performance in the Owner account (step 3)
+
+Jonathan, 5 Nov: Performance in the left menu (above Settings); never show a
+number that is 0 ("its about showing activity worth showing"); keep the By
+month chart; always end with "Get more from your page".
+
+- Migration 252: page_google_days (Search Console impressions and clicks per
+  listing page per day), page_google_queries (top 10 searches per page, last
+  90 days), gsc_listing_imports (one row per import), gsc_listing_import (for
+  the service role only), page_parts (the checklist: photos, opening hours,
+  description, prices, Wi-Fi speed; next step prices first, then photos,
+  description, Wi-Fi, hours) and owner_performance(venue, 30|91|365 days).
+- Google numbers come from the "listing_google" Apps Script in the Nomadwise
+  GSC feed sheet (scripts/gsc/listing_google.gs): every morning the last 10
+  final days and the searches; once, the last 16 months. It calls Supabase
+  with its own secret key, which Jonathan creates in Supabase and keeps in
+  the script's properties (SUPABASE_SECRET_KEY); Claude never sees it.
+- Page views and Directions taps: page_counts (migration 251), since 5 Nov.
+  "Up X%" only when it went up and only when the period before is fully
+  counted; no down arrows.
+- Requests: everything but closed ones; held ones say "waiting for Premium",
+  and a free page that has used free requests gets "You have used X of your
+  2 free requests ... See what Premium adds" (the 2 free requests are for the
+  life of the page, not per month).
+- The tab: period switch (Last 30 days, 3 months, 12 months, three equal
+  buttons), number cards (two a row on a phone), By month (Google red, page
+  views dark, same scale, last 6 months with this month so far; shown once
+  two months have numbers), What people searched for (last 3 months),
+  Latest requests, Get more from your page (progress, NEXT STEP with its
+  button, the checklist with Add; Wi-Fi is "Tell us", as Nomadwise checks
+  it). The Add buttons open My listing with that part ready to edit.
