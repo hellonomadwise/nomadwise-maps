@@ -31,7 +31,7 @@ create trigger email_templates_last_margin
   for each row execute function public.pm_fix_last_margin();
 
 -- fix the stored templates now (the trigger does the work)
-update public.email_templates set html_body = html_body, updated_at = now();
+update public.email_templates set html_body = html_body, updated_at = now() where alias is not null;
 
 -- Postmark is updated afterwards by Claude (too slow for the build):
 --   select public.pm_template_push(alias, true) from public.email_templates order by sort;
