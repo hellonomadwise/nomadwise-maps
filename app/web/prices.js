@@ -813,7 +813,29 @@
     box.appendChild(el);
   }
 
+  // ------------------------------------------------ our own page counts
+  // Views of this listing page and taps on its Directions link, for the
+  // owner's Performance tab and monthly email (migration 251). Once per
+  // visitor session per page, no cookies (sessionStorage only).
+  function hit(kind) {
+    var key = 'nw_' + kind + '_' + SLUG;
+    try { if (sessionStorage.getItem(key)) return; sessionStorage.setItem(key, '1'); } catch (e) {}
+    try {
+      fetch(URL_ + '/rest/v1/rpc/page_hit', {
+        method: 'POST', keepalive: true,
+        headers: { apikey: KEY, Authorization: 'Bearer ' + KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ p_slug: SLUG, p_kind: kind })
+      }).catch(function () {});
+    } catch (e) {}
+  }
+  var MAPS = /(google\.[a-z.]+\/maps|maps\.google\.|maps\.app\.goo\.gl|goo\.gl\/maps|maps\.apple\.com)/i;
+  document.addEventListener('click', function (ev) {
+    var a = ev.target && ev.target.closest ? ev.target.closest('a[href]') : null;
+    if (a && MAPS.test(a.getAttribute('href') || '')) hit('directions');
+  }, true);
+
   function start() {
+    hit('view');
     fetch(URL_ + '/rest/v1/rpc/page_prices', {
       method: 'POST',
       headers: { apikey: KEY, Authorization: 'Bearer ' + KEY, 'Content-Type': 'application/json' },

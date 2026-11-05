@@ -6130,3 +6130,29 @@ ring, palms and sun filled, clouds and waves as lines; on Red and Outline the
 Verified tick is a white disc with the check cut out and a small gap around
 it. The media packs now also hold the SVGs (svg/ folder). Sources and how to
 remake them: scripts/badges/README.md; icons in brand/.
+
+## 2026-11-05: Owner Settings with email switches, and our own page counts (migration 251)
+
+Step 1 and 2 of the owner performance work (project doc
+listings/2026-11-05-owner-performance-and-settings.md).
+
+- Owner account: new "Settings" item in the left menu (above Inbox &
+  support). Account: the sign-in email and where requests go (the existing
+  Change window). "Emails from Nomadwise": New requests from people and
+  Updates about your page are always on; Replies from Nomadwise and Monthly
+  performance have switches that save straight away. One column, max 760px,
+  so it works the same on a phone. In a founders' preview the switches show
+  but nothing saves.
+- owner_email_prefs (one row per owner email, made on first change):
+  monthly, chat_replies, token (for the "Stop monthly updates" link in the
+  monthly email, owner_email_pref_off(token, key), no sign-in).
+  owner_wants_email(email, key) is true unless switched off.
+  chat_email_sync now skips the email when chat_replies is off (the messages
+  stay in the chat and are not sent later).
+- page_counts (venue, kind view|directions, day, n) and page_hit(slug, kind),
+  callable by anyone, adds 1 (capped at 5,000 a page a day). prices.js calls
+  it once per visitor session per listing page for the view, and for a tap on
+  any Google/Apple Maps link on the page (the pin under the title, the map
+  button, the mobile map link). No cookies: sessionStorage only. Reason:
+  PostHog only sees visitors who accept cookies (median 2 views a page a
+  month), too low to show owners.

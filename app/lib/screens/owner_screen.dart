@@ -50,7 +50,7 @@ class OwnerScreen extends StatefulWidget {
 
 const double _wideAt = 960;
 
-enum _Tab { listing, message, membership, badges, ideas, chat }
+enum _Tab { listing, message, membership, badges, settings, ideas, chat }
 
 class _OwnerScreenState extends State<OwnerScreen> {
   final _supabase = SupabaseService();
@@ -176,6 +176,9 @@ class _OwnerScreenState extends State<OwnerScreen> {
   bool _closedBusy = false; // CR-36: setting "temporarily closed"
   final Set<String> _badgeCodeShown = {}; // CR-26: View code open
   final Map<String, String> _badgeStyle = {}; // CR-26: shape -> white/red/outline
+  // Settings (migration 251): which emails this owner gets.
+  Map<String, bool>? _emailPrefs;
+  String? _prefBusy; // the switch being saved
   String? _savedNote;
   // Autosave: edits are kept as a draft a few seconds after typing
   // stops, so leaving the page (to Go Verified, say) loses nothing
@@ -540,6 +543,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
         _seenSent = true;
         _supabase.ownerSeen();
       }
+      if (rows.isNotEmpty && _emailPrefs == null) _loadEmailPrefs();
       if (!mounted) return;
       _watchPayments(pending);
       setState(() {
@@ -1918,11 +1922,14 @@ class _OwnerScreenState extends State<OwnerScreen> {
           venueId: '${v['id']}',
           preview: _isPreview),
       _Tab.badges => _badgesTab(),
+      _Tab.settings => _settingsTab(wide),
       _Tab.chat => _chatTab(wide),
     };
     // (My listing is the page itself: no preview beside it.)
-    final fullWidth =
-        _tab == _Tab.ideas || _tab == _Tab.chat || _tab == _Tab.listing;
+    final fullWidth = _tab == _Tab.ideas ||
+        _tab == _Tab.chat ||
+        _tab == _Tab.listing ||
+        _tab == _Tab.settings;
     final Widget preview = fullWidth
         ? const SizedBox.shrink()
         : _tab == _Tab.message && _verified
@@ -2151,6 +2158,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
       // CR-26: the badges for their own website. A placeholder until
       // the designs are agreed with Leonie (Jonathan, 24 Oct).
       (_Tab.badges, Icons.language, 'Website badges'),
+      (_Tab.settings, Icons.settings_outlined, 'Settings'),
       (_Tab.chat, Icons.forum_outlined, 'Inbox & support'),
       // Build next is a small note under the menu instead (Jonathan,
       // 24 Oct): see _ideasNote.
@@ -6413,6 +6421,142 @@ class _OwnerScreenState extends State<OwnerScreen> {
 
   /// Website badges (CR-26): not built yet. Says so plainly, and what
   /// it will be, so an owner who opens it knows it is on its way.
+  // ------------------------------------------------------- settings
+  // Settings (migration 251): the sign-in email, where requests go, and
+  // which emails the owner gets. New requests and the emails about their
+  // claim and page are always sent; the others have a switch. Laid out
+  // as one column, so it reads the same on a phone.
+
+  Future<void> _loadEmailPrefs() async {
+    if (_isPreview) return;
+    try {
+      final p = await _supabase.ownerEmailPrefs();
+      if (mounted) setState(() => _emailPrefs = p);
+    } catch (_) {
+      // the switches show their defaults; a change tries again
+    }
+  }
+
+  Future<void> _setEmailPref(String key, bool on) async {
+    if (_isPreview) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Preview: nothing is saved. The owner turns '
+              'their emails on and off here.')));
+      return;
+    }
+    final before = _emailPrefs;
+    setState(() {
+      _prefBusy = key;
+      _emailPrefs = {...?_emailPrefs, key: on};
+    });
+    try {
+      final p = await _supabase.ownerSetEmailPref(key, on);
+      if (mounted) setState(() => _emailPrefs = p);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _emailPrefs = before);
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('That did not save. Please try again.')));
+    } finally {
+      if (mounted) setState(() => _prefBusy = null);
+    }
+  }
+
+  Widget _settingRow(String title, String note,
+      {String? key, bool first = false}) {
+    final on = key == null ? true : (_emailPrefs?[key] ?? true);
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      decoration: BoxDecoration(
+          border: first
+              ? null
+              : const Border(top: BorderSide(color: Color(0xFFECEDF0)))),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(title,
+                style: const TextStyle(
+                    fontSize: 14.5, fontWeight: FontWeight.w600, color: Brand.ink)),
+            const SizedBox(height: 3),
+            Text(note,
+                style: const TextStyle(
+                    fontSize: 13, height: 1.45, color: Brand.inkSecondary)),
+          ]),
+        ),
+        const SizedBox(width: 12),
+        if (key == null)
+          const Text('Always on',
+              style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: Brand.inkSecondary))
+        else
+          Semantics(
+            label: title,
+            toggled: on,
+            child: Switch(
+              value: on,
+              activeColor: Colors.white,
+              activeTrackColor: Brand.red,
+              onChanged:
+                  _prefBusy == key ? null : (v) => _setEmailPref(key, v),
+            ),
+          ),
+      ]),
+    );
+  }
+
+  Widget _settingsTab(bool wide) {
+    const head = TextStyle(
+        fontWeight: FontWeight.w700, fontSize: 16, color: Brand.ink);
+    const muted = TextStyle(
+        fontSize: 13.5, height: 1.5, color: Brand.inkSecondary);
+    final email = _signInEmail;
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 760),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        _panel(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('Account', style: head),
+            const SizedBox(height: 12),
+            const Text('You sign in with',
+                style: TextStyle(fontSize: 12.5, color: Brand.inkSecondary)),
+            const SizedBox(height: 2),
+            Text(email.isEmpty ? 'Your email' : email,
+                style: const TextStyle(
+                    fontSize: 14.5, fontWeight: FontWeight.w600, color: Brand.ink)),
+            const SizedBox(height: 16),
+            _enquiriesCard(),
+          ]),
+        ),
+        const SizedBox(height: 16),
+        _panel(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('Emails from Nomadwise', style: head),
+            const SizedBox(height: 4),
+            Text(
+                _isPreview
+                    ? 'Preview: these are the owner\'s switches. Nothing changes here.'
+                    : 'Turn off anything you do not want. Changes save straight away.',
+                style: muted),
+            const SizedBox(height: 8),
+            _settingRow('New requests from people',
+                'Each request someone sends from your page. You need these to reply to them.',
+                first: true),
+            _settingRow('Updates about your page',
+                'When your page is approved, a change goes live, or something needs your answer.'),
+            _settingRow('Replies from Nomadwise',
+                'When we answer a message you sent in Inbox & support. You can always read them there.',
+                key: 'chat_replies'),
+            _settingRow('Monthly performance',
+                'At the start of each month: how often your page was seen and asked about, and what to add next.',
+                key: 'monthly'),
+          ]),
+        ),
+      ]),
+    );
+  }
+
   // ------------------------------------------------ website badges
   // CR-26 (5 Nov 2026): Leonie's white badges with the Nomadwise logo.
   // Free pages get "Find us on nomadwise.io", Premium pages "Verified by

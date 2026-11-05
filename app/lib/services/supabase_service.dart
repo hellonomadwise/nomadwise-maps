@@ -269,6 +269,22 @@ class SupabaseService {
     });
   }
 
+  /// Owner: which emails they get (migration 251), e.g.
+  /// {monthly: true, chat_replies: true}.
+  Future<Map<String, bool>> ownerEmailPrefs() async {
+    final r = await _db.rpc('owner_email_prefs_get');
+    final m = Map<String, dynamic>.from(r as Map);
+    return {for (final e in m.entries) e.key: e.value == true};
+  }
+
+  /// Owner: switch one email on or off; returns all switches.
+  Future<Map<String, bool>> ownerSetEmailPref(String key, bool on) async {
+    final r = await _db.rpc('owner_email_prefs_set',
+        params: {'p_key': key, 'p_on': on});
+    final m = Map<String, dynamic>.from(r as Map);
+    return {for (final e in m.entries) e.key: e.value == true};
+  }
+
   /// Owner: the price list as the owner left it (migration 218). Each
   /// change waits for a founder's Go in Price check. Returns counts
   /// and any prices that could not be sent, with why.
