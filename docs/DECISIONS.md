@@ -6180,3 +6180,12 @@ line-height 32px (the site's custom code forces height:auto !important, so
 the height comes from the line height); the word "Verified" stays in the
 markup for screen readers, transparent. Only the listing template uses the
 class. The page preview in the Owner account shows the same badge image.
+
+Update the same day: Leonie made a chip for this place instead,
+verified-chip-green-nomadwise-io.svg (in the media kit Drive folder): 190x30,
+light green #E3F2E7, corners 6px, logo with the red tick, "Verified by" in grey
+and nomadwise.io in red. It is app/web/badges/verified-chip.svg (her drawing;
+the "Verified by" lettering is the same outline as in her line badge, scaled
+by 24/23, which matches her file exactly) with PNGs at 2x and 4x. The
+verified-badge class now uses it at 190x30, line-height 30px, corners 6px. The
+Owner account preview shows verified-chip.png at 171x27.

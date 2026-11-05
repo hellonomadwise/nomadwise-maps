@@ -50,7 +50,7 @@ class OwnerScreen extends StatefulWidget {
 
 const double _wideAt = 960;
 
-enum _Tab { listing, message, membership, badges, settings, ideas, chat }
+enum _Tab { listing, message, membership, badges, performance, settings, ideas, chat }
 
 class _OwnerScreenState extends State<OwnerScreen> {
   final _supabase = SupabaseService();
@@ -1922,6 +1922,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
           venueId: '${v['id']}',
           preview: _isPreview),
       _Tab.badges => _badgesTab(),
+      _Tab.performance => _performanceTab(wide),
       _Tab.settings => _settingsTab(wide),
       _Tab.chat => _chatTab(wide),
     };
@@ -1929,6 +1930,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
     final fullWidth = _tab == _Tab.ideas ||
         _tab == _Tab.chat ||
         _tab == _Tab.listing ||
+        _tab == _Tab.performance ||
         _tab == _Tab.settings;
     final Widget preview = fullWidth
         ? const SizedBox.shrink()
@@ -2158,6 +2160,9 @@ class _OwnerScreenState extends State<OwnerScreen> {
       // CR-26: the badges for their own website. A placeholder until
       // the designs are agreed with Leonie (Jonathan, 24 Oct).
       (_Tab.badges, Icons.language, 'Website badges'),
+      // Jonathan, 5 Nov 2026: Performance in the left menu, Settings
+      // under it.
+      (_Tab.performance, Icons.insights_outlined, 'Performance'),
       (_Tab.settings, Icons.settings_outlined, 'Settings'),
       (_Tab.chat, Icons.forum_outlined, 'Inbox & support'),
       // Build next is a small note under the menu instead (Jonathan,
@@ -5007,13 +5012,14 @@ class _OwnerScreenState extends State<OwnerScreen> {
                                     fontSize: 16,
                                     fontWeight: FontWeight.w500,
                                     color: _pageInk)),
-                          // The live page shows Leonie's badge here (5 Nov
-                          // 2026, the verified-badge class in Webflow).
+                          // The live page shows Leonie's green chip here
+                          // (verified-chip, 5 Nov 2026, the verified-badge
+                          // class in Webflow).
                           if (_verified)
                             Image.network(
-                                'https://nomadmaps.io/badges/verified-line.png',
-                                width: 154,
-                                height: 32,
+                                'https://nomadmaps.io/badges/verified-chip.png',
+                                width: 171,
+                                height: 27,
                                 semanticLabel: 'Verified by nomadwise.io',
                                 errorBuilder: (_, __, ___) => const Text(
                                     'Verified by nomadwise.io',
@@ -6416,8 +6422,724 @@ class _OwnerScreenState extends State<OwnerScreen> {
     );
   }
 
-  /// Website badges (CR-26): not built yet. Says so plainly, and what
-  /// it will be, so an owner who opens it knows it is on its way.
+  // ---------------------------------------------------- performance
+  // Performance (migration 252, Jonathan 5 Nov 2026): how people find
+  // and use the page. Shown in Google search (Search Console, a few
+  // days behind), page views and Directions taps (our own counter in
+  // prices.js, since 5 Nov 2026) and requests. A number that is 0 is
+  // left out, and so is a card with nothing in it: only activity worth
+  // showing. Always ends with "Get more from your page": what to add
+  // next and the checklist (the same parts as the monthly email).
+
+  static const _perfRed = Color(0xFFD42F3A); // red for small text
+  static const _perfPeriods = [
+    (30, 'Last 30 days', 'the 30 days before'),
+    (91, '3 months', 'the 3 months before'),
+    (365, '12 months', 'the 12 months before'),
+  ];
+  // The parts of a page, in checklist order: label, why it helps, the
+  // part of My listing that adds it.
+  static const _perfParts = {
+    'photos': ('Photos', 'The first thing people look at', 'photos'),
+    'hours': ('Opening hours', 'So people know when to come', 'hours'),
+    'description': ('Description', 'What makes your space different', 'about'),
+    'prices': ('Prices', 'People can pick one and ask about it', 'prices'),
+    'wifi': ('Wi-Fi speed', 'The question remote workers ask most', ''),
+  };
+  // The next step, as a title, why it helps and the button.
+  static const _perfNext = {
+    'prices': (
+      'Add your prices',
+      'With prices on your page, people pick a day pass, desk or meeting '
+          'room and send you a request about it in one go. It is the '
+          'quickest way to turn a page view into a request.',
+      'Add prices'
+    ),
+    'photos': (
+      'Add photos',
+      'Photos are the first thing people look at. Show your desks, the '
+          'light and the coffee, so people can picture working there.',
+      'Add photos'
+    ),
+    'description': (
+      'Write your description',
+      'Tell people what makes your space different: the feel, who works '
+          'there and what is close by.',
+      'Write it'
+    ),
+    'wifi': (
+      'Tell us your Wi-Fi speed',
+      'It is the first thing remote workers ask. Send us your speed and '
+          'we add it to your page.',
+      'Send your speed'
+    ),
+    'hours': (
+      'Add your opening hours',
+      'So people know when they can come.',
+      'Add hours'
+    ),
+  };
+
+  Map<String, dynamic>? _perf; // the numbers shown
+  String? _perfShown; // venue and period the numbers are for
+  String? _perfLoading; // venue and period being loaded
+  String? _perfFailed; // venue and period that did not load
+  int _perfDays = 30;
+
+  String get _perfKey => '${_venue?['id']}-$_perfDays';
+
+  Future<void> _loadPerf() async {
+    final v = _venue;
+    if (v == null) return;
+    final key = _perfKey;
+    if (_perfLoading == key) return;
+    setState(() {
+      _perfLoading = key;
+      _perfFailed = null;
+    });
+    try {
+      final r = await _supabase.ownerPerformance('${v['id']}', _perfDays);
+      if (!mounted || _perfLoading != key) return;
+      setState(() {
+        _perf = r;
+        _perfShown = key;
+      });
+    } catch (_) {
+      if (mounted && _perfLoading == key) setState(() => _perfFailed = key);
+    } finally {
+      if (mounted && _perfLoading == key) setState(() => _perfLoading = null);
+    }
+  }
+
+  static int _perfInt(Object? x) => x is num ? x.toInt() : int.tryParse('$x') ?? 0;
+
+  /// 1234 as "1,234".
+  static String _perfNum(int n) {
+    final s = n.abs().toString();
+    final b = StringBuffer(n < 0 ? '-' : '');
+    for (var i = 0; i < s.length; i++) {
+      if (i > 0 && (s.length - i) % 3 == 0) b.write(',');
+      b.write(s[i]);
+    }
+    return b.toString();
+  }
+
+  /// "2 November" from "2026-11-02".
+  String _perfDay(Object? raw) {
+    final d = DateTime.tryParse('${raw ?? ''}');
+    if (d == null) return '';
+    return '${d.day} ${_monthNames[d.month - 1]}';
+  }
+
+  /// "Up 24% on the 30 days before", only when it went up.
+  String? _perfUp(int now, Object? prevRaw) {
+    if (prevRaw == null) return null;
+    final prev = _perfInt(prevRaw);
+    if (prev <= 0 || now <= prev) return null;
+    final pct = ((now - prev) * 100 / prev).round();
+    if (pct < 1) return null;
+    final p = _perfPeriods.firstWhere((x) => x.$1 == _perfDays);
+    return 'Up $pct% on ${p.$3}';
+  }
+
+  /// Opens My listing with that part ready to edit.
+  void _perfAdd(String part) {
+    if (part.isEmpty) {
+      _requestChange(); // Wi-Fi speed is checked by Nomadwise
+      return;
+    }
+    _goTab(_Tab.listing);
+    _startEdit(part);
+  }
+
+  Widget _performanceTab(bool wide) {
+    final failed = _perfFailed == _perfKey;
+    if (_perfShown != _perfKey && _perfLoading != _perfKey && !failed) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _tab == _Tab.performance) _loadPerf();
+      });
+    }
+    final p = _perfShown == _perfKey ? _perf : null;
+    final header = _perfHeader(wide);
+    Widget body;
+    if (p == null) {
+      body = _panel(
+        child: failed
+            ? Row(children: [
+                const Expanded(
+                  child: Text('Your numbers did not load.',
+                      style: TextStyle(fontSize: 14, color: Brand.inkSecondary)),
+                ),
+                TextButton(onPressed: _loadPerf, child: const Text('Try again')),
+              ])
+            : const SizedBox(
+                height: 120,
+                child: Center(
+                    child: SizedBox(
+                        width: 26,
+                        height: 26,
+                        child: CircularProgressIndicator(strokeWidth: 2.5)))),
+      );
+    } else {
+      body = _perfBody(p, wide);
+    }
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      header,
+      const SizedBox(height: 16),
+      body,
+    ]);
+  }
+
+  Widget _perfHeader(bool wide) {
+    final title = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text('Performance',
+          style: TextStyle(
+              fontSize: wide ? 24 : 21,
+              fontWeight: FontWeight.w800,
+              color: Brand.ink)),
+      const SizedBox(height: 4),
+      const Text('How people find and use your page on nomadwise.io.',
+          style: TextStyle(fontSize: 14, height: 1.45, color: Brand.inkSecondary)),
+    ]);
+    // Three equal buttons; on a phone they fill the width.
+    final periods = Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+          color: Brand.field, borderRadius: BorderRadius.circular(8)),
+      child: Row(mainAxisSize: wide ? MainAxisSize.min : MainAxisSize.max, children: [
+        for (final x in _perfPeriods)
+          _perfPeriodButton(x.$1, x.$2, wide),
+      ]),
+    );
+    if (wide) {
+      return Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+        Expanded(child: title),
+        const SizedBox(width: 16),
+        periods,
+      ]);
+    }
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      title,
+      const SizedBox(height: 12),
+      periods,
+    ]);
+  }
+
+  Widget _perfPeriodButton(int days, String label, bool wide) {
+    final on = _perfDays == days;
+    final b = Semantics(
+      button: true,
+      selected: on,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(6),
+        onTap: on
+            ? null
+            : () {
+                setState(() => _perfDays = days);
+              },
+        child: Container(
+          width: wide ? 112 : null,
+          height: 36,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: on ? Colors.white : Colors.transparent,
+            borderRadius: BorderRadius.circular(6),
+            boxShadow: on
+                ? const [BoxShadow(color: Color(0x14000000), blurRadius: 3, offset: Offset(0, 1))]
+                : null,
+          ),
+          child: Text(label,
+              style: TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: on ? FontWeight.w700 : FontWeight.w600,
+                  color: on ? Brand.ink : Brand.inkSecondary)),
+        ),
+      ),
+    );
+    return wide ? b : Expanded(child: b);
+  }
+
+  Widget _perfBody(Map<String, dynamic> p, bool wide) {
+    final live = p['live'] == true;
+    final plus = p['plus'] == true;
+    final google = _perfInt(p['google']);
+    final views = _perfInt(p['views']);
+    final dirs = _perfInt(p['directions']);
+    final sent = _perfInt(p['requests']);
+    final held = _perfInt(p['requests_held']);
+    const upNote = TextStyle(
+        fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF1E7A46));
+    const plainNote = TextStyle(fontSize: 13, height: 1.4, color: Brand.inkSecondary);
+    // label, number, note, note style
+    final stats = <(String, int, String, TextStyle)>[
+      if (google > 0)
+        (
+          'Shown in Google search',
+          google,
+          _perfUp(google, p['google_prev']) ?? 'Times your page was in Google results',
+          _perfUp(google, p['google_prev']) != null ? upNote : plainNote
+        ),
+      if (views > 0)
+        (
+          'Page views',
+          views,
+          _perfUp(views, p['views_prev']) ?? 'Times people opened your page',
+          _perfUp(views, p['views_prev']) != null ? upNote : plainNote
+        ),
+      if (dirs > 0)
+        ('Asked for directions', dirs, 'Tapped Directions on your page', plainNote),
+      if (sent + held > 0)
+        (
+          'Requests',
+          sent + held,
+          held > 0
+              ? '$sent sent to you, $held waiting for Premium'
+              : sent == 1
+                  ? 'Sent to you by email'
+                  : 'All sent to you by email',
+          held > 0
+              ? const TextStyle(fontSize: 13, height: 1.4, fontWeight: FontWeight.w600, color: _perfRed)
+              : plainNote
+        ),
+    ];
+
+    final months = [
+      for (final m in (p['months'] as List? ?? const []))
+        if (m is Map) Map<String, dynamic>.from(m)
+    ];
+    final monthsWithData =
+        months.where((m) => _perfInt(m['google']) > 0 || _perfInt(m['views']) > 0).length;
+    final queries = [
+      for (final q in (p['queries'] as List? ?? const []))
+        if (q is Map && '${q['q'] ?? ''}'.trim().isNotEmpty && _perfInt(q['n']) > 0)
+          ('${q['q']}'.trim(), _perfInt(q['n']))
+    ];
+    final latest = [
+      for (final r in (p['latest'] as List? ?? const []))
+        if (r is Map) Map<String, dynamic>.from(r)
+    ];
+    final free = p['free'] is Map ? Map<String, dynamic>.from(p['free'] as Map) : const <String, dynamic>{};
+    final freeUsed = _perfInt(free['used']);
+    final freeLimit = _perfInt(free['limit']);
+    final showFree = !plus && free['on'] == true && freeLimit > 0 && freeUsed > 0;
+
+    final children = <Widget>[];
+    if (!live) {
+      children.add(_panel(
+        tint: Brand.field,
+        child: const Text(
+            'Your page is not live on nomadwise.io yet. Your numbers start '
+            'here once it is.',
+            style: TextStyle(fontSize: 14, height: 1.5, color: Brand.ink)),
+      ));
+    } else if (stats.isEmpty) {
+      final period = _perfPeriods.firstWhere((x) => x.$1 == _perfDays).$2.toLowerCase();
+      children.add(_panel(
+        child: Text(
+            'Nothing to show for the ${period == 'last 30 days' ? period : 'last $period'} '
+            'yet. New pages take a few weeks to show up in Google. Each part '
+            'you add below gives Google and people more reason to pick your page.',
+            style: const TextStyle(fontSize: 14, height: 1.5, color: Brand.ink)),
+      ));
+    } else {
+      children.add(LayoutBuilder(builder: (context, c) {
+        final cols = c.maxWidth >= 720 ? stats.length : (stats.length == 1 ? 1 : 2);
+        const gap = 12.0;
+        final w = (c.maxWidth - gap * (cols - 1)) / cols;
+        return Wrap(spacing: gap, runSpacing: gap, children: [
+          for (final s in stats)
+            SizedBox(width: w, child: _perfStat(s.$1, s.$2, s.$3, s.$4)),
+        ]);
+      }));
+    }
+    if (showFree) {
+      children.add(const SizedBox(height: 12));
+      children.add(_perfFreeNote(freeUsed, freeLimit));
+    }
+
+    final chart = monthsWithData >= 1 && live ? _perfMonths(months) : null;
+    final searches = queries.isNotEmpty ? _perfSearches(queries) : null;
+    final reqs = latest.isNotEmpty ? _perfLatest(latest) : null;
+    final more = _perfMore(p['parts']);
+
+    Widget pair(Widget? a, Widget? b, {int fa = 3, int fb = 2}) {
+      if (a == null && b == null) return const SizedBox.shrink();
+      if (a == null || b == null) return a ?? b!;
+      if (!wide) {
+        return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          a,
+          const SizedBox(height: 16),
+          b,
+        ]);
+      }
+      return IntrinsicHeight(
+        child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Expanded(flex: fa, child: a),
+          const SizedBox(width: 16),
+          Expanded(flex: fb, child: b),
+        ]),
+      );
+    }
+
+    if (chart != null || searches != null) {
+      children.add(const SizedBox(height: 16));
+      children.add(pair(chart, searches));
+    }
+    children.add(const SizedBox(height: 16));
+    children.add(pair(reqs, more, fa: 1, fb: 1));
+
+    // Where the numbers come from.
+    final notes = <String>[
+      if (p['google_to'] != null)
+        'Google numbers come from Google Search Console and run a few days '
+            'behind (latest day: ${_perfDay(p['google_to'])}).',
+      if (p['views_from'] != null)
+        'Page views and Directions taps are counted by Nomadwise since '
+            '${_perfDay(p['views_from'])}, without cookies.',
+    ];
+    if (notes.isNotEmpty && live) {
+      children.add(const SizedBox(height: 16));
+      children.add(Text(notes.join(' '),
+          style: const TextStyle(fontSize: 12.5, height: 1.5, color: Brand.inkMuted)));
+    }
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: children);
+  }
+
+  Widget _perfStat(String label, int n, String note, TextStyle noteStyle) => Container(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+        decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Brand.border)),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(label,
+              style: const TextStyle(
+                  fontSize: 13, fontWeight: FontWeight.w600, color: Brand.inkSecondary)),
+          const SizedBox(height: 6),
+          Text(_perfNum(n),
+              style: const TextStyle(
+                  fontSize: 30, height: 1.1, fontWeight: FontWeight.w800, color: Brand.ink)),
+          const SizedBox(height: 6),
+          Text(note, style: noteStyle),
+        ]),
+      );
+
+  Widget _perfFreeNote(int used, int limit) => Container(
+        padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+        decoration: BoxDecoration(
+            color: Brand.accentTint, borderRadius: BorderRadius.circular(8)),
+        child: Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 4,
+            children: [
+              Text(
+                  'You have used ${used > limit ? limit : used} of your $limit free requests. '
+                  'With Premium, every request comes straight to you.',
+                  style: const TextStyle(fontSize: 13.5, height: 1.45, color: Brand.ink)),
+              TextButton(
+                onPressed: () => _goTab(_Tab.membership),
+                style: TextButton.styleFrom(
+                    foregroundColor: _perfRed,
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    textStyle: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700)),
+                child: const Text('See what Premium adds'),
+              ),
+            ]),
+      );
+
+  /// The last 6 months: Shown in Google (red) and page views (dark),
+  /// side by side, on one scale. This month is so far.
+  Widget _perfMonths(List<Map<String, dynamic>> months) {
+    var top = 1;
+    for (final m in months) {
+      top = [top, _perfInt(m['google']), _perfInt(m['views'])].reduce((a, b) => a > b ? a : b);
+    }
+    const h = 150.0;
+    Widget key(Color c, String t) => Row(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(color: c, borderRadius: BorderRadius.circular(3))),
+          const SizedBox(width: 6),
+          Text(t, style: const TextStyle(fontSize: 12.5, color: Brand.inkSecondary)),
+        ]);
+    Widget bar(int n, Color c) => Container(
+          width: 14,
+          height: n <= 0 ? 0.0 : (h * n / top).clamp(3.0, h),
+          decoration: BoxDecoration(
+              color: c,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(4))),
+        );
+    return _panel(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Wrap(
+            spacing: 14,
+            runSpacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              const Text('By month',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Brand.ink)),
+              key(Brand.red, 'Shown in Google'),
+              key(Brand.ink, 'Page views'),
+            ]),
+        const SizedBox(height: 18),
+        SizedBox(
+          height: h,
+          child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+            for (var i = 0; i < months.length; i++)
+              Expanded(
+                child: Tooltip(
+                  message: '${_monthNames[(DateTime.tryParse('${months[i]['month']}')?.month ?? 1) - 1]}'
+                      '${i == months.length - 1 ? ' so far' : ''}: '
+                      '${_perfNum(_perfInt(months[i]['google']))} in Google, '
+                      '${_perfNum(_perfInt(months[i]['views']))} page views',
+                  child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        bar(_perfInt(months[i]['google']), Brand.red),
+                        const SizedBox(width: 3),
+                        bar(_perfInt(months[i]['views']), Brand.ink),
+                      ]),
+                ),
+              ),
+          ]),
+        ),
+        const SizedBox(height: 8),
+        Row(children: [
+          for (var i = 0; i < months.length; i++)
+            Expanded(
+              child: Text(
+                  _monthNames[(DateTime.tryParse('${months[i]['month']}')?.month ?? 1) - 1]
+                      .substring(0, 3),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: i == months.length - 1 ? FontWeight.w700 : FontWeight.w400,
+                      color: Brand.inkSecondary)),
+            ),
+        ]),
+        const SizedBox(height: 6),
+        const Text('This month is so far.',
+            style: TextStyle(fontSize: 12, color: Brand.inkMuted)),
+      ]),
+    );
+  }
+
+  Widget _perfSearches(List<(String, int)> qs) {
+    final top = qs.first.$2 <= 0 ? 1 : qs.first.$2;
+    return _panel(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        const Text('What people searched for',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Brand.ink)),
+        const SizedBox(height: 4),
+        const Text('Google searches that showed your page, last 3 months',
+            style: TextStyle(fontSize: 13, color: Brand.inkSecondary)),
+        const SizedBox(height: 14),
+        for (final q in qs) ...[
+          Row(children: [
+            Expanded(
+              child: Text(q.$1,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 14, color: Brand.ink)),
+            ),
+            const SizedBox(width: 10),
+            Text(_perfNum(q.$2),
+                style: const TextStyle(
+                    fontSize: 13.5, fontWeight: FontWeight.w700, color: Brand.ink)),
+          ]),
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: LinearProgressIndicator(
+              value: q.$2 / top,
+              minHeight: 6,
+              backgroundColor: Brand.field,
+              valueColor: const AlwaysStoppedAnimation(Brand.red),
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
+      ]),
+    );
+  }
+
+  Widget _perfLatest(List<Map<String, dynamic>> rows) {
+    Widget chip(String t, Color fg, Color bg) => Container(
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+          decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(8)),
+          child: Text(t,
+              style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: fg)),
+        );
+    return _panel(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        const Text('Latest requests',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Brand.ink)),
+        const SizedBox(height: 6),
+        for (var i = 0; i < rows.length; i++)
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            decoration: BoxDecoration(
+                border: i == 0
+                    ? null
+                    : const Border(top: BorderSide(color: Color(0xFFECEDF0)))),
+            child: Row(children: [
+              SizedBox(
+                width: 54,
+                child: Text(
+                    () {
+                      final d = DateTime.tryParse('${rows[i]['at'] ?? ''}')?.toLocal();
+                      return d == null
+                          ? ''
+                          : '${d.day} ${_monthNames[d.month - 1].substring(0, 3)}';
+                    }(),
+                    style: const TextStyle(fontSize: 13, color: Brand.inkSecondary)),
+              ),
+              Expanded(
+                child: Text(
+                    rows[i]['status'] == 'held'
+                        ? 'A request is waiting for you'
+                        : '${rows[i]['what'] ?? ''}'.trim().isNotEmpty
+                            ? '${rows[i]['what']}'
+                            : 'A request from your page',
+                    style: const TextStyle(fontSize: 14, height: 1.35, color: Brand.ink)),
+              ),
+              const SizedBox(width: 8),
+              switch ('${rows[i]['status']}') {
+                'held' => chip('Held for Premium', _perfRed, Brand.accentTint),
+                'sent' => chip('Sent to you', const Color(0xFF1E7A46), Brand.successTint),
+                _ => chip('On its way', Brand.inkSecondary, Brand.field),
+              },
+            ]),
+          ),
+      ]),
+    );
+  }
+
+  /// "Get more from your page": the next part to add, why it helps,
+  /// and the checklist (Jonathan: paint the picture that adding more
+  /// brings more).
+  Widget _perfMore(Object? raw) {
+    final m = raw is Map ? Map<String, dynamic>.from(raw) : const <String, dynamic>{};
+    final parts = [
+      for (final x in (m['parts'] as List? ?? const []))
+        if (x is Map && _perfParts.containsKey('${x['key']}'))
+          ('${x['key']}', x['done'] == true)
+    ];
+    final done = parts.where((x) => x.$2).length;
+    final total = parts.isEmpty ? 5 : parts.length;
+    final next = '${m['next'] ?? ''}';
+    final step = _perfNext[next];
+    return _panel(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(children: [
+          const Expanded(
+            child: Text('Get more from your page',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Brand.ink)),
+          ),
+          Text('$done of $total done',
+              style: const TextStyle(
+                  fontSize: 13, fontWeight: FontWeight.w700, color: Brand.inkSecondary)),
+        ]),
+        const SizedBox(height: 10),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: LinearProgressIndicator(
+            value: done / total,
+            minHeight: 8,
+            backgroundColor: const Color(0xFFECEDF0),
+            valueColor: const AlwaysStoppedAnimation(Brand.red),
+          ),
+        ),
+        const SizedBox(height: 14),
+        if (step != null)
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+            decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Brand.red, width: 1.5)),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('NEXT STEP',
+                  style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: .8,
+                      color: _perfRed)),
+              const SizedBox(height: 6),
+              Text(step.$1,
+                  style: const TextStyle(
+                      fontSize: 15.5, fontWeight: FontWeight.w700, color: Brand.ink)),
+              const SizedBox(height: 4),
+              Text(step.$2,
+                  style: const TextStyle(fontSize: 13.5, height: 1.5, color: Brand.inkSecondary)),
+              const SizedBox(height: 10),
+              FilledButton(
+                onPressed: () => _perfAdd(_perfParts[next]!.$3),
+                style: FilledButton.styleFrom(
+                    backgroundColor: Brand.red,
+                    minimumSize: const Size(0, 40),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                child: Text(step.$3),
+              ),
+            ]),
+          )
+        else
+          const Text(
+              'Your page has everything people look for. Keep your prices and '
+              'photos up to date, and it keeps working for you.',
+              style: TextStyle(fontSize: 13.5, height: 1.5, color: Brand.inkSecondary)),
+        const SizedBox(height: 12),
+        for (var i = 0; i < parts.length; i++)
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            decoration: BoxDecoration(
+                border: i == 0
+                    ? null
+                    : const Border(top: BorderSide(color: Color(0xFFECEDF0)))),
+            child: Row(children: [
+              Container(
+                width: 22,
+                height: 22,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: parts[i].$2 ? const Color(0xFF1E7A46) : Colors.white,
+                  border: parts[i].$2
+                      ? null
+                      : Border.all(color: const Color(0xFFC9CED4), width: 2),
+                ),
+                child: parts[i].$2
+                    ? const Icon(Icons.check, size: 14, color: Colors.white)
+                    : null,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(_perfParts[parts[i].$1]!.$1,
+                      style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: parts[i].$2 ? FontWeight.w400 : FontWeight.w600,
+                          color: parts[i].$2 ? Brand.inkSecondary : Brand.ink)),
+                  const SizedBox(height: 2),
+                  Text(_perfParts[parts[i].$1]!.$2,
+                      style: const TextStyle(fontSize: 12.5, color: Brand.inkMuted)),
+                ]),
+              ),
+              if (!parts[i].$2)
+                TextButton(
+                  onPressed: () => _perfAdd(_perfParts[parts[i].$1]!.$3),
+                  style: TextButton.styleFrom(
+                      foregroundColor: _perfRed,
+                      textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+                  child: Text(parts[i].$1 == 'wifi' ? 'Tell us' : 'Add'),
+                ),
+            ]),
+          ),
+      ]),
+    );
+  }
+
   // ------------------------------------------------------- settings
   // Settings (migration 251): the sign-in email, where requests go, and
   // which emails the owner gets. New requests and the emails about their
