@@ -10,7 +10,7 @@ const planFreeGets = [
   'Your Owner account, to keep your hours, prices and contact details '
       'up to date',
   'Optimised to be found on Google and by AI assistants',
-  '2 free enquiries from nomads',
+  '2 free requests from nomads',
 ];
 
 /// The paid plan is Premium; the badge it brings is still called
@@ -19,7 +19,7 @@ const planPremiumAdds = [
   'Verified by Nomadwise badge on your page',
   "Top positioning on your region's page",
   'Promote your events and offers on your page',
-  'Unlimited enquiries from nomads, straight to your inbox',
+  'Unlimited requests from nomads, straight to your inbox',
   'Your Instagram and WhatsApp on your page',
   'Remove ads from your page',
 ];

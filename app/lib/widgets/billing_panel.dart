@@ -55,7 +55,7 @@ class _BillingPanelState extends State<BillingPanel> {
     'Verified by Nomadwise badge on your page',
     "Top positioning on your region's page",
     'Promote your events and offers on your page',
-    'Unlimited enquiries from nomads, straight to your inbox',
+    'Unlimited requests from nomads, straight to your inbox',
     'Your Instagram and WhatsApp on your page',
     'Remove ads from your page',
   ];
@@ -64,7 +64,7 @@ class _BillingPanelState extends State<BillingPanel> {
     'Your Owner account, to keep your hours, prices and contact details '
         'up to date',
     'Optimised to be found on Google and by AI assistants',
-    '2 free enquiries from nomads',
+    '2 free requests from nomads',
   ];
 
   @override
@@ -173,7 +173,7 @@ class _BillingPanelState extends State<BillingPanel> {
   Future<void> _confirmCancel(String until) async {
     final reasons = [
       'It costs too much for us',
-      'Not enough enquiries yet',
+      'Not enough requests yet',
       'We are closing or moving',
       'We only wanted to try it',
       'Something else',

@@ -777,17 +777,17 @@ class _OwnerScreenState extends State<OwnerScreen> {
       decoration: BoxDecoration(
           color: Brand.field, borderRadius: BorderRadius.circular(10)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('$left of $limit free enquiries left',
+        Text('$left of $limit free requests left',
             style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
         const SizedBox(height: 4),
         Text(
             held > 0
-                ? '$held ${held == 1 ? 'enquiry is' : 'enquiries are'} '
+                ? '$held ${held == 1 ? 'request is' : 'requests are'} '
                     'waiting for you. With Premium, '
                     '${held == 1 ? 'it comes' : 'they come'} straight to your '
-                    'inbox, and so does every enquiry after.'
-                : 'Your free enquiries go straight to your inbox. With Premium, '
-                    'every enquiry does.',
+                    'inbox, and so does every request after.'
+                : 'Your free requests go straight to your inbox. With Premium, '
+                    'every request does.',
             style: const TextStyle(
                 fontSize: 13, height: 1.45, color: Brand.inkSecondary)),
         const SizedBox(height: 6),
@@ -806,7 +806,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
                       fontSize: 14, fontWeight: FontWeight.w700),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8))),
-              child: const Text('Get unlimited enquiries', softWrap: false)),
+              child: const Text('Get unlimited requests', softWrap: false)),
         ),
       ]),
     );
@@ -2276,7 +2276,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 14),
                 child: Text(
-                    'Enquiries go to\n${_enquiryEmail.text.trim().isNotEmpty ? _enquiryEmail.text.trim() : _signInEmail.isNotEmpty ? _signInEmail : 'the email you sign in with'}',
+                    'Requests go to\n${_enquiryEmail.text.trim().isNotEmpty ? _enquiryEmail.text.trim() : _signInEmail.isNotEmpty ? _signInEmail : 'the email you sign in with'}',
                     style: const TextStyle(
                         fontSize: 11.5, color: Brand.inkMuted, height: 1.4)),
               ),
@@ -3924,7 +3924,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
         final bad = t.isNotEmpty &&
             !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(t);
         return AlertDialog(
-          title: const Text('Where enquiries go'),
+          title: const Text('Where requests go'),
           content: SizedBox(
             width: 420,
             child: Column(
@@ -3932,7 +3932,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                      'Every enquiry a nomad sends from your page is emailed '
+                      'Every request a nomad sends from your page is emailed '
                       'to this address. Use the inbox your team checks most.',
                       style: TextStyle(
                           fontSize: 14, height: 1.45, color: _edMuted)),
@@ -3943,7 +3943,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
                     keyboardType: TextInputType.emailAddress,
                     autocorrect: false,
                     onChanged: (_) => setD(() {}),
-                    decoration: _dec('Email for enquiries',
+                    decoration: _dec('Email for requests',
                             hint: 'hello@yourspace.com')
                         .copyWith(
                             errorText: bad
@@ -3960,7 +3960,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
                   const SizedBox(height: 10),
                   const Text(
                       'Nomadwise approves the change first; until then '
-                      'enquiries keep going where they go now.',
+                      'requests keep going where they go now.',
                       style: TextStyle(fontSize: 12.5, color: _edMuted)),
                 ]),
           ),
@@ -4151,7 +4151,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
         const SizedBox(width: 10),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('Enquiries from your page are emailed to',
+            const Text('Requests from your page are emailed to',
                 style: TextStyle(fontSize: 12.5, color: _edMuted)),
             const SizedBox(height: 2),
             Text(shown.isEmpty ? 'the email you sign in with' : shown,
@@ -4638,9 +4638,9 @@ class _OwnerScreenState extends State<OwnerScreen> {
           'the place of the advert on your page.'
     ),
     'enquiry': (
-      'Unlimited enquiries from nomads',
-      'Your free page includes 2 enquiries from nomads. With Nomadwise '
-          'Premium, you can receive an unlimited number of enquiries straight '
+      'Unlimited requests from nomads',
+      'Your free page includes 2 requests from nomads. With Nomadwise '
+          'Premium, you can receive an unlimited number of requests straight '
           'to your inbox.'
     ),
     'badge': (
@@ -4654,7 +4654,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
     'Verified by Nomadwise badge on your page',
     "Top positioning on your region's page",
     'Promote your events and offers on your page',
-    'Unlimited enquiries from nomads, straight to your inbox',
+    'Unlimited requests from nomads, straight to your inbox',
     'Your Instagram and WhatsApp on your page',
     'Remove ads from your page',
   ];
@@ -4666,8 +4666,8 @@ class _OwnerScreenState extends State<OwnerScreen> {
     final (title, rawLead) = _plusWhy[why] ?? _plusWhy['promo']!;
     // The free limit as set (migration 212), not a fixed 2.
     final limit = (_allow?['limit'] as num?)?.toInt() ?? 2;
-    final lead = rawLead.replaceFirst('includes 2 enquiries',
-        'includes $limit ${limit == 1 ? 'enquiry' : 'enquiries'}');
+    final lead = rawLead.replaceFirst('includes 2 requests',
+        'includes $limit ${limit == 1 ? 'request' : 'requests'}');
     Analytics.capture('owner_plus_window', {'why': why});
     return showDialog<void>(
       context: context,
@@ -7964,7 +7964,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
               'advert. Yours shows the advert. Get Premium and this tab '
               'opens up, along with the Verified by Nomadwise badge, top '
               'positioning on your region\'s page and unlimited '
-              'enquiries straight to your inbox.',
+              'requests straight to your inbox.',
               style: TextStyle(
                   fontSize: 13.5, height: 1.5, color: Brand.inkSecondary)),
           const SizedBox(height: 16),

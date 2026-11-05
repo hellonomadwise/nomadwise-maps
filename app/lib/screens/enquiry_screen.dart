@@ -126,7 +126,7 @@ class _EnquiryScreenState extends State<EnquiryScreen> {
     return Scaffold(
       backgroundColor: Brand.bg,
       appBar: AppBar(
-        title: const Text('Send an enquiry'),
+        title: const Text('Send a request'),
         leading: IconButton(
             tooltip: 'Back to the listing',
             icon: const Icon(Icons.arrow_back),
@@ -162,7 +162,7 @@ class _EnquiryScreenState extends State<EnquiryScreen> {
           const SizedBox(height: 6),
           const Text(
               'Go back to nomadwise.io and try the button again, or email '
-              'spaces@nomadwise.io and we will pass your enquiry on.',
+              'spaces@nomadwise.io and we will pass your request on.',
               textAlign: TextAlign.center,
               style: TextStyle(color: Brand.inkMuted, height: 1.5)),
           const SizedBox(height: 16),
@@ -191,7 +191,7 @@ class _EnquiryScreenState extends State<EnquiryScreen> {
                   const TextStyle(fontWeight: FontWeight.w700, fontSize: 18)),
           const SizedBox(height: 8),
           Text(
-              'They have your enquiry and will reply to ${_email.text.trim()} '
+              'They have your request and will reply to ${_email.text.trim()} '
               'directly. Most spaces answer within a day or two.',
               textAlign: TextAlign.center,
               style: const TextStyle(
@@ -307,7 +307,7 @@ class _EnquiryScreenState extends State<EnquiryScreen> {
               backgroundColor: Brand.red,
               padding: const EdgeInsets.symmetric(vertical: 16)),
           icon: const Icon(Icons.send, size: 18),
-          label: Text(_sending ? 'Sending' : 'Send enquiry')),
+          label: Text(_sending ? 'Sending' : 'Send request')),
       const SizedBox(height: 10),
       const Text(
           'Your details go to this space and to Nomadwise, and to no one '

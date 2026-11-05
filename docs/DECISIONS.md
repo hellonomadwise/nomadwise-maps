@@ -6316,3 +6316,7 @@ app/web/email/icons (email programs do not show SVG); the numbers grid is
 built in owner_monthly_model as HTML (grid_html) because Postmark's
 template language cannot nest blocks. The header stays the shared
 "nomadwise FOR SPACES" layout from the owner email setup.
+
+## 6 Nov 2026: "enquiries" is "requests" for owners and nomads
+
+Jonathan: change the Owner account wording to requests, to match the website's "Send a request". Changed every word owners or nomads see in the Owner account, the claim form, the plan picker, Plan & billing (including the cancel reason "Not enough requests yet") and the request form. Code names, database columns, analytics events and the team's own control centre keep "enquiry".

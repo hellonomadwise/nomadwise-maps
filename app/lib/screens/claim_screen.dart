@@ -428,7 +428,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
     if (!_sameEnquiryEmail &&
         !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
             .hasMatch(_enquiryEmail.text.trim())) {
-      return 'Enter the email for enquiries, or tick the box to use your own.';
+      return 'Enter the email for requests, or tick the box to use your own.';
     }
     return null;
   }
@@ -1259,11 +1259,11 @@ class _ClaimScreenState extends State<ClaimScreen> {
                 contentPadding: const EdgeInsets.fromLTRB(8, 2, 12, 2),
                 title: Text(
                     own.contains('@')
-                        ? 'Send enquiries from nomads to $own'
-                        : 'Send enquiries from nomads to the email above',
+                        ? 'Send requests from nomads to $own'
+                        : 'Send requests from nomads to the email above',
                     style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
                 subtitle: const Text(
-                    'When a nomad uses the Send an enquiry button on your '
+                    'When a nomad uses the Send a request button on your '
                     'page, it goes to this address.',
                     style: TextStyle(fontSize: 12.5, height: 1.4)),
               ),
@@ -1277,7 +1277,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
                         controller: _enquiryEmail,
                         autofocus: true,
                         keyboardType: TextInputType.emailAddress,
-                        decoration: _field('Email for enquiries',
+                        decoration: _field('Email for requests',
                             hint: 'hello@yourspace.com',
                             helper: 'A shared inbox, or whoever answers '
                                 'bookings.')),
