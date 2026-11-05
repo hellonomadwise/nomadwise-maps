@@ -4,8 +4,11 @@
 -- monthly email's own lines added at the top of the grey footer:
 -- why they get it, "Choose which emails you get" and "Stop monthly
 -- updates" (Jonathan, 6 Nov 2026). Made this way so the shared layout
--- is not changed. If the shared layout changes, re-run this (delete
--- the old layout in Postmark first: pg_net has no PUT).
+-- is not changed. When the shared layout changes (as with migration
+-- 257's logo), run it again: below creates it the first time; after
+-- that send the same HtmlBody and TextBody with a PUT to
+-- /templates/nomadwise-layout-monthly through extensions.http (done
+-- 6 Nov 2026 to pick up the logo).
 with l as (
   select replace(public.pm_layout_html(),
     'color:#96A0AC;">Nomadwise, work from anywhere.',
