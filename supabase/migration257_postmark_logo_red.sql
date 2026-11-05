@@ -13,7 +13,7 @@
 -- the stored templates in line with today's emails: the logo from
 -- https://nomadmaps.io/email/nomadwise-logo.png (150x44, alt
 -- "nomadwise.io"), "FOR SPACES" lined up beside it, and Nomadwise red
--- #FF444F everywhere. Then it pushes the layout and all templates to
+-- #FF444F everywhere. The layout and templates are then pushed to
 -- Postmark again (they stay "[Not live yet]" until approved).
 --
 -- It also fixes the "replace what is in Postmark" path of
@@ -126,6 +126,8 @@ update public.email_templates
        updated_at = now()
  where position('#E0442E' in html_body) > 0;
 
--- push the corrected layout and every template to Postmark again
-select public.pm_layout_push(true);
-select public.pm_template_push(alias, true) from public.email_templates order by sort;
+-- The push to Postmark is not done here: 23 calls to Postmark take
+-- longer than the build allows a migration to run ("HTTP request
+-- cancelled" on the second try). Claude runs it once afterwards:
+--   select public.pm_layout_push(true);
+--   select public.pm_template_push(alias, true) from public.email_templates order by sort;
