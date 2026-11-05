@@ -3,7 +3,7 @@ import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'
-    show FilteringTextInputFormatter, TextInputFormatter;
+    show Clipboard, ClipboardData, FilteringTextInputFormatter, TextInputFormatter;
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -174,6 +174,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
   bool _dirty = false;
   bool _saving = false;
   bool _closedBusy = false; // CR-36: setting "temporarily closed"
+  final Set<String> _badgeCodeShown = {}; // CR-26: View code open
   String? _savedNote;
   // Autosave: edits are kept as a draft a few seconds after typing
   // stops, so leaving the page (to Go Verified, say) loses nothing
@@ -6411,35 +6412,243 @@ class _OwnerScreenState extends State<OwnerScreen> {
 
   /// Website badges (CR-26): not built yet. Says so plainly, and what
   /// it will be, so an owner who opens it knows it is on its way.
-  Widget _badgesTab() => _panel(
+  // ------------------------------------------------ website badges
+  // CR-26 (5 Nov 2026): Leonie's white badges with the Nomadwise logo.
+  // Free pages get "Find us on nomadwise.io", Premium pages "Verified by
+  // nomadwise.io" with the red tick. Each comes as one line or square,
+  // with code to paste on the space's website (a plain link to its
+  // page) and a media pack ZIP for Instagram and Facebook. The images are
+  // in app/web/badges (nomadmaps.io/badges/...).
+
+  static const _badgeBase = 'https://nomadmaps.io/badges/';
+
+  String _badgeCode(String file, int w, int h, String alt) {
+    final v = _venue ?? const {};
+    final page = 'https://www.nomadwise.io/coworking/${v['webflow_slug']}';
+    final name = '${v['name'] ?? 'Our space'}'
+        .replaceAll('&', '&amp;')
+        .replaceAll('"', '&quot;')
+        .replaceAll('<', '&lt;');
+    // Gets smaller in a narrow space (a phone, a thin sidebar), never
+    // bigger than its own size.
+    return '<a href="$page" target="_blank" rel="noopener" '
+        'title="$name on Nomadwise" style="display:inline-block;'
+        'max-width:100%;line-height:0"><img src="$_badgeBase$file.png" '
+        'alt="$alt" width="$w" height="$h" '
+        'style="border:0;max-width:100%;height:auto"></a>';
+  }
+
+  Widget _badgeCard(
+          String title, String note, String file, int w, int h, String alt) =>
+      Container(
+        width: 320,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Brand.border)),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            const Flexible(
-              child: Text('Website badges',
-                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+          Text(title,
+              style:
+                  const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+          const SizedBox(height: 4),
+          Text(note,
+              style: const TextStyle(
+                  fontSize: 12.5, height: 1.4, color: Brand.inkSecondary)),
+          const SizedBox(height: 12),
+          Container(
+            height: 150,
+            width: double.infinity,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+                color: Brand.bg, borderRadius: BorderRadius.circular(8)),
+            child: Image.network('$_badgeBase$file.png',
+                width: w.toDouble(),
+                height: h.toDouble(),
+                semanticLabel: alt,
+                errorBuilder: (_, __, ___) => Text(alt,
+                    style: const TextStyle(color: Brand.inkSecondary))),
+          ),
+          const SizedBox(height: 12),
+          Wrap(spacing: 8, runSpacing: 6, children: [
+            FilledButton.icon(
+              onPressed: () async {
+                await Clipboard.setData(
+                    ClipboardData(text: _badgeCode(file, w, h, alt)));
+                Analytics.capture('owner_badge_copied',
+                    {'space': _venue?['name'], 'badge': file});
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                    content: Text('Code copied. Paste it into your website '
+                        'where you want the badge to show.')));
+              },
+              style: FilledButton.styleFrom(backgroundColor: Brand.red),
+              icon: const Icon(Icons.code, size: 18),
+              label: const Text('Copy code'),
             ),
-            const SizedBox(width: 10),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                  color: Brand.accentTint,
-                  borderRadius: BorderRadius.circular(6)),
-              child: const Text('Coming very soon',
-                  style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: Brand.red)),
+            OutlinedButton(
+              onPressed: () => setState(() {
+                if (!_badgeCodeShown.remove(file)) _badgeCodeShown.add(file);
+              }),
+              child: Text(
+                  _badgeCodeShown.contains(file) ? 'Hide code' : 'View code'),
             ),
           ]),
-          const SizedBox(height: 8),
-          const Text(
-              'A badge for your own website that shows visitors your space '
-              'is on Nomadwise. You will be able to copy it onto your site, '
-              'or download it for Instagram and Facebook.',
-              style: TextStyle(
-                  fontSize: 13.5, height: 1.5, color: Brand.inkSecondary)),
+          if (_badgeCodeShown.contains(file)) ...[
+            const SizedBox(height: 10),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                  color: const Color(0xFF151A21),
+                  borderRadius: BorderRadius.circular(8)),
+              child: SelectableText(_badgeCode(file, w, h, alt),
+                  style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 12,
+                      height: 1.5,
+                      color: Color(0xFFD7E3EC))),
+            ),
+          ],
         ]),
       );
+
+  Widget _badgesTab() {
+    final v = _venue;
+    final live = v != null &&
+        '${v['webflow_slug'] ?? ''}'.isNotEmpty &&
+        v['website_status'] == 'released';
+    final kind = _verified ? 'verified' : 'find';
+    final words = _verified ? 'Verified by' : 'Find us on';
+    const help = TextStyle(
+        fontSize: 13.5, height: 1.5, color: Brand.inkSecondary);
+    return _panel(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('Website badges',
+            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+        const SizedBox(height: 8),
+        Text(
+            _verified
+                ? 'Show visitors to your website that your space is '
+                    'Verified by nomadwise.io. The badge links to your page '
+                    'on Nomadwise.'
+                : 'Show visitors to your website that they can find your '
+                    'space on nomadwise.io. The badge links to your page on '
+                    'Nomadwise.',
+            style: help),
+        const SizedBox(height: 18),
+        if (!live)
+          const Text(
+              'Your badge will be ready here as soon as your page is live '
+              'on nomadwise.io.',
+              style: help)
+        else ...[
+          Container(
+            width: double.infinity,
+            constraints: const BoxConstraints(maxWidth: 660),
+            padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+            decoration: BoxDecoration(
+                color: Brand.accentTint,
+                borderRadius: BorderRadius.circular(8)),
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Why add a badge?',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w700, fontSize: 14.5)),
+                  const SizedBox(height: 6),
+                  Text(
+                      _verified
+                          ? 'It shows visitors that Nomadwise, a guide for '
+                              'remote workers, has verified your space, which '
+                              'builds trust.'
+                          : 'It shows visitors that your space is listed on '
+                              'a guide for remote workers, which builds '
+                              'trust.',
+                      style: const TextStyle(
+                          fontSize: 13.5, height: 1.5, color: Brand.ink)),
+                  const SizedBox(height: 8),
+                  for (final line in const [
+                    'Copy and paste, no technical skills needed',
+                    'Works on phones and computers',
+                    'Gets smaller by itself in narrow spaces',
+                    'Links to your page on Nomadwise, with your photos and '
+                        'reviews',
+                  ])
+                    Padding(
+                      padding: const EdgeInsets.only(top: 3),
+                      child: Text('\u2022  $line',
+                          style: const TextStyle(
+                              fontSize: 13.5,
+                              height: 1.45,
+                              color: Brand.inkSecondary)),
+                    ),
+                ]),
+          ),
+          const SizedBox(height: 18),
+          Wrap(spacing: 16, runSpacing: 16, children: [
+            _badgeCard(
+                'One line',
+                'Fits a footer or a sidebar. ${_verified ? 270 : 268} pixels '
+                    'wide.',
+                '$kind-line',
+                _verified ? 270 : 268,
+                48,
+                '$words nomadwise.io'),
+            _badgeCard(
+                'Square',
+                'For a corner or a column. 128 by 128 pixels.',
+                '$kind-square',
+                128,
+                128,
+                '$words nomadwise.io'),
+          ]),
+          const SizedBox(height: 18),
+          const Text('How to add it to your website',
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+          const SizedBox(height: 6),
+          const Text(
+              'Press Copy code, then paste it into an HTML or embed block '
+              'on your website, for example in your footer. On Wix that is '
+              'Embed HTML, on Squarespace a Code block and on WordPress a '
+              'Custom HTML block.',
+              style: help),
+          const SizedBox(height: 22),
+          const Text('Download media pack',
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+          const SizedBox(height: 6),
+          const Text(
+              'For Instagram, Facebook or anywhere else that does not take '
+              'code: both badges as large PNG images.',
+              style: help),
+          const SizedBox(height: 12),
+          FilledButton.icon(
+            onPressed: () {
+              Analytics.capture('owner_badge_pack',
+                  {'space': _venue?['name'], 'plan': kind});
+              launchUrl(Uri.parse('${_badgeBase}nomadwise-media-pack-'
+                  '${_verified ? 'premium' : 'free'}.zip'));
+            },
+            style: FilledButton.styleFrom(backgroundColor: Brand.ink),
+            icon: const Icon(Icons.download_outlined, size: 18),
+            label: const Text('Download media pack (ZIP)'),
+          ),
+          const SizedBox(height: 10),
+          const Text(
+              'Free to use. If you post it, tag @nomadwise.io on Instagram '
+              'and we will share it.',
+              style: TextStyle(fontSize: 12.5, color: Brand.inkMuted)),
+          if (!_verified) ...[
+            const SizedBox(height: 14),
+            const Text(
+                'Premium spaces get the Verified by nomadwise.io badge, '
+                'with a red tick.',
+                style: TextStyle(fontSize: 13, color: Brand.inkMuted)),
+          ],
+        ],
+      ]),
+    );
+  }
 
   Widget _messageTab(bool wide) {
     if (!_verified) {

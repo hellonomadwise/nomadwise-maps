@@ -6078,3 +6078,26 @@ title, "Temporarily closed. <Space> opens again on <Monday 1 December 2026>.",
 on every listing page until that day, then nothing. Google's own
 business_status is still not shown on the page. The page preview inside the
 Owner account says "Send a request" like the live page.
+
+## 2026-11-05: Website badges in the Owner account (CR-26)
+
+The "Website badges" tab (a "Coming very soon" placeholder since 24 Oct) now
+hands out the badges, in Leonie's design from 2 Nov: a white badge with a thin
+grey outline and the round Nomadwise logo, which works on light and dark
+websites. Free pages: "Find us on nomadwise.io". Premium pages: "Verified by
+nomadwise.io", the logo with a red tick. Each in two shapes, One line
+(268/270x48) and Square (128x128). "Copy code" copies a plain link to the
+space's page with the badge image (title "<Space> on Nomadwise", no keyword
+text); it gets smaller by itself in a narrow space (max-width:100%), never
+bigger. "View code" shows the code. Like The Sauna Guide's page: a "Why add a
+badge?" box (trust; copy and paste; phones and computers; gets smaller; links
+to the page) and a one-line note per badge. Below them, "Download media pack (ZIP)", like The Sauna Guide's: both
+badges as large PNGs (nomadwise-media-pack-free.zip / -premium.zip), with
+"Free to use. If you post it, tag @nomadwise.io on Instagram and we will
+share it." The tab shows the
+badges only once the page is live (website_status released). Images:
+app/web/badges/*.png (2x for websites, -large 4x for social), rendered from
+HTML with Roboto; the logo is cut from app/web/email/nomadwise-logo.png. Not
+built yet: the window sticker with a QR code, the notice in My listing, the
+lines in the owner emails, and the outline/red versions for
+unusual website colours (Leonie: optional).
