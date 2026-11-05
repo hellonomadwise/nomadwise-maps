@@ -6101,3 +6101,18 @@ HTML with Roboto; the logo is cut from app/web/email/nomadwise-logo.png. Not
 built yet: the window sticker with a QR code, the notice in My listing, the
 lines in the owner emails, and the outline/red versions for
 unusual website colours (Leonie: optional).
+
+## 2026-11-05: Website badges in three styles (CR-26, Jonathan)
+
+Jonathan wanted Leonie's alternatives too, so owners have a mix. Each badge
+(One line, Square; Find us on / Verified by) now comes in White (logo in
+colour, works on any website), Red (red badge, white line logo and words,
+stands out on light websites) and Outline (see-through with a white border,
+white line logo and words, for dark websites and photos). A White / Red /
+Outline switch on each badge card changes the preview (Outline on a dark
+background) and the code. Files: <kind>-<shape>[-red|-outline].png and
+-large.png in app/web/badges; the white ones keep their names, so code
+already copied still works. The white line logo is traced from the colour
+logo (palms, sun, cloud and wave outlines, ring). The Verified tick on Red
+and Outline is a white disc with the check cut out. The media packs now hold
+all six images for the plan.

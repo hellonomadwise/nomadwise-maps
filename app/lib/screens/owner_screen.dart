@@ -175,6 +175,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
   bool _saving = false;
   bool _closedBusy = false; // CR-36: setting "temporarily closed"
   final Set<String> _badgeCodeShown = {}; // CR-26: View code open
+  final Map<String, String> _badgeStyle = {}; // CR-26: shape -> white/red/outline
   String? _savedNote;
   // Autosave: edits are kept as a draft a few seconds after typing
   // stops, so leaving the page (to Go Verified, say) loses nothing
@@ -6438,9 +6439,21 @@ class _OwnerScreenState extends State<OwnerScreen> {
         'style="border:0;max-width:100%;height:auto"></a>';
   }
 
-  Widget _badgeCard(
-          String title, String note, String file, int w, int h, String alt) =>
-      Container(
+  // Leonie's three styles (2 Nov): White works on any website; Red stands
+  // out on light ones; Outline (white lines, see-through) for dark websites
+  // and photos.
+  static const _badgeStyles = [
+    ('white', 'White', '', 'Works on any website'),
+    ('red', 'Red', '-red', 'Stands out on light websites'),
+    ('outline', 'Outline', '-outline', 'For dark websites and photos'),
+  ];
+
+  Widget _badgeCard(String title, String note, String base, int w, int h,
+      String alt) {
+    final style = _badgeStyle[base] ?? 'white';
+    final pick = _badgeStyles.firstWhere((x) => x.$1 == style);
+    final file = '$base${pick.$3}';
+    return Container(
         width: 320,
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
@@ -6456,12 +6469,36 @@ class _OwnerScreenState extends State<OwnerScreen> {
               style: const TextStyle(
                   fontSize: 12.5, height: 1.4, color: Brand.inkSecondary)),
           const SizedBox(height: 12),
+          Wrap(spacing: 6, runSpacing: 6, children: [
+            for (final st in _badgeStyles)
+              ChoiceChip(
+                label: Text(st.$2),
+                selected: style == st.$1,
+                showCheckmark: false,
+                selectedColor: Brand.ink,
+                labelStyle: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: style == st.$1 ? Colors.white : Brand.ink),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
+                onSelected: (_) =>
+                    setState(() => _badgeStyle[base] = st.$1),
+              ),
+          ]),
+          const SizedBox(height: 6),
+          Text(pick.$4,
+              style: const TextStyle(fontSize: 12, color: Brand.inkMuted)),
+          const SizedBox(height: 10),
           Container(
             height: 150,
             width: double.infinity,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-                color: Brand.bg, borderRadius: BorderRadius.circular(8)),
+                color: style == 'outline'
+                    ? const Color(0xFF151A21)
+                    : Brand.bg,
+                borderRadius: BorderRadius.circular(8)),
             child: Image.network('$_badgeBase$file.png',
                 width: w.toDouble(),
                 height: h.toDouble(),
@@ -6512,6 +6549,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
           ],
         ]),
       );
+  }
 
   Widget _badgesTab() {
     final v = _venue;
@@ -6571,6 +6609,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
                   for (final line in const [
                     'Copy and paste, no technical skills needed',
                     'Works on phones and computers',
+                    'White, red or outline, to match your website',
                     'Gets smaller by itself in narrow spaces',
                     'Links to your page on Nomadwise, with your photos and '
                         'reviews',
@@ -6619,7 +6658,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
           const SizedBox(height: 6),
           const Text(
               'For Instagram, Facebook or anywhere else that does not take '
-              'code: both badges as large PNG images.',
+              'code: both badges in all three styles, as large PNG images.',
               style: help),
           const SizedBox(height: 12),
           FilledButton.icon(
