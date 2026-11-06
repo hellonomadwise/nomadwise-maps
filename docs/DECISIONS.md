@@ -6340,3 +6340,7 @@ Jonathan: a space with one photo should be told to add more. The page's gallery 
 ## 6 Nov 2026: page views from before our counter (migration 267)
 
 Jonathan: owners should see page views from before 5 November. Ahrefs Web Analytics (cookieless, free in API units, project 7319229) has daily page views per listing page since mid-2025. Loaded 1 Jul 2025 to 4 Nov 2026 for the 17 spaces with an owner (1,047 views on 596 days) into page_counts as 'view'. The note under Performance now dates our own counter from the first Directions day. For a new owner, pull their page with web-analytics-top-pages-chart (daily, csv) and load it with import_page_view_history in a migration.
+
+## 6 Nov 2026: page view history for every listing page (migration 269)
+
+Jonathan: owners should not have to ask for their history. Migration 269 loads Ahrefs' daily page views for every other listing page too (990 pages with views, 58,189 page views, 1 Jul 2025 to 4 Nov 2026), so a space that claims later sees its whole year at once. Nothing more to load: from 5 Nov our own counter covers every page.
