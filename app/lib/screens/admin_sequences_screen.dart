@@ -242,22 +242,24 @@ class _AdminSequencesScreenState extends State<AdminSequencesScreen> {
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           _routeStop(
               icon: Icons.flag_outlined,
-              title: 'Claimed and approved',
-              text: 'The owner claimed the page themselves and the claim '
-                  'was approved.',
+              // each sequence can say where its route starts and ends
+              // (owner tips, migration 279); the sign-in reminders' words
+              // are the defaults
+              title: '${s['start_title'] ?? 'Claimed and approved'}',
+              text: '${s['start_text'] ?? 'The owner claimed the page themselves and the claim was approved.'}',
               last: false),
           for (var i = 0; i < steps.length; i++)
             _routeEmail(key, steps[i], on, last: false),
           _routeStop(
               icon: Icons.check_circle_outline,
-              title: 'Out of the sequence',
-              text: 'When they sign in to their Owner account, when it is '
-                  'switched off for their space, when they unsubscribe, or '
-                  'after the last email.',
+              title: '${s['end_title'] ?? 'Out of the sequence'}',
+              text: '${s['end_text'] ?? 'When they sign in to their Owner account, when it is switched off for their space, when they unsubscribe, or after the last email.'}',
               last: true),
         ]),
       ),
-      _heading('SPACES IN THE SEQUENCE (${active.length})'),
+      _heading(key == 'owner_tips'
+          ? 'TIPS DUE OR WAITING (${active.length})'
+          : 'SPACES IN THE SEQUENCE (${active.length})'),
       if (active.isEmpty)
         _card(
             child: const Text(
@@ -265,7 +267,9 @@ class _AdminSequencesScreenState extends State<AdminSequencesScreen> {
                 style: TextStyle(color: Brand.inkSecondary))),
       for (final x in active) _space(key, x, on),
       if (rest.isNotEmpty) ...[
-        _heading('LEFT OR SWITCHED OFF (${rest.length})'),
+        _heading(key == 'owner_tips'
+            ? 'NOTHING DUE NOW OR SWITCHED OFF (${rest.length})'
+            : 'LEFT OR SWITCHED OFF (${rest.length})'),
         for (final x in rest) _space(key, x, on),
       ],
       const SizedBox(height: 18),
@@ -420,6 +424,12 @@ class _AdminSequencesScreenState extends State<AdminSequencesScreen> {
 
   // Where one space stands, in words.
   String _where(Map<String, dynamic> x, bool seqOn) {
+    // a sequence that says it in its own words (owner tips)
+    if (x['note'] != null && '${x['note']}'.isNotEmpty) {
+      return seqOn || (x['status'] != 'due' && x['status'] != 'waiting')
+          ? '${x['note']}'
+          : '${x['note']} (the sequence is switched off)';
+    }
     final s1 = x['sent_1'];
     final s2 = x['sent_2'];
     final sent = [
@@ -479,8 +489,9 @@ class _AdminSequencesScreenState extends State<AdminSequencesScreen> {
                 style: const TextStyle(
                     fontSize: 12.5, color: Brand.inkSecondary)),
             const SizedBox(height: 2),
-            Text('Claimed ${_day(x['claimed_at'])}',
-                style: const TextStyle(fontSize: 12, color: Brand.inkMuted)),
+            if (x['claimed_at'] != null)
+              Text('Claimed ${_day(x['claimed_at'])}',
+                  style: const TextStyle(fontSize: 12, color: Brand.inkMuted)),
             const SizedBox(height: 6),
             Text(_where(x, seqOn),
                 style: TextStyle(
