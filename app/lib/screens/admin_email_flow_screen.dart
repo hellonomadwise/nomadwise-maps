@@ -212,6 +212,8 @@ class _AdminEmailFlowScreenState extends State<AdminEmailFlowScreen> {
         Text(
             '$sent sent · ${e['cowork'] ?? 0} coworking · ${e['cafe'] ?? 0} café'
             '${bounced > 0 ? ' · $bounced bounced' : ''}'
+            // the emails an owner can switch off (monthly, tips): who did
+            '${e['can_unsubscribe'] == true ? ' · ${e['unsubscribed'] ?? 0} unsubscribed' : ''}'
             '${tracked < sent ? ' · opens and clicks known for $tracked of $sent (recorded from 5 Nov)' : ''}',
             style: const TextStyle(fontSize: 12.5, color: Brand.inkSecondary)),
         const SizedBox(height: 12),
@@ -232,6 +234,16 @@ class _AdminEmailFlowScreenState extends State<AdminEmailFlowScreen> {
       ]),
     );
   }
+
+  // Under a step: those who got to the step before but not this one.
+  static const _notYet = {
+    'opened_at': 'not opened yet',
+    'clicked_at': 'not clicked yet',
+    'signed_in_at': 'not signed in yet',
+    'acted_at': 'no change yet',
+    'tip_done': 'tip not done yet',
+    'premium_on': 'not Premium yet',
+  };
 
   static bool _tracking(String key) => key == 'opened_at' || key == 'clicked_at';
 
@@ -324,7 +336,7 @@ class _AdminEmailFlowScreenState extends State<AdminEmailFlowScreen> {
         for (final p in got) _person(p, steps),
         if (prev != null) ...[
           const SizedBox(height: 10),
-          Text('Stopped before this: ${stopped.length}',
+          Text('${steps[i - 1].label}, ${_notYet[key] ?? 'not yet'}: ${stopped.length}',
               style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: Brand.ink)),
           if (stopped.isEmpty)
             const Padding(
@@ -347,6 +359,7 @@ class _AdminEmailFlowScreenState extends State<AdminEmailFlowScreen> {
       if (p['tip'] != null) 'tip: ${p['tip']}${p['tip_done'] == true ? ' (done)' : ''}',
       if (p['premium_on'] != null) 'Premium from ${_day(p['premium_on'])}',
       if (p['bounced_at'] != null) 'bounced',
+      if (p['unsubscribed_at'] != null) 'unsubscribed ${_day(p['unsubscribed_at'])}',
       if (p['tracked'] != true) 'opens and clicks not known',
     ];
     final type = p['type'] == 'cafe' ? 'Café' : 'Coworking';
