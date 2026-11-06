@@ -50,6 +50,15 @@ class ClaimScreen extends StatefulWidget {
   final String? plan;
   final String? period;
   final String? currency;
+
+  /// Opened from Add a location in the Owner account (Jonathan, 6 Nov
+  /// 2026): an owner adding another space. Their name and email come
+  /// filled in, so the new location lands in the same Owner account,
+  /// and no saved draft from an earlier claim is put back.
+  final bool addLocation;
+
+  /// The owner's name, filled in for [addLocation].
+  final String? name;
   const ClaimScreen(
       {super.key,
       this.seed,
@@ -57,7 +66,9 @@ class ClaimScreen extends StatefulWidget {
       this.email,
       this.plan,
       this.period,
-      this.currency});
+      this.currency,
+      this.addLocation = false,
+      this.name});
   @override
   State<ClaimScreen> createState() => _ClaimScreenState();
 }
@@ -489,6 +500,9 @@ class _ClaimScreenState extends State<ClaimScreen> {
     if ((widget.email ?? '').contains('@')) {
       _ownerEmail.text = widget.email!.trim();
     }
+    if ((widget.name ?? '').trim().isNotEmpty) {
+      _ownerName.text = widget.name!.trim();
+    }
     // Chosen on the pricing page; a saved draft below can still win.
     if (widget.plan == 'premium' || widget.plan == 'verified') {
       _plan = 'verified';
@@ -503,6 +517,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
     // their details, unless they arrived from a link for a different
     // space.
     final cancelled = Uri.base.queryParameters.containsKey('cancelled');
+    if (widget.addLocation) return; // a new location: start clean
     SupabaseService.loadClaimDraft().then((d) {
       if (!mounted || d == null) return;
       final picked = d['picked'];
@@ -850,19 +865,22 @@ class _ClaimScreenState extends State<ClaimScreen> {
       backgroundColor: Brand.bg,
       appBar: AppBar(
         titleSpacing: 20,
-        title: const Text('Claim your space'),
+        title: Text(widget.addLocation ? 'Add a location' : 'Claim your space'),
         leading: _step == _Step.find
             ? IconButton(
-                tooltip: 'nomadwise.io',
+                tooltip: widget.addLocation ? 'Back to your Owner account' : 'nomadwise.io',
                 icon: const Icon(Icons.arrow_back),
-                onPressed: () => launchUrl(
-                    Uri.parse('https://www.nomadwise.io'),
-                    mode: LaunchMode.platformDefault))
+                onPressed: () => widget.addLocation
+                    ? Navigator.of(context).maybePop()
+                    : launchUrl(
+                        Uri.parse('https://www.nomadwise.io'),
+                        mode: LaunchMode.platformDefault))
             : IconButton(
                 icon: const Icon(Icons.arrow_back), onPressed: _back),
         // As on the pricing page: owners who already have their page
-        // sign in instead.
+        // sign in instead (not when they came from their Owner account).
         actions: [
+          if (!widget.addLocation)
           Padding(
             padding: const EdgeInsets.only(right: 12),
             child: TextButton(
@@ -993,10 +1011,16 @@ class _ClaimScreenState extends State<ClaimScreen> {
   /// space"). The plans and the price for its country come next.
   Widget _findStep(bool wide) => _narrow(
         Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          _heading(wide, 1, 'Find your space',
-              'Search for your coworking space or cafe. Next you will see '
-                  'Free and Premium, with the Premium price for your '
-                  'country. Not here yet? You can add it.'),
+          widget.addLocation
+              ? _heading(wide, 1, 'Find the location to add',
+                  'Search for your other coworking space or cafe. Not here '
+                      'yet? You can add it. We check each new location '
+                      'before it goes live, usually within an hour or two, '
+                      'and it then shows in your Owner account.')
+              : _heading(wide, 1, 'Find your space',
+                  'Search for your coworking space or cafe. Next you will see '
+                      'Free and Premium, with the Premium price for your '
+                      'country. Not here yet? You can add it.'),
           SizedBox(height: wide ? 24 : 16),
           TextField(
             controller: _search,

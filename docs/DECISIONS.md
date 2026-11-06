@@ -6348,3 +6348,15 @@ Jonathan: owners should not have to ask for their history. Migration 269 loads A
 ## 6 Nov 2026: the Performance chart follows the period buttons (migration 270)
 
 Jonathan: the By month chart should change with Last 30 days, 3 months and 12 months. Now: Last 30 days shows 30 days (By day), 3 months shows 13 weeks from Monday (By week), 12 months shows 12 months (By month). Bars and labels size themselves to the space, so 30 days fits on a phone.
+
+## 6 Nov 2026: Add a location in the Owner account
+
+Jonathan: Sierra Cartel and AMANO both asked how to list a second place. Settings now has "Your locations" (every space on the account, with Open to switch) and an Add a location button. It opens the claim form inside the app as "Add a location": the sign-in email filled in, no old claim draft put back, a heading that says new locations are checked first. The claim goes through the normal review; once approved it is in the same Owner account. Free; group pricing is still to be agreed with Leonie (listings/2026-10-22-multi-location-owners.md).
+
+## 6 Nov 2026: where locations live (options E, F and G; replaces the Settings panel above)
+
+Jonathan chose from the design canvas "Owner account: branches options" (E + F + G), open to Leonie's changes. Settings no longer lists locations. Instead:
+- E: the space's name at the top is a menu for every owner: their location(s) with a tick on the one shown, See all locations (groups), and Add another location.
+- F: a quiet "Run another space? Add a location" link at the foot of the side menu on a computer.
+- G: owners with 2+ locations get "All locations" first in the side menu and land on it: one row per location with its plan and last 30 days (page views, shown in Google, requests; owner_locations(), migration 281). A row opens that location.
+Word: Locations, not branches.

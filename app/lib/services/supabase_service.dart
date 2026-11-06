@@ -294,6 +294,16 @@ class SupabaseService {
     return Map<String, dynamic>.from(r as Map);
   }
 
+  /// Owner: the last 30 days for every space on the account, by space
+  /// id (migration 281): page views, times shown in Google, requests.
+  Future<Map<String, Map<String, dynamic>>> ownerLocations() async {
+    final r = await _db.rpc('owner_locations');
+    return {
+      for (final x in (r as List? ?? const []))
+        if (x is Map) '${x['id']}': Map<String, dynamic>.from(x)
+    };
+  }
+
   /// Owner: a Wi-Fi test just measured at the space (migration 262).
   /// The database checks where it was done and returns the verdict:
   /// at_space, too_far, no_location, rough_location, no_pin or

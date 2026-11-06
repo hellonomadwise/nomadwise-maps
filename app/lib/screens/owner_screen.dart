@@ -15,6 +15,7 @@ import '../services/location_service.dart';
 import '../services/speed_test_service.dart';
 import '../services/supabase_service.dart';
 import '../theme.dart';
+import 'claim_screen.dart';
 import '../widgets/billing_panel.dart';
 import '../widgets/chat_thread.dart';
 import '../widgets/currencies.dart';
@@ -53,7 +54,7 @@ class OwnerScreen extends StatefulWidget {
 
 const double _wideAt = 960;
 
-enum _Tab { listing, message, membership, badges, performance, settings, ideas, chat }
+enum _Tab { locations, listing, message, membership, badges, performance, settings, ideas, chat }
 
 class _OwnerScreenState extends State<OwnerScreen> {
   final _supabase = SupabaseService();
@@ -70,6 +71,10 @@ class _OwnerScreenState extends State<OwnerScreen> {
   // not checked yet: the blurred account), 'free' or 'verified'.
   String _previewAs = 'free';
   int _current = 0;
+  // All locations (migration 281): each space's last 30 days, by id;
+  // and whether a group owner has been taken to it on arrival.
+  Map<String, Map<String, dynamic>> _locStats = const {};
+  bool _landed = false;
   // Back from Stripe's billing page (?owner&billing): open Plan & billing.
   // (?owner&chat, from the email that says we wrote: Inbox & support.)
   _Tab _tab = Uri.base.queryParameters.containsKey('billing')
@@ -555,6 +560,15 @@ class _OwnerScreenState extends State<OwnerScreen> {
         _loading = false;
         _error = null;
         if (_current >= rows.length) _current = 0;
+        // Owners with two or more locations land on All locations
+        // (Jonathan, 6 Nov 2026), unless a link asked for a tab.
+        if (!_landed && rows.length > 1) {
+          final q = Uri.base.queryParameters;
+          if (!q.containsKey('billing') && !q.containsKey('chat')) {
+            _tab = _Tab.locations;
+          }
+        }
+        _landed = true;
         // the space the email's button named, the first time through
         final want = (_chatSpace ?? '').trim();
         _chatSpace = null;
@@ -564,6 +578,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
         }
       });
       _fillEditor(closeEditing: false);
+      if (rows.length > 1) _loadLocStats();
       if (rows.isNotEmpty) {
         _loadChatUnread();
         _chatTimer ??= Timer.periodic(
@@ -1908,6 +1923,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
     // page preview on the right, so switching tabs never moves the
     // furniture.
     final main = switch (_tab) {
+      _Tab.locations => _locationsTab(wide),
       _Tab.listing => _listingTab(wide),
       _Tab.message => _messageTab(wide),
       _Tab.membership => BillingPanel(
@@ -1931,6 +1947,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
     };
     // (My listing is the page itself: no preview beside it.)
     final fullWidth = _tab == _Tab.ideas ||
+        _tab == _Tab.locations ||
         _tab == _Tab.chat ||
         _tab == _Tab.listing ||
         _tab == _Tab.performance ||
@@ -1956,7 +1973,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
           // My listing saves part by part (Save change); the bar stays
           // for Promotions and events.
           if (_tab == _Tab.message && _verified) _actionBar(wide),
-          _statusBanner(),
+          if (_tab != _Tab.locations) _statusBanner(),
           // Build next is a board of its own, full width; so is the
           // inbox.
           if (fullWidth)
@@ -2002,8 +2019,10 @@ class _OwnerScreenState extends State<OwnerScreen> {
             wide,
             maxWidth: 1180,
             Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              _spaceHeader(v, wide),
-              const SizedBox(height: 14),
+              if (_tab != _Tab.locations) ...[
+                _spaceHeader(v, wide),
+                const SizedBox(height: 14),
+              ],
               body,
             ]),
           ),
@@ -2014,8 +2033,10 @@ class _OwnerScreenState extends State<OwnerScreen> {
       wide,
       maxWidth: 1180,
       Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        _spaceHeader(v, wide),
-        const SizedBox(height: 14),
+        if (_tab != _Tab.locations) ...[
+          _spaceHeader(v, wide),
+          const SizedBox(height: 14),
+        ],
         if (wide)
           const SizedBox.shrink()
         else ...[
@@ -2083,6 +2104,270 @@ class _OwnerScreenState extends State<OwnerScreen> {
         ]),
       );
 
+  String _area(Map<String, dynamic> v) => [
+        for (final k in ['neighbourhood', 'city'])
+          if ('${v[k] ?? ''}'.trim().isNotEmpty) '${v[k]}'.trim()
+      ].join(', ');
+
+  /// The space's name as a menu, for every owner (Jonathan, 6 Nov
+  /// 2026, option E): their location or locations, a tick on the one
+  /// shown, All locations for a group, and Add another location. One
+  /// space or ten, adding and switching live in the same spot.
+  Widget _spaceMenu(Map<String, dynamic> v, TextStyle nameStyle) {
+    final many = _venues.length > 1;
+    return PopupMenuButton<int>(
+      tooltip: many ? 'Your locations' : 'Your location',
+      position: PopupMenuPosition.under,
+      offset: const Offset(0, 6),
+      color: Colors.white,
+      surfaceTintColor: Colors.white,
+      constraints: const BoxConstraints(minWidth: 300, maxWidth: 400),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      onSelected: (i) {
+        if (i == -1) {
+          _addLocation();
+        } else if (i == -2) {
+          _loadLocStats();
+          _goTab(_Tab.locations);
+        } else if (i >= 0 && i < _venues.length) {
+          setState(() => _current = i);
+          _fillEditor();
+        }
+      },
+      itemBuilder: (_) => [
+        PopupMenuItem<int>(
+          enabled: false,
+          height: 30,
+          child: Text(many ? 'YOUR LOCATIONS' : 'YOUR LOCATION',
+              style: const TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1,
+                  color: Brand.inkSecondary)),
+        ),
+        for (var i = 0; i < _venues.length; i++)
+          PopupMenuItem<int>(
+            value: i,
+            child: Row(children: [
+              Expanded(
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('${_venues[i]['name'] ?? ''}',
+                          style: const TextStyle(
+                              fontSize: 14.5, fontWeight: FontWeight.w600, color: Brand.ink)),
+                      if (_area(_venues[i]).isNotEmpty)
+                        Text(_area(_venues[i]),
+                            style: const TextStyle(fontSize: 12.5, color: Brand.inkSecondary)),
+                    ]),
+              ),
+              if (i == _current) ...[
+                const SizedBox(width: 10),
+                const Icon(Icons.check, size: 18, color: _perfRed),
+              ],
+            ]),
+          ),
+        if (many)
+          const PopupMenuItem<int>(
+            value: -2,
+            child: Row(children: [
+              Icon(Icons.grid_view_outlined, size: 18, color: Brand.inkSecondary),
+              SizedBox(width: 10),
+              Text('See all locations',
+                  style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: Brand.ink)),
+            ]),
+          ),
+        const PopupMenuDivider(),
+        const PopupMenuItem<int>(
+          value: -1,
+          child: Row(children: [
+            Icon(Icons.add, size: 20, color: _perfRed),
+            SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('Add another location',
+                        style: TextStyle(
+                            fontSize: 14.5, fontWeight: FontWeight.w700, color: _perfRed)),
+                    Text('Run more than one space? Free, checked within an hour or two.',
+                        style: TextStyle(fontSize: 12.5, height: 1.35, color: Brand.inkSecondary)),
+                  ]),
+            ),
+          ]),
+        ),
+      ],
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(color: _edBorder),
+            borderRadius: BorderRadius.circular(8)),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Flexible(
+            child: Text('${v['name'] ?? ''}',
+                overflow: TextOverflow.ellipsis, style: nameStyle),
+          ),
+          const SizedBox(width: 6),
+          const Icon(Icons.keyboard_arrow_down, size: 20, color: Brand.ink),
+        ]),
+      ),
+    );
+  }
+
+  Future<void> _loadLocStats() async {
+    if (_isPreview) return;
+    try {
+      final r = await _supabase.ownerLocations();
+      if (mounted) setState(() => _locStats = r);
+    } catch (_) {
+      // the rows show without numbers; the next visit tries again
+    }
+  }
+
+  /// All locations (Jonathan, 6 Nov 2026, option G): the home page for
+  /// owners with two or more spaces. One row per location with its plan
+  /// and last 30 days, Add a location at the top; a row opens that
+  /// location's page.
+  Widget _locationsTab(bool wide) {
+    String n(Map<String, dynamic>? st, String k) =>
+        st == null ? '' : _perfNum(_perfInt(st[k]));
+    const label = TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Brand.inkSecondary);
+    const numStyle = TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Brand.ink);
+    void open(int i) {
+      setState(() => _current = i);
+      _fillEditor();
+      _goTab(_Tab.listing);
+    }
+
+    final addButton = OutlinedButton.icon(
+      onPressed: _addLocation,
+      style: OutlinedButton.styleFrom(
+        minimumSize: const Size(0, 42),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        foregroundColor: _edInk,
+        backgroundColor: Colors.white,
+        side: const BorderSide(color: _edBorder),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+      ),
+      icon: const Icon(Icons.add, size: 18, color: _perfRed),
+      label: const Text('Add a location', softWrap: false),
+    );
+    final intro = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const Text('Your locations',
+          style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: Brand.ink)),
+      const SizedBox(height: 4),
+      Text(
+          '${_venues.length} locations. Numbers are for the last 30 days. '
+          'Open one to see and change its page.',
+          style: const TextStyle(fontSize: 14, height: 1.45, color: Brand.inkSecondary)),
+    ]);
+    Widget nameBlock(Map<String, dynamic> v) => Row(children: [
+          Container(
+            width: 36,
+            height: 36,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+                color: Brand.accentTint, borderRadius: BorderRadius.circular(8)),
+            child: const Icon(Icons.storefront_outlined, size: 18, color: _perfRed),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('${v['name'] ?? ''}',
+                  style: const TextStyle(
+                      fontSize: 15, fontWeight: FontWeight.w700, color: Brand.ink)),
+              if (_area(v).isNotEmpty)
+                Text(_area(v),
+                    style: const TextStyle(fontSize: 12.5, color: Brand.inkSecondary)),
+            ]),
+          ),
+        ]);
+    Widget plan(Map<String, dynamic> v) => v['listing_tier'] == 'verified'
+        ? _chip('Premium', Brand.success)
+        : _chip('Free', Brand.inkSecondary);
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      if (wide)
+        Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+          Expanded(child: intro),
+          const SizedBox(width: 16),
+          addButton,
+        ])
+      else ...[
+        intro,
+        const SizedBox(height: 12),
+        Align(alignment: Alignment.centerLeft, child: addButton),
+      ],
+      const SizedBox(height: 18),
+      Container(
+        decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(color: Brand.border),
+            borderRadius: BorderRadius.circular(8)),
+        clipBehavior: Clip.antiAlias,
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          if (wide)
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 12, 20, 10),
+              child: Row(children: [
+                Expanded(child: Text('Location', style: label)),
+                SizedBox(width: 90, child: Text('Plan', style: label)),
+                SizedBox(width: 110, child: Text('Page views', textAlign: TextAlign.right, style: label)),
+                SizedBox(width: 140, child: Text('Shown in Google', textAlign: TextAlign.right, style: label)),
+                SizedBox(width: 100, child: Text('Requests', textAlign: TextAlign.right, style: label)),
+                SizedBox(width: 36),
+              ]),
+            ),
+          for (var i = 0; i < _venues.length; i++)
+            InkWell(
+              onTap: () => open(i),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                decoration: BoxDecoration(
+                    border: (wide || i > 0)
+                        ? const Border(top: BorderSide(color: Color(0xFFECEDF0)))
+                        : null),
+                child: wide
+                    ? Row(children: [
+                        Expanded(child: nameBlock(_venues[i])),
+                        SizedBox(width: 90, child: Align(alignment: Alignment.centerLeft, child: plan(_venues[i]))),
+                        SizedBox(width: 110, child: Text(n(_locStats['${_venues[i]['id']}'], 'views'), textAlign: TextAlign.right, style: numStyle)),
+                        SizedBox(width: 140, child: Text(n(_locStats['${_venues[i]['id']}'], 'google'), textAlign: TextAlign.right, style: numStyle)),
+                        SizedBox(width: 100, child: Text(n(_locStats['${_venues[i]['id']}'], 'requests'), textAlign: TextAlign.right, style: numStyle)),
+                        const SizedBox(
+                            width: 36,
+                            child: Align(
+                                alignment: Alignment.centerRight,
+                                child: Icon(Icons.chevron_right, size: 20, color: Brand.inkSecondary))),
+                      ])
+                    : Row(children: [
+                        Expanded(
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            nameBlock(_venues[i]),
+                            const SizedBox(height: 8),
+                            Wrap(spacing: 10, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
+                              plan(_venues[i]),
+                              if (_locStats['${_venues[i]['id']}'] != null)
+                                Text(
+                                    '${n(_locStats['${_venues[i]['id']}'], 'views')} page views, '
+                                    '${n(_locStats['${_venues[i]['id']}'], 'google')} in Google, '
+                                    '${n(_locStats['${_venues[i]['id']}'], 'requests')} requests',
+                                    style: const TextStyle(fontSize: 12.5, color: Brand.inkSecondary)),
+                            ]),
+                          ]),
+                        ),
+                        const Icon(Icons.chevron_right, size: 20, color: Brand.inkSecondary),
+                      ]),
+              ),
+            ),
+        ]),
+      ),
+    ]);
+  }
+
   /// The space's name, its plan and "See my page". On a phone the link
   /// goes on its own line under the name, so nothing is cut off; long
   /// names wrap. The link shows only when the page is live, like the
@@ -2091,25 +2376,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
     final pageLive = (v['webflow_slug'] ?? '').toString().isNotEmpty &&
         v['website_status'] == 'released';
     const nameStyle = TextStyle(fontWeight: FontWeight.w700, fontSize: 15);
-    final Widget name = _venues.length > 1
-        ? DropdownButton<int>(
-            value: _current,
-            isExpanded: true,
-            underline: const SizedBox.shrink(),
-            items: [
-              for (var i = 0; i < _venues.length; i++)
-                DropdownMenuItem(
-                    value: i,
-                    child: Text('${_venues[i]['name']}',
-                        overflow: TextOverflow.ellipsis, style: nameStyle))
-            ],
-            onChanged: (i) {
-              if (i == null) return;
-              setState(() => _current = i);
-              _fillEditor();
-            },
-          )
-        : Text('${v['name']}', style: nameStyle);
+    final Widget name = _spaceMenu(v, nameStyle);
     final title = Row(children: [
       const Icon(Icons.storefront_outlined,
           size: 18, color: Brand.inkSecondary),
@@ -2157,6 +2424,10 @@ class _OwnerScreenState extends State<OwnerScreen> {
 
   Widget _nav(bool wide) {
     final items = [
+      // Owners with two or more spaces: All locations first (Jonathan,
+      // 6 Nov 2026, option G).
+      if (_venues.length > 1)
+        (_Tab.locations, Icons.grid_view_outlined, 'All locations'),
       (_Tab.listing, Icons.edit_note_outlined, 'My listing'),
       (_Tab.message, Icons.campaign_outlined, 'Promotions and events'),
       (_Tab.membership, Icons.workspace_premium_outlined, 'Plan & billing'),
@@ -2296,6 +2567,31 @@ class _OwnerScreenState extends State<OwnerScreen> {
                 ),
               ),
             ],
+            // A quiet second way to add a location (Jonathan, 6 Nov
+            // 2026, option F); the first is in the space's name menu.
+            const SizedBox(height: 8),
+            const Divider(height: 1, color: Brand.hairline),
+            const SizedBox(height: 4),
+            InkWell(
+              onTap: _addLocation,
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                child: Row(children: [
+                  const Icon(Icons.add_business_outlined, size: 18, color: Brand.inkSecondary),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(_venues.length > 1 ? 'Another space?' : 'Run another space?',
+                          style: const TextStyle(fontSize: 12, color: Brand.inkMuted)),
+                      const Text('Add a location',
+                          style: TextStyle(
+                              fontSize: 13.5, fontWeight: FontWeight.w700, color: _perfRed)),
+                    ]),
+                  ),
+                ]),
+              ),
+            ),
             const SizedBox(height: 6),
           ]),
     );
@@ -8146,6 +8442,25 @@ class _OwnerScreenState extends State<OwnerScreen> {
           ),
         ]),
       );
+
+  /// Add a location (Jonathan, 6 Nov 2026): from the space's name
+  /// menu, the link at the foot of the side menu and All locations. The
+  /// claim form opens inside the app with the sign-in email filled in,
+  /// so the new place lands in this account once Nomadwise has checked it.
+  Future<void> _addLocation() async {
+    if (_isPreview) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Preview: the owner would go to the claim form to '
+              'add a location.')));
+      return;
+    }
+    Analytics.capture('owner_add_location', {'spaces': _venues.length});
+    final email = _signInEmail;
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+        builder: (_) => ClaimScreen(
+            addLocation: true, email: email.contains('@') ? email : null)));
+    if (mounted) _load(); // an approved new location shows straight away
+  }
 
   Widget _settingsTab(bool wide) {
     const head = TextStyle(
