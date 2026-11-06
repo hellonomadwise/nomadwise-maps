@@ -102,6 +102,53 @@ class SpeedTestService {
     }
   }
 
+  /// The owner's test (migration 262): four downloads at once for
+  /// [windowSecs], like the big speed test sites, so a fast line is not
+  /// held back by one download at a time. Total bytes over total time.
+  /// Stops early after about 400 MB. Returns Mbps, or null on failure.
+  static Future<double?> measureMbpsParallel(
+      {int streams = 4,
+      int windowSecs = 12,
+      void Function(double progress)? onProgress}) async {
+    try {
+      onProgress?.call(0);
+      final t0 = DateTime.now().millisecondsSinceEpoch;
+      // Warm-up: wakes the connection, not counted.
+      await _timedDownloadBytes(t0);
+      final window = Stopwatch()..start();
+      const cap = 400 * 1024 * 1024;
+      var total = 0;
+      var n = 0;
+      final ticker = Timer.periodic(const Duration(milliseconds: 200), (_) {
+        onProgress?.call((window.elapsedMilliseconds / (windowSecs * 1000))
+            .clamp(0.0, 0.99));
+      });
+      Future<void> lane() async {
+        while (window.elapsed.inSeconds < windowSecs && total < cap) {
+          n++;
+          final before = window.elapsedMilliseconds;
+          total += await _timedDownloadBytes(t0 + n);
+          if (window.elapsedMilliseconds - before < 50) {
+            await Future<void>.delayed(const Duration(milliseconds: 50));
+          }
+        }
+      }
+
+      try {
+        await Future.wait([for (var i = 0; i < streams; i++) lane()]);
+      } finally {
+        ticker.cancel();
+      }
+      window.stop();
+      final secs = window.elapsedMilliseconds / 1000.0;
+      if (total == 0 || secs <= 0) return null;
+      onProgress?.call(1);
+      return double.parse((total * 8 / secs / 1e6).toStringAsFixed(1));
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Like [_timedDownload] but returns the byte count, so the caller
   /// can aggregate across rounds.
   static Future<int> _timedDownloadBytes(int cacheBust,

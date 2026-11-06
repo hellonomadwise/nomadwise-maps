@@ -417,6 +417,13 @@ if not PUSH_ONLY:
                 tested.add(s['venue_id'])
     except Exception as e:  # noqa: BLE001
         report['errors'].append(f'wifi tests read: {e}')
+    # An owner's on-site test (migration 262) is a measurement too:
+    # the page gets it from us, so the pull leaves it alone.
+    try:
+        for s in sb_all('venues?select=id&wifi_owner_tested_at=not.is.null'):
+            tested.add(s['id'])
+    except Exception as e:  # noqa: BLE001
+        report.setdefault('warnings', []).append(f'owner wifi tests read: {e}')
 
     discovered = set()
     try:
@@ -1244,7 +1251,7 @@ try:
                   'opening_hours,website_photos,power_outlets,aircon,'
                   'comfortable_seating,cozy,quiet_space,good_for_calls,'
                   'call_room,monitor,office_chairs,access_24h,'
-                  'page_description'
+                  'page_description,wifi_speed_mbps,wifi_owner_tested_at'
                   '&limit=30') or []
 except Exception as e:  # noqa: BLE001
     report.setdefault('warnings', []).append(f'listing plans read: {e}')
@@ -1723,9 +1730,14 @@ def owner_fields(v, item=None):
     message that replaces the advert slot (one JSON field the site's
     snippet renders; see docs/OWNER_ACCOUNT.md)."""
     oc = v.get('owner_content') or {}
+    # The owner's Wi-Fi test done at the space (migration 262) goes in
+    # Average Internet Speed, owner content or not.
+    wifi_out = {}
+    if v.get('wifi_owner_tested_at') and v.get('wifi_speed_mbps'):
+        wifi_out['average-internet-speed'] = v['wifi_speed_mbps']
     if not oc and not v.get('owner_content_at'):
-        return {}
-    out = {}
+        return wifi_out
+    out = dict(wifi_out)
     desc = no_dashes((oc.get('description') or '').strip())
     # Unchanged from the page's own text (the box starts filled with
     # it): leave the page's formatting alone.

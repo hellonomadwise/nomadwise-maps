@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui' show ImageFilter;
 
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'
     show Clipboard, ClipboardData, FilteringTextInputFormatter, TextInputFormatter;
@@ -10,6 +11,8 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../config.dart';
 import '../services/analytics_service.dart';
+import '../services/location_service.dart';
+import '../services/speed_test_service.dart';
 import '../services/supabase_service.dart';
 import '../theme.dart';
 import '../widgets/billing_panel.dart';
@@ -4194,11 +4197,12 @@ class _OwnerScreenState extends State<OwnerScreen> {
         label: Text(label, softWrap: false),
       );
 
-  /// "Update Wi-Fi speed", in the same style as Edit: the speed is
-  /// checked by Nomadwise, so owners ask us (Leonie, 2 Nov 2026). The
-  /// name and the location are asked for in Settings (Jonathan, 5 Nov).
+  /// "Test your Wi-Fi", in the same style as Edit: the speed is
+  /// measured at the space, not typed (Jonathan, 6 Nov 2026; before,
+  /// owners sent us a number). The name and the location are asked
+  /// for in Settings (Jonathan, 5 Nov).
   Widget _requestButton() => OutlinedButton.icon(
-        onPressed: () => _requestChange('wifi'),
+        onPressed: _wifiTest,
         style: OutlinedButton.styleFrom(
           minimumSize: const Size(0, 40),
           padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -4210,7 +4214,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
           textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
         ),
         icon: const Icon(Icons.wifi, size: 15),
-        label: const Text('Update Wi-Fi speed', softWrap: false),
+        label: const Text('Test your Wi-Fi', softWrap: false),
       );
 
   /// A short message to Nomadwise about one thing we check: the Wi-Fi
@@ -4353,6 +4357,427 @@ class _OwnerScreenState extends State<OwnerScreen> {
               ? 'Preview: the owner\'s request goes to Inbox & support.'
               : 'Sent. We will reply in Inbox & support.')));
     }
+  }
+
+  /// Test your Wi-Fi (Jonathan, 6 Nov 2026; migration 262). The owner
+  /// stands in the space on its Wi-Fi: the app finds where the device
+  /// is, measures the speed itself (nothing to type), and the database
+  /// checks the test was done within 250 m of the space's pin. Only
+  /// such a test can go on the page. Owners who cannot test there send
+  /// a Speedtest result link instead, which the team checks by hand.
+  Future<void> _wifiTest() async {
+    final v = _venue;
+    if (v == null) return;
+    final space = (v['name'] ?? 'your space').toString();
+    var stage = 'intro'; // intro, testing, result, link
+    var progress = 0.0;
+    var phase = '';
+    Map<String, dynamic>? result;
+    String? error;
+    var busy = false;
+    var open = true;
+    int? applied;
+    var linkSent = false;
+    final link = TextEditingController();
+
+    String away(num m) => m < 1000
+        ? '${m.round()} m'
+        : '${(m / 1000).toStringAsFixed(1)} km';
+
+    String why(Map<String, dynamic> r) {
+      final d = r['distance_m'] as num?;
+      return switch (r['verdict']) {
+        'too_far' =>
+          'This test was done about ${d == null ? 'far' : away(d)} from '
+              '$space\'s pin on the map, so it cannot go on your page. '
+              'Run it again at the space.',
+        'no_location' =>
+          'We could not see where this test was done. Allow location for '
+              'nomadmaps.io when your browser asks, then try again.',
+        'rough_location' =>
+          'This device could only tell roughly where it is. Try again on '
+              'your phone, which knows its location better.',
+        'no_pin' =>
+          'Your space has no pin on our map yet, so we cannot check where '
+              'the test was done. Send us a Speedtest result instead.',
+        'mobile_data' =>
+          'This test ran on mobile data, not your Wi-Fi. Connect to your '
+              'Wi-Fi and try again.',
+        _ => 'This test cannot go on your page. Please try again.',
+      };
+    }
+
+    Future<void> run(StateSetter setD) async {
+      void upd(VoidCallback f) {
+        if (open) setD(f);
+      }
+
+      upd(() => error = null);
+      // Mobile data? Android phones can tell us; iPhones cannot, which
+      // is why the location check matters.
+      var conn = 'unknown';
+      try {
+        final c = await Connectivity().checkConnectivity();
+        if (c.contains(ConnectivityResult.wifi)) {
+          conn = 'wifi';
+        } else if (c.contains(ConnectivityResult.mobile)) {
+          conn = 'cellular';
+        }
+      } catch (_) {}
+      if (conn == 'cellular') {
+        upd(() => error = 'This device is on mobile data. Connect to your '
+            'space\'s Wi-Fi and try again.');
+        return;
+      }
+      upd(() {
+        stage = 'testing';
+        busy = true;
+        progress = 0;
+        phase = 'Finding where you are';
+      });
+      final pos = _isPreview ? null : await LocationService.current();
+      upd(() => phase = 'Measuring your Wi-Fi');
+      final mbps = _isPreview
+          ? 312.0
+          : await SpeedTestService.measureMbpsParallel(
+              onProgress: (p) => upd(() => progress = p));
+      if (mbps == null) {
+        upd(() {
+          busy = false;
+          stage = 'intro';
+          error = 'The test could not finish. Check the Wi-Fi and try '
+              'again.';
+        });
+        return;
+      }
+      upd(() {
+        phase = 'Checking';
+        progress = 1;
+      });
+      try {
+        final r = _isPreview
+            ? <String, dynamic>{
+                'verdict': 'at_space',
+                'mbps': 312,
+                'distance_m': 40,
+              }
+            : await _supabase.ownerWifiTest('${v['id']}', mbps,
+                lat: pos?.latitude,
+                lng: pos?.longitude,
+                accuracy: pos?.accuracy,
+                connection: conn);
+        Analytics.capture('owner_wifi_test',
+            {'verdict': r['verdict'], 'mbps': r['mbps']});
+        upd(() {
+          busy = false;
+          result = r;
+          stage = 'result';
+        });
+      } catch (e) {
+        upd(() {
+          busy = false;
+          stage = 'intro';
+          error = _friendly(e);
+        });
+      }
+    }
+
+    Future<void> apply(BuildContext ctx, StateSetter setD) async {
+      final r = result;
+      if (r == null) return;
+      setD(() {
+        busy = true;
+        error = null;
+      });
+      try {
+        final mb = _isPreview
+            ? (r['mbps'] as num).toInt()
+            : ((await _supabase.ownerWifiTestApply('${r['id']}'))['mbps']
+                    as num)
+                .toInt();
+        applied = mb;
+        if (ctx.mounted) Navigator.pop(ctx);
+      } catch (e) {
+        if (open) {
+          setD(() {
+            busy = false;
+            error = _friendly(e);
+          });
+        }
+      }
+    }
+
+    Future<void> sendLink(BuildContext ctx, StateSetter setD) async {
+      final t = link.text.trim();
+      if (!RegExp(r'(speedtest\.net|ookla\.com)/', caseSensitive: false)
+          .hasMatch(t)) {
+        setD(() => error = 'Paste the result link from Speedtest. It starts '
+            'with https://www.speedtest.net/result/');
+        return;
+      }
+      setD(() {
+        busy = true;
+        error = null;
+      });
+      try {
+        if (!_isPreview) {
+          await _supabase.ownerChatSend('${v['id']}',
+              'Change request (Wi-Fi speed): Speedtest result $t');
+        }
+        linkSent = true;
+        if (ctx.mounted) Navigator.pop(ctx);
+      } catch (_) {
+        if (open) {
+          setD(() {
+            busy = false;
+            error = 'That did not send. Please try again.';
+          });
+        }
+      }
+    }
+
+    const muted = TextStyle(fontSize: 13.5, height: 1.45, color: Brand.inkSecondary);
+    Widget step(String n, String text) => Padding(
+          padding: const EdgeInsets.only(top: 10),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Container(
+              width: 22,
+              height: 22,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                  color: const Color(0xFFFFF0F1),
+                  borderRadius: BorderRadius.circular(11)),
+              child: Text(n,
+                  style: const TextStyle(
+                      fontSize: 12, fontWeight: FontWeight.w700, color: _edRed)),
+            ),
+            const SizedBox(width: 10),
+            Expanded(child: Text(text, style: const TextStyle(fontSize: 14, height: 1.45))),
+          ]),
+        );
+    Widget errorLine() => error == null
+        ? const SizedBox.shrink()
+        : Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Text(error!,
+                style: const TextStyle(fontSize: 13, height: 1.4, color: Brand.red)),
+          );
+    final redButton = FilledButton.styleFrom(
+        backgroundColor: _edRed,
+        minimumSize: const Size(0, 44),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)));
+    final plainButton = OutlinedButton.styleFrom(
+        foregroundColor: _edInk,
+        minimumSize: const Size(0, 44),
+        side: const BorderSide(color: _edBorder),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)));
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(builder: (ctx, setD) {
+        final r = result;
+        final ok = r?['verdict'] == 'at_space';
+        final Widget body;
+        final List<Widget> buttons;
+        switch (stage) {
+          case 'testing':
+            body = Column(mainAxisSize: MainAxisSize.min, children: [
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: LinearProgressIndicator(
+                    value: progress <= 0 ? null : progress,
+                    minHeight: 8,
+                    color: _edRed,
+                    backgroundColor: const Color(0xFFFFE3E5)),
+              ),
+              const SizedBox(height: 12),
+              Text(phase, style: muted),
+              const SizedBox(height: 4),
+              const Text('Keep this window open.',
+                  style: TextStyle(fontSize: 12.5, color: Brand.inkMuted)),
+            ]);
+            buttons = const [];
+          case 'result':
+            body = Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('${r?['mbps']} Mbps',
+                      style: const TextStyle(
+                          fontSize: 40, fontWeight: FontWeight.w800, height: 1.1)),
+                  const SizedBox(height: 10),
+                  if (ok)
+                    Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      const Icon(Icons.check_circle, size: 18, color: Color(0xFF1E7A46)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                            'Tested at $space'
+                            '${r?['distance_m'] == null ? '' : ', ${away(r!['distance_m'] as num)} from your pin'}. '
+                            'It can go on your page now.',
+                            style: muted),
+                      ),
+                    ])
+                  else
+                    Text(why(r ?? const {}), style: muted),
+                  errorLine(),
+                ]);
+            buttons = ok
+                ? [
+                    OutlinedButton(
+                        style: plainButton,
+                        onPressed: busy ? null : () => Navigator.pop(ctx),
+                        child: const Text('Not now')),
+                    FilledButton(
+                        style: redButton,
+                        onPressed: busy ? null : () => apply(ctx, setD),
+                        child: Text(busy ? 'Saving' : 'Put it on my page',
+                            softWrap: false)),
+                  ]
+                : [
+                    OutlinedButton(
+                        style: plainButton,
+                        onPressed: () => setD(() {
+                              stage = 'link';
+                              error = null;
+                            }),
+                        child: const Text('Send a link', softWrap: false)),
+                    FilledButton(
+                        style: redButton,
+                        onPressed: () => run(setD),
+                        child: const Text('Try again', softWrap: false)),
+                  ];
+          case 'link':
+            body = Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                      'At your space, on your Wi-Fi, open speedtest.net and '
+                      'press Go. When it finishes, press Share and copy the '
+                      'result link. We check it and update your page.',
+                      style: muted),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: link,
+                    autofocus: true,
+                    keyboardType: TextInputType.url,
+                    autocorrect: false,
+                    decoration: const InputDecoration(
+                      labelText: 'Speedtest result link',
+                      hintText: 'https://www.speedtest.net/result/…',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  errorLine(),
+                ]);
+            buttons = [
+              OutlinedButton(
+                  style: plainButton,
+                  onPressed: busy ? null : () => Navigator.pop(ctx),
+                  child: const Text('Cancel')),
+              FilledButton(
+                  style: redButton,
+                  onPressed: busy ? null : () => sendLink(ctx, setD),
+                  child: Text(busy ? 'Sending' : 'Send to Nomadwise',
+                      softWrap: false)),
+            ];
+          default:
+            body = Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                      'Run this at $space, so the speed on your page is the '
+                      'speed people get.',
+                      style: muted),
+                  const SizedBox(height: 4),
+                  step('1', 'Be at your space.'),
+                  step('2', 'Connect this phone or laptop to your Wi-Fi, not '
+                      'mobile data.'),
+                  step('3', 'Press Start test and allow your location when '
+                      'asked. It shows the test was done at the space.'),
+                  const SizedBox(height: 12),
+                  const Text('It takes about 20 seconds.',
+                      style: TextStyle(fontSize: 12.5, color: Brand.inkMuted)),
+                  errorLine(),
+                  const SizedBox(height: 6),
+                  TextButton(
+                    onPressed: () => setD(() {
+                      stage = 'link';
+                      error = null;
+                    }),
+                    style: TextButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        foregroundColor: _perfRed,
+                        textStyle: const TextStyle(
+                            fontSize: 13.5, fontWeight: FontWeight.w600)),
+                    child: const Text(
+                        'Not at the space? Send a Speedtest result instead'),
+                  ),
+                ]);
+            buttons = [
+              OutlinedButton(
+                  style: plainButton,
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Cancel')),
+              FilledButton(
+                  style: redButton,
+                  onPressed: () => run(setD),
+                  child: const Text('Start test', softWrap: false)),
+            ];
+        }
+        return PopScope(
+          canPop: !busy,
+          child: AlertDialog(
+            scrollable: true,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            title: Text(stage == 'link'
+                ? 'Send a Speedtest result'
+                : 'Test your Wi-Fi'),
+            content: SizedBox(width: 440, child: body),
+            actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
+            actions: buttons.isEmpty
+                ? null
+                : [
+                    Row(children: [
+                      for (var i = 0; i < buttons.length; i++) ...[
+                        if (i > 0) const SizedBox(width: 10),
+                        Expanded(child: buttons[i]),
+                      ]
+                    ]),
+                  ],
+          ),
+        );
+      }),
+    );
+    open = false;
+    Future.delayed(const Duration(milliseconds: 400), link.dispose);
+    if (!mounted) return;
+    if (applied != null) {
+      setState(() => _venue?['wifi_speed_mbps'] = applied);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(_isPreview
+              ? 'Preview: the owner\'s page would show $applied Mbps.'
+              : 'Done. Your page will show $applied Mbps shortly.')));
+    } else if (linkSent) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(_isPreview
+              ? 'Preview: the link goes to Inbox & support.'
+              : 'Sent. We check it and update your page.')));
+    }
+  }
+
+  /// A database message as an owner should read it.
+  String _friendly(Object e) {
+    final s = e.toString();
+    final m = RegExp(r'message: ([^,}]+)').firstMatch(s);
+    final msg = (m?.group(1) ?? '').trim();
+    return msg.isNotEmpty && !msg.contains('function')
+        ? msg
+        : 'Something went wrong. Please try again.';
   }
 
   Widget _waitingChip() => Container(
@@ -5397,8 +5822,8 @@ class _OwnerScreenState extends State<OwnerScreen> {
           }),
           const SizedBox(height: 8),
           const Text(
-              'Wi-Fi speed is checked by Nomadwise. To change your name or '
-              'location, go to Settings.',
+              'Wi-Fi speed is measured at your space with Test your '
+              'Wi-Fi. To change your name or location, go to Settings.',
               style: TextStyle(fontSize: 12, color: Brand.inkMuted)),
           const SizedBox(height: 18),
           _keyed('photos', photosPart),
@@ -6806,10 +7231,10 @@ class _OwnerScreenState extends State<OwnerScreen> {
       'Write it'
     ),
     'wifi': (
-      'Tell us your Wi-Fi speed',
-      'It is the first thing remote workers ask. Send us your speed and '
-          'we add it to your page.',
-      'Send your speed'
+      'Test your Wi-Fi speed',
+      'It is the first thing remote workers ask. Run the test at your '
+          'space and the speed goes straight on your page.',
+      'Run the test'
     ),
     'hours': (
       'Add your opening hours',
@@ -6883,7 +7308,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
   /// Opens My listing with that part ready to edit.
   void _perfAdd(String part) {
     if (part.isEmpty) {
-      _requestChange(); // Wi-Fi speed is checked by Nomadwise
+      _wifiTest(); // measured at the space (migration 262)
       return;
     }
     _goTab(_Tab.listing);
@@ -7473,7 +7898,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
                   style: TextButton.styleFrom(
                       foregroundColor: _perfRed,
                       textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
-                  child: Text(parts[i].$1 == 'wifi' ? 'Tell us' : 'Add'),
+                  child: Text(parts[i].$1 == 'wifi' ? 'Test' : 'Add'),
                 ),
             ]),
           ),

@@ -294,6 +294,29 @@ class SupabaseService {
     return Map<String, dynamic>.from(r as Map);
   }
 
+  /// Owner: a Wi-Fi test just measured at the space (migration 262).
+  /// The database checks where it was done and returns the verdict:
+  /// at_space, too_far, no_location, rough_location, no_pin or
+  /// mobile_data, with the test id and the distance from the pin.
+  Future<Map<String, dynamic>> ownerWifiTest(String venueId, double mbps,
+      {double? lat, double? lng, double? accuracy, String? connection}) async {
+    final r = await _db.rpc('owner_wifi_test', params: {
+      'p_venue': venueId,
+      'p_mbps': mbps,
+      'p_lat': lat,
+      'p_lng': lng,
+      'p_accuracy': accuracy,
+      'p_connection': connection,
+    });
+    return Map<String, dynamic>.from(r as Map);
+  }
+
+  /// Owner: put a Wi-Fi test done at the space on the page.
+  Future<Map<String, dynamic>> ownerWifiTestApply(String testId) async {
+    final r = await _db.rpc('owner_wifi_test_apply', params: {'p_test': testId});
+    return Map<String, dynamic>.from(r as Map);
+  }
+
   /// Owner: the price list as the owner left it (migration 218). Each
   /// change waits for a founder's Go in Price check. Returns counts
   /// and any prices that could not be sent, with why.
