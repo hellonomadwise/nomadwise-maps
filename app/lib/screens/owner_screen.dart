@@ -3724,7 +3724,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
         'photos' => {'list': List<String>.of(_photos), 'touched': _photosTouched},
         'tags' => {'facts': Map<String, bool?>.of(_facts)},
         'about' => {'text': _description.text},
-        'prices' => {
+        'prices' || 'coffee' => {
             'day': _priceDay.text,
             'week': _priceWeek.text,
             'month': _priceMonth.text,
@@ -3754,7 +3754,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
       case 'about':
         _description.text = '${s['text']}';
         _loadSections();
-      case 'prices':
+      case 'prices' || 'coffee':
         _priceDay.text = '${s['day']}';
         _priceWeek.text = '${s['week']}';
         _priceMonth.text = '${s['month']}';
@@ -5747,6 +5747,37 @@ class _OwnerScreenState extends State<OwnerScreen> {
                 ),
           ]);
 
+    // ---- a cafe: only the cappuccino price ----
+    // A price list is for coworking spaces (Jonathan, 6 Nov 2026). A
+    // cafe keeps the one cappuccino price, a feel for how pricey the
+    // place is.
+    final coffeeNow = _priceCoffee.text.trim();
+    final coffeePart = _editing == 'coffee'
+        ? _editFrame(
+            'Cappuccino price',
+            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text(
+                  'What a cappuccino costs at your cafe. It gives people a '
+                  'feel for your prices. It goes live once Nomadwise '
+                  'approves it.',
+                  style: muted),
+              const SizedBox(height: 16),
+              _currencyPicker(),
+              const SizedBox(height: 16),
+              _priceField(_priceCoffee, 'Cappuccino', width: 220),
+            ]))
+        : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            _partHead('Cappuccino price', 'coffee'),
+            const SizedBox(height: 10),
+            if (_sent('coffee')) _waitingChip(),
+            Text(
+                coffeeNow.isEmpty
+                    ? 'Not added yet. Press Edit to add it.'
+                    : 'A cappuccino costs '
+                        '${Price.format(Price.cleanAmount(coffeeNow), _currency)}.',
+                style: coffeeNow.isEmpty ? muted : body),
+          ]);
+
     final main = _liveCard(
         Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(title,
@@ -5843,7 +5874,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
           const SizedBox(height: 28),
           _keyed('about', aboutPart),
           const SizedBox(height: 28),
-          _keyed('prices', pricesPart),
+          _keyed('prices', isCafe ? coffeePart : pricesPart),
           const SizedBox(height: 28),
           _mapBlock(v, area),
         ]),
@@ -7447,7 +7478,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
     final stats = <(String, int, String, TextStyle)>[
       if (google > 0)
         (
-          'Shown in Google search',
+          'Shown in Google',
           google,
           _perfUp(google, p['google_prev']) ?? 'Times your page was in Google results',
           _perfUp(google, p['google_prev']) != null ? upNote : plainNote
@@ -7460,7 +7491,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
           _perfUp(views, p['views_prev']) != null ? upNote : plainNote
         ),
       if (dirs > 0)
-        ('Asked for directions', dirs, 'Tapped Directions on your page', plainNote),
+        ('Directions', dirs, 'Tapped Directions on your page', plainNote),
       if (sent + held > 0)
         (
           'Requests',
@@ -7518,14 +7549,27 @@ class _OwnerScreenState extends State<OwnerScreen> {
       children.add(LayoutBuilder(builder: (context, c) {
         // Four to a row on a computer, two on a phone; a lone number
         // keeps its card size instead of stretching across the page.
+        // Cards in a row share one height, so they line up (Jonathan,
+        // 6 Nov 2026: Shown in Google and Page views were uneven).
         final cols = c.maxWidth >= 720 ? 4 : 2;
         const gap = 12.0;
-        // (a hair under, so rounding never pushes a card to a new row)
-        final w = (c.maxWidth - gap * (cols - 1)) / cols - 0.5;
-        return Wrap(spacing: gap, runSpacing: gap, children: [
-          for (final s in stats)
-            SizedBox(width: w, child: _perfStat(s.$1, s.$2, s.$3, s.$4)),
-        ]);
+        final rows = <Widget>[];
+        for (var i = 0; i < stats.length; i += cols) {
+          if (rows.isNotEmpty) rows.add(const SizedBox(height: gap));
+          rows.add(IntrinsicHeight(
+            child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              for (var j = 0; j < cols; j++) ...[
+                if (j > 0) const SizedBox(width: gap),
+                Expanded(
+                    child: i + j < stats.length
+                        ? _perfStat(stats[i + j].$1, stats[i + j].$2,
+                            stats[i + j].$3, stats[i + j].$4)
+                        : const SizedBox.shrink()),
+              ],
+            ]),
+          ));
+        }
+        return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: rows);
       }));
     }
     if (showFree) {
@@ -7571,7 +7615,9 @@ class _OwnerScreenState extends State<OwnerScreen> {
             'behind (latest day: ${_perfDay(p['google_to'])}).',
       if (p['views_from'] != null)
         'Page views and Directions taps are counted by Nomadwise since '
-            '${_perfDay(p['views_from'])}, without cookies.',
+            '${_perfDay(p['views_from'])}, without cookies. Page views '
+            'before then come from our website statistics, also without '
+            'cookies.',
     ];
     if (notes.isNotEmpty && live) {
       children.add(const SizedBox(height: 16));
@@ -7582,16 +7628,18 @@ class _OwnerScreenState extends State<OwnerScreen> {
   }
 
   Widget _perfStat(String label, int n, String note, TextStyle noteStyle) => Container(
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
         decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: Brand.border)),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                   fontSize: 13, fontWeight: FontWeight.w600, color: Brand.inkSecondary)),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           Text(_perfNum(n),
               style: const TextStyle(
                   fontSize: 30, height: 1.1, fontWeight: FontWeight.w800, color: Brand.ink)),
@@ -7802,12 +7850,25 @@ class _OwnerScreenState extends State<OwnerScreen> {
     final parts = [
       for (final x in (m['parts'] as List? ?? const []))
         if (x is Map && _perfParts.containsKey('${x['key']}'))
-          ('${x['key']}', x['done'] == true)
+          ('${x['key']}', x['done'] == true, (x['count'] as num?)?.toInt() ?? 0)
     ];
     final done = parts.where((x) => x.$2).length;
     final total = parts.isEmpty ? 5 : parts.length;
     final next = '${m['next'] ?? ''}';
-    final step = _perfNext[next];
+    var step = _perfNext[next];
+    // Photos count as done at five, the page's gallery (Jonathan,
+    // 6 Nov 2026; migration 266): with one to four, say how many more.
+    final photoCount = parts.fold<int>(0, (n, x) => x.$1 == 'photos' ? x.$3 : n);
+    if (next == 'photos' && photoCount >= 1 && photoCount < 5) {
+      final more = 5 - photoCount;
+      step = (
+        'Add $more more photo${more == 1 ? '' : 's'}',
+        'Your page has room for five photos and shows $photoCount. A full '
+            'gallery shows people what it is like to work there, and photos '
+            'are the first thing they look at.',
+        'Add photos'
+      );
+    }
     return _panel(
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(children: [
@@ -7898,7 +7959,10 @@ class _OwnerScreenState extends State<OwnerScreen> {
                           fontWeight: parts[i].$2 ? FontWeight.w400 : FontWeight.w600,
                           color: parts[i].$2 ? Brand.inkSecondary : Brand.ink)),
                   const SizedBox(height: 2),
-                  Text(_perfParts[parts[i].$1]!.$2,
+                  Text(
+                      parts[i].$1 == 'photos' && !parts[i].$2 && parts[i].$3 > 0
+                          ? '${parts[i].$3} of 5 added. The first thing people look at'
+                          : _perfParts[parts[i].$1]!.$2,
                       style: const TextStyle(fontSize: 12.5, color: Brand.inkMuted)),
                 ]),
               ),

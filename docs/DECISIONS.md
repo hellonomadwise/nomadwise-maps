@@ -6328,3 +6328,15 @@ Jonathan: "Choose which emails you get" and "Stop monthly updates" go in the gre
 ## 6 Nov 2026: owners test their Wi-Fi at the space (migration 262)
 
 Jonathan: a box to type the speed invites "oh, it is like 600", and a speedtest.net screenshot adds friction. Now "Test your Wi-Fi" in the Owner account (My listing, the Performance checklist and the monthly email's tip) runs a speed test in the browser: four downloads at once for about 12 seconds from nomadmaps.io, so nothing is typed. Before it runs, the device's location is asked for; the database works out the distance to the space's pin. Only a test within 250 m of the pin, with the location known to within 300 m and not on mobile data (Android phones say so; iPhones cannot), can go on the page, when the owner presses "Put it on my page". That sets venues.wifi_speed_mbps and wifi_owner_tested_at, posts a line in Inbox & support, and asks the website sync to write Average Internet Speed on the page; the nightly pull then leaves that speed alone. Every test is kept in owner_wifi_tests with the verdict, distance, network fingerprint (the same one nomads' tests use) and the connection's country when the request carries it. Owners who cannot test at the space send a Speedtest result link instead, which arrives in Inbox & support for the team to check, as the old text box did.
+
+## 6 Nov 2026: cafes have no price list (migration 265)
+
+Jonathan: the price list is for coworking spaces and should not appear for cafes; the cappuccino price was always more a fun gauge of how pricey a place is. A cafe's My listing now shows a small "Cappuccino price" part (currency and one amount, approved like any change) instead of Prices, and "Prices" leaves a cafe's checklist in Performance and the monthly email.
+
+## 6 Nov 2026: photos count as done at five (migration 266)
+
+Jonathan: a space with one photo should be told to add more. The page's gallery has room for five, so the Photos step in Get more from your page is done at five. With one to four, the checklist reads "1 of 5 added" and the next step (Owner account and monthly email) says "Add 4 more photos".
+
+## 6 Nov 2026: page views from before our counter (migration 267)
+
+Jonathan: owners should see page views from before 5 November. Ahrefs Web Analytics (cookieless, free in API units, project 7319229) has daily page views per listing page since mid-2025. Loaded 1 Jul 2025 to 4 Nov 2026 for the 17 spaces with an owner (1,047 views on 596 days) into page_counts as 'view'. The note under Performance now dates our own counter from the first Directions day. For a new owner, pull their page with web-analytics-top-pages-chart (daily, csv) and load it with import_page_view_history in a migration.
