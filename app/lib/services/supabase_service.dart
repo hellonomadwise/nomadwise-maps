@@ -2133,6 +2133,15 @@ class SupabaseService {
     return r is Map ? Map<String, dynamic>.from(r) : <String, dynamic>{};
   }
 
+  /// Emails (migration 272): every email sent to owners with what they
+  /// did after it (opened, clicked, signed in, changed, Premium).
+  Future<Map<String, dynamic>> adminEmailFlow({DateTime? from}) async {
+    final r = await _db.rpc('admin_email_flow', params: {
+      'p_from': from?.toIso8601String().substring(0, 10),
+    });
+    return r is Map ? Map<String, dynamic>.from(r) : <String, dynamic>{};
+  }
+
   /// Owner flow (migration 206): the numbers behind each stage's verdict,
   /// the targets and the open "build it" asks.
   Future<Map<String, dynamic>> adminOwnerFlowSignals() async {

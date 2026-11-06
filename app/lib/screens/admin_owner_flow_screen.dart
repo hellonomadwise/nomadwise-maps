@@ -9,6 +9,7 @@ import '../services/flow_sound_stub.dart'
 import '../services/supabase_service.dart';
 import '../theme.dart';
 import '../widgets/motion.dart';
+import 'admin_email_flow_screen.dart';
 import 'admin_outreach_screen.dart';
 import 'admin_sequences_screen.dart';
 import 'claim_journeys_screen.dart';
@@ -690,6 +691,13 @@ class _AdminOwnerFlowScreenState extends State<AdminOwnerFlowScreen>
       appBar: AppBar(
         title: const Text('Owner flow'),
         actions: [
+          // Every email to owners and what happened after it (migration 272).
+          TextButton.icon(
+            onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const AdminEmailFlowScreen())),
+            icon: const Icon(Icons.mail_outline, size: 18),
+            label: const Text('Emails'),
+          ),
           TextButton(
             onPressed: _loading ? null : () {
               setState(() => _speed = _speed == 0.5 ? 1 : _speed == 1 ? 2 : 0.5);
