@@ -18,3 +18,9 @@ select public.pm_patch_fn('public.site_chat_email_sync()',
   $a$|| 'Kind regards,' || E'\n' || coalesce(who, 'Jonathan') || E'\n' || 'Nomadwise.io',$a$,
   $a$|| 'Kind regards,' || E'\n' || coalesce(who, 'Jonathan') || E'\n' || 'nomadwise.io',$a$,
   $a$'nomadwise.io',$a$);
+
+-- Jonathan approved test pairs 20-22 on 6 Nov 2026 ("20, 21, 22 ok"):
+-- the three rarer emails go out through their templates too.
+update public.email_templates set live = true, updated_at = now()
+ where alias in ('site-chat-reply','enquiry-unreachable-nomad','enquiry-sent-nomad-many')
+   and not live;
