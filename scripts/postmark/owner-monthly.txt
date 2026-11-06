@@ -8,5 +8,6 @@ One thing to try in {{../tip_month}}: {{../next_title}}. {{../next_why}}
 {{/has_next}}
 Open your Owner account: {{account_url}}
 
-Jonathan and Leonie
-nomadwise.io
+Kind regards,
+Jonathan Heavens
+Co-founder, Nomadwise
