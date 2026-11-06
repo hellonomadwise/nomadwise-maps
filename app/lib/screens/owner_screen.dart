@@ -4703,19 +4703,29 @@ class _OwnerScreenState extends State<OwnerScreen> {
                   const Text('It takes about 20 seconds.',
                       style: TextStyle(fontSize: 12.5, color: Brand.inkMuted)),
                   errorLine(),
-                  const SizedBox(height: 6),
-                  TextButton(
-                    onPressed: () => setD(() {
-                      stage = 'link';
-                      error = null;
-                    }),
-                    style: TextButton.styleFrom(
-                        padding: EdgeInsets.zero,
-                        foregroundColor: _perfRed,
-                        textStyle: const TextStyle(
-                            fontSize: 13.5, fontWeight: FontWeight.w600)),
-                    child: const Text(
-                        'Not at the space? Send a Speedtest result instead'),
+                  const SizedBox(height: 10),
+                  // Roomy, so the hover shade sits around the words with
+                  // 8px corners; moved left by its padding so the words
+                  // still line up with the text above.
+                  Transform.translate(
+                    offset: const Offset(-12, 0),
+                    child: TextButton(
+                      onPressed: () => setD(() {
+                        stage = 'link';
+                        error = null;
+                      }),
+                      style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 10),
+                          minimumSize: const Size(0, 40),
+                          foregroundColor: _perfRed,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8)),
+                          textStyle: const TextStyle(
+                              fontSize: 13.5, fontWeight: FontWeight.w600)),
+                      child: const Text(
+                          'Not at the space? Send a Speedtest result instead'),
+                    ),
                   ),
                 ]);
             buttons = [
