@@ -6344,3 +6344,7 @@ Jonathan: owners should see page views from before 5 November. Ahrefs Web Analyt
 ## 6 Nov 2026: page view history for every listing page (migration 269)
 
 Jonathan: owners should not have to ask for their history. Migration 269 loads Ahrefs' daily page views for every other listing page too (990 pages with views, 58,189 page views, 1 Jul 2025 to 4 Nov 2026), so a space that claims later sees its whole year at once. Nothing more to load: from 5 Nov our own counter covers every page.
+
+## 6 Nov 2026: the Performance chart follows the period buttons (migration 270)
+
+Jonathan: the By month chart should change with Last 30 days, 3 months and 12 months. Now: Last 30 days shows 30 days (By day), 3 months shows 13 weeks from Monday (By week), 12 months shows 12 months (By month). Bars and labels size themselves to the space, so 30 days fits on a phone.

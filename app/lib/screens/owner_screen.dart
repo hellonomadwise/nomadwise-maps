@@ -7577,7 +7577,9 @@ class _OwnerScreenState extends State<OwnerScreen> {
       children.add(_perfFreeNote(freeUsed, freeLimit));
     }
 
-    final chart = monthsWithData >= 2 && live ? _perfMonths(months) : null;
+    final chart = monthsWithData >= 2 && live
+        ? _perfMonths(months, '${p['unit'] ?? 'month'}')
+        : null;
     final searches = queries.isNotEmpty ? _perfSearches(queries) : null;
     final reqs = latest.isNotEmpty ? _perfLatest(latest) : null;
     final more = _perfMore(p['parts']);
@@ -7674,12 +7676,34 @@ class _OwnerScreenState extends State<OwnerScreen> {
 
   /// The last 6 months: Shown in Google (red) and page views (dark),
   /// side by side, on one scale. This month is so far.
-  Widget _perfMonths(List<Map<String, dynamic>> months) {
+  /// The chart under the numbers. It follows the period buttons
+  /// (Jonathan, 6 Nov 2026): Last 30 days by day, 3 months by week,
+  /// 12 months by month (owner_performance's 'unit', migration 270).
+  Widget _perfMonths(List<Map<String, dynamic>> months, String unit) {
     var top = 1;
     for (final m in months) {
       top = [top, _perfInt(m['google']), _perfInt(m['views'])].reduce((a, b) => a > b ? a : b);
     }
     const h = 150.0;
+    DateTime at(int i) => DateTime.tryParse('${months[i]['month']}') ?? DateTime(2026);
+    String mon(DateTime d) => _monthNames[d.month - 1].substring(0, 3);
+    String label(int i) => switch (unit) {
+          'day' => '${at(i).day}',
+          'week' => '${at(i).day} ${mon(at(i))}',
+          _ => mon(at(i)),
+        };
+    String tip(int i) {
+      final d = at(i);
+      final last = i == months.length - 1;
+      final when = switch (unit) {
+        'day' => last ? 'Today' : '${d.day} ${mon(d)}',
+        'week' => last ? 'This week so far' : 'Week of ${d.day} ${mon(d)}',
+        _ => '${_monthNames[d.month - 1]}${last ? ' so far' : ''}',
+      };
+      return '$when: ${_perfNum(_perfInt(months[i]['google']))} in Google, '
+          '${_perfNum(_perfInt(months[i]['views']))} page views';
+    }
+
     Widget key(Color c, String t) => Row(mainAxisSize: MainAxisSize.min, children: [
           Container(
               width: 10,
@@ -7688,13 +7712,6 @@ class _OwnerScreenState extends State<OwnerScreen> {
           const SizedBox(width: 6),
           Text(t, style: const TextStyle(fontSize: 12.5, color: Brand.inkSecondary)),
         ]);
-    Widget bar(int n, Color c) => Container(
-          width: 14,
-          height: n <= 0 ? 0.0 : (h * n / top).clamp(3.0, h),
-          decoration: BoxDecoration(
-              color: c,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(4))),
-        );
     return _panel(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Wrap(
@@ -7702,51 +7719,85 @@ class _OwnerScreenState extends State<OwnerScreen> {
             runSpacing: 6,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              const Text('By month',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Brand.ink)),
+              Text(switch (unit) { 'day' => 'By day', 'week' => 'By week', _ => 'By month' },
+                  style: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.w700, color: Brand.ink)),
               key(Brand.red, 'Shown in Google'),
               key(Brand.ink, 'Page views'),
             ]),
         const SizedBox(height: 18),
-        SizedBox(
-          height: h,
-          child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-            for (var i = 0; i < months.length; i++)
-              Expanded(
-                child: Tooltip(
-                  message: '${_monthNames[(DateTime.tryParse('${months[i]['month']}')?.month ?? 1) - 1]}'
-                      '${i == months.length - 1 ? ' so far' : ''}: '
-                      '${_perfNum(_perfInt(months[i]['google']))} in Google, '
-                      '${_perfNum(_perfInt(months[i]['views']))} page views',
-                  child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        bar(_perfInt(months[i]['google']), Brand.red),
-                        const SizedBox(width: 3),
-                        bar(_perfInt(months[i]['views']), Brand.ink),
-                      ]),
-                ),
-              ),
-          ]),
-        ),
-        const SizedBox(height: 8),
-        Row(children: [
-          for (var i = 0; i < months.length; i++)
-            Expanded(
-              child: Text(
-                  _monthNames[(DateTime.tryParse('${months[i]['month']}')?.month ?? 1) - 1]
-                      .substring(0, 3),
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: i == months.length - 1 ? FontWeight.w700 : FontWeight.w400,
-                      color: Brand.inkSecondary)),
+        LayoutBuilder(builder: (context, c) {
+          final n = months.isEmpty ? 1 : months.length;
+          final slot = c.maxWidth / n;
+          // Two bars per slot, as wide as there is room for (thin for
+          // 30 days on a phone, 14px for 12 months on a computer).
+          final gap = slot >= 14 ? 3.0 : 1.0;
+          final barW = ((slot * 0.7 - gap) / 2).clamp(2.0, 14.0);
+          // About one label per 44px, counted back from the newest.
+          final every = (44 / slot).ceil().clamp(1, n);
+          Widget bar(int v, Color col) => Container(
+                width: barW,
+                height: v <= 0 ? 0.0 : (h * v / top).clamp(3.0, h),
+                decoration: BoxDecoration(
+                    color: col,
+                    borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(barW >= 8 ? 4 : 2))),
+              );
+          return Column(children: [
+            SizedBox(
+              height: h,
+              child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                for (var i = 0; i < months.length; i++)
+                  Expanded(
+                    child: Tooltip(
+                      message: tip(i),
+                      child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            bar(_perfInt(months[i]['google']), Brand.red),
+                            SizedBox(width: gap),
+                            bar(_perfInt(months[i]['views']), Brand.ink),
+                          ]),
+                    ),
+                  ),
+              ]),
             ),
-        ]),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 16,
+              child: Row(children: [
+                for (var i = 0; i < months.length; i++)
+                  Expanded(
+                    child: (months.length - 1 - i) % every == 0
+                        ? OverflowBox(
+                            maxWidth: 60,
+                            child: Text(label(i),
+                                textAlign: TextAlign.center,
+                                maxLines: 1,
+                                softWrap: false,
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: i == months.length - 1
+                                        ? FontWeight.w700
+                                        : FontWeight.w400,
+                                    color: Brand.inkSecondary)),
+                          )
+                        : const SizedBox.shrink(),
+                  ),
+              ]),
+            ),
+          ]);
+        }),
         const SizedBox(height: 6),
-        const Text('This month is so far.',
-            style: TextStyle(fontSize: 12, color: Brand.inkMuted)),
+        Text(
+            switch (unit) {
+              'day' => 'Google runs a few days behind, so the newest days show page '
+                  'views only.',
+              'week' => 'This week is so far.',
+              _ => 'This month is so far.',
+            },
+            style: const TextStyle(fontSize: 12, color: Brand.inkMuted)),
       ]),
     );
   }
