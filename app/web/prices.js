@@ -50,7 +50,7 @@
     tab: 0, bad: null, picked: null, sent: false, sending: false, error: '',
     calOpen: false, monthOffset: 0, date: null, flexible: false,
     people: 'Just me', time: '10:00', length: '1 hour',
-    name: '', email: '', message: '', sheetOpen: false, focusKey: null
+    name: '', email: '', message: '', news: false, sheetOpen: false, focusKey: null
   };
 
   // ------------------------------------------------------------ helpers
@@ -263,6 +263,8 @@
       '.nwp-in{height:42px;border:1.5px solid #D5DAE0;border-radius:8px;padding:0 12px;font-family:inherit;font-size:15px;background:#fff;color:var(--nwp-ink);width:100%;transition:border-color .15s,box-shadow .15s}',
       '.nwp-in:focus{border-color:var(--nwp-teal);box-shadow:0 0 0 3px rgba(5,67,79,.12);outline:none}',
       '.nwp-in.bad{border-color:#D93025;box-shadow:0 0 0 3px rgba(217,48,37,.10)}',
+      '.nwp-ck{display:flex;align-items:flex-start;gap:10px;font-size:13.5px;line-height:1.45;color:var(--nwp-ink);cursor:pointer}',
+      '.nwp-ck input{flex:none;width:18px;height:18px;margin:1px 0 0;accent-color:var(--nwp-teal);cursor:pointer}',
       'textarea.nwp-in{height:auto;min-height:64px;padding:10px 12px;resize:vertical;line-height:1.45}',
       '.nwp-hint{font-size:12.5px;color:#C5221F;min-height:0}',
       '.nwp-hint:empty{display:none}',
@@ -475,6 +477,9 @@
       '<span class="nwp-hint" id="nwp-email-hint">' + (S.bad === 'email' ? esc(S.error) : '') + '</span></div>';
     h += '<div class="nwp-fl"><label class="nwp-lt" for="nwp-msg">Anything to add? <i>(optional)</i></label>' +
       '<textarea class="nwp-in" id="nwp-msg" rows="2" maxlength="1500" data-f="message" data-k="message">' + esc(S.message) + '</textarea></div>';
+    // Newsletter for nomads (Jonathan, 6 Nov 2026): never ticked for them.
+    h += '<label class="nwp-ck"><input type="checkbox" data-f="news" data-k="news"' + (S.news ? ' checked' : '') + '>' +
+      '<span>Send me the Nomadwise newsletter now and then. Unsubscribe any time.</span></label>';
     h += '</div><div class="nwp-ft">' +
       (S.error && S.bad !== 'email' ? '<p class="nwp-err" role="alert">' + esc(S.error) + '</p>' : '') +
       '<button type="button" class="nwp-send" data-a="send" data-k="send"' + (S.sending ? ' disabled aria-busy="true"' : '') + '>' +
@@ -569,11 +574,12 @@
   }
   function onChange(e) {
     var f = e.target.getAttribute && e.target.getAttribute('data-f');
-    if (f && e.target.tagName !== 'BUTTON') S[f] = e.target.value;
+    if (f && e.target.tagName !== 'BUTTON') S[f] = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
   }
   function onInput(e) {
     var t = e.target, f = t.getAttribute && t.getAttribute('data-f');
     if (!f || t.tagName === 'BUTTON') return;
+    if (t.type === 'checkbox') { S[f] = t.checked; return; }
     S[f] = t.value;
     // Fixing a flagged field clears the flag as you type.
     if (S.bad === f && (f !== 'email' || EMAIL_OK(t.value))) {
@@ -641,6 +647,7 @@
     set('Name-Of-Customer-2', S.name);
     set('email-of-customer-2', S.email);
     set('ticked-terms-2', true);
+    set('Agree-to-Receive-Marketing-2', S.news);
     // The form's own checks (its email field is stricter than ours).
     if (form.checkValidity && !form.checkValidity()) {
       var bad = form.querySelector(':invalid');
@@ -674,7 +681,7 @@
         S.sending = false; S.sent = true; S.error = ''; S.focusKey = 'done';
         S.sentWhen = S.flexible ? 'Flexible on dates' : (S.date ? (kind === 'start' ? 'Starting ' : '') + fmtDate(S.date, true) : 'Not given');
         S.sentTime = kind === 'hour' ? 'From ' + S.time + ', ' + S.length : '';
-        track('price_enquiry_sent', { space: data.space, price: it.full, slug: SLUG });
+        track('price_enquiry_sent', { space: data.space, price: it.full, slug: SLUG, newsletter: !!S.news });
         // the pop-up form is ready again for the next one
         setTimeout(function () {
           try {
