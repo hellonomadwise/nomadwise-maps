@@ -14,6 +14,9 @@
   var m = location.pathname.match(/^\/s\/([A-Za-z0-9_-]+)(\.html)?\/?$/);
   if (m) location.replace('/?p=' + encodeURIComponent(m[1]));
 </script>
+<!-- A short claim link, nomadmaps.io/c/<space>-<4 letters>
+     (migration 287), opens the claim form on that space. -->
+<script src="/c.js"></script>
 </head>
 <body style="font-family:system-ui,sans-serif;padding:24px;color:#142032">
 <p>That page is not here.</p>
