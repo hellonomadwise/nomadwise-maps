@@ -2933,6 +2933,9 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   /// card: the card folds to one line, out of the way of the list
   /// below, until something is decided.
   bool _nextUpFolded = false;
+  // Next up, not beside the list: one line until opened (Jonathan,
+  // 8 Nov 2026: "Reduce tidy up height, have as expandable").
+  bool _nextUpExpanded = false;
 
   /// On a small screen the "Next up" card and the To do line step
   /// aside as soon as the list below is scrolled, and come back at
@@ -4031,33 +4034,44 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
             fontWeight: FontWeight.w800,
             letterSpacing: .6,
             color: Brand.accent));
-    // One line, out of the way of the list below, with the way back.
-    Widget oneLine(String text) => Container(
-          width: double.infinity,
-          margin: const EdgeInsets.fromLTRB(14, 10, 14, 2),
-          padding: const EdgeInsets.fromLTRB(14, 4, 6, 4),
-          decoration: BoxDecoration(
+    // One line, out of the way of the list below: tap it to open.
+    Widget oneLine(String text, {int more = 0}) => Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 2),
+          child: Material(
             color: Brand.surface,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: Brand.accent),
-          ),
-          child: Row(children: [
-            label,
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(text,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                      fontSize: 13.5, fontWeight: FontWeight.w700)),
+            borderRadius: BorderRadius.circular(8),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: () => setState(() {
+                _nextUpFolded = false;
+                _topAway = false;
+                _nextUpExpanded = true;
+              }),
+              child: Container(
+                constraints: const BoxConstraints(minHeight: 44),
+                padding: const EdgeInsets.fromLTRB(12, 6, 8, 6),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Brand.accent),
+                ),
+                child: Row(children: [
+                  label,
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(text,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: 13.5, fontWeight: FontWeight.w700)),
+                  ),
+                  if (more > 0)
+                    Text('+$more',
+                        style: const TextStyle(fontSize: 12, color: Brand.inkMuted)),
+                  const Icon(Icons.expand_more, size: 20, color: Brand.inkSecondary),
+                ]),
+              ),
             ),
-            TextButton(
-                onPressed: () => setState(() {
-                      _nextUpFolded = false;
-                      _topAway = false;
-                    }),
-                child: const Text('Show')),
-          ]),
+          ),
         );
     final away = _topAway && _smallScreen;
     if (!_nextUpRead) {
@@ -4092,12 +4106,12 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       ]);
     }
     final job = jobs.first;
-    if ((_nextUpFolded && !beside) || away) {
+    if ((_nextUpFolded && !beside) || away || (!beside && !_nextUpExpanded)) {
       // You are in the job, in the list below: it opens again when
       // something is decided, or on "Show". Or, on a phone, you have
       // scrolled the list: it opens again at the top of the list, or
       // on "Show". Beside the list it is in nobody's way and stays.
-      return oneLine(job.title);
+      return oneLine(job.title, more: jobs.length - 1);
     }
     final after = jobs.skip(1).take(3).map((j) => j.title).toList();
     // On a phone the buttons are a size smaller.
@@ -4113,6 +4127,13 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         if (jobs.length > 1)
           Text('${jobs.length - 1} more after this',
               style: const TextStyle(fontSize: 11.5, color: Brand.inkMuted)),
+        if (!beside)
+          IconButton(
+            tooltip: 'Fold away',
+            visualDensity: VisualDensity.compact,
+            onPressed: () => setState(() => _nextUpExpanded = false),
+            icon: const Icon(Icons.expand_less, size: 20, color: Brand.inkSecondary),
+          ),
       ]),
       SizedBox(height: small ? 3 : 6),
       Text(job.title,

@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../services/supabase_service.dart';
 import '../theme.dart';
+import '../widgets/stat_grid.dart';
 
 /// Control centre: Owner activity (migration 283).
 ///
@@ -272,35 +273,17 @@ class _AdminOwnerActivityScreenState extends State<AdminOwnerActivityScreen> {
         ]),
       );
 
-  Widget _stat(String value, String label) => Container(
-        width: 170,
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Brand.border),
-        ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(value,
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
-          const SizedBox(height: 2),
-          Text(label,
-              style: const TextStyle(fontSize: 12.5, color: Brand.inkSecondary)),
-        ]),
-      );
-
   Widget _summary() {
     final d = _d!;
     final newWishes =
         _list('wishes').where((w) => w['status'] == 'new').length;
-    return Wrap(spacing: 12, runSpacing: 12, children: [
-      _stat('${d['owners_active'] ?? 0} of ${d['owners_total'] ?? 0}',
-          'owners came in'),
-      _stat('${d['sessions'] ?? 0}', 'visits'),
-      _stat(_dur(d['median_secs'] as num?), 'a typical visit'),
-      _stat('${d['minutes'] ?? 0} min', 'time in accounts'),
-      _stat('${d['phone_share'] ?? 0}%', 'of visits on a phone'),
-      _stat('$newWishes', newWishes == 1 ? 'request to answer' : 'requests to answer'),
+    return StatGrid(boxed: true, stats: [
+      ('${d['owners_active'] ?? 0} of ${d['owners_total'] ?? 0}', 'owners came in', null),
+      ('${d['sessions'] ?? 0}', 'visits', null),
+      (_dur(d['median_secs'] as num?), 'a typical visit', null),
+      ('${d['minutes'] ?? 0} min', 'time in accounts', null),
+      ('${d['phone_share'] ?? 0}%', 'of visits on a phone', null),
+      ('$newWishes', newWishes == 1 ? 'request to answer' : 'requests to answer', null),
     ]);
   }
 

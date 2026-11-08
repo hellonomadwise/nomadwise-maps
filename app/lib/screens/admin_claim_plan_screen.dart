@@ -7,6 +7,7 @@ import '../services/supabase_service.dart';
 import '../theme.dart';
 import 'admin_outreach_screen.dart';
 import 'admin_spaces_screen.dart';
+import '../widgets/stat_grid.dart';
 
 /// Control centre: Claim plan (migration 284).
 ///
@@ -61,9 +62,10 @@ const _steps = <(String, String, String)>[
       'They have a website but no address was found on it. Look on their '
           'site and put it on with Add an address. Claude can do a batch '
           'of these for you.'),
-  ('covered', 'Covered by another space',
-      'Same company as another space that has an email. Mention this page '
-          'in that email, then press I sent it on this one too.'),
+  ('covered', 'Covered by another space: nothing to do here',
+      'Same company as a space that has an email (named on each one). That '
+          'space shows "Also mention" with this page: send that one email, and '
+          'this one counts as written to by itself.'),
   ('waiting', 'Written to: waiting',
       'Nothing to do until they answer or the follow-up date comes.'),
   ('nothing', 'No way in yet',
@@ -77,7 +79,10 @@ const _steps = <(String, String, String)>[
           'Leave them be.'),
 ];
 
-const _quiet = {'waiting', 'nothing', 'stepped_off', 'put_aside'};
+// Collapsed groups with nothing to press (Jonathan, 8 Nov 2026, on
+// Covered by another space: "I don't know what action to take with
+// this"): the action lives on the space whose email covers them.
+const _quiet = {'waiting', 'nothing', 'stepped_off', 'put_aside', 'covered'};
 
 class _AdminClaimPlanScreenState extends State<AdminClaimPlanScreen> {
   final _supabase = SupabaseService();
@@ -300,21 +305,6 @@ class _AdminClaimPlanScreenState extends State<AdminClaimPlanScreen> {
         child: child,
       );
 
-  Widget _stat(String value, String label, {Color? color}) => Container(
-        width: 160,
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Brand.bg,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(value,
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: color)),
-          const SizedBox(height: 2),
-          Text(label, style: const TextStyle(fontSize: 12.5, color: Brand.inkSecondary)),
-        ]),
-      );
-
   Widget _overview(List<Map<String, dynamic>> rows, List<Map<String, dynamic>> claimed) {
     final total = rows.length + claimed.length;
     final reached = rows.where((r) => r['reached'] == true).length;
@@ -331,12 +321,12 @@ class _AdminClaimPlanScreenState extends State<AdminClaimPlanScreen> {
       Text(_country == null ? 'How far we are' : 'How far we are in $_country',
           style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
       const SizedBox(height: 12),
-      Wrap(spacing: 10, runSpacing: 10, children: [
-        _stat('$total', 'spaces live on the site'),
-        _stat('${claimed.length}', 'claimed', color: Brand.success),
-        _stat('$reached', 'written to, not claimed yet'),
-        _stat('$todo', 'with something to do'),
-        _stat('${rows.where((r) => _step(r) == 'nothing').length}', 'no way in yet'),
+      StatGrid(stats: [
+        ('$total', 'spaces live', null),
+        ('${claimed.length}', 'claimed', Brand.success),
+        ('$reached', 'written to, not claimed', null),
+        ('$todo', 'with something to do', null),
+        ('${rows.where((r) => _step(r) == 'nothing').length}', 'no way in yet', null),
       ]),
       const SizedBox(height: 14),
       ClipRRect(
@@ -571,6 +561,17 @@ class _AdminClaimPlanScreenState extends State<AdminClaimPlanScreen> {
     );
   }
 
+  /// Spaces of the same company whose only way in is this space's email.
+  List<Map<String, dynamic>> _covers(Map<String, dynamic> r) {
+    final name = '${r['name']}'.trim().toLowerCase();
+    return _rowsAll
+        .where((x) =>
+            x['action'] == 'covered' &&
+            x['covered_sent'] != true &&
+            '${x['covered_by'] ?? ''}'.trim().toLowerCase() == name)
+        .toList();
+  }
+
   String _detail(Map<String, dynamic> r) {
     String host(Object? u) {
       final s = '$u'.trim();
@@ -592,7 +593,7 @@ class _AdminClaimPlanScreenState extends State<AdminClaimPlanScreen> {
       'facebook' => '${r['facebook']}'.replaceFirst(RegExp(r'^https?://(www\.)?'), ''),
       'form' => host(r['form']),
       'find' => host(r['website']),
-      'covered' => 'Covered by the email to ${r['covered_by']}',
+      'covered' => 'Reached when you send the email to ${r['covered_by']}',
       'waiting' || 'follow_up' => sent != null
           ? 'Written to ${DateFormat('d MMM').format(sent)}'
           : (r['covered_by'] != null ? 'Covered by the email to ${r['covered_by']}' : ''),
@@ -653,6 +654,16 @@ class _AdminClaimPlanScreenState extends State<AdminClaimPlanScreen> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontSize: 12.5, color: Brand.inkSecondary)),
+            // The same company's other spaces this email covers: name
+            // their pages in it too.
+            if (r['last_out_at'] == null && _covers(r).isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 3),
+                child: Text(
+                    'Also mention: ${_covers(r).map((x) => '${x['name']} (nomadwise.io/coworking/${x['slug']})').join(', ')}',
+                    style: const TextStyle(
+                        fontSize: 12.5, fontWeight: FontWeight.w600, color: Brand.goldTextDark)),
+              ),
           ]),
         ),
         const SizedBox(width: 10),

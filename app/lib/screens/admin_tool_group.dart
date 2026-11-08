@@ -32,7 +32,7 @@ class _ToolGroupScreenState extends State<ToolGroupScreen> {
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Container(
           color: Brand.surface,
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+          padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Container(
@@ -50,7 +50,7 @@ class _ToolGroupScreenState extends State<ToolGroupScreen> {
                       borderRadius: BorderRadius.circular(8),
                       onTap: () => setState(() => _on = i),
                       child: Container(
-                        constraints: const BoxConstraints(minHeight: 36),
+                        constraints: const BoxConstraints(minHeight: 34),
                         alignment: Alignment.center,
                         padding: const EdgeInsets.symmetric(horizontal: 18),
                         decoration: BoxDecoration(
@@ -73,11 +73,17 @@ class _ToolGroupScreenState extends State<ToolGroupScreen> {
           ),
         ),
         const Divider(height: 1, color: Brand.border),
+        // The tool's own title bar sits under the tabs: kept a little
+        // lower here, so the two do not take a fifth of a phone screen.
         Expanded(
-          child: IndexedStack(index: _on, children: [
+          child: Theme(
+            data: Theme.of(context).copyWith(
+                appBarTheme: Theme.of(context).appBarTheme.copyWith(toolbarHeight: 48)),
+            child: IndexedStack(index: _on, children: [
             for (var i = 0; i < widget.tabs.length; i++)
               _built[i] ?? const SizedBox.shrink(),
-          ]),
+            ]),
+          ),
         ),
       ]),
     );
