@@ -109,7 +109,7 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
     ('replied', 'They wrote back: answer them'),
     ('claimed', 'Claimed'),
     ('verified', 'Premium'),
-    ('not_now', 'Not now'),
+    ('not_now', 'Put aside'),
     ('declined', 'Declined'),
     ('unsubscribed', 'Unsubscribed'),
     ('', 'All'),

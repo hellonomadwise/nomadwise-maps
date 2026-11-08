@@ -68,10 +68,16 @@ const _steps = <(String, String, String)>[
       'Nothing to do until they answer or the follow-up date comes.'),
   ('nothing', 'No way in yet',
       'No email, phone, Instagram or website. Leave for now.'),
-  ('stepped_off', 'Not now or declined', 'Leave them be.'),
+  ('put_aside', 'Put aside by us',
+      'Not their answer: one of us parked these in Outreach ("Not now"), often '
+          'because there was no way in then. To write to them, open the space '
+          'in Outreach and press Bring back.'),
+  ('stepped_off', 'Said no, unsubscribed or bounced',
+      'They told us no, asked us not to write, or the email did not work. '
+          'Leave them be.'),
 ];
 
-const _quiet = {'waiting', 'nothing', 'stepped_off'};
+const _quiet = {'waiting', 'nothing', 'stepped_off', 'put_aside'};
 
 class _AdminClaimPlanScreenState extends State<AdminClaimPlanScreen> {
   final _supabase = SupabaseService();

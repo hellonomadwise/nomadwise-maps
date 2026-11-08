@@ -37,7 +37,14 @@ const _statuses = <String, (String, Color, Color)>{
   'written': ('Written to · waiting', Brand.inkSecondary, Brand.field),
   'not_reached': ('Not reached yet', Brand.ink, Brand.field),
   'no_way_in': ('No way in yet', Brand.inkMuted, Brand.field),
-  'not_now': ('Not now or declined', Brand.inkMuted, Brand.field),
+  // What really happened (Jonathan, 8 Nov 2026: "which one said no ...
+  // and which ones just didn't respond"). Put aside is our choice, not
+  // their answer.
+  'put_aside': ('Put aside by us', Brand.inkSecondary, Brand.field),
+  'declined': ('Said no', Brand.inkMuted, Brand.field),
+  'unsubscribed': ('Unsubscribed', Brand.inkMuted, Brand.field),
+  'bounced': ('Email bounced', Brand.inkMuted, Brand.field),
+  'not_for_outreach': ('Not for outreach', Brand.inkMuted, Brand.field),
   'closed': ('Closed on Google', Brand.inkMuted, Brand.field),
   'not_live': ('Not on the site', Brand.inkMuted, Brand.field),
 };
@@ -176,10 +183,14 @@ class _AdminSpacesScreenState extends State<AdminSpacesScreen> {
       return words.every(h.contains);
     }).toList();
 
+    // On a phone (Jonathan, 8 Nov 2026): no keyboard popping up on
+    // opening, status and type as two short lists on one line, tighter
+    // rows.
+    final narrow = MediaQuery.sizeOf(context).width < 600;
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       TextField(
         controller: _search,
-        autofocus: true,
+        autofocus: !narrow,
         onChanged: (v) => setState(() {
           _q = v;
           _shown = 60;
@@ -204,6 +215,31 @@ class _AdminSpacesScreenState extends State<AdminSpacesScreen> {
         ),
       ),
       const SizedBox(height: 12),
+      if (narrow)
+        Row(children: [
+          Expanded(
+            child: _dropdown(
+              _status.isEmpty
+                  ? 'Everyone (${byKind.length})'
+                  : '${_statuses[_status]?.$1 ?? _status} (${counts[_status] ?? 0})',
+              [
+                ('', 'Everyone (${byKind.length})'),
+                for (final e in _statuses.entries)
+                  if ((counts[e.key] ?? 0) > 0) (e.key, '${e.value.$1} (${counts[e.key]})'),
+              ],
+              (k) => setState(() => _status = k),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _dropdown(
+              switch (_kind) { 'coworking' => 'Coworking', 'cafe' => 'Cafes', _ => 'All types' },
+              const [('', 'All types'), ('coworking', 'Coworking'), ('cafe', 'Cafes')],
+              (k) => setState(() => _kind = k),
+            ),
+          ),
+        ]),
+      if (!narrow) ...[
       Wrap(spacing: 8, runSpacing: 8, children: [
         for (final k in const [('', 'All types'), ('coworking', 'Coworking'), ('cafe', 'Cafes')])
           ChoiceChip(
@@ -230,7 +266,8 @@ class _AdminSpacesScreenState extends State<AdminSpacesScreen> {
               onSelected: (_) => setState(() => _status = _status == e.key ? '' : e.key),
             ),
       ]),
-      const SizedBox(height: 14),
+      ],
+      SizedBox(height: narrow ? 10 : 14),
       Text(
           list.isEmpty
               ? 'Nothing matches.'
@@ -247,7 +284,7 @@ class _AdminSpacesScreenState extends State<AdminSpacesScreen> {
           child: Column(children: [
             for (final (i, r) in list.take(_shown).indexed) ...[
               if (i > 0) const Divider(height: 1, color: Brand.hairline),
-              _row(r),
+              narrow ? _rowNarrow(r) : _row(r),
             ],
           ]),
         ),
@@ -260,6 +297,82 @@ class _AdminSpacesScreenState extends State<AdminSpacesScreen> {
           ),
         ),
     ]);
+  }
+
+  /// A short list that opens from a button, for the phone's one-line
+  /// filters.
+  Widget _dropdown(String label, List<(String, String)> items, void Function(String) pick) =>
+      PopupMenuButton<String>(
+        onSelected: pick,
+        position: PopupMenuPosition.under,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        itemBuilder: (_) => [
+          for (final it in items) PopupMenuItem(value: it.$1, child: Text(it.$2)),
+        ],
+        child: Container(
+          height: 44,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFFCBD2D9)),
+          ),
+          child: Row(children: [
+            Expanded(
+              child: Text(label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600)),
+            ),
+            const Icon(Icons.expand_more, size: 18, color: Brand.inkSecondary),
+          ]),
+        ),
+      );
+
+  /// A space on a phone: its name, then a coloured dot with its status
+  /// and place on one line.
+  Widget _rowNarrow(Map<String, dynamic> r) {
+    final st = _statuses['${r['status']}'] ?? ('${r['status']}', Brand.inkSecondary, Brand.field);
+    final place = '${r['city'] ?? ''}'.trim().isNotEmpty
+        ? '${r['city']}'.trim()
+        : '${r['country'] ?? ''}'.trim();
+    final color = st.$2 == Brand.inkMuted ? Brand.inkSecondary : st.$2;
+    return InkWell(
+      onTap: () async {
+        await Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) => SpaceProfileScreen(venueId: '${r['id']}', name: '${r['name']}')));
+        _load();
+      },
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
+        child: Row(children: [
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('${r['name']}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 2),
+              Text.rich(
+                TextSpan(children: [
+                  TextSpan(text: '● ${st.$1}', style: TextStyle(color: color)),
+                  TextSpan(
+                      text: [
+                        if (place.isNotEmpty) place,
+                        if (r['plan'] == 'premium') 'Premium',
+                      ].map((x) => ' · $x').join(),
+                      style: const TextStyle(color: Brand.inkMuted)),
+                ]),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 12.5),
+              ),
+            ]),
+          ),
+          const Icon(Icons.chevron_right, color: Brand.inkMuted),
+        ]),
+      ),
+    );
   }
 
   Widget _row(Map<String, dynamic> r) {
@@ -471,45 +584,102 @@ class _SpaceProfileScreenState extends State<SpaceProfileScreen> {
           if (p['assigned_to'] != null)
             _chip('With ${p['assigned_to']}', Brand.inkSecondary, Brand.field),
         ]),
-        const SizedBox(height: 14),
-        Wrap(spacing: 8, runSpacing: 8, children: [
-          if (slug.isNotEmpty)
-            OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(shape: shape),
-              onPressed: () => _go(Uri.parse('https://www.nomadwise.io/coworking/$slug')),
-              icon: const Icon(Icons.open_in_new, size: 16),
-              label: const Text('Their page'),
+        const SizedBox(height: 12),
+        _nowBox(_now(p)),
+        const SizedBox(height: 12),
+        // Three buttons the same width (Jonathan, 8 Nov 2026, mock-up E):
+        // the main one, their page, and More for the rest.
+        Row(children: [
+          Expanded(
+            child: FilledButton(
+              style: FilledButton.styleFrom(
+                  backgroundColor: Brand.red,
+                  minimumSize: const Size(0, 46),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  shape: shape),
+              onPressed: () => owner.isNotEmpty
+                  ? _push(OwnerScreen(previewKey: widget.venueId))
+                  : _push(AdminOutreachScreen(initialQuery: '${p['name']}')),
+              child: Text(owner.isNotEmpty ? 'Owner account' : 'Write to them',
+                  maxLines: 1, overflow: TextOverflow.ellipsis),
             ),
-          OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(shape: shape),
-            onPressed: () => _push(AdminOutreachScreen(initialQuery: '${p['name']}')),
-            icon: const Icon(Icons.mail_outline, size: 16),
-            label: const Text('Outreach'),
           ),
-          OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(shape: shape),
-            onPressed: () => _push(OwnerScreen(previewKey: widget.venueId)),
-            icon: const Icon(Icons.visibility_outlined, size: 16),
-            label: const Text('Their Owner account'),
-          ),
-          if (owner.isNotEmpty)
-            OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(shape: shape),
-              onPressed: () => _push(OwnerTimelineScreen(
-                  email: owner, title: '${p['name']}', days: 90)),
-              icon: const Icon(Icons.touch_app_outlined, size: 16),
-              label: const Text('Their visits'),
+          const SizedBox(width: 8),
+          Expanded(
+            child: OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(0, 46),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  shape: shape),
+              onPressed: slug.isEmpty
+                  ? null
+                  : () => _go(Uri.parse('https://www.nomadwise.io/coworking/$slug')),
+              child: const Text('Their page', maxLines: 1, overflow: TextOverflow.ellipsis),
             ),
-          OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(shape: shape),
-            onPressed: () => _push(SpaceTrailScreen(venueId: widget.venueId, name: '${p['name']}')),
-            icon: const Icon(Icons.history, size: 16),
-            label: const Text('Full history'),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: PopupMenuButton<String>(
+              tooltip: 'More',
+              position: PopupMenuPosition.under,
+              shape: shape,
+              onSelected: (k) => switch (k) {
+                'outreach' => _push(AdminOutreachScreen(initialQuery: '${p['name']}')),
+                'account' => _push(OwnerScreen(previewKey: widget.venueId)),
+                'visits' => _push(OwnerTimelineScreen(email: owner, title: '${p['name']}', days: 90)),
+                _ => _push(SpaceTrailScreen(venueId: widget.venueId, name: '${p['name']}')),
+              },
+              itemBuilder: (_) => [
+                if (owner.isNotEmpty) const PopupMenuItem(value: 'outreach', child: Text('Outreach')),
+                if (owner.isEmpty)
+                  const PopupMenuItem(value: 'account', child: Text('Their Owner account')),
+                if (owner.isNotEmpty) const PopupMenuItem(value: 'visits', child: Text('Their visits')),
+                const PopupMenuItem(value: 'history', child: Text('Full history')),
+              ],
+              child: Container(
+                height: 46,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFCBD2D9)),
+                ),
+                child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                  Text('More', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                  Icon(Icons.expand_more, size: 18),
+                ]),
+              ),
+            ),
           ),
         ]),
       ]),
     );
   }
+
+  /// NOW: what is going on and whether anything needs doing, at the top.
+  Widget _nowBox((String, bool) now) => Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: now.$2 ? Brand.goldTint : Brand.bg,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Icon(now.$2 ? Icons.arrow_forward : Icons.check,
+              size: 18, color: now.$2 ? Brand.goldTextDark : Brand.success),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(now.$2 ? 'NOW: SOMETHING TO DO' : 'NOW: NOTHING TO DO',
+                  style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: .6,
+                      color: now.$2 ? Brand.goldTextDark : Brand.success)),
+              const SizedBox(height: 3),
+              Text(now.$1, style: const TextStyle(fontSize: 14, height: 1.45)),
+            ]),
+          ),
+        ]),
+      );
 
   /// Where they are, in a sentence, and the main facts.
   Widget _where(Map<String, dynamic> p) {
@@ -524,8 +694,6 @@ class _SpaceProfileScreenState extends State<SpaceProfileScreen> {
       if (p['instagram'] != null) 'Instagram',
       if (p['facebook'] != null) 'Facebook',
     ];
-    final contacts = _list('contacts');
-    final follow = contacts.map((c) => c['follow_up_on']).firstWhere((x) => x != null, orElse: () => null);
     final sentence = switch ('${p['status']}') {
       'claimed_active' => 'Claimed by $who. In their Owner account ${_ago(p['owner_seen_at'])}.',
       'claimed_dormant' =>
@@ -536,13 +704,24 @@ class _SpaceProfileScreenState extends State<SpaceProfileScreen> {
           'Answer them, then move the card on in Outreach.',
       'looked' => 'Someone opened their claim page ${_ago(p['looked_at'])} and stopped. '
           'Ask if they have any questions.',
-      'written' => 'Written to ${_ago(p['written_at'])}. No answer yet'
-          '${follow != null ? '; follow up on ${_date(follow)}' : ''}.',
+      'written' => 'Written to ${_ago(p['written_at'])}, no answer yet.',
       'not_reached' => ways.isEmpty
           ? 'Not reached yet. They have a website: find an address on it.'
           : 'Not reached yet. Ways in: ${ways.join(', ')}.',
       'no_way_in' => 'No way in yet: no email, phone, Instagram, Facebook or website.',
-      'not_now' => 'Not now, declined or asked us not to write. Leave them be.',
+      'put_aside' => 'Put aside by us${_date(p['stage_at']).isEmpty ? '' : ' on ${_date(p['stage_at'])}'}'
+          '${p['written_at'] == null ? ', before anyone wrote to them' : ''}. '
+          'This is not their answer: they have not said no. '
+          '${ways.isEmpty ? '' : 'Ways in now: ${ways.join(', ')}. '}'
+          'To write to them, open Outreach and press Bring back.',
+      'declined' => 'They said no${_date(p['stage_at']).isEmpty ? '' : ' (marked ${_date(p['stage_at'])})'}. '
+          'Their messages are under Outreach below.',
+      'unsubscribed' => 'They asked us not to write'
+          '${_date(p['unsubscribed_at'] ?? p['stage_at']).isEmpty ? '' : ' on ${_date(p['unsubscribed_at'] ?? p['stage_at'])}'}. '
+          'We never write to them again.',
+      'bounced' => 'Our email bounced: the address did not work. Find another way in.',
+      'not_for_outreach' => 'Set aside as not for outreach'
+          '${'${p['aside_reason'] ?? ''}'.isEmpty ? '' : ': ${p['aside_reason']}'}.',
       'closed' => 'Google lists this place as closed for good. Check it in Quality.',
       _ => 'Not on the site.',
     };
@@ -573,23 +752,33 @@ class _SpaceProfileScreenState extends State<SpaceProfileScreen> {
 
   Widget _numbers(Map<String, dynamic> p) {
     final n = p['numbers'] is Map ? Map<String, dynamic>.from(p['numbers'] as Map) : {};
-    Widget stat(String v, String l) => Container(
-          width: 150,
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(color: Brand.bg, borderRadius: BorderRadius.circular(8)),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(v, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
-            Text(l, style: const TextStyle(fontSize: 12, color: Brand.inkSecondary)),
-          ]),
-        );
+    final stats = <(String, String)>[
+      ('${n['views_30'] ?? 0}', 'page views, 30 days'),
+      ('${n['views_90'] ?? 0}', 'page views, 90 days'),
+      ('${n['google_30'] ?? 0}', 'shown in Google, 30 days'),
+      ('${n['requests_30'] ?? 0}', 'requests, 30 days (${n['requests_all'] ?? 0} in all)'),
+      if (p['rating'] != null) ('${p['rating']}', 'Google, ${p['reviews'] ?? 0} reviews'),
+    ];
+    // A compact strip: three across on a phone (mock-up E).
     return _card('Numbers', [
-      Wrap(spacing: 10, runSpacing: 10, children: [
-        stat('${n['views_30'] ?? 0}', 'page views, 30 days'),
-        stat('${n['views_90'] ?? 0}', 'page views, 90 days'),
-        stat('${n['google_30'] ?? 0}', 'times shown in Google, 30 days'),
-        stat('${n['requests_30'] ?? 0}', 'requests, 30 days (${n['requests_all'] ?? 0} in all)'),
-        if (p['rating'] != null) stat('${p['rating']}', 'on Google, ${p['reviews'] ?? 0} reviews'),
-      ]),
+      LayoutBuilder(builder: (context, box) {
+        final narrow = box.maxWidth < 520;
+        final w = narrow ? (box.maxWidth - 16) / 3 : 150.0;
+        return Wrap(spacing: 8, runSpacing: 8, children: [
+          for (final st in stats)
+            Container(
+              width: w,
+              padding: EdgeInsets.all(narrow ? 10 : 12),
+              decoration: BoxDecoration(color: Brand.bg, borderRadius: BorderRadius.circular(8)),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(st.$1,
+                    style: TextStyle(fontSize: narrow ? 18 : 20, fontWeight: FontWeight.w800)),
+                Text(st.$2,
+                    style: TextStyle(fontSize: narrow ? 11.5 : 12, color: Brand.inkSecondary)),
+              ]),
+            ),
+        ]);
+      }),
     ]);
   }
 
@@ -703,6 +892,55 @@ class _SpaceProfileScreenState extends State<SpaceProfileScreen> {
             ]),
           ),
       ]);
+
+  /// What our outreach means right now, and whether anything needs doing
+  /// (Jonathan, 8 Nov 2026: "what does that mean right now ... Do I need
+  /// to do anything? Do I not need to do anything?"). Nothing is sent by
+  /// itself: a follow-up only happens when one of us sends it.
+  (String, bool) _now(Map<String, dynamic> p) {
+    final contacts = _list('contacts');
+    final msgs = _list('messages');
+    final out = DateTime.tryParse('${p['written_at'] ?? ''}')?.toLocal();
+    final inn = DateTime.tryParse('${p['replied_at'] ?? ''}')?.toLocal();
+    final looked = DateTime.tryParse('${p['looked_at'] ?? ''}')?.toLocal();
+    final follow = DateTime.tryParse(
+        '${contacts.map((c) => c['follow_up_on']).firstWhere((x) => x != null, orElse: () => '')}');
+    final lastOut = msgs.firstWhere((m) => m['direction'] == 'out', orElse: () => {});
+    final via = '${lastOut['subject'] ?? ''}';
+    final channel = const {'WhatsApp', 'Instagram', 'Facebook', 'Contact form'}.contains(via)
+        ? ' on $via'
+        : ' by email';
+    final status = '${p['status']}';
+    if (status.startsWith('claimed')) {
+      return ('They have claimed their page: no outreach needed. Help them get the most from it.', false);
+    }
+    if (out == null) {
+      return ('Nobody has written to them yet.${status == 'not_reached' ? ' Their next step is in the Claim plan.' : ''}', status == 'not_reached');
+    }
+    final days = DateTime.now().difference(out).inDays;
+    final when = days == 0 ? 'today' : days == 1 ? 'yesterday' : '$days days ago';
+    if (inn != null && inn.isAfter(out)) {
+      return ('They wrote back ${_ago(p['replied_at'])}. Next: answer them, then log your answer in Outreach.', true);
+    }
+    if (looked != null && looked.isAfter(out)) {
+      return ('We wrote $when$channel, and since then someone opened their claim page but did not '
+          'finish. Next: a short note asking if they have any questions (Outreach has it ready).', true);
+    }
+    if (follow != null) {
+      final due = !follow.isAfter(DateTime.now());
+      return (due
+          ? 'We wrote $when$channel. No answer yet, and the follow-up date (${_date(follow.toIso8601String())}) '
+              'has come. Next: send the follow-up.'
+          : 'We wrote $when$channel. No answer yet. A follow-up is planned for '
+              '${_date(follow.toIso8601String())}: nothing to do until then.', due);
+    }
+    if (days < 7) {
+      return ('We wrote $when$channel. No answer yet. Nothing to do for now: give them a week.', false);
+    }
+    return ('We wrote $when$channel and have had no answer. No follow-up is planned, and nothing '
+        'is sent by itself. Next: one short nudge$channel, or leave it. (In Outreach, '
+        '"Note and follow-up date" lets you plan one.)', true);
+  }
 
   Widget _outreach(Map<String, dynamic> p) {
     final contacts = _list('contacts');

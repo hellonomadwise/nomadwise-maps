@@ -90,7 +90,7 @@ class _AdminGateState extends State<AdminGate> {
       final s = widget.section;
       const tools = {
         'analytics', 'users', 'pricing', 'outreach', 'upgrades', 'prices',
-        'chats', 'sequences', 'ownerflow', 'owneractivity', 'claimplan', 'spaces',
+        'chats', 'sequences', 'ownerflow', 'owneractivity', 'claimplan', 'spaces', 'owners',
         'centre', // the control centre itself; plain ?admin is Today
       };
       // ?admin=chats (nomadmaps.io/chats, the icon on a founder's
