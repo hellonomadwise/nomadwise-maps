@@ -183,8 +183,14 @@ jobs:
           path: app/build/web
 
       # ---------- Android APK ----------
+      # A failed Android build (8 Nov 2026: GitHub's downloads timing out,
+      # "504 Gateway Time-out") no longer stops the website going live:
+      # the step is marked failed, the APK is not uploaded, and the deploy
+      # goes ahead.
       - name: Build APK
+        id: apk
         if: github.event_name != 'schedule'
+        continue-on-error: true
         run: |
           flutter build apk --release \
             --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }} \
@@ -193,7 +199,7 @@ jobs:
         working-directory: app
 
       - uses: actions/upload-artifact@v4
-        if: github.event_name != 'schedule'
+        if: github.event_name != 'schedule' && steps.apk.outcome == 'success'
         with:
           name: nomadwise-maps-apk
           path: app/build/app/outputs/flutter-apk/app-release.apk
