@@ -293,6 +293,45 @@ def fetch(url):
         return ''
 
 
+# The other ways in a space's own site shows (Jonathan, 8 Nov 2026:
+# "Some might be a case of messaging on WhatsApp or Facebook", "Or if
+# they have a contact us form on their website").
+WA_RE = re.compile(r'(?:wa\.me/|api\.whatsapp\.com/send/?\?phone=|whatsapp://send\?phone=)\+?([0-9]{7,15})', re.I)
+FB_RE = re.compile(r'https?://(?:www\.|m\.)?(?:facebook|fb)\.com/([A-Za-z0-9.\-_]{3,80})/?(?=["\'?#\s<])', re.I)
+IG_RE = re.compile(r'https?://(?:www\.)?instagram\.com/([A-Za-z0-9._]{2,40})/?(?=["\'?#\s<])', re.I)
+FB_SKIP = {'sharer', 'sharer.php', 'share', 'plugins', 'tr', 'dialog', 'login', 'profile.php',
+           'pages', 'groups', 'events', 'watch', 'help', 'policies', 'privacy', 'facebook',
+           'business', 'hashtag', 'photo.php', 'story.php', 'permalink.php'}
+IG_SKIP = {'p', 'explore', 'reel', 'reels', 'stories', 'accounts', 'tv', 'about', 'developer',
+           'legal', 'instagram', 'direct'}
+
+
+def ways_in(page):
+    """WhatsApp number, Facebook page and Instagram account linked from
+    a page of the site (the first of each), and whether it has a form
+    someone can write a message in."""
+    text = html.unescape(page or '')
+    out = {}
+    m = WA_RE.search(text)
+    if m:
+        out['whatsapp'] = '+' + m.group(1)
+    for m in FB_RE.finditer(text):
+        if m.group(1).lower() not in FB_SKIP:
+            out['facebook'] = f'https://www.facebook.com/{m.group(1)}'
+            break
+    for m in IG_RE.finditer(text):
+        if m.group(1).lower() not in IG_SKIP:
+            out['instagram'] = f'https://www.instagram.com/{m.group(1)}'
+            break
+    low = text.lower()
+    # a message box, not just a newsletter sign-up or a search
+    if '<form' in low and '<textarea' in low:
+        out['form'] = True
+    elif 'hs-form' in low or 'wpcf7' in low or 'typeform.com' in low or 'jotform' in low:
+        out['form'] = True
+    return out
+
+
 def site_root(website):
     w = (website or '').strip()
     if not w:
@@ -315,6 +354,8 @@ def base_domain(host):
 
 def emails_in(page):
     text = html.unescape(page).replace('%40', '@')
+    # "\u003e" and the like, from addresses written inside scripts
+    text = re.sub(r'\\u[0-9a-fA-F]{4}', ' ', text)
     text = re.sub(r'\s*\[\s*at\s*\]\s*', '@', text, flags=re.I)
     found = []
     for m in EMAIL_RE.findall(text):
@@ -389,29 +430,62 @@ for v in venues[:10]:
     if root and base_domain(urllib.parse.urlparse(root).netloc) in NOT_OWN_SITE:
         root = None
     found = []
+    ways = {}
+
+    def take(page, url):
+        for k, val in ways_in(page).items():
+            if k == 'form':
+                ways.setdefault('form', url)
+            else:
+                ways.setdefault(k, val)
+
     if root:
         home = fetch(root)
         found += emails_in(home)
+        take(home, root)
         for link in contact_links(home, root):
-            found += [e for e in emails_in(fetch(link)) if e not in found]
+            page = fetch(link)
+            found += [e for e in emails_in(page) if e not in found]
+            take(page, link)
             time.sleep(0.5)
         # A site that did not answer is not asked four more times.
-        if not found and home:
+        if home and (not found or 'form' not in ways):
             for path in ('/contact', '/contact-us', '/contacto', '/kontakt'):
-                found += [e for e in emails_in(fetch(root + path)) if e not in found]
-                if found:
+                page = fetch(root + path)
+                found += [e for e in emails_in(page) if e not in found]
+                take(page, root + path)
+                if found and 'form' in ways:
                     break
         found = rank(found, base_domain(urllib.parse.urlparse(root).netloc))[:5]
     kept = list(v.get('contact_emails') or [])
     merged = kept + [e for e in found if e not in kept]
     if found:
         report['contacts_found'] += 1
+    patch = {'contact_emails': merged or None,
+             'contact_checked_at': datetime.datetime.now(datetime.timezone.utc).isoformat()}
+    for k in ('whatsapp', 'facebook', 'instagram'):
+        if ways.get(k):
+            patch[f'contact_{k}'] = ways[k]
+    if ways.get('form'):
+        patch['contact_form_url'] = ways['form']
     try:
-        sb(f"venues?id=eq.{v['id']}", 'PATCH',
-           {'contact_emails': merged or None,
-            'contact_checked_at': datetime.datetime.now(datetime.timezone.utc).isoformat()},
-           prefer='return=minimal')
+        sb(f"venues?id=eq.{v['id']}", 'PATCH', patch, prefer='return=minimal')
     except Exception as e:  # noqa: BLE001
-        report['errors'].append(f"contacts {v.get('name')}: {str(e)[:200]}")
+        # (before migration 284 the new columns are not there yet)
+        try:
+            sb(f"venues?id=eq.{v['id']}", 'PATCH',
+               {'contact_emails': patch['contact_emails'],
+                'contact_checked_at': patch['contact_checked_at']},
+               prefer='return=minimal')
+        except Exception as e2:  # noqa: BLE001
+            report['errors'].append(f"contacts {v.get('name')}: {str(e2)[:200]}")
+    # A WhatsApp number goes on the space's Outreach card too, so its
+    # WhatsApp button has it (only where the card has none).
+    if ways.get('whatsapp'):
+        try:
+            sb(f"space_contacts?venue_id=eq.{v['id']}&phone=is.null", 'PATCH',
+               {'phone': ways['whatsapp']}, prefer='return=minimal')
+        except Exception as e:  # noqa: BLE001
+            report['warnings'].append(f"whatsapp {v.get('name')}: {str(e)[:200]}")
 
 finish(0)

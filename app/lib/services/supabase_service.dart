@@ -2939,6 +2939,99 @@ class SupabaseService {
     return res is Map ? Map<String, dynamic>.from(res) : {};
   }
 
+  // ---- Owner activity (migration 283) ----
+
+  /// Owner account: a visit's steps, in a batch. Returns ask_ok.
+  Future<Map<String, dynamic>> ownerTrack(String session,
+      Map<String, dynamic> meta, List<Map<String, dynamic>> events) async {
+    final res = await _db.rpc('owner_track', params: {
+      'p_session': session,
+      'p_meta': meta,
+      'p_events': events,
+    });
+    return res is Map ? Map<String, dynamic>.from(res) : {};
+  }
+
+  /// Owner account: "Looking for something?", in their own words.
+  Future<void> ownerWishSend(
+      String venueId, String text, Map<String, dynamic> context) async {
+    await _db.rpc('owner_wish_send', params: {
+      'p_venue': venueId,
+      'p_text': text,
+      'p_context': context,
+    });
+  }
+
+  /// Owner account: things they asked for that we have now done.
+  Future<List<Map<String, dynamic>>> ownerWishNews() async {
+    final res = await _db.rpc('owner_wish_news');
+    return (res as List? ?? const [])
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
+  }
+
+  Future<void> ownerWishSeen(String id) async {
+    await _db.rpc('owner_wish_seen', params: {'p_id': id});
+  }
+
+  /// Control centre: Spaces, every live page with its status
+  /// (migration 285).
+  Future<List<Map<String, dynamic>>> adminSpaces() async {
+    final res = await _db.rpc('admin_spaces');
+    final rows = res is Map ? res['rows'] : null;
+    return (rows as List? ?? const [])
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
+  }
+
+  /// Control centre: everything about one space (migration 285).
+  Future<Map<String, dynamic>> adminSpaceProfile(String venueId) async {
+    final res = await _db.rpc('admin_space_profile', params: {'p_venue': venueId});
+    return res is Map ? Map<String, dynamic>.from(res) : {};
+  }
+
+  /// Control centre: Claim plan, every unclaimed space and its next
+  /// step (migration 284).
+  Future<Map<String, dynamic>> adminClaimPlan() async {
+    final res = await _db.rpc('admin_claim_plan');
+    return res is Map ? Map<String, dynamic>.from(res) : {};
+  }
+
+  /// Control centre: Owner activity, for the last [days] days.
+  Future<Map<String, dynamic>> adminOwnerActivity(int days,
+      {bool team = false}) async {
+    final res = await _db.rpc('admin_owner_activity',
+        params: {'p_days': days, 'p_team': team});
+    return res is Map ? Map<String, dynamic>.from(res) : {};
+  }
+
+  /// Control centre menu: owner requests nobody has answered yet.
+  Future<int> adminOwnerWishesNew() async {
+    try {
+      final res = await _db.rpc('admin_owner_wishes_new');
+      return (res as num?)?.toInt() ?? 0;
+    } catch (_) {
+      return 0; // migration 283 not run yet
+    }
+  }
+
+  /// Control centre: one owner's visits, step by step.
+  Future<List<Map<String, dynamic>>> adminOwnerTimeline(
+      String email, int days) async {
+    final res = await _db.rpc('admin_owner_timeline',
+        params: {'p_email': email, 'p_days': days});
+    return (res as List? ?? const [])
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
+  }
+
+  /// Control centre: our answer to something an owner asked for.
+  Future<void> adminOwnerWishUpdate(
+      String id, String status, String reply) async {
+    await _db.rpc('admin_owner_wish_update',
+        params: {'p_id': id, 'p_status': status, 'p_reply': reply});
+  }
+
   /// Control centre: what owners told us, question by question.
   Future<List<Map<String, dynamic>>> adminOwnerInsights() async {
     final res = await _db.rpc('admin_owner_insights');

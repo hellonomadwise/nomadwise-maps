@@ -14,6 +14,7 @@ import '../services/analytics_service.dart';
 import '../services/location_service.dart';
 import '../services/speed_test_service.dart';
 import '../services/supabase_service.dart';
+import '../services/owner_tracker.dart';
 import '../theme.dart';
 import 'claim_screen.dart';
 import '../widgets/billing_panel.dart';
@@ -91,6 +92,16 @@ class _OwnerScreenState extends State<OwnerScreen> {
   // "Still here", every minute while the account is on screen
   // (migration 198), so the founders can see the owner is in.
   Timer? _hereTimer;
+  // What they do on this visit, step by step (migration 283): read in
+  // the control centre under Owner activity.
+  final _trk = OwnerTracker();
+  Timer? _trkTimer;
+  AppLifecycleListener? _life;
+  _Tab? _trkTabSeen;
+  int _trkCur = -1;
+  bool _askOpen = false;
+  // Things they asked for that we have done: "It's here now".
+  List<Map<String, dynamic>> _wishNews = const [];
   // Our newest unread message, shown in a small card in the corner
   // while they are elsewhere in the account (migration 198); each
   // message pops up once.
@@ -261,6 +272,10 @@ class _OwnerScreenState extends State<OwnerScreen> {
   void initState() {
     super.initState();
     _auth = _supabase.authChanges.listen((_) => _load());
+    _life = AppLifecycleListener(
+      onHide: () => _trk.hidden(_venueId),
+      onShow: _trk.shown,
+    );
     _load();
     _prefillEmail();
     SharedPreferences.getInstance().then((p) {
@@ -358,7 +373,10 @@ class _OwnerScreenState extends State<OwnerScreen> {
 
   void _beat() {
     if (_isPreview || !_supabase.signedIn || _venues.isEmpty) return;
-    if (_onScreen) _supabase.ownerHere();
+    if (_onScreen) {
+      _supabase.ownerHere();
+      _trk.flush(beat: true);
+    }
   }
 
   /// A message from us they have not read: shown once in the corner,
@@ -503,6 +521,9 @@ class _OwnerScreenState extends State<OwnerScreen> {
     _chatTimer?.cancel();
     _hereTimer?.cancel();
     _autoTimer?.cancel();
+    _trkTimer?.cancel();
+    _life?.dispose();
+    _trk.hidden(_venueId);
     for (final (h, b) in _sections) {
       h.dispose();
       b.dispose();
@@ -551,6 +572,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
         _seenSent = true;
         _supabase.ownerSeen();
       }
+      if (rows.isNotEmpty) _loadWishNews();
       if (rows.isNotEmpty && _emailPrefs == null) _loadEmailPrefs();
       if (!mounted) return;
       _watchPayments(pending);
@@ -586,6 +608,8 @@ class _OwnerScreenState extends State<OwnerScreen> {
         _beat();
         _hereTimer ??=
             Timer.periodic(const Duration(seconds: 60), (_) => _beat());
+        _trkTimer ??= Timer.periodic(
+            const Duration(seconds: 15), (_) => _trk.flush());
       }
     } catch (e) {
       if (mounted) {
@@ -1184,7 +1208,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
     });
     try {
       await _supabase.ownerSaveDraft(v['id'], _collect(), submit: submit);
-      Analytics.capture(submit ? 'owner_submitted' : 'owner_saved',
+      _cap(submit ? 'owner_submitted' : 'owner_saved',
           {'space': v['name']});
       await _load();
       if (!mounted) return;
@@ -1400,8 +1424,10 @@ class _OwnerScreenState extends State<OwnerScreen> {
 
   // Buttons drawn the way nomadwise.io draws them (S3-13/14).
   @override
-  Widget build(BuildContext context) =>
-      Theme(data: siteButtons(Theme.of(context)), child: _page(context));
+  Widget build(BuildContext context) {
+    _trackChanges();
+    return Theme(data: siteButtons(Theme.of(context)), child: _page(context));
+  }
 
   Widget _page(BuildContext context) {
     return Scaffold(
@@ -1970,6 +1996,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (_showTip && !_isPreview) _bookmarkTip(),
+          if (_wishNews.isNotEmpty && !_isPreview) _wishNewsCard(),
           // My listing saves part by part (Save change); the bar stays
           // for Promotions and events.
           if (_tab == _Tab.message && _verified) _actionBar(wide),
@@ -2047,7 +2074,322 @@ class _OwnerScreenState extends State<OwnerScreen> {
           ],
           const SizedBox(height: 14),
           body,
+          if (!_isPreview) ...[
+            const SizedBox(height: 24),
+            Center(child: _lookingLink()),
+          ],
         ],
+      ]),
+    );
+  }
+
+
+  // ------------------------------------------------------------ activity
+
+  String? get _venueId => _venue == null ? null : '${_venue!['id']}';
+
+  /// The PostHog event as before, and a step in Owner activity.
+  void _cap(String event, [Map<String, dynamic>? props]) {
+    Analytics.capture(event, props);
+    _trk.step(event.replaceFirst('owner_', ''), props, _venueId);
+  }
+
+  /// Called on every build: notes a new visit, a tab opened, another
+  /// location chosen, or a part closed some other way. Nothing for a
+  /// founder's preview.
+  void _trackChanges() {
+    if (_isPreview || _venues.isEmpty || !_supabase.signedIn) return;
+    if (!_trk.started) {
+      final w = MediaQuery.sizeOf(context).width;
+      final q = Uri.base.queryParameters;
+      final from = <String>[
+        if (q.containsKey('email')) 'email link',
+        if (q.containsKey('utm_source')) '${q['utm_source']}',
+        if (q.containsKey('utm_campaign')) '${q['utm_campaign']}',
+        if (q.containsKey('billing')) 'billing link',
+        if (q.containsKey('chat')) 'message link',
+      ].join(', ');
+      _trk.start(
+        device: w < 700 ? 'phone' : (w < 1100 ? 'tablet' : 'computer'),
+        width: w.round(),
+        cameFrom: from.isEmpty ? 'direct' : from,
+        spaces: _venues.length,
+        venue: _venueId,
+        firstTab: _tab.name,
+      );
+      _trkTabSeen = _tab;
+      _trkCur = _current;
+      if (Uri.base.queryParameters.containsKey('ask')) _maybeAsk();
+      return;
+    }
+    if (_tab != _trkTabSeen) {
+      _trkTabSeen = _tab;
+      _trk.tabChanged(_tab.name, _venueId);
+      _maybeAsk();
+    }
+    if (_current != _trkCur) {
+      _trkCur = _current;
+      _trk.step('space', {'spaces': _venues.length}, _venueId);
+    }
+    if (_editing == null && _trk.editing != null) {
+      _trk.editEnd('close', _venueId);
+    }
+  }
+
+  /// "Looking for something?" asks itself only when they seem stuck:
+  /// four or more tabs in two minutes without changing anything, or
+  /// two parts left without saving. At most once a visit and once in
+  /// 14 days (the database decides). ?ask in the link shows it, to try.
+  void _maybeAsk() {
+    if (_isPreview || _askOpen || _trk.askedThisVisit || _pop != null) return;
+    final force = Uri.base.queryParameters.containsKey('ask');
+    if (!force && !_trk.askOk) return;
+    final why = _trk.gaveUp
+        ? 'gave_up'
+        : _trk.looksLost
+            ? 'lost'
+            : force
+                ? 'test'
+                : null;
+    if (why == null) return;
+    _trk.askedThisVisit = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _askWish(why);
+    });
+  }
+
+  Future<void> _askWish(String trigger) async {
+    final id = _venueId;
+    if (id == null || _askOpen) return;
+    _askOpen = true;
+    final asked = trigger != 'menu';
+    _trk.step(asked ? 'ask_shown' : 'ask_open', {'trigger': trigger}, id);
+    if (asked) _trk.flush();
+    final text = TextEditingController();
+    var stage = 'ask'; // ask, sending, thanks
+    String? error;
+    final title = trigger == 'gave_up'
+        ? 'Anything getting in the way?'
+        : 'Looking for something?';
+    final lead = trigger == 'gave_up'
+        ? "If something didn't work the way you expected, tell us in a "
+            'few words.'
+        : "Tell us what you'd like to do, in your own words.";
+    var sent = false;
+    await showDialog<void>(
+      context: context,
+      barrierColor: Colors.black38,
+      builder: (ctx) => StatefulBuilder(builder: (ctx, set) {
+        Future<void> send() async {
+          final t = text.text.trim();
+          if (t.length < 2) {
+            set(() => error = 'Please type a few words.');
+            return;
+          }
+          set(() {
+            stage = 'sending';
+            error = null;
+          });
+          try {
+            await _supabase.ownerWishSend(id, t, {
+              'trigger': trigger,
+              'tab': _tab.name,
+              'session': _trk.session,
+              'trail': _trk.trail(),
+            });
+            sent = true;
+            _trk.step('wish_sent', {'trigger': trigger, 'chars': t.length}, id);
+            _trk.flush();
+            set(() => stage = 'thanks');
+          } catch (e) {
+            set(() {
+              stage = 'ask';
+              error = 'That did not send. Please try again.';
+            });
+          }
+        }
+
+        final thanks = stage == 'thanks';
+        return Dialog(
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.white,
+          insetPadding: const EdgeInsets.all(16),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 440),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 22, 24, 20),
+              child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(thanks ? 'Thank you, we have it' : title,
+                        style: const TextStyle(
+                            fontSize: 19, fontWeight: FontWeight.w800, color: Brand.ink)),
+                    const SizedBox(height: 8),
+                    Text(
+                        thanks
+                            ? 'We read every message. When it is sorted, '
+                                "you'll see it here in your account."
+                            : '$lead We read every message, and when it is '
+                                "sorted you'll see it here.",
+                        style: const TextStyle(
+                            fontSize: 14, height: 1.45, color: Brand.inkSecondary)),
+                    if (!thanks) ...[
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: text,
+                        autofocus: true,
+                        minLines: 3,
+                        maxLines: 6,
+                        maxLength: 2000,
+                        enabled: stage == 'ask',
+                        textCapitalization: TextCapitalization.sentences,
+                        decoration: InputDecoration(
+                          hintText:
+                              'For example: I want to show our holiday opening hours',
+                          hintStyle: const TextStyle(color: Brand.inkMuted, fontSize: 14),
+                          counterText: '',
+                          filled: true,
+                          fillColor: Brand.field,
+                          contentPadding: const EdgeInsets.all(14),
+                          border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide.none),
+                        ),
+                      ),
+                      if (error != null) ...[
+                        const SizedBox(height: 8),
+                        Text(error!,
+                            style: const TextStyle(fontSize: 13, color: _perfRed)),
+                      ],
+                    ],
+                    const SizedBox(height: 18),
+                    Row(children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: stage == 'sending'
+                              ? null
+                              : () => Navigator.of(ctx).pop(),
+                          style: OutlinedButton.styleFrom(
+                              minimumSize: const Size(0, 46),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8))),
+                          child: Text(thanks ? 'Close' : 'Not now'),
+                        ),
+                      ),
+                      if (!thanks) ...[
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: FilledButton(
+                            onPressed: stage == 'sending' ? null : send,
+                            style: FilledButton.styleFrom(
+                                backgroundColor: Brand.red,
+                                minimumSize: const Size(0, 46),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8))),
+                            child: Text(stage == 'sending' ? 'Sending...' : 'Send'),
+                          ),
+                        ),
+                      ],
+                    ]),
+                  ]),
+            ),
+          ),
+        );
+      }),
+    );
+    _askOpen = false;
+    if (!sent) _trk.step('ask_dismissed', {'trigger': trigger}, id);
+    text.dispose();
+  }
+
+  /// A quiet way in for everyone: under the menu on a computer, at the
+  /// foot of the page on a phone.
+  Widget _lookingLink() => InkWell(
+        onTap: () => _askWish('menu'),
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            const Icon(Icons.help_outline, size: 18, color: Brand.inkSecondary),
+            const SizedBox(width: 10),
+            Flexible(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: const [
+                Text("Can't find something?",
+                    style: TextStyle(fontSize: 12, color: Brand.inkMuted)),
+                Text('Tell us what you need',
+                    style: TextStyle(
+                        fontSize: 13.5, fontWeight: FontWeight.w700, color: _perfRed)),
+              ]),
+            ),
+          ]),
+        ),
+      );
+
+  Future<void> _loadWishNews() async {
+    if (_isPreview) return;
+    try {
+      final list = await _supabase.ownerWishNews();
+      if (mounted) setState(() => _wishNews = list);
+    } catch (_) {} // migration 283 not run yet: nothing to show
+  }
+
+  /// Our answer to something they asked for, once each: Planned ("We're
+  /// working on this") and Done ("It's here now"), until they close it.
+  Widget _wishNewsCard() {
+    final w = _wishNews.first;
+    final done = '${w['status']}' == 'done';
+    var reply = '${w['reply'] ?? ''}'.trim();
+    if (!done && reply.isEmpty) {
+      reply = "Thanks for telling us. We'll show you here when it's ready.";
+    }
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.fromLTRB(16, 14, 8, 10),
+      decoration: BoxDecoration(
+        color: done ? Brand.successTint : Brand.goldTint,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+            color: done ? const Color(0x333AA657) : const Color(0x33F4B23E)),
+      ),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: Icon(done ? Icons.check_circle_outline : Icons.schedule,
+              size: 20, color: done ? Brand.success : Brand.goldTextDark),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(
+                done
+                    ? "You asked for this. It's here now."
+                    : "We're working on what you asked for.",
+                style: const TextStyle(
+                    fontSize: 14.5, fontWeight: FontWeight.w800, color: Brand.ink)),
+            const SizedBox(height: 4),
+            Text('"${w['text']}"',
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                    fontSize: 13.5, fontStyle: FontStyle.italic, color: Brand.inkSecondary, height: 1.4)),
+            if (reply.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text(reply,
+                  style: const TextStyle(fontSize: 14, color: Brand.ink, height: 1.45)),
+            ],
+          ]),
+        ),
+        TextButton(
+          onPressed: () {
+            final id = '${w['id']}';
+            _trk.step('wish_news_seen', null, _venueId);
+            setState(() => _wishNews = _wishNews.skip(1).toList());
+            _supabase.ownerWishSeen(id).catchError((_) {});
+          },
+          child: const Text('Got it'),
+        ),
       ]),
     );
   }
@@ -2123,6 +2465,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
       surfaceTintColor: Colors.white,
       constraints: const BoxConstraints(minWidth: 300, maxWidth: 400),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      onOpened: () => _trk.step('name_menu', null, _venueId),
       onSelected: (i) {
         if (i == -1) {
           _addLocation();
@@ -2388,10 +2731,14 @@ class _OwnerScreenState extends State<OwnerScreen> {
     ]);
     final Widget? seePage = pageLive
         ? TextButton.icon(
-            onPressed: () => launchUrl(
-                Uri.parse(
-                    'https://www.nomadwise.io/coworking/${v['webflow_slug']}'),
-                mode: LaunchMode.externalApplication),
+            onPressed: () {
+              _trk.step('see_page', null, _venueId);
+              _trk.flush();
+              launchUrl(
+                  Uri.parse(
+                      'https://www.nomadwise.io/coworking/${v['webflow_slug']}'),
+                  mode: LaunchMode.externalApplication);
+            },
             style: wide
                 ? null
                 : TextButton.styleFrom(
@@ -2572,6 +2919,8 @@ class _OwnerScreenState extends State<OwnerScreen> {
             const SizedBox(height: 8),
             const Divider(height: 1, color: Brand.hairline),
             const SizedBox(height: 4),
+            // Looking for something? (Jonathan, 7 Nov 2026)
+            if (!_isPreview) _lookingLink(),
             InkWell(
               onTap: _addLocation,
               borderRadius: BorderRadius.circular(8),
@@ -4072,7 +4421,10 @@ class _OwnerScreenState extends State<OwnerScreen> {
 
   /// Edit pressed: another open part is put back first (one at a time).
   void _startEdit(String part) {
-    if (_editing != null && _editing != part) _cancelEdit();
+    if (_editing != null && _editing != part) {
+      _trk.editEnd('close', _venueId); // moved on, not given up
+      _cancelEdit();
+    }
     // The snapshot first: Cancel puts back the old boxes the list
     // empties.
     final snap = _snapshot(part);
@@ -4090,6 +4442,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
       _editing = part;
       _savedNote = null;
     });
+    _trk.editStart(part, _venueId);
     // On a phone the form can open partly off screen: bring its top
     // into view.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -4111,6 +4464,8 @@ class _OwnerScreenState extends State<OwnerScreen> {
   void _cancelEdit() {
     final part = _editing;
     final s = _snap;
+    _trk.editEnd('cancel', _venueId);
+    _maybeAsk();
     if (part != null && s != null) _restore(part, s);
     setState(() {
       _editing = null;
@@ -4183,6 +4538,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
         (_savedNote ?? '').startsWith('Saved to the page') ||
         (_savedNote ?? '').startsWith('Preview');
     if (sent) {
+      _trk.editEnd('save', _venueId);
       setState(() {
         _sentParts.add('${_venue?['id']}:$part');
         _editing = null;
@@ -4362,7 +4718,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
               : '${day.year}-${two(day.month)}-${two(day.day)}',
         };
       });
-      Analytics.capture(day == null ? 'owner_reopened' : 'owner_closed_until',
+      _cap(day == null ? 'owner_reopened' : 'owner_closed_until',
           {'space': v['name']});
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(day == null
@@ -4762,7 +5118,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
                 lng: pos?.longitude,
                 accuracy: pos?.accuracy,
                 connection: conn);
-        Analytics.capture('owner_wifi_test',
+        _cap('owner_wifi_test',
             {'verdict': r['verdict'], 'mbps': r['mbps']});
         upd(() {
           busy = false;
@@ -5399,7 +5755,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
     final limit = (_allow?['limit'] as num?)?.toInt() ?? 2;
     final lead = rawLead.replaceFirst('includes 2 requests',
         'includes $limit ${limit == 1 ? 'request' : 'requests'}');
-    Analytics.capture('owner_plus_window', {'why': why});
+    _cap('owner_plus_window', {'why': why});
     return showDialog<void>(
       context: context,
       builder: (ctx) => Dialog(
@@ -7735,6 +8091,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
         onTap: on
             ? null
             : () {
+                _trk.step('period', {'days': days}, _venueId);
                 setState(() => _perfDays = days);
               },
         child: Container(
@@ -8454,7 +8811,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
               'add a location.')));
       return;
     }
-    Analytics.capture('owner_add_location', {'spaces': _venues.length});
+    _cap('owner_add_location', {'spaces': _venues.length});
     final email = _signInEmail;
     await Navigator.of(context).push(MaterialPageRoute<void>(
         builder: (_) => ClaimScreen(
@@ -8641,7 +8998,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
               onPressed: () async {
                 await Clipboard.setData(
                     ClipboardData(text: _badgeCode(file, w, h, alt)));
-                Analytics.capture('owner_badge_copied',
+                _cap('owner_badge_copied',
                     {'space': _venue?['name'], 'badge': file});
                 if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -8793,7 +9150,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
           const SizedBox(height: 12),
           FilledButton.icon(
             onPressed: () {
-              Analytics.capture('owner_badge_pack',
+              _cap('owner_badge_pack',
                   {'space': _venue?['name'], 'plan': kind});
               launchUrl(Uri.parse('${_badgeBase}nomadwise-media-pack-'
                   '${_verified ? 'premium' : 'free'}.zip'));

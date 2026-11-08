@@ -43,6 +43,9 @@ import 'feedback_inbox_screen.dart';
 import 'listing_updates_screen.dart';
 import 'nearby_spaces_screen.dart';
 import 'owner_insights_screen.dart';
+import 'admin_owner_activity_screen.dart';
+import 'admin_claim_plan_screen.dart';
+import 'admin_spaces_screen.dart';
 import 'owner_screen.dart';
 import 'region_help_screen.dart';
 import 'space_trail_screen.dart';
@@ -1459,6 +1462,9 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         'chats' => const AdminChatsScreen(),
         'sequences' => const AdminSequencesScreen(),
         'ownerflow' => const AdminOwnerFlowScreen(),
+        'owneractivity' => const AdminOwnerActivityScreen(),
+        'claimplan' => const AdminClaimPlanScreen(),
+        'spaces' => const AdminSpacesScreen(),
         'upgrades' => const AdminUpgradesScreen(),
         'prices' => const AdminPricesScreen(),
         'review' => const AdminScreen(),
@@ -1530,6 +1536,8 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   /// Messages from owners nobody has opened (migration 161): the
   /// number beside Chats. Read whenever "Next up" is.
   int _chatsUnread = 0;
+  // Owner requests not answered yet (Owner activity, migration 283).
+  int _wishesNew = 0;
   void _ringMenu() => _menuBell.value++;
 
   /// When the tools' numbers were last read because the pointer came
@@ -1601,6 +1609,10 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       'chats' => (
           _chatsUnread,
           'messages from owners that nobody has opened yet'
+        ),
+      'owneractivity' => (
+          _wishesNew,
+          'things owners asked for that nobody has answered yet'
         ),
       _ => (0, ''),
     };
@@ -1718,10 +1730,19 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       // Quality (Jonathan, 21 Oct 2026: Page upgrades renamed, with
       // Price check inside it).
       tool('upgrades', Icons.auto_fix_high_outlined, 'Quality'),
+      // One overview per space, findable in a few letters (Jonathan,
+      // 8 Nov 2026, migration 285).
+      tool('spaces', Icons.storefront_outlined, 'Spaces'),
       tool('outreach', Icons.mail_outline, 'Outreach'),
+      // Every unclaimed space and its next step (Jonathan, 8 Nov 2026,
+      // migration 284).
+      tool('claimplan', Icons.checklist_outlined, 'Claim plan'),
       tool('chats', Icons.forum_outlined, 'Chats'),
       tool('sequences', Icons.timeline_outlined, 'Sequences'),
       tool('ownerflow', Icons.account_tree_outlined, 'Owner flow'),
+      // What owners do in their account, and what they ask for
+      // (Jonathan, 7 Nov 2026, migration 283).
+      tool('owneractivity', Icons.touch_app_outlined, 'Owner activity'),
       // Creating Country, City and Area pages moved to the Create
       // button at the top right of the control centre (Jonathan,
       // 22 Oct 2026: needed only from there, now and then).
@@ -1796,8 +1817,11 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
               const PopupMenuDivider(),
               const PopupMenuItem(
                   value: 'upgrades', child: Text('Quality')),
+              const PopupMenuItem(value: 'spaces', child: Text('Spaces')),
               const PopupMenuItem(
                   value: 'outreach', child: Text('Outreach')),
+              const PopupMenuItem(
+                  value: 'claimplan', child: Text('Claim plan')),
               PopupMenuItem(
                   value: 'chats',
                   child: Text(_chatsUnread > 0
@@ -1807,6 +1831,11 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                   value: 'sequences', child: Text('Sequences')),
               const PopupMenuItem(
                   value: 'ownerflow', child: Text('Owner flow')),
+              PopupMenuItem(
+                  value: 'owneractivity',
+                  child: Text(_wishesNew > 0
+                      ? 'Owner activity ($_wishesNew)'
+                      : 'Owner activity')),
               const PopupMenuDivider(),
               const PopupMenuItem(
                   value: 'analytics', child: Text('Analytics')),
@@ -2789,6 +2818,9 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       setState(() => _chatsUnread = c);
       _todayCheckDone();
       _ringMenu();
+    });
+    _supabase.adminOwnerWishesNew().then((c) {
+      if (mounted && c != _wishesNew) setState(() => _wishesNew = c);
     });
     final r = await _supabase.adminNextUp();
     // a later reading is on its way: this one is out of date

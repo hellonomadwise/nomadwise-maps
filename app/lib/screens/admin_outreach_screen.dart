@@ -16,6 +16,7 @@ import '../services/places_service.dart';
 import '../services/supabase_service.dart';
 import '../theme.dart';
 import '../widgets/email_typo_hint.dart';
+import 'admin_spaces_screen.dart';
 
 /// Outreach (migration 121): every cafe, coworking or coliving space
 /// we are talking to, in one list. Who they are, what they wrote,
@@ -105,7 +106,7 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
   static const _stages = <(String, String)>[
     ('new', 'New'),
     ('contacted', 'Contacted'),
-    ('replied', 'Replied'),
+    ('replied', 'They wrote back: answer them'),
     ('claimed', 'Claimed'),
     ('verified', 'Premium'),
     ('not_now', 'Not now'),
@@ -1291,7 +1292,11 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
     if (_followUp(c).interest) return 'followup_after_ours_wa';
     if (c['claim_look'] is Map) return 'claim_looked_wa';
     if (c['last_out_at'] == null && c['last_in_at'] == null) {
-      return 'invite_new_page_wa';
+      // A page of ours from the last weeks says "we have added you"; a
+      // page listed a while says "now yours to manage" (migration 284).
+      final newPage = (_newPages ?? const [])
+          .any((p) => p['venue_id'] != null && p['venue_id'] == c['venue_id']);
+      return newPage || c['on_site'] != true ? 'invite_new_page_wa' : 'invite_listed_wa';
     }
     return 'claim_looked_wa';
   }
@@ -2293,7 +2298,7 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
     ),
     (
       'replied',
-      'Replied',
+      'They wrote back: answer them',
       'They answered. Next: reply, and point them to claiming their page.'
     ),
     (
@@ -3793,6 +3798,8 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
           PopupMenuButton<String>(
             tooltip: 'More',
             onSelected: (k) => switch (k) {
+              'profile' => openSpaceProfile(
+                  context, '${c['venue_id']}', '${c['space_name'] ?? c['venue_name'] ?? ''}'),
               'edit' => _editContact(c),
               'note' => _editNote(c),
               'in' => _logReply(c),
@@ -3803,6 +3810,8 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
               _ => _setStage(c, k),
             },
             itemBuilder: (_) => [
+              if (c['venue_id'] != null)
+                const PopupMenuItem(value: 'profile', child: Text('Space overview')),
               const PopupMenuItem(value: 'edit', child: Text('Edit details')),
               const PopupMenuItem(value: 'note', child: Text('Note and follow-up date')),
               const PopupMenuItem(value: 'in', child: Text('Log what they wrote')),
