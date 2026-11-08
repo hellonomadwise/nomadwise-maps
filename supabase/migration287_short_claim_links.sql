@@ -88,21 +88,24 @@ end $$;
 revoke all on function public.claim_link_open(text) from public;
 grant execute on function public.claim_link_open(text) to anon, authenticated;
 
--- Outreach writes the short link.
+-- Outreach writes the short link (one patch, so the function is
+-- never left half changed).
 select public.pm_patch_fn('public.admin_outreach_preview(uuid,text)',
-  $a$  claim_link := 'https://nomadmaps.io/?claim='$a$,
-  $a$  -- the short link (migration 287); the long one only when there is no page
+$a$  claim_link := 'https://nomadmaps.io/?claim='
+             || public.form_enc(coalesce(v.webflow_slug, space))
+             || case when right(p_key, 3) = '_wa' then '&from=whatsapp' else '&from=email' end
+             || case when c.email is not null then '&email=' || public.form_enc(c.email) else '' end;$a$,
+$a$  -- the short link (migration 287); the long one only when there is no page
   claim_link := case when v.webflow_slug is not null then
       'https://nomadmaps.io/c/' || public.claim_link_code(v.webflow_slug, c.email,
         case when right(p_key, 3) = '_wa' then 'whatsapp' else 'email' end) end;
-  claim_link := coalesce(claim_link, 'https://nomadmaps.io/?claim='$a$,
-  $m$the short link (migration 287)$m$);
-
--- the closing bracket for the coalesce above
-select public.pm_patch_fn('public.admin_outreach_preview(uuid,text)',
-  $a$             || case when c.email is not null then '&email=' || public.form_enc(c.email) else '' end;$a$,
-  $a$             || case when c.email is not null then '&email=' || public.form_enc(c.email) else '' end);$a$,
-  $m$public.form_enc(c.email) else '' end);$m$);
+  claim_link := coalesce(claim_link, 'https://nomadmaps.io/?claim='
+             || public.form_enc(coalesce(v.webflow_slug, space))
+             || case when right(p_key, 3) = '_wa' then '&from=whatsapp' else '&from=email' end
+             || case when c.email is not null then '&email=' || public.form_enc(c.email) else '' end);$a$,
+$m$the short link (migration 287)$m$);
+-- it now saves the link the first time, so it can no longer be "stable"
+alter function public.admin_outreach_preview(uuid, text) volatile;
 
 -- The first-contact email, rewritten.
 update public.outreach_templates
@@ -116,3 +119,9 @@ update public.outreach_templates
            || '{signoff}',
        updated_at = now()
  where key = 'invite_listed';
+
+-- The sign-off as in every Postmark email: "Co-founder, nomadwise.io".
+select public.pm_patch_fn('public.admin_outreach_preview(uuid,text)',
+  $a$E'Kind regards,\nJonathan Heavens\nCofounder - Nomadwise.io'$a$,
+  $a$E'Kind regards,\nJonathan Heavens\nCo-founder, nomadwise.io'$a$,
+  $m$Co-founder, nomadwise.io$m$);
