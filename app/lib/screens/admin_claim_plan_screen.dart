@@ -803,13 +803,16 @@ class _AdminClaimPlanScreenState extends State<AdminClaimPlanScreen> {
             width: 520,
             child: SingleChildScrollView(
               child: Column(mainAxisSize: MainAxisSize.min, children: [
+                // Still editable once opened: what is here when "I sent
+                // it" is pressed is what is kept (Jonathan, 9 Nov 2026).
                 TextField(
                   controller: text,
-                  readOnly: opened,
                   minLines: 4,
                   maxLines: 10,
                   decoration: InputDecoration(
                       labelText: busy ? 'Getting the message...' : 'Message',
+                      helperText: opened ? 'Changed it before sending? Make this match what you sent, so we keep the right message.' : null,
+                      helperMaxLines: 2,
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))),
                 ),
                 const SizedBox(height: 10),

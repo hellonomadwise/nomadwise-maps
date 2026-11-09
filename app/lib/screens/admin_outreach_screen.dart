@@ -4316,13 +4316,20 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
             width: 520,
             child: SingleChildScrollView(
               child: Column(mainAxisSize: MainAxisSize.min, children: [
+                // Still editable once opened (Jonathan, 9 Nov 2026: "at
+                // least be able to update the message that I will go onto
+                // send ... so that it can get recorded what I messaged
+                // them"): what is here when "I sent it" is pressed is
+                // what is kept.
                 TextField(
                     controller: text,
-                    readOnly: opened,
                     minLines: 3,
                     maxLines: 8,
-                    decoration: const InputDecoration(
-                        labelText: 'Message', border: OutlineInputBorder())),
+                    decoration: InputDecoration(
+                        labelText: 'Message',
+                        helperText: opened ? 'Changed it before sending? Make this match what you sent, so we keep the right message.' : null,
+                        helperMaxLines: 2,
+                        border: const OutlineInputBorder())),
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Wrap(spacing: 2, children: [
@@ -4610,13 +4617,20 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
                     ]),
                   ),
                 const SizedBox(height: 10),
+                // Still editable once opened (Jonathan, 9 Nov 2026: "at
+                // least be able to update the message that I will go onto
+                // send ... so that it can get recorded what I messaged
+                // them"): what is here when "I sent it" is pressed is
+                // what is kept.
                 TextField(
                     controller: text,
-                    readOnly: opened,
                     minLines: 3,
                     maxLines: 8,
-                    decoration: const InputDecoration(
-                        labelText: 'Message', border: OutlineInputBorder())),
+                    decoration: InputDecoration(
+                        labelText: 'Message',
+                        helperText: opened ? 'Changed it before sending? Make this match what you sent, so we keep the right message.' : null,
+                        helperMaxLines: 2,
+                        border: const OutlineInputBorder())),
                 if (problem != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
