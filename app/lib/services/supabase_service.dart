@@ -1723,6 +1723,19 @@ class SupabaseService {
         'handled_at': DateTime.now().toUtc().toIso8601String(),
       }).eq('id', id);
 
+  /// Gets a reply to a suggestion ready (migration 297): the space's
+  /// Outreach contact (made or given this email when needed), the first
+  /// name, and the link to their own listing (claim, or owner sign-in
+  /// when claimed).
+  Future<Map<String, dynamic>> listingUpdateReply(String id) async {
+    final r = await _db.rpc('admin_listing_update_reply', params: {'p_id': id});
+    return r is Map ? Map<String, dynamic>.from(r) : {};
+  }
+
+  /// A short note on a suggestion, e.g. that we replied.
+  Future<void> setListingUpdateNote(String id, String note) =>
+      _db.from('listing_updates').update({'note': note}).eq('id', id);
+
   /// Files a booking request; the database emails it on.
   Future<void> sendEnquiry(Map<String, dynamic> row) =>
       _db.from('enquiries').insert(row);

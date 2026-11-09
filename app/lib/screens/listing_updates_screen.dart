@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -71,6 +72,144 @@ class _ListingUpdatesScreenState extends State<ListingUpdatesScreen> {
             .showSnackBar(SnackBar(content: Text('Not saved: $e')));
       }
     }
+  }
+
+  /// What they told us about, in the words of a reply.
+  static String _aboutWords(List kinds) {
+    const words = {
+      'hours': 'the new opening hours',
+      'prices': 'the new prices',
+      'wifi': 'the wifi details',
+      'closed': 'the closure',
+      'temporarily_closed': 'the temporary closure',
+      'photos': 'the photos',
+      'address': 'the name and address',
+      'laptops': 'the laptop rules',
+      'plugs': 'the plug sockets',
+      'tags': 'the tags',
+    };
+    if (kinds.length == 1) return words['${kinds.first}'] ?? 'the update';
+    return 'the changes';
+  }
+
+  /// Answer a suggestion: an email to whoever wrote it, with the link to
+  /// their own listing (claim it, or sign in when it is already theirs).
+  /// Editable before it goes; sent through Outreach so it is in the
+  /// space's history there.
+  Future<void> _reply(Map<String, dynamic> r) async {
+    Map<String, dynamic> prep;
+    try {
+      prep = await _supabase.listingUpdateReply('${r['id']}');
+    } catch (e) {
+      _say(_plain(e), bad: true);
+      return;
+    }
+    if (!mounted) return;
+    if (prep['unsubscribed'] == true) {
+      _say('They asked us not to email them, so nothing can be sent.',
+          bad: true);
+      return;
+    }
+    final first = '${prep['first_name'] ?? ''}'.trim();
+    final space = '${prep['space'] ?? r['space_name'] ?? 'your space'}';
+    final link = '${prep['link'] ?? ''}';
+    final claimed = prep['claimed'] == true;
+    final about = _aboutWords((r['kinds'] as List?) ?? const []);
+    final subject = TextEditingController(
+        text: claimed
+            ? 'Updating your page for $space'
+            : 'Your page for $space on Nomadwise');
+    final body = TextEditingController(
+        text: '${first.isEmpty ? 'Hi' : 'Hi $first'},\n\n'
+            'Thanks for letting us know about $about.\n\n'
+            '${claimed ? 'You can make changes like this yourself whenever '
+                'you need to. Sign in here to update your page:' : 'You can '
+                'make changes like this yourself. Claim your page here (it is '
+                'free), and you can update your hours, prices, photos and more '
+                'whenever you need to:'}\n'
+            '$link\n\n'
+            'Any questions, just reply to this email.\n\n'
+            'Kind regards,\nJonathan Heavens\nCofounder - Nomadwise.io');
+    final how = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Reply to ${first.isEmpty ? space : first}'),
+        content: SizedBox(
+          width: 560,
+          child: SingleChildScrollView(
+            child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('To ${prep['email']}',
+                      style: const TextStyle(
+                          fontSize: 12.5, color: Brand.inkSecondary)),
+                  const SizedBox(height: 10),
+                  TextField(
+                      controller: subject,
+                      decoration: const InputDecoration(labelText: 'Subject')),
+                  const SizedBox(height: 10),
+                  TextField(
+                      controller: body,
+                      minLines: 8,
+                      maxLines: 16,
+                      decoration: const InputDecoration(
+                          labelText: 'Message',
+                          helperText: 'Change anything before it goes. What '
+                              'you send is kept in Outreach for this space.',
+                          helperMaxLines: 2,
+                          alignLabelWithHint: true)),
+                ]),
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, 'own'),
+              child: const Text('Copy, I send it myself')),
+          FilledButton.icon(
+              onPressed: () => Navigator.pop(ctx, 'send'),
+              icon: const Icon(Icons.send_rounded, size: 16),
+              label: const Text('Send')),
+        ],
+      ),
+    );
+    if (how == null || !mounted) return;
+    final cid = '${prep['contact_id']}';
+    try {
+      if (how == 'send') {
+        await _supabase.outreachSend(cid, subject.text, body.text,
+            force: true);
+      } else {
+        await Clipboard.setData(ClipboardData(text: body.text));
+        await _supabase.outreachLogSent(cid, subject.text, body.text,
+            force: true);
+      }
+      await _supabase.setListingUpdateNote('${r['id']}',
+          'Replied ${DateFormat('d MMM').format(DateTime.now())} with the link to their own listing');
+      await _load();
+      widget.onChanged?.call();
+      _say(how == 'send'
+          ? 'Sent to ${prep['email']}. It is in Outreach under $space.'
+          : 'Copied. Paste it into your email to ${prep['email']}; it is '
+              'noted in Outreach under $space.');
+    } catch (e) {
+      _say('Not sent: ${_plain(e)}', bad: true);
+    }
+  }
+
+  static String _plain(Object e) {
+    final s = '$e';
+    final m = RegExp(r'message: ([^,]+)').firstMatch(s);
+    return (m?.group(1) ?? s).replaceAll('PostgrestException(', '').trim();
+  }
+
+  void _say(String text, {bool bad = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(text), backgroundColor: bad ? Brand.red : null));
   }
 
   void _toggleAll() {
@@ -224,7 +363,24 @@ class _ListingUpdatesScreenState extends State<ListingUpdatesScreen> {
               who.isEmpty ? 'No name left' : 'From $who',
             ].join(' · '),
             style: const TextStyle(fontSize: 12, color: Brand.inkSecondary)),
+        if ((r['note'] ?? '').toString().trim().isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text('${r['note']}',
+                style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: Brand.success)),
+          ),
         Wrap(spacing: 4, children: [
+          // Answer them with a link to their own listing, so they can
+          // make changes like this themselves (Jonathan, 9 Nov 2026).
+          if ((r['email'] ?? '').toString().trim().isNotEmpty &&
+              r['venue_id'] != null)
+            TextButton.icon(
+                onPressed: () => _reply(r),
+                icon: const Icon(Icons.reply, size: 16),
+                label: const Text('Reply with their own link')),
           if (slug.isNotEmpty)
             TextButton.icon(
                 onPressed: () => launchUrl(
