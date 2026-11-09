@@ -119,17 +119,26 @@ class _ListingUpdatesScreenState extends State<ListingUpdatesScreen> {
         text: claimed
             ? 'Updating your page for $space'
             : 'Your page for $space on Nomadwise');
-    final body = TextEditingController(
-        text: '${first.isEmpty ? 'Hi' : 'Hi $first'},\n\n'
-            'Thanks for letting us know about $about.\n\n'
-            '${claimed ? 'You can make changes like this yourself whenever '
-                'you need to. Sign in here to update your page:' : 'You can '
-                'make changes like this yourself. Claim your page here (it is '
-                'free), and you can update your hours, prices, photos and more '
-                'whenever you need to:'}\n'
-            '$link\n\n'
-            'Any questions, just reply to this email.\n\n'
-            'Kind regards,\nJonathan Heavens\nCofounder - Nomadwise.io');
+    final slug = '${r['slug'] ?? ''}'.trim();
+    final page = slug.isEmpty ? '' : 'https://www.nomadwise.io/coworking/$slug';
+    // Two ways to answer (Jonathan, 9 Nov 2026: "if we can update it for
+    // them, and then the reply is going forward, please checkout ..."):
+    // we made the change, and from now on they can do it themselves;
+    // or we only point them to where they can make it.
+    String text(bool done) =>
+        '${first.isEmpty ? 'Hi' : 'Hi $first'},\n\n'
+        'Thanks for letting us know about $about.'
+        '${done ? ' I have updated your page${page.isEmpty ? '.' : ': $page'}' : ''}'
+        '\n\n'
+        '${done ? 'Going forward, you' : 'You'} can make changes like this '
+        'yourself. '
+        '${claimed ? 'Sign in here to update your page whenever you need to:' : 'Claim your page here (it is free), and you can update your '
+            'hours, prices, photos and more whenever you need to:'}\n'
+        '$link\n\n'
+        'Any questions, just reply to this email.\n\n'
+        'Kind regards,\nJonathan Heavens\nCofounder - Nomadwise.io';
+    var updated = true;
+    final body = TextEditingController(text: text(updated));
     final how = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -148,7 +157,23 @@ class _ListingUpdatesScreenState extends State<ListingUpdatesScreen> {
                   TextField(
                       controller: subject,
                       decoration: const InputDecoration(labelText: 'Subject')),
-                  const SizedBox(height: 10),
+                  StatefulBuilder(
+                    builder: (ctx, setInner) => SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                      value: updated,
+                      onChanged: (on) => setInner(() {
+                        updated = on;
+                        body.text = text(on);
+                      }),
+                      title: const Text('I have updated their page'),
+                      subtitle: Text(updated
+                          ? 'Says it is done, and that going forward they can '
+                              'do it themselves'
+                          : 'Only points them to where they can change it'),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
                   TextField(
                       controller: body,
                       minLines: 8,
@@ -186,6 +211,10 @@ class _ListingUpdatesScreenState extends State<ListingUpdatesScreen> {
         await Clipboard.setData(ClipboardData(text: body.text));
         await _supabase.outreachLogSent(cid, subject.text, body.text,
             force: true);
+      }
+      // Changed and answered: nothing left to do on it.
+      if (updated && '${r['status']}' == 'open') {
+        await _supabase.setListingUpdateStatus('${r['id']}', 'done');
       }
       await _supabase.setListingUpdateNote('${r['id']}',
           'Replied ${DateFormat('d MMM').format(DateTime.now())} with the link to their own listing');
