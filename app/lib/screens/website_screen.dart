@@ -3543,8 +3543,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       if (g.needsRegion.isNotEmpty)
         HomeRow('Unblock a page', () => open('region'), count: g.needsRegion.length),
       if (_nx('photos') > 0 && jobs['photos'] != null)
-        HomeRow('Add photos: ${nm('photos', 'the next page')}', () => open('photos'),
-            count: _nx('photos')),
+        HomeRow('Pages short of photos', () => open('photos'), count: _nx('photos')),
       if (jobs['page'] != null)
         HomeRow('Look over a page: ${nm('page', 'the next one')}', () => open('page')),
       if (g.fresh.isNotEmpty)
@@ -3573,10 +3572,28 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     ];
 
     return [
-      HomeGroup('To handle', waiting, urgent: true),
-      HomeGroup('Get spaces to claim', claim),
-      HomeGroup('Pages', pages),
-      HomeGroup('Keep pages right', right),
+      HomeGroup('To handle', waiting,
+          urgent: true,
+          info: 'Things where someone is waiting on us, or a quick decision is '
+              'due: a space or a nomad who wrote, owners who looked at '
+              'claiming, sign-ups to decide, and closed places to take off the '
+              'site. A red dot means a person is waiting for an answer, so '
+              'those are best done first.'),
+      HomeGroup('Get spaces to claim', claim,
+          info: 'Writing to spaces that have a page on nomadwise.io but have '
+              'not claimed it yet. Each line is one way to reach them (email, '
+              'Instagram, WhatsApp, Facebook, their contact form), taken from '
+              'the Claim plan in Outreach. Every claim is an owner who keeps '
+              'their page up to date, and who may later go Premium.'),
+      HomeGroup('Pages', pages,
+          info: 'Getting pages onto nomadwise.io and in good shape: pages ready '
+              'to release in Webflow, new pages to approve, pages short of '
+              'photos, a page to look over, and places found online '
+              '(candidates) to say yes or no to.'),
+      HomeGroup('Keep pages right', right,
+          info: 'Keeping what the live pages say correct: price changes and '
+              'page upgrades waiting for your Go, suggestions from visitors, '
+              'and things owners have asked us for.'),
     ];
   }
 

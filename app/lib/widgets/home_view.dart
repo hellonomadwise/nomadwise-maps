@@ -31,7 +31,12 @@ class HomeGroup {
   final String title;
   final List<HomeRow> rows;
   final bool urgent;
-  const HomeGroup(this.title, this.rows, {this.urgent = false});
+
+  /// What the card is for, behind the (i) at its top right (Jonathan,
+  /// 9 Nov 2026: "an i in the top right, explaining the purpose of
+  /// this card").
+  final String? info;
+  const HomeGroup(this.title, this.rows, {this.urgent = false, this.info});
 }
 
 class HomeView extends StatefulWidget {
@@ -446,14 +451,47 @@ class _HomeViewState extends State<HomeView> {
     ]);
   }
 
+  void _showInfo(HomeGroup g) => showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          title: Text(g.title),
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 460),
+            child: Text(g.info!,
+                style: const TextStyle(fontSize: 14.5, height: 1.5, color: Brand.ink)),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('OK')),
+          ],
+        ),
+      );
+
   Widget _groupCard(HomeGroup g) => _Card(
         border: g.urgent && g.rows.any((r) => r.waiting) ? Brand.red : null,
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Padding(
             padding: const EdgeInsets.only(bottom: 6),
-            child: Text(g.title,
-                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+            child: Row(children: [
+              Expanded(
+                child: Text(g.title,
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+              ),
+              if (g.info != null)
+                SizedBox(
+                  width: 32,
+                  height: 32,
+                  child: IconButton(
+                    tooltip: 'What is this for?',
+                    padding: EdgeInsets.zero,
+                    iconSize: 19,
+                    color: Brand.inkMuted,
+                    onPressed: () => _showInfo(g),
+                    icon: const Icon(Icons.info_outline),
+                  ),
+                ),
+            ]),
           ),
           if (g.rows.isEmpty)
             const Padding(
