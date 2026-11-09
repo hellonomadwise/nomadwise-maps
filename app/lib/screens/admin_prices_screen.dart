@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../services/products_service.dart';
 import '../theme.dart';
+import '../widgets/stat_grid.dart';
 import '../widgets/price.dart';
 
 /// The database's own words for a refused action.
@@ -510,12 +511,24 @@ class _AdminPricesScreenState extends State<AdminPricesScreen> {
   int _req = 0;
 
   static const _filters = <(String, String)>[
-    ('', 'All spaces'),
-    ('waiting', 'Waiting for your Go'),
+    ('', 'All'),
+    ('waiting', 'Your Go'),
     ('requested', 'Requested'),
     ('unchecked', 'Never checked'),
     ('checked', 'Checked'),
   ];
+
+  /// A filter's words with its count, where the overview gives one.
+  String _filterLabel((String, String) f, Map<String, dynamic>? o) {
+    if (o == null) return f.$2;
+    final n = switch (f.$1) {
+      '' => _int(o['spaces']),
+      'waiting' => _int(o['waiting']),
+      'requested' => _int(o['requested']),
+      _ => -1,
+    };
+    return n < 0 ? f.$2 : '${f.$2} $n';
+  }
 
   @override
   void initState() {
@@ -761,38 +774,16 @@ class _AdminPricesScreenState extends State<AdminPricesScreen> {
     final checked = _int(o['checked']);
     final oldest = _monthYear(o['oldest']);
     final pulled = _when(o['pulled_at']);
-    Widget tile(String big, String small, {Color? color}) => Container(
-          width: 150,
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-              color: Brand.surface,
-              border: Border.all(color: Brand.border),
-              borderRadius: BorderRadius.circular(10)),
-          child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(big,
-                    style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
-                        color: color ?? Brand.ink)),
-                const SizedBox(height: 2),
-                Text(small,
-                    style: const TextStyle(
-                        fontSize: 12, height: 1.3, color: Brand.inkSecondary)),
-              ]),
-        );
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Wrap(spacing: 8, runSpacing: 8, children: [
-        tile(_num(products), 'products on ${_num(_int(o['spaces']))} pages'),
-        tile('${_num(checked)} of ${_num(products)}',
-            'checked against the space\'s own website',
-            color: checked == 0 ? Brand.goldTextDark : Brand.success),
-        tile(_num(_int(o['waiting'])), 'changes waiting for your Go',
-            color: _int(o['waiting']) > 0 ? Brand.logoNavy : null),
-        tile(_num(_int(o['requested'])), 'checks requested'),
-        if (_int(o['failed']) > 0)
-          tile(_num(_int(o['failed'])), 'need a look', color: Brand.red),
+      // Fills the width: three across on a phone (8 Nov 2026).
+      StatGrid(boxed: true, stats: [
+        (_num(products), 'products on ${_num(_int(o['spaces']))} pages', null),
+        ('${_num(checked)} of ${_num(products)}', 'checked against their website',
+            checked == 0 ? Brand.goldTextDark : Brand.success),
+        (_num(_int(o['waiting'])), 'changes waiting for your Go',
+            _int(o['waiting']) > 0 ? Brand.logoNavy : null),
+        (_num(_int(o['requested'])), 'checks requested', null),
+        if (_int(o['failed']) > 0) (_num(_int(o['failed'])), 'need a look', Brand.red),
       ]),
       const SizedBox(height: 8),
       Text(
@@ -968,6 +959,25 @@ class _AdminPricesScreenState extends State<AdminPricesScreen> {
                   child: ListView(
                       padding: const EdgeInsets.fromLTRB(14, 12, 14, 40),
                       children: [
+                        if (MediaQuery.sizeOf(context).width < 600)
+                          // On a phone: the two buttons on one line; the
+                          // explanation is under How it works.
+                          Row(children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                  onPressed: _copying ? null : _copyRequests,
+                                  icon: const Icon(Icons.copy, size: 16),
+                                  label: const Text('Copy requests')),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: TextButton.icon(
+                                  onPressed: _showHelp,
+                                  icon: const Icon(Icons.help_outline, size: 16),
+                                  label: const Text('How it works')),
+                            ),
+                          ])
+                        else
                         Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -1008,10 +1018,20 @@ class _AdminPricesScreenState extends State<AdminPricesScreen> {
                         const SizedBox(height: 12),
                         if (overview != null) _numbers(overview),
                         const SizedBox(height: 12),
-                        Wrap(spacing: 6, runSpacing: 6, children: [
+                        // One row that swipes sideways, each with its count
+                          // where known (Jonathan, 8 Nov 2026: "Filters at
+                          // bottom here need better ux").
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(children: [
                           for (final f in _filters)
-                            ChoiceChip(
-                              label: Text(f.$2),
+                            Padding(
+                            padding: const EdgeInsets.only(right: 6),
+                            child: ChoiceChip(
+                              label: Text(_filterLabel(f, overview)),
+                              visualDensity: VisualDensity.compact,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8)),
                               showCheckmark: false,
                               selectedColor: Brand.ink,
                               labelStyle: TextStyle(
@@ -1029,7 +1049,8 @@ class _AdminPricesScreenState extends State<AdminPricesScreen> {
                                 _load();
                               },
                             ),
-                        ]),
+                            ),
+                        ])),
                         const SizedBox(height: 10),
                         TextField(
                           controller: _search,

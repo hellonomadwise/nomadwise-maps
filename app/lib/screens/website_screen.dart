@@ -1943,6 +1943,8 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     showModalBottomSheet<void>(
       context: context,
       useRootNavigator: true,
+      isScrollControlled: true,
+      useSafeArea: true,
       showDragHandle: true,
       backgroundColor: Brand.surface,
       shape: const RoundedRectangleBorder(

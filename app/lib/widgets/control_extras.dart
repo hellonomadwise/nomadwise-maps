@@ -140,13 +140,18 @@ class _HealthButtonState extends State<HealthButton> {
   }
 
   void _open() {
+    // Taller than half a phone screen: it may take the room it needs and
+    // scrolls, so nothing is cut off at the bottom (Jonathan, 8 Nov 2026).
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Brand.surface,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(12))),
       builder: (ctx) => SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
+         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
           child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -197,6 +202,7 @@ class _HealthButtonState extends State<HealthButton> {
                       label: const Text('Check again')),
                 ),
               ]),
+         ),
         ),
       ),
     );
