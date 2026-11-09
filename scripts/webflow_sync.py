@@ -1230,7 +1230,8 @@ report['taxonomy_requests'] = len(requests_)
 try:
     retire_ = sb('venues?website_retire_requested_at=not.is.null'
                  '&website_retired_at=is.null&webflow_cms_id=not.is.null'
-                 '&select=id,name,webflow_cms_id,webflow_slug,google_place_id'
+                 '&select=id,name,webflow_cms_id,webflow_slug,google_place_id,'
+                 'website_retire_note'
                  '&order=website_retire_requested_at.asc&limit=20') or []
 except Exception as e:  # noqa: BLE001
     # A warning, not an error: the first run after the upload can land
@@ -1679,9 +1680,20 @@ def retire_page(v):
     return note
 
 
+def retire_ticks(v):
+    # The founder's own two steps (redirect, sitemap) can be ticked in
+    # the app as soon as Retire is pressed (Jonathan, 9 Nov 2026: "i
+    # want to instantly get what I need to do"): kept when the note is
+    # written here.
+    old = v.get('website_retire_note')
+    old = old if isinstance(old, dict) else {}
+    return {k: old[k] for k in ('redirect_done', 'sitemap_done') if k in old}
+
+
 for v in retire_:
     try:
         note = retire_page(v)
+        note.update(retire_ticks(v))
         sb(f"venues?id=eq.{v['id']}", method='PATCH',
            body={'website_retired_at': note['retired_at'],
                  'website_retire_note': note,
@@ -1695,7 +1707,8 @@ for v in retire_:
         report['errors'].append(f"retire {v.get('name')}: {e}")
         try:
             sb(f"venues?id=eq.{v['id']}", method='PATCH',
-               body={'website_retire_note': {'error': str(e)[:300]}},
+               body={'website_retire_note': {'error': str(e)[:300],
+                                             **retire_ticks(v)}},
                prefer='return=minimal')
         except Exception:  # noqa: BLE001
             pass

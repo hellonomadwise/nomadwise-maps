@@ -6414,3 +6414,19 @@ Jonathan: "would it make sense for some things to live inside others? I'm trying
 - 8 Nov (Jonathan: "Reduce tidy up height, have as expandable. I'm finding that I'm not using this"): Next up on the control centre is one line (NEXT UP, the job, +9 more, a down arrow) until tapped; open, it has an up arrow to fold it again. Beside the list on a wide screen it stays open as before. Today keeps the same jobs as a list.
 - 8 Nov (Jonathan: "Health check is clipping off the bottom on mobile"): the Health check sheet (and the phone's More sheet) may now be taller than half the screen and scrolls, so the Google spend line and "Check again" are always reachable.
 - 8 Nov (Jonathan, Quality > Prices on a phone: "Filters at bottom here need better ux"): the five filters are one row that swipes sideways, shorter words with their counts where known (All 144, Your Go 6, Requested 0, Never checked, Checked), 8 px corners. The numbers fill the width (three across on a phone). On a phone the long explanation is under How it works, beside Copy requests on one line.
+
+## 9 Nov 2026: Home in place of Today
+
+Jonathan: "i dont think we should have today. this today is really meant for an attempt to work through action items. I think I should have it where I have an overview of what things I could do, and then I could choose what to do", plus charts of what we are working towards. Built from the mock-ups he commented on and approved ("looks good, lets go with that for now. build it"):
+- Home is the first screen (nomadmaps.io/?admin). Today is gone from the menu; an old link to Today opens Home. Menu: Home, Spaces, Pages (the control centre's lists, renamed), Outreach, Chats, Quality, Owners, More. Phone bar: Home, Spaces, Outreach, Chats, More (Pages is under More).
+- Where we stand (admin_home, migration 288): the goal of EUR 1,000 a month from Premium (now and paying), claims a month for the last three months against the target of 5 (a space counts in the month of its first claim; ours and tests left out), times shown in Google and page views by month for the last six full months, and outreach sent each week from Monday 5 Oct against the target of 10, stacked by way (email, WhatsApp, Instagram, Facebook, contact form) with a switch for All, Already listed, Not listed yet. Every chart has a scale up the left and faint lines across; no up or down labels (his comment: "dont need to know up or down").
+- What you could do: four cards (To handle, Get spaces to claim, Pages, Keep pages right), one line per kind of job with its count, each opening where it is done. A red dot: someone is waiting on us. The lines are Next up's jobs, so a line and the place it opens agree; Round 1, Instagram and the other ways come from the Claim plan. The number beside Home counts the red-dot lines.
+- Claims a month reads 2, 11, 2 (Sep, Oct, Nov so far) and not the 7, 13, 3 of the mock-up: tests and our own claims are left out.
+
+## 9 Nov 2026: Prices "Your Go" was empty with 6 waiting
+
+Jonathan: "i have no idea how to resolve these 6 prices". All six were first prices sent from Westerwelle Startup Haus Arusha's Owner account, for a page with no prices yet, and the list only took spaces that already had prices. Migration 289: a space is listed when it has prices or a change for it waits, is on its way or failed.
+
+## 9 Nov 2026: a retired page's two steps at once
+
+Jonathan (Phil Coffee Co): "i pressed retire the page, but i want to instantly get what I need to do re remove from sitemap, and redirect". The card said only "Retiring: the sync is taking the page down now" until the sync (every 10 minutes) had run. Now the redirect (old path and city page, with Copy) and the sitemap step show as soon as Retire is pressed, and can be ticked straight away; the sync keeps those ticks when it writes its note.

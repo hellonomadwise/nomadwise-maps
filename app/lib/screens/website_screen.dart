@@ -22,6 +22,7 @@ import '../widgets/email_html_stub.dart'
     if (dart.library.html) '../widgets/email_html_web.dart';
 import '../widgets/no_location_tab.dart';
 import '../widgets/control_extras.dart';
+import '../widgets/home_view.dart';
 import '../widgets/pass_on.dart';
 import '../widgets/reply_suggestions.dart';
 import '../widgets/phone_field.dart';
@@ -256,9 +257,10 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     _load();
     _loadCandidateCount();
     _loadNextUp();
+    _loadHome();
     // Today is where the team lands (Jonathan, 3 Nov 2026); the
     // control centre is ?admin=centre.
-    _todayOpen = widget.openTool != 'centre';
+    _homeOpen = widget.openTool != 'centre';
     _loadToday();
     final tool = widget.openTool == 'centre' ? null : widget.openTool;
     _markAddress(tool);
@@ -275,7 +277,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   /// the menu (plain ?admin=chats stays the phone's Chats on its own).
   void _markAddress(String? tool) {
     if (tool == null) {
-      addr.setAddress(_todayOpen ? '/?admin' : '/?admin=centre');
+      addr.setAddress(_homeOpen ? '/?admin' : '/?admin=centre');
     } else {
       addr.setAddress('/?admin=$tool&menu');
     }
@@ -1430,10 +1432,10 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         key: _centreKey,
         child: _upgradesOpen
             ? _upgradesHub(wide)
-            : _todayOpen
-                ? _todayScreen(wide)
+            : _homeOpen
+                ? _homeScreen(wide)
                 : _centre(wide));
-    final current = _upgradesOpen ? 'upgrades' : (_todayOpen ? 'today' : null);
+    final current = _upgradesOpen ? 'upgrades' : (_homeOpen ? 'home' : null);
     return wide ? _besideMenu(current, centre) : _withBar(current, centre);
   }
 
@@ -1543,13 +1545,16 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     final nav = Navigator.of(context);
     final home = ModalRoute.of(context);
     if (home != null) nav.popUntil((r) => r == home || r.isFirst);
-    if (k == null || k == 'today') {
+    // Home (Jonathan, 9 Nov 2026), which took Today's place: an old
+    // link to Today opens Home.
+    if (k == null || k == 'today' || k == 'home') {
       setState(() {
         _upgradesOpen = false;
-        _todayOpen = k == 'today';
+        _homeOpen = k != null;
       });
       _markAddress(null);
       _loadNextUp();
+      if (k != null) _loadHome();
       return;
     }
     if (k == 'upgrades' || k == 'prices') {
@@ -1584,6 +1589,8 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
             : null);
       }
       _loadNextUp();
+      // back on Home: its numbers may have moved
+      if (_homeOpen) _loadHome();
     });
   }
 
@@ -1643,11 +1650,11 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     }
 
     return switch (key) {
-      'today' => (
-          _inbox == null || !_nextUpRead ? 0 : _todayJobs().length,
-          'things to do today'
+      'home' => (
+          _inbox == null || !_nextUpRead ? 0 : _homeWaiting(),
+          'things where someone is waiting on us'
         ),
-      'home' => (_todoCount, 'waiting in the control centre (its To do line)'),
+      'centre' => (_todoCount, 'waiting in Pages (its To do line)'),
       'upgrades' => (
           _updates.length + _closed.length + part('drafts') + part('prices'),
           'waiting in Quality: suggestions from visitors, closed '
@@ -1786,11 +1793,11 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         child: Text('Nomadwise',
             style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
       ),
-      // Today first: every job, one at a time (Jonathan, 3 Nov 2026).
-      item(Icons.today_outlined, 'Today', () => _showTool('today'),
-          on: current == 'today', countOf: 'today'),
-      item(Icons.dashboard_outlined, 'Control centre', () => _showTool(null),
-          on: current == null, countOf: 'home'),
+      // Home first: where we stand and what you could do (Jonathan,
+      // 9 Nov 2026: "i dont think we should have today"). Pages is the
+      // control centre's lists, mostly the pages on their way.
+      item(Icons.home_outlined, 'Home', () => _showTool('home'),
+          on: current == 'home', countOf: 'home'),
       // Six places, each tool inside the one it belongs to (Jonathan,
       // 8 Nov 2026, "reduce the potential for it to become
       // overwhelming"): Spaces (one overview per space, migration 285),
@@ -1798,6 +1805,8 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       // Feedback inbox), Quality (with Price check), Owners (Activity,
       // Flow, What they tell us).
       tool('spaces', Icons.storefront_outlined, 'Spaces'),
+      item(Icons.article_outlined, 'Pages', () => _showTool(null),
+          on: current == null, countOf: 'centre'),
       tool('outreach', Icons.mail_outline, 'Outreach'),
       tool('chats', Icons.forum_outlined, 'Chats'),
       tool('upgrades', Icons.auto_fix_high_outlined, 'Quality'),
@@ -1856,7 +1865,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
 
   /// On a phone: the tools along the bottom, as in most apps (Jonathan,
   /// 8 Nov 2026: "how it's like the menu bar of like all the different
-  /// options"). Today, Spaces, Outreach, Chats and More; hidden while
+  /// options"). Home, Spaces, Outreach, Chats and More; hidden while
   /// the keyboard is up.
   Widget _withBar(String? current, Widget screen) => Builder(builder: (context) {
         if (MediaQuery.viewInsetsOf(context).bottom > 0) return screen;
@@ -1876,7 +1885,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       });
 
   Widget _phoneBar(String? current) {
-    final inMore = !const {'today', 'spaces', 'outreach', 'chats'}.contains(current);
+    final inMore = !const {'home', 'spaces', 'outreach', 'chats'}.contains(current);
     Widget badge(int n) => Container(
           padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
           decoration: BoxDecoration(
@@ -1926,7 +1935,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       child: SafeArea(
         top: false,
         child: Row(children: [
-          tab('today', Icons.today_outlined, 'Today', count: _menuCount('today').$1),
+          tab('home', Icons.home_outlined, 'Home', count: _menuCount('home').$1),
           tab('spaces', Icons.storefront_outlined, 'Spaces'),
           tab('outreach', Icons.mail_outline, 'Outreach', count: _menuCount('outreach').$1),
           tab('chats', Icons.forum_outlined, 'Chats', count: _menuCount('chats').$1),
@@ -1986,8 +1995,9 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         return SafeArea(
           child: SingleChildScrollView(
             child: Column(mainAxisSize: MainAxisSize.min, children: [
-              row(null, Icons.dashboard_outlined, 'Control centre',
-                  count: _menuCount('home').$1),
+              row(null, Icons.article_outlined, 'Pages',
+                  sub: 'New pages, owners\' changes, enquiries',
+                  count: _menuCount('centre').$1),
               row('upgrades', Icons.auto_fix_high_outlined, 'Quality',
                   count: _menuCount('upgrades').$1),
               row('owners', Icons.groups_outlined, 'Owners',
@@ -2028,7 +2038,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       appBar: AppBar(
         // What is waiting now shows in the To do line below, so the
         // title stays short enough for a phone beside the buttons.
-        title: const Text('Control centre'),
+        title: const Text('Pages'),
         actions: [
           IconButton(
               tooltip: 'Search spaces, owners and claims',
@@ -2036,7 +2046,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
               icon: const Icon(Icons.search)),
           const HealthButton(),
           // The team's other screens: on a phone, the bar along the
-          // bottom (Today, Spaces, Outreach, Chats, More; Jonathan,
+          // bottom (Home, Spaces, Outreach, Chats, More; Jonathan,
           // 8 Nov 2026); on a wide screen, the menu down the left.
           // The site's taxonomy, made from here: a Region (city page) or
           // a Location (neighbourhood page), built and published by the
@@ -2569,8 +2579,8 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
 
   /// From the team link's tools menu: the other team screens.
   void _openTool(String k) {
-    if (k == 'today' || k == 'centre') {
-      _showTool(k == 'today' ? 'today' : null);
+    if (k == 'today' || k == 'home' || k == 'centre') {
+      _showTool(k == 'centre' ? null : 'home');
       return;
     }
     if (k == 'map') {
@@ -2593,6 +2603,8 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
             : null);
       }
       _loadNextUp();
+      // back on Home: its numbers may have moved
+      if (_homeOpen) _loadHome();
     });
   }
 
@@ -3037,8 +3049,8 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     _nextUpFolded = true;
     // A job of Today that lives in the control centre's lists: the
     // control centre, on that list.
-    if (_todayOpen) {
-      setState(() => _todayOpen = false);
+    if (_homeOpen) {
+      setState(() => _homeOpen = false);
       _markAddress(null);
     }
     _goToGroup(groupKey);
@@ -3385,6 +3397,216 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     ];
   }
 
+  // -------------------------------------------------------------- home
+
+  /// Home's numbers (admin_home, migration 288), and why they could
+  /// not be read.
+  Map<String, dynamic>? _home;
+  String? _homeError;
+
+  Future<void> _loadHome() async {
+    try {
+      final r = await _supabase.adminHome();
+      if (!mounted) return;
+      setState(() {
+        _home = r;
+        _homeError = null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _homeError = '$e');
+    }
+  }
+
+  /// A part of "Next up" (admin_next_up): its count, or a field.
+  int _nx(String k, [String f = 'n']) {
+    final p = _nextUp?[k];
+    return p is Map ? ((p[f] as num?)?.toInt() ?? 0) : 0;
+  }
+
+  String _nxName(String k) {
+    final p = _nextUp?[k];
+    final s = p is Map ? '${p['name'] ?? ''}'.trim() : '';
+    return s;
+  }
+
+  /// The Claim plan's count for one step (Home's numbers).
+  int _planCount(String action) {
+    final p = _home?['plan'];
+    final c = p is Map ? p['counts'] : null;
+    return c is Map ? ((c[action] as num?)?.toInt() ?? 0) : 0;
+  }
+
+  /// What you could do, in four cards (Jonathan, 9 Nov 2026). Each
+  /// line opens the place where it is done; a line with nothing behind
+  /// it is left out. The jobs are Next up's, so a line and the job it
+  /// opens never disagree.
+  List<HomeGroup> _homeGroups() {
+    final jobs = {for (final j in _nextJobs(_groups())) j.kind: j};
+    final g = _groups();
+    void open(String kind) => jobs[kind]?.open();
+    String nm(String k, String fallback) {
+      final s = _nxName(k);
+      return s.isEmpty ? fallback : s;
+    }
+
+    final feedback = _nx('menu', 'feedback');
+    final waitReply = _nx('replied_wait');
+    final looked = _nx('claim_look');
+    final signupAcc = _nx('signup');
+
+    final waiting = <HomeRow>[
+      if (waitReply > 0 && jobs['replied'] != null)
+        HomeRow('A space wrote back: answer them', () => open('replied'),
+            count: waitReply, waiting: true),
+      if (_chatsUnread > 0)
+        HomeRow('An owner wrote to us in Chats', () => _showTool('chats'),
+            count: _chatsUnread, waiting: true),
+      if (feedback > 0)
+        HomeRow('A nomad wrote to us', () => _showTool('feedback'),
+            count: feedback, waiting: true),
+      if (_passOn.isNotEmpty)
+        HomeRow('Pass on a request a nomad sent', () => open('enquiries'),
+            count: _passOn.length, waiting: true),
+      if (_held.isNotEmpty)
+        HomeRow('Decide a claim', () => open('claims'),
+            count: _held.length, waiting: true),
+      if (_orders.isNotEmpty)
+        HomeRow('Match a payment to its space', () => open('payments'),
+            count: _orders.length, waiting: true),
+      if (_ownerDrafts.isNotEmpty)
+        HomeRow('An owner sent a change to their page', () => open('ownerchanges'),
+            count: _ownerDrafts.length, waiting: true),
+      if (looked > 0)
+        HomeRow(
+            looked == 1
+                ? '${nm('claim_look', 'A space')} opened their claim page: ask if they have questions'
+                : 'Spaces opened their claim page: ask if they have questions',
+            () => open('claimlook'),
+            count: looked > 1 ? looked : null,
+            waiting: true),
+      if (signupAcc > 0)
+        HomeRow(
+            signupAcc == 1
+                ? '${nm('signup', 'A space')} made an account: tell them the page is theirs'
+                : 'Spaces made an account: tell them the page is theirs',
+            () => open('signup'),
+            count: signupAcc > 1 ? signupAcc : null,
+            waiting: true),
+      if (_signups.isNotEmpty)
+        HomeRow(
+            _signups.length == 1
+                ? 'Decide a sign-up: ${_signups.first['name'] ?? 'a space'}'
+                : 'Decide sign-ups and suggestions',
+            () => open('signups'),
+            count: _signups.length > 1 ? _signups.length : null,
+            waiting: true),
+      if (_closed.isNotEmpty)
+        HomeRow('Remove spaces that have closed for good', () => open('closed'),
+            count: _closed.length),
+    ];
+
+    final r1 = _home?['plan'] is Map ? Map<String, dynamic>.from(_home!['plan'] as Map) : null;
+    final round1Left = r1 == null
+        ? 0
+        : ((r1['round1'] as num?)?.toInt() ?? 0) - ((r1['round1_sent'] as num?)?.toInt() ?? 0);
+    final otherWays = _planCount('whatsapp') + _planCount('facebook') + _planCount('form');
+    final claim = <HomeRow>[
+      if (round1Left > 0)
+        HomeRow('Round 1 emails to send', () => _showTool('claimplan'), count: round1Left)
+      else if (_planCount('email') > 0)
+        HomeRow('Spaces to email', () => _showTool('claimplan'), count: _planCount('email')),
+      if (_planCount('instagram') > 0)
+        HomeRow('Message on Instagram', () => _showTool('claimplan'),
+            count: _planCount('instagram')),
+      if (otherWays > 0)
+        HomeRow('Message on WhatsApp, Facebook or their form', () => _showTool('claimplan'),
+            count: otherWays),
+      if (_nx('follow_up') > 0 && jobs['followup'] != null)
+        HomeRow('Follow-ups that have come due', () => open('followup'),
+            count: _nx('follow_up')),
+      if (_nx('new_page') > 0 && jobs['newpage'] != null)
+        HomeRow('Say hello to spaces with a new page', () => open('newpage'),
+            count: _nx('new_page')),
+      if (jobs['tidyreplies'] != null)
+        HomeRow('Tidy old "they wrote back" cards', () => open('tidyreplies')),
+    ];
+
+    final webflow = _drafts.length + _approvedTonight.length;
+    final candidates = _nx('candidate') > 0 ? _nx('candidate') : _candidateCount;
+    final pages = <HomeRow>[
+      if (webflow > 0)
+        HomeRow('Release a page that is ready in Webflow', () => open('webflow'),
+            count: webflow),
+      if (g.ready.isNotEmpty)
+        HomeRow('Approve a new page', () => open('ready'), count: g.ready.length),
+      if (g.needsRegion.isNotEmpty)
+        HomeRow('Unblock a page', () => open('region'), count: g.needsRegion.length),
+      if (_nx('photos') > 0 && jobs['photos'] != null)
+        HomeRow('Add photos: ${nm('photos', 'the next page')}', () => open('photos'),
+            count: _nx('photos')),
+      if (jobs['page'] != null)
+        HomeRow('Look over a page: ${nm('page', 'the next one')}', () => open('page')),
+      if (g.fresh.isNotEmpty)
+        HomeRow('Decide a space added on the map', () => open('fresh'),
+            count: g.fresh.length),
+      if (candidates > 0 && jobs['candidates'] != null)
+        HomeRow('New candidates to say yes or no to', () => open('candidates'),
+            count: candidates),
+      if (_sitemapCount > 0)
+        HomeRow('Add sitemap entries', () => open('sitemap'), count: _sitemapCount),
+    ];
+
+    final right = <HomeRow>[
+      if (_nx('prices') > 0)
+        HomeRow('Price changes waiting for your Go', () => _showTool('prices'),
+            count: _nx('prices')),
+      if (_nx('drafts') > 0 && jobs['drafts'] != null)
+        HomeRow('Page upgrades waiting for your Go', () => open('drafts'),
+            count: _nx('drafts')),
+      if (_updates.isNotEmpty)
+        HomeRow('Clean-up: visitors\' suggestions', () => open('updates'),
+            count: _updates.length),
+      if (_wishesNew > 0)
+        HomeRow('Owners asked for something new', () => _showTool('owneractivity'),
+            count: _wishesNew),
+    ];
+
+    return [
+      HomeGroup('To handle', waiting, urgent: true),
+      HomeGroup('Get spaces to claim', claim),
+      HomeGroup('Pages', pages),
+      HomeGroup('Keep pages right', right),
+    ];
+  }
+
+  /// How many lines have someone waiting on us: the number beside Home.
+  int _homeWaiting() =>
+      _homeGroups().expand((g) => g.rows).where((r) => r.waiting).length;
+
+  Widget _homeScreen(bool wide) {
+    final ready = _inbox != null && _nextUpRead;
+    return HomeView(
+      data: _home,
+      error: _homeError,
+      groups: ready
+          ? _homeGroups()
+          : const [HomeGroup('Reading what there is to do…', [])],
+      onRefresh: () async {
+        await Future.wait([_loadHome(), _loadNextUp(), _load()]);
+      },
+      actions: [
+        if (!wide)
+          IconButton(
+              tooltip: 'Search spaces, owners and claims',
+              onPressed: _openSearch,
+              icon: const Icon(Icons.search)),
+        const HealthButton(),
+        const SizedBox(width: 4),
+      ],
+    );
+  }
+
   // ------------------------------------------------------------- today
 
   /// Today (Jonathan, 3 Nov 2026: "more intuitive ... very simple
@@ -3393,7 +3615,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   /// it is, why, the steps it takes, one button that opens where it is
   /// done, Skip for today, and the ones after it. The control centre
   /// is one tap away (the menu, or ?admin=centre).
-  bool _todayOpen = true;
+  bool _homeOpen = true;
 
   /// A job from the list "Then this", brought to the top by a tap.
   String? _todayPick;
@@ -3406,7 +3628,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
 
   /// The job last opened from Today (its kind and title): when it has
   /// gone from the list, or moved on to another space, it was done.
-  (String, String)? _todayOpened;
+  (String, String)? _homeOpened;
 
   static String _dateKey(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
@@ -3466,14 +3688,14 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   }
 
   void _todayCheckDone() {
-    final opened = _todayOpened;
+    final opened = _homeOpened;
     if (opened == null || !mounted) return;
     final still = _nextJobs(_groups())
         .any((j) => j.kind == opened.$1 && j.title == opened.$2);
     if (still) return;
     setState(() {
       _todayRollOver();
-      _todayOpened = null;
+      _homeOpened = null;
       _todayDone++;
       if (_todayPick == opened.$1) _todayPick = null;
     });
@@ -3481,7 +3703,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   }
 
   void _todayStart(_NextJob job) {
-    _todayOpened = (job.kind, job.title);
+    _homeOpened = (job.kind, job.title);
     job.open();
   }
 
@@ -3845,7 +4067,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                 if (job.second != null && job.onSecond != null)
                   OutlinedButton(
                       onPressed: () {
-                        _todayOpened = (job.kind, job.title);
+                        _homeOpened = (job.kind, job.title);
                         job.onSecond!();
                       },
                       child: Text(job.second!)),
@@ -6108,8 +6330,12 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     final country = _countryOf(v);
     // For a retired card: the two addresses of the redirect, whether
     // Webflow took it from the sync, and the founder's two ticks.
-    final from = '${note['from'] ?? ''}';
-    final to = '${note['to'] ?? ''}';
+    // While the page is still coming down, the same two addresses as
+    // the sync will use: the page's own, and its city page.
+    final from = note['from'] != null
+        ? '${note['from']}'
+        : '/coworking/${v['webflow_slug'] ?? ''}';
+    final to = note['to'] != null ? '${note['to']}' : _retireTo(v);
     final redirectAdded = '${note['redirect'] ?? ''}'.startsWith('added');
     final stepsDone =
         note['redirect_done'] == true && note['sitemap_done'] == true;
@@ -6175,13 +6401,18 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                   style: const TextStyle(fontSize: 12.5, color: Brand.red)),
             ),
           const SizedBox(height: 10),
-          if (asked && err == null)
-            const Text('Retiring: the sync is taking the page down now.',
-                style: TextStyle(
-                    fontSize: 12.5,
-                    color: Brand.inkSecondary,
-                    fontStyle: FontStyle.italic))
-          else
+          if (asked && err == null) ...[
+            // The two steps that are yours, straight away (Jonathan,
+            // 9 Nov 2026: "i want to instantly get what I need to do re
+            // remove from sitemap, and redirect"). Your ticks are kept
+            // when the sync finishes.
+            const Text(
+                'Retiring: the page comes off the site at the next sync, '
+                'within about 10 minutes. Your two steps can be done now:',
+                style: TextStyle(fontSize: 12.5, height: 1.4, color: Brand.inkSecondary)),
+            const SizedBox(height: 10),
+            ..._retireSteps(v, from: from, to: to, redirectAdded: false),
+          ] else
             Wrap(spacing: 8, runSpacing: 8, children: [
               FilledButton.icon(
                   onPressed: () => _retire(v),
@@ -6204,6 +6435,43 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
               'done, then mark the card as complete and it leaves this list.',
               style: TextStyle(fontSize: 12.5, height: 1.4)),
           const SizedBox(height: 10),
+          ..._retireSteps(v, from: from, to: to, redirectAdded: redirectAdded),
+          Wrap(
+              spacing: 10,
+              runSpacing: 6,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                FilledButton.icon(
+                    onPressed: stepsDone ? () => _retireDone(v) : null,
+                    icon: const Icon(Icons.check, size: 18),
+                    label: const Text('Mark as complete')),
+                if (!stepsDone)
+                  const Text('Confirm both steps first.',
+                      style: TextStyle(
+                          fontSize: 12.5, color: Brand.inkMuted)),
+              ]),
+        ],
+      ]),
+    );
+  }
+
+  /// Where a retired page's address will send people: its city page,
+  /// as the sync works it out, else the coworking page.
+  String _retireTo(Map<String, dynamic> v) {
+    Map<String, dynamic>? r;
+    for (final x in _regions) {
+      if (v['webflow_region_id'] != null && x['id'] == v['webflow_region_id']) r = x;
+    }
+    r ??= _regionFor(v);
+    final slug = '${r?['slug'] ?? ''}'.trim();
+    return slug.isEmpty ? '/coworking' : '/region/$slug';
+  }
+
+  /// The founder's two steps for a page being retired: the redirect,
+  /// and the custom sitemap.
+  List<Widget> _retireSteps(Map<String, dynamic> v,
+      {required String from, required String to, required bool redirectAdded}) {
+    return [
           _retireStep(v, 'redirect_done',
               confirmLabel: redirectAdded
                   ? 'Mark as published'
@@ -6242,23 +6510,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                     icon: const Icon(Icons.copy, size: 16),
                     label: const Text('Copy old address')),
               ]),
-          Wrap(
-              spacing: 10,
-              runSpacing: 6,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                FilledButton.icon(
-                    onPressed: stepsDone ? () => _retireDone(v) : null,
-                    icon: const Icon(Icons.check, size: 18),
-                    label: const Text('Mark as complete')),
-                if (!stepsDone)
-                  const Text('Confirm both steps first.',
-                      style: TextStyle(
-                          fontSize: 12.5, color: Brand.inkMuted)),
-              ]),
-        ],
-      ]),
-    );
+    ];
   }
 
   // ------------------------------------------------------------ paid listings

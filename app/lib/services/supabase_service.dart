@@ -2997,6 +2997,14 @@ class SupabaseService {
     return res is Map ? Map<String, dynamic>.from(res) : {};
   }
 
+  /// Control centre: Home, where we stand (migration 288). The goal,
+  /// claims a month, Google and page views by month, outreach a week,
+  /// the Claim plan's counts and the targets.
+  Future<Map<String, dynamic>> adminHome() async {
+    final res = await _db.rpc('admin_home');
+    return res is Map ? Map<String, dynamic>.from(res) : {};
+  }
+
   /// Control centre: Owner activity, for the last [days] days.
   Future<Map<String, dynamic>> adminOwnerActivity(int days,
       {bool team = false}) async {
