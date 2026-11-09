@@ -1914,6 +1914,14 @@ class SupabaseService {
   Future<void> outreachLookDone(String id) =>
       _db.rpc('admin_outreach_look_done', params: {'p_id': id});
 
+  /// "Not a person" on a claim look (migration 295): the visitors who
+  /// opened this space's claim page are marked as machines, and the
+  /// look is settled. Returns how many visitors were marked.
+  Future<int> outreachLookNotPerson(String id) async {
+    final r = await _db.rpc('admin_outreach_look_not_person', params: {'p_id': id});
+    return r is num ? r.toInt() : 0;
+  }
+
   /// "Done for now" on an account that matches a space (migration 154).
   Future<void> outreachSignupDone(String id) =>
       _db.rpc('admin_outreach_signup_done', params: {'p_id': id});

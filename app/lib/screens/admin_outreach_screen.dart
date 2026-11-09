@@ -4128,6 +4128,27 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
                   }
                 },
                 child: const Text('Use that address')),
+          // A look that was plainly not a person (a bot, a preview, a
+          // link checker): off the to-dos in one tap (Jonathan, 9 Nov
+          // 2026: "I want to have an option where I can ignore this
+          // particular one because I don't believe that it was a
+          // human"). The visitor is marked as a machine, as in Claim
+          // journeys, so it leaves the numbers too (migration 295); a
+          // look by anyone else later shows again.
+          TextButton.icon(
+              onPressed: () async {
+                try {
+                  await _supabase.outreachLookNotPerson('${c['id']}');
+                  if (!mounted) return;
+                  _snack('Ignored, and off the to-dos. That visitor no longer '
+                      'counts. If someone else opens their claim page, it shows again.');
+                  await _load();
+                } catch (e) {
+                  if (mounted) _snack(_plain(e), bad: true);
+                }
+              },
+              icon: const Icon(Icons.smart_toy_outlined, size: 16),
+              label: const Text('Not a person')),
           TextButton(
               onPressed: () async {
                 try {
