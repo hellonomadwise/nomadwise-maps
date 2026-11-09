@@ -314,8 +314,10 @@ Future<Map<String, dynamic>?> _askProduct(BuildContext context,
   final custom = startLabel.isNotEmpty &&
       startLabel.replaceAll(' ', '') != autoLabel.replaceAll(' ', '');
   final label = TextEditingController(text: custom ? startLabel : '');
-  final details =
-      TextEditingController(text: _details(start['details']).join('\n'));
+  // "Per month" is chosen with the chips, not typed in the details.
+  String? per = perOf(_details(start['details']));
+  final details = TextEditingController(
+      text: withoutPer(_details(start['details'])).join('\n'));
   var category = '${start['category'] ?? 'coworking'}';
   if (!_categories.any((c) => c.$1 == category)) category = 'coworking';
   String? problem;
@@ -372,10 +374,10 @@ Future<Map<String, dynamic>?> _askProduct(BuildContext context,
             if (code.isNotEmpty) 'currency': code,
             // Empty: the database writes it from the amount.
             'label': shown,
-            'details': [
+            'details': withPer(per, [
               for (final line in details.text.split('\n'))
                 if (line.trim().isNotEmpty) line.trim()
-            ],
+            ]),
           });
         }
 
@@ -447,6 +449,30 @@ Future<Map<String, dynamic>?> _askProduct(BuildContext context,
                         ),
                       ),
                     ]),
+                    const SizedBox(height: 10),
+                    // Per what (Jonathan, 9 Nov 2026): the first line
+                    // of the details on the page, "Per month".
+                    Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          const Text('Per',
+                              style: TextStyle(
+                                  fontSize: 13, fontWeight: FontWeight.w700)),
+                          for (final p in pricePers)
+                            ChoiceChip(
+                              label: Text(p.$1),
+                              showCheckmark: false,
+                              selectedColor: Brand.ink,
+                              labelStyle: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  color: per == p.$1 ? Colors.white : Brand.ink),
+                              selected: per == p.$1,
+                              onSelected: (on) =>
+                                  setInner(() => per = on ? p.$1 : null),
+                            ),
+                        ]),
                     const SizedBox(height: 12),
                     TextField(
                       controller: label,

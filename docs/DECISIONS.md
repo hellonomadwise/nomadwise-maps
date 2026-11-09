@@ -6453,3 +6453,17 @@ Jonathan: "for these bars, if i click onto a particular bar, a modal appears sho
 
 Jonathan (Westerwelle Arusha, after Ask the owner to check): "once ive asked owner to check for the specific products we are questioning. this worth checking should go no?". Each point now has a key (which check, which products). Sending the message notes the points and the time (price_owner_asks, migration 292; the Westerwelle ask of this morning is filled in from its chat message). Those points leave the yellow box; one line says "Asked the owner about 4 things on 9 Nov, 08:14. Waiting for their answer in Chats", and turns green with "The owner wrote in Chats on ..." once they write after it, with Show what we asked and Ask again. A point not asked yet (new prices, or a change) still shows in the yellow box. Also: the workflow step for exchange rates (.github/workflows/webflow_push.yml) did not reach GitHub with the last upload, so euros cannot show yet; it is sent again.
 - 9 Nov (Jonathan, on the email Westerwelle got: "this should be personalised to the person using the owner account if we know it"): the message now starts "Hi <first name>," using the name on the listing, else on the owner's latest claim (Westerwelle: "Hi Witness,"), and falls back to "Hi <space> team," when we have no plain first name. admin_price_ask (migration 292) returns it.
+
+## 9 Nov 2026: every price can say per what
+
+Jonathan, after Westerwelle's owner answered in Chats (dedicated desk, hot desk and private office are all per month, plus a club membership at 50,000 a month): "how can this result into the prices being updated, whether its me or them, and the prices moving to being shown correctly on their live listing". The missing piece was a place to say per what: owners and we could only type it as a note. Now:
+- Owner account, Prices: each price has a "Per…" box (hour, day, week, month, year) beside the amount, outlined in gold while a price has none; "Day pass", "Month pass" and the like fill it in by themselves.
+- Price check, Edit: "Per" chips (hour, day, week, month, year) under the price.
+- Both keep it as the first detail line, "Per month", which is how the pages already say it (Hot desk "Per month" on other listings), so the site shows it with no change to Webflow, and "Worth checking" stops asking.
+The way from an answer to the live page: the owner changes the price in their Owner account (a new change waits for a Go) or we press Edit on the waiting change and pick Per month; then Go; the ten-minute website push writes it to the page.
+
+## 9 Nov 2026: currencies on the website
+
+Westerwelle Arusha's six prices failed with "The currency TZS is not set up on the website" until Jonathan added TZS to Webflow's Currencies by hand. Jonathan: "is it possible to review most currencies that we would likely ever have ... and to add them into the currencies CMS, so this doesn't happen again".
+- Added and published 95 currencies to Webflow, Currencies: every currency the Owner account offers, apart from ones a listed space is very unlikely to use (for example North Korean won, Syrian pound, Venezuelan bolivar). 112 in all now. Among them the ones listed spaces already need and lacked: AED (UAE, 16 spaces), DKK (Denmark, 10), CZK (Czech Republic, 8), SGD, AUD, RSD, ZAR, TWD, XPF, PYG.
+- And so it cannot happen again with any other: the products job (scripts/webflow_products.py) now adds a currency that is missing to Webflow itself, publishes it, and carries on, instead of failing the change. The run's report lists any it added.

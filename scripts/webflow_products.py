@@ -75,6 +75,9 @@ report = {'started': now_iso(), 'to_write': 0, 'written': 0, 'undone': 0,
 
 def finish(code=0):
     report['finished'] = now_iso()
+    added = globals().get('report_added_currency')
+    if added:
+        report['currencies_added'] = list(added)
     try:
         os.makedirs('ci-debug', exist_ok=True)
         with open('ci-debug/webflow_products_report.json', 'w') as fh:
@@ -184,6 +187,38 @@ def refs():
                 _refs['cur_of'][c['id']] = code
         time.sleep(PAUSE)
     return _refs
+
+
+def currency_id(code):
+    """The Webflow Currencies item for a three-letter code. One that is
+    not there yet is added and published first (Jonathan, 9 Nov 2026:
+    Westerwelle's prices in TZS failed until TZS was added by hand, "so
+    this doesn't happen again"). Its label is the code until someone
+    writes the full name in Webflow."""
+    r = refs()
+    code = (code or '').strip().upper()
+    if not re.fullmatch(r'[A-Z]{3}', code):
+        raise ValueError(f'{code!r} is not a currency code.')
+    if code in r['cur_id']:
+        return r['cur_id'][code]
+    made = wf_write(f'/v2/collections/{CURRENCIES_ID}/items', 'POST',
+                    {'isDraft': False, 'isArchived': False,
+                     'fieldData': {'name': code, 'slug': code.lower(),
+                                   'name-label': code}}) or {}
+    time.sleep(PAUSE)
+    item_id = made.get('id')
+    if not item_id:
+        raise ValueError(f'The currency {code} could not be added to the '
+                         'website (Webflow, Currencies); add it there by hand.')
+    publish(item_id, CURRENCIES_ID)
+    r['cur_id'][code] = item_id
+    r['cur_of'][item_id] = code
+    report_added_currency.append(code)
+    return item_id
+
+
+# currencies this run added to Webflow, for the run's summary
+report_added_currency = []
 
 
 def tidy(text):
@@ -297,10 +332,7 @@ def patch_for(target, fd, basis):
     if changes('label'):
         out['amount-label'] = want['label'] or None
     if changes('currency') and want['currency']:
-        if want['currency'] not in r['cur_id']:
-            raise ValueError(f"The currency {want['currency']} is not set up on "
-                             'the website (Webflow, Currencies); add it there first.')
-        out['product-currency'] = r['cur_id'][want['currency']]
+        out['product-currency'] = currency_id(want['currency'])
     if changes('category'):
         if want['category'] not in r['cat_id']:
             raise ValueError('This category is not set up on the website.')
@@ -519,9 +551,8 @@ def make_new(c):
     name = tidy(final.get('name'))
     base = slugify(f"{venue.get('webflow_slug') or venue.get('name') or 'space'}-{name}")[:200]
     cur = (final.get('currency') or '').upper() or None
-    if cur and cur not in r['cur_id']:
-        raise ValueError(f'The currency {cur} is not set up on the website '
-                         '(Webflow, Currencies); add it there first.')
+    if cur:
+        currency_id(cur)   # added to Webflow first when it is new
     # The space's name as its other products carry it.
     sib_type = str(sfd.get('product-type-name') or '')
     sib_full = str(sfd.get('name') or '')

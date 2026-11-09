@@ -27,6 +27,7 @@ import '../widgets/ideas_board.dart';
 import '../widgets/owner_question_card.dart';
 import '../widgets/phone_field.dart';
 import '../widgets/price.dart';
+import '../widgets/price_checks.dart' show pricePers, perOf, withoutPer, withPer, perFromName;
 import '../widgets/email_typo_hint.dart';
 import '../widgets/motion.dart';
 
@@ -3491,7 +3492,10 @@ class _OwnerScreenState extends State<OwnerScreen> {
   void _addPriceRow({String name = '', String? type}) {
     if (_priceRows.length >= 40) return;
     final r = _PriceRow(
-        name: name, category: type ?? 'coworking', autoType: type == null);
+        name: name,
+        category: type ?? 'coworking',
+        autoType: type == null,
+        per: perFromName(name));
     setState(() {
       _priceRows.add(r);
       _dirty = true;
@@ -3521,14 +3525,15 @@ class _OwnerScreenState extends State<OwnerScreen> {
     final page = _pageProductRows;
     for (final p in page) {
       final amt = p['amount'];
-      final details = (p['details'] as List? ?? const []).map((x) => '$x');
+      final details = [for (final x in (p['details'] as List? ?? const [])) '$x'];
       _priceRows.add(_PriceRow(
         id: (p['id'] ?? '').toString().isEmpty ? null : '${p['id']}',
         category: '${p['category'] ?? 'coworking'}',
         from: p['starting_from'] == true,
+        per: perOf(details) ?? perFromName('${p['name']}'),
         name: '${p['name']}',
         amount: amt == null ? '' : Price.cleanAmount('$amt'),
-        note: details.join(' '),
+        note: withoutPer(details).join(' '),
       ));
       final cur = '${p['currency'] ?? ''}'.trim().toUpperCase();
       if (cur.length == 3) _currency = cur;
@@ -3540,7 +3545,8 @@ class _OwnerScreenState extends State<OwnerScreen> {
         (_priceMonth, 'Month pass'),
       ]) {
         if (c.text.trim().isNotEmpty) {
-          _priceRows.add(_PriceRow(name: label, amount: c.text.trim()));
+          _priceRows.add(_PriceRow(
+              name: label, amount: c.text.trim(), per: perFromName(label)));
         }
       }
     }
@@ -3915,6 +3921,11 @@ class _OwnerScreenState extends State<OwnerScreen> {
           final t = _guessPriceType(r.name.text);
           if (t != r.category) setState(() => r.category = t);
         }
+        // "Day pass" is per day: filled in when not chosen yet.
+        if (!on && r.per == null) {
+          final p = perFromName(r.name.text);
+          if (p != null) setState(() => r.per = p);
+        }
       },
       child: TextField(
           controller: r.name,
@@ -3946,6 +3957,38 @@ class _OwnerScreenState extends State<OwnerScreen> {
           decoration: _dec('Price', hint: 'Amount').copyWith(
               prefixText: Price.prefixFor(_currency),
               suffixText: Price.suffixFor(_currency)),
+        ),
+      ),
+    );
+    // Per what (Jonathan, 9 Nov 2026: a hot desk at 90,000 did not say
+    // per day or per month, and we had to ask).
+    final perBox = Container(
+      height: 48,
+      padding: const EdgeInsets.only(left: 12, right: 4),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+            color: r.per == null && r.amount.text.trim().isNotEmpty
+                ? Brand.gold
+                : const Color(0x33142032)),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String?>(
+          value: r.per,
+          hint: const Text('Per…', style: TextStyle(fontSize: 14, color: _edMuted)),
+          icon: const Icon(Icons.expand_more, size: 20, color: _edMuted),
+          borderRadius: BorderRadius.circular(8),
+          style: const TextStyle(fontSize: 14, color: _edInk),
+          items: [
+            for (final p in pricePers)
+              DropdownMenuItem<String?>(value: p.$1, child: Text(p.$2.toLowerCase())),
+          ],
+          onChanged: _saving
+              ? null
+              : (x) => setState(() {
+                    r.per = x;
+                    _dirty = true;
+                  }),
         ),
       ),
     );
@@ -4013,13 +4056,16 @@ class _OwnerScreenState extends State<OwnerScreen> {
           ]),
           Wrap(
               spacing: 8,
+              runSpacing: 6,
               crossAxisAlignment: WrapCrossAlignment.center,
-              children: [amount, from]),
+              children: [amount, perBox, from]),
         ] else
           Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Expanded(child: name),
             const SizedBox(width: 10),
             amount,
+            const SizedBox(width: 8),
+            perBox,
             const SizedBox(width: 4),
             Padding(padding: const EdgeInsets.only(top: 4), child: from),
             Padding(padding: const EdgeInsets.only(top: 4), child: menu),
@@ -9365,6 +9411,10 @@ class _PriceRow {
   final String? id; // the price on the page; null for a new one
   String category;
   bool from;
+
+  /// Per hour, day, week, month or year; null when not said. Kept as
+  /// the first detail line on the page ("Per month").
+  String? per;
   // Named by the owner: filed by its name until they move it.
   bool autoType;
   bool showNote = false;
@@ -9378,6 +9428,7 @@ class _PriceRow {
     this.id,
     this.category = 'coworking',
     this.from = false,
+    this.per,
     this.autoType = false,
     String name = '',
     String amount = '',
@@ -9412,9 +9463,9 @@ class _PriceRow {
         'category': category,
         'amount': _plainAmount,
         'starting_from': from,
-        'details': [
+        'details': withPer(per, [
           if (note.text.trim().isNotEmpty) note.text.trim(),
-        ],
+        ]),
       };
 
   void dispose() {

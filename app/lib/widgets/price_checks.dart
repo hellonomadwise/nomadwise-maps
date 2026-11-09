@@ -269,3 +269,52 @@ String priceCheckMessage(String spaceName, List<PriceIssue> issues, {String? fir
     'Just reply here, or change them in your Owner account. Thank you!',
   ].join('\n');
 }
+
+// ------------------------------------------------------------ per what
+
+/// The lengths a price can be for. Kept as the first detail line of a
+/// product ("Per month"), which is how the pages already say it, so
+/// nothing changes on the site (Jonathan, 9 Nov 2026: an owner's hot
+/// desk and offices did not say per what, and the answer came by chat).
+const pricePers = <(String, String)>[
+  ('hour', 'Per hour'),
+  ('day', 'Per day'),
+  ('week', 'Per week'),
+  ('month', 'Per month'),
+  ('year', 'Per year'),
+];
+
+final _perLine = RegExp(r'^(price )?per (hour|day|week|month|year)\.?$', caseSensitive: false);
+
+/// The "per" in [details] ("Per month" or "Price per month"), or null.
+String? perOf(List<String> details) {
+  for (final d in details) {
+    final m = _perLine.firstMatch(d.trim());
+    if (m != null) return m.group(2)!.toLowerCase();
+  }
+  return null;
+}
+
+/// [details] without their "per" line.
+List<String> withoutPer(List<String> details) =>
+    [for (final d in details) if (!_perLine.hasMatch(d.trim())) d];
+
+/// [details] with [per] as the first line ("Per month"); none for null.
+List<String> withPer(String? per, List<String> details) {
+  final rest = withoutPer(details);
+  final label = [for (final p in pricePers) if (p.$1 == per) p.$2];
+  return [...label, ...rest];
+}
+
+/// A likely "per" from a product's name ("Day pass" is per day), or
+/// null when the name does not say.
+String? perFromName(String name) {
+  final s = ' ${name.toLowerCase()} ';
+  if (RegExp(r'\b([2-9]|[1-9][0-9])[ -]?(day|days)\b').hasMatch(s)) return null;
+  if (RegExp(r'\b(hour|hourly)\b').hasMatch(s)) return 'hour';
+  if (RegExp(r'\b(day|daily)\b').hasMatch(s)) return 'day';
+  if (RegExp(r'\b(week|weekly)\b').hasMatch(s)) return 'week';
+  if (RegExp(r'\b(month|monthly)\b').hasMatch(s)) return 'month';
+  if (RegExp(r'\b(year|yearly|annual)\b').hasMatch(s)) return 'year';
+  return null;
+}
