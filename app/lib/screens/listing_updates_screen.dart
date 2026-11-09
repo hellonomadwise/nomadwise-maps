@@ -136,7 +136,7 @@ class _ListingUpdatesScreenState extends State<ListingUpdatesScreen> {
             'hours, prices, photos and more whenever you need to:'}\n'
         '$link\n\n'
         'Any questions, just reply to this email.\n\n'
-        'Kind regards,\nJonathan Heavens\nCofounder - Nomadwise.io';
+        'Kind regards,\nJonathan Heavens\nCo-founder, nomadwise.io';
     var updated = true;
     final body = TextEditingController(text: text(updated));
     final how = await showDialog<String>(

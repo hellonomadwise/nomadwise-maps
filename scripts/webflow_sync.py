@@ -1748,6 +1748,13 @@ def owner_fields(v, item=None):
     wifi_out = {}
     if v.get('wifi_owner_tested_at') and v.get('wifi_speed_mbps'):
         wifi_out['average-internet-speed'] = v['wifi_speed_mbps']
+    # The space's own hours (venues.opening_hours, set in the control
+    # centre or from an owner's change) go on the page, owner content
+    # or not (Jonathan, 9 Nov 2026: The Capsule's new hours were saved
+    # but the page kept the old ones; migration 300 asks for this sync
+    # whenever the hours change on a page that is live).
+    if v.get('opening_hours'):
+        wifi_out.update(day_fields(v))
     if not oc and not v.get('owner_content_at'):
         return wifi_out
     out = dict(wifi_out)

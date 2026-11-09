@@ -1514,6 +1514,10 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
     final onWindows = defaultTargetPlatform == TargetPlatform.windows;
     String unsubLink = '';
     String? problem;
+    // The space has no page tied to it, so the links in the email go to
+    // the home page and a long search link (Jonathan, 9 Nov 2026: "The
+    // link is looking dodgy").
+    var noPage = false;
     final lastOut = DateTime.tryParse('${c['last_out_at'] ?? ''}');
     final recent = lastOut != null &&
         DateTime.now().difference(lastOut).inDays < 30;
@@ -1532,6 +1536,9 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
         subject.text = '${p['subject'] ?? ''}';
         body.text = '${p['body'] ?? ''}';
         unsubLink = '${p['unsubscribe_link'] ?? ''}';
+        final claim = '${p['claim_link'] ?? ''}';
+        noPage = claim.startsWith('https://nomadmaps.io/?claim=') &&
+            body.text.contains(claim);
       } catch (e) {
         problem = _plain(e);
       }
@@ -1552,7 +1559,8 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
     // my signature if I'm going to copy and paste it into spark"). The
     // log keeps the full words.
     String pasteBody() => ownInboxBody().replaceFirst(
-        RegExp(r'Kind regards,\s*\n\s*Jonathan Heavens\s*\n\s*Cofounder - Nomadwise\.io'),
+        RegExp(r'Kind regards,\s*\n\s*Jonathan Heavens\s*\n\s*Co-?founder(,| -) Nomadwise\.io',
+            caseSensitive: false),
         'Kind regards,');
 
     // Gets the email ready to be sent from our own mailbox by hand.
@@ -1783,6 +1791,24 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
                             fill(k, setD);
                           },
                   ),
+                  if (noPage && !loading)
+                    Container(
+                      margin: const EdgeInsets.only(top: 10),
+                      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                      decoration: BoxDecoration(
+                          color: Brand.goldTint,
+                          borderRadius: BorderRadius.circular(10)),
+                      child: const Text(
+                          'This line is not tied to a page on nomadwise.io, so '
+                          'the links in this email do not go to their page. If '
+                          'they have one, close this, press Remove... on the '
+                          'line and choose "Already in touch on another line" '
+                          'to join it with their page\'s line (every message is '
+                          'kept). If they have no page, pick a template without '
+                          'a claim link.',
+                          style: TextStyle(
+                              fontSize: 12.5, height: 1.4, color: Brand.goldTextDark)),
+                    ),
                   const SizedBox(height: 10),
                   TextField(
                       controller: subject,
@@ -5546,6 +5572,8 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
     // Lines showing the whole email (Jonathan, 3 Nov 2026: "I need to be
     // able to see the full email" to decide).
     final full = <String>{};
+    // which line is on screen
+    var at = 0;
     await showDialog<void>(
       context: context,
       builder: (ctx) => StatefulBuilder(builder: (ctx, set) {
@@ -5602,141 +5630,200 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
           if (rows.isEmpty) Navigator.pop(ctx);
         }
 
-        return AlertDialog(
-          title: Text('Old replies to settle (${rows.length})'),
-          content: SizedBox(
-            width: 640,
-            child: SingleChildScrollView(
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const Text(
-                        'Each says they replied, over a month ago. Emails open '
-                        'for you to read before anything is sent.',
-                        style: TextStyle(
-                            fontSize: 13, color: Brand.inkSecondary)),
-                    const SizedBox(height: 12),
-                    for (final c in rows)
-                      Container(
-                        margin: const EdgeInsets.only(bottom: 10),
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                            border: Border.all(color: Brand.border),
-                            borderRadius: BorderRadius.circular(10)),
-                        child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('${c['space_name'] ?? c['email'] ?? 'A space'}',
-                                  style: const TextStyle(
-                                      fontSize: 14.5,
-                                      fontWeight: FontWeight.w700)),
-                              Text(
-                                  [
-                                    if ('${c['city'] ?? ''}'.trim().isNotEmpty)
-                                      '${c['city']}'.trim(),
-                                    'they wrote ${_agoOf(c['last_in_at'] ?? c['stage_at'])}',
-                                  ].join(' · '),
-                                  style: const TextStyle(
-                                      fontSize: 12.5,
-                                      color: Brand.inkSecondary)),
-                              if ('${c['last_in'] ?? ''}'.trim().isNotEmpty)
-                                Builder(builder: (_) {
-                                  final msg = '${c['last_in']}'.trim();
-                                  final long = msg.length > 140 || msg.contains('\n');
-                                  final open = full.contains('${c['id']}');
-                                  return Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        if (open)
-                                          Container(
-                                            width: double.infinity,
-                                            margin: const EdgeInsets.only(top: 6),
-                                            padding: const EdgeInsets.all(12),
-                                            constraints: const BoxConstraints(maxHeight: 320),
-                                            decoration: BoxDecoration(
-                                                color: Brand.bg,
-                                                borderRadius: BorderRadius.circular(10)),
-                                            child: SingleChildScrollView(
-                                              child: SelectableText(msg,
-                                                  style: const TextStyle(
-                                                      fontSize: 13.5,
-                                                      height: 1.5,
-                                                      color: Brand.ink)),
-                                            ),
-                                          )
-                                        else
-                                          Padding(
-                                            padding: const EdgeInsets.only(top: 4),
-                                            child: Text(
-                                                '"${_clip(msg.replaceAll(RegExp(r'\s+'), ' '), 140)}"',
-                                                style: const TextStyle(
-                                                    fontSize: 12.5,
-                                                    fontStyle: FontStyle.italic,
-                                                    color: Brand.inkSecondary)),
-                                          ),
-                                        Wrap(spacing: 4, children: [
-                                          if (long)
-                                            TextButton(
-                                                onPressed: () => set(() => open
-                                                    ? full.remove('${c['id']}')
-                                                    : full.add('${c['id']}')),
-                                                child: Text(open
-                                                    ? 'Show less'
-                                                    : 'Show the full email')),
-                                          if (((c['message_count'] as num?) ?? 0) > 1)
-                                            TextButton(
-                                                onPressed: () async {
-                                                  try {
-                                                    final ms = await _supabase
-                                                        .outreachMessages('${c['id']}');
-                                                    if (!mounted) return;
-                                                    _showHistory(c, ms);
-                                                  } catch (e) {
-                                                    if (mounted) _snack(_plain(e), bad: true);
-                                                  }
-                                                },
-                                                child: Text(
-                                                    'All messages (${c['message_count']})')),
-                                        ]),
-                                      ]);
-                                }),
-                              const SizedBox(height: 8),
-                              Wrap(spacing: 6, runSpacing: 6, children: [
-                                if ('${c['email'] ?? ''}'.trim().isNotEmpty)
-                                  FilledButton.icon(
-                                      onPressed: () => invite(c),
-                                      icon: const Icon(Icons.mail_outline, size: 18),
-                                      label: Text(c['stage'] == 'claimed' ||
-                                              c['stage'] == 'verified'
-                                          ? 'Email their Owner account link'
-                                          : 'Invite to claim')),
-                                OutlinedButton(
-                                    onPressed: () => act(c, 'talking'),
-                                    child: const Text('Still talking')),
-                                OutlinedButton(
-                                    onPressed: () => act(c, 'done'),
-                                    child: const Text('Done with them')),
-                                OutlinedButton(
-                                    onPressed: () => act(c, 'later'),
-                                    child: const Text('Not now')),
-                              ]),
-                            ]),
-                      ),
-                    const Text(
-                        'Invite to claim: the free claim email, ready to read and send. '
-                        'Still talking: back to Waiting, follow up in a week. '
-                        'Done with them: off the lists. Not now: off the lists, '
-                        'back in To do in 3 months.',
-                        style: TextStyle(
-                            fontSize: 12, color: Brand.inkSecondary)),
-                  ]),
-            ),
-          ),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Close')),
-          ],
+        // One at a time (Jonathan, 9 Nov 2026, on the phone: "Ui could be
+        // better"): the space, what they wrote, and the choices fixed at
+        // the bottom; deciding moves on to the next.
+        if (rows.isEmpty) return const SizedBox.shrink();
+        if (at >= rows.length) at = 0;
+        final c = rows[at];
+        final id = '${c['id']}';
+        final msg = '${c['last_in'] ?? ''}'.trim();
+        final open = full.contains(id);
+        final many = ((c['message_count'] as num?) ?? 0) > 1;
+        final theirOwn = c['stage'] == 'claimed' || c['stage'] == 'verified';
+        final hasEmail = '${c['email'] ?? ''}'.trim().isNotEmpty;
+        final narrow = MediaQuery.sizeOf(ctx).width < 600;
+
+        Widget choice(String label, String how, String hint) => Expanded(
+              child: Tooltip(
+                message: hint,
+                child: OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10))),
+                  onPressed: () => act(c, how),
+                  child: Text(label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 13.5)),
+                ),
+              ),
+            );
+
+        final body = Column(
+            mainAxisSize: narrow ? MainAxisSize.max : MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // header: what this is, where you are, close
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 14, 8, 0),
+                child: Row(children: [
+                  const Expanded(
+                    child: Text('Old replies to settle',
+                        style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+                  ),
+                  Text('${at + 1} of ${rows.length}',
+                      style: const TextStyle(
+                          fontSize: 13, fontWeight: FontWeight.w700,
+                          color: Brand.inkSecondary)),
+                  IconButton(
+                      tooltip: 'Close',
+                      onPressed: () => Navigator.pop(ctx),
+                      icon: const Icon(Icons.close)),
+                ]),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 2, 20, 10),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(3),
+                  child: LinearProgressIndicator(
+                      value: (done + at) / (done + rows.length).clamp(1, 1 << 30),
+                      minHeight: 4,
+                      backgroundColor: Brand.field,
+                      color: Brand.success),
+                ),
+              ),
+              const Divider(height: 1),
+              Flexible(
+                fit: narrow ? FlexFit.tight : FlexFit.loose,
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('${c['space_name'] ?? c['email'] ?? 'A space'}',
+                            style: const TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.w800,
+                                color: Brand.ink, height: 1.25)),
+                        const SizedBox(height: 4),
+                        Text(
+                            [
+                              if ('${c['city'] ?? ''}'.trim().isNotEmpty)
+                                '${c['city']}'.trim(),
+                              'they wrote ${_agoOf(c['last_in_at'] ?? c['stage_at'])}',
+                            ].join(' · '),
+                            style: const TextStyle(
+                                fontSize: 13, color: Brand.inkSecondary)),
+                        const SizedBox(height: 14),
+                        if (msg.isNotEmpty)
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                            decoration: BoxDecoration(
+                                color: Brand.bg,
+                                borderRadius: BorderRadius.circular(12)),
+                            child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  SelectableText(
+                                      open ? msg : _clip(msg.replaceAll(RegExp(r'\s+'), ' '), 260),
+                                      style: const TextStyle(
+                                          fontSize: 14, height: 1.5, color: Brand.ink)),
+                                  if (msg.length > 260 || msg.contains('\n'))
+                                    GestureDetector(
+                                      onTap: () => set(() =>
+                                          open ? full.remove(id) : full.add(id)),
+                                      child: Padding(
+                                        padding: const EdgeInsets.only(top: 8),
+                                        child: Text(open ? 'Show less' : 'Read the whole email',
+                                            style: const TextStyle(
+                                                fontSize: 13.5,
+                                                fontWeight: FontWeight.w700,
+                                                color: Brand.accent)),
+                                      ),
+                                    ),
+                                ]),
+                          )
+                        else
+                          const Text('Their message is not in Outreach.',
+                              style: TextStyle(fontSize: 13.5, color: Brand.inkMuted)),
+                        if (many)
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: TextButton.icon(
+                              style: TextButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(horizontal: 4)),
+                              onPressed: () async {
+                                try {
+                                  final ms = await _supabase.outreachMessages(id);
+                                  if (!mounted) return;
+                                  _showHistory(c, ms);
+                                } catch (e) {
+                                  if (mounted) _snack(_plain(e), bad: true);
+                                }
+                              },
+                              icon: const Icon(Icons.forum_outlined, size: 17),
+                              label: Text('See all ${c['message_count']} messages'),
+                            ),
+                          ),
+                      ]),
+                ),
+              ),
+              const Divider(height: 1),
+              // the choices, always in reach
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (hasEmail)
+                        FilledButton.icon(
+                            style: FilledButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10))),
+                            onPressed: () => invite(c),
+                            icon: const Icon(Icons.mail_outline, size: 18),
+                            label: Text(theirOwn
+                                ? 'Email their Owner account link'
+                                : 'Invite to claim')),
+                      const SizedBox(height: 8),
+                      Row(children: [
+                        choice('Still talking', 'talking',
+                            'Back to Waiting, and a follow-up in a week'),
+                        const SizedBox(width: 8),
+                        choice('Done', 'done', 'Off the lists for good'),
+                        const SizedBox(width: 8),
+                        choice('Not now', 'later', 'Off the lists, back in To do in 3 months'),
+                      ]),
+                      const SizedBox(height: 6),
+                      Row(children: [
+                        const Expanded(
+                          child: Text(
+                              'Still talking: follow up in a week · Done: off the '
+                              'lists · Not now: back in 3 months',
+                              style: TextStyle(fontSize: 11.5, color: Brand.inkMuted)),
+                        ),
+                        if (rows.length > 1)
+                          TextButton(
+                              onPressed: () => set(() => at = (at + 1) % rows.length),
+                              child: const Text('Skip')),
+                      ]),
+                    ]),
+              ),
+            ]);
+
+        // A phone gets the whole screen; a wide screen a window.
+        if (narrow) {
+          return Dialog.fullscreen(child: SafeArea(child: body));
+        }
+        return Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          clipBehavior: Clip.antiAlias,
+          child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 560, maxHeight: 720),
+              child: body),
         );
       }),
     );
