@@ -144,17 +144,19 @@ class _HomeViewState extends State<HomeView> {
               else
                 const _Heading('WHERE WE STAND'),
               const SizedBox(height: 10),
+              // While the numbers come: grey shapes where the cards will
+              // be, with a moving bar (Jonathan, 9 Nov 2026: "i would
+              // prefer it to just be a loading skeleton").
               if (widget.data == null && widget.error == null)
-                const _Card(
-                    child: SizedBox(
-                        height: 120,
-                        child: Center(child: CircularProgressIndicator(color: Brand.red))))
+                _standSkeleton(phone, inner)
               else if (widget.data == null)
                 _Card(
                   child: Row(children: [
-                    Expanded(
-                        child: Text('The numbers could not be read: ${widget.error}',
-                            style: const TextStyle(fontSize: 13.5, color: Brand.inkSecondary))),
+                    const Expanded(
+                        child: Text(
+                            'The numbers are taking longer than usual to come. '
+                            'The rest of Home works.',
+                            style: TextStyle(fontSize: 13.5, color: Brand.inkSecondary))),
                     TextButton(onPressed: widget.onRefresh, child: const Text('Try again')),
                   ]),
                 )
@@ -265,6 +267,69 @@ class _HomeViewState extends State<HomeView> {
     final last = rows.last;
     final d = _date(last['month']);
     return '${_short(_num(last['n']))} in ${d == null ? '' : DateFormat('MMMM').format(d)}';
+  }
+
+  /// Where we stand before its numbers have come: the cards' shapes in
+  /// grey, a bar moving along the top.
+  Widget _standSkeleton(bool phone, double inner) {
+    Widget bar(double w, double h) => Container(
+          width: w,
+          height: h,
+          decoration:
+              BoxDecoration(color: Brand.field, borderRadius: BorderRadius.circular(4)),
+        );
+    Widget card({double height = 236}) => _Card(
+          padding: EdgeInsets.zero,
+          child: SizedBox(
+            height: height,
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const ClipRRect(
+                borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
+                child: LinearProgressIndicator(
+                    minHeight: 3, backgroundColor: Colors.transparent, color: Brand.red),
+              ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 13, 16, 16),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    bar(110, 12),
+                    const SizedBox(height: 14),
+                    Expanded(
+                      child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                        for (final f in const [.45, .7, .55, .85, .6, .75])
+                          Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 4),
+                              child: FractionallySizedBox(
+                                  heightFactor: f, alignment: Alignment.bottomCenter,
+                                  child: bar(double.infinity, double.infinity)),
+                            ),
+                          ),
+                      ]),
+                    ),
+                  ]),
+                ),
+              ),
+            ]),
+          ),
+        );
+    if (phone) {
+      return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [card(height: 190), const SizedBox(height: 14), card(height: 220)]);
+    }
+    const gap = 14.0;
+    final across = inner >= 980 ? 4 : 2;
+    final w = (inner - (across - 1) * gap) / across;
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Wrap(
+        spacing: gap,
+        runSpacing: gap,
+        children: [for (var i = 0; i < 4; i++) SizedBox(width: w, child: card())],
+      ),
+      const SizedBox(height: 14),
+      card(height: 260),
+    ]);
   }
 
   Widget _standWide(double inner) {

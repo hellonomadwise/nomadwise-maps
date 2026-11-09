@@ -3445,16 +3445,29 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   String? _homeError;
 
   Future<void> _loadHome() async {
-    try {
-      final r = await _supabase.adminHome();
-      if (!mounted) return;
-      setState(() {
-        _home = r;
-        _homeError = null;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _homeError = '$e');
+    // A slow first read is tried again quietly, the grey shapes staying
+    // up, before Home says anything (Jonathan, 9 Nov 2026: it said "Try
+    // again" while it was only still loading). A refresh that fails
+    // keeps the numbers already shown.
+    if (_homeError != null && mounted) setState(() => _homeError = null);
+    for (var go = 0; go < 3; go++) {
+      try {
+        final r = await _supabase.adminHome();
+        if (!mounted) return;
+        setState(() {
+          _home = r;
+          _homeError = null;
+        });
+        return;
+      } catch (e) {
+        if (!mounted) return;
+        if (go == 2) {
+          if (_home == null) setState(() => _homeError = '$e');
+          return;
+        }
+        await Future.delayed(Duration(seconds: go == 0 ? 1 : 3));
+        if (!mounted) return;
+      }
     }
   }
 
