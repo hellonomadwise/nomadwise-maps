@@ -81,6 +81,17 @@ jobs:
         run: |
           python3 scripts/photo_suggest.py
 
+      # Exchange rates for Price check's "about EUR ..." (migration
+      # 290). Fetches about once a day; exits at once otherwise.
+      - name: Exchange rates
+        if: always()
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          python3 scripts/fx_rates.py
+
       # Stripe: paid Verified checkouts become plans, lapses go back
       # to free. Exits at once when STRIPE_API_KEY is not set.
       - name: Stripe plans
