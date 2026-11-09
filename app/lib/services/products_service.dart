@@ -37,6 +37,17 @@ class ProductsService {
   Future<void> askOwner(String venueId, String body) =>
       _db.rpc('admin_chat_send', params: {'p_venue': venueId, 'p_body': body});
 
+  /// Note which points the owner was asked about (migration 292).
+  Future<void> recordAsk(String venueId, List<String> keys) => _db.rpc(
+      'admin_price_ask_record',
+      params: {'p_venue': venueId, 'p_keys': keys});
+
+  /// The latest ask: asked_at, keys, replied_at; null when never asked.
+  Future<Map<String, dynamic>?> ask(String venueId) async {
+    final r = await _db.rpc('admin_price_ask', params: {'p_venue': venueId});
+    return r is Map ? Map<String, dynamic>.from(r) : null;
+  }
+
   /// The numbers at the top of the Price check screen.
   Future<Map<String, dynamic>> overview() async =>
       _map(await _db.rpc('admin_prices_overview'));

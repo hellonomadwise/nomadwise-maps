@@ -1198,8 +1198,13 @@ class _PriceSpacePageState extends State<_PriceSpacePage> {
   // does nothing.
   final Set<String> _busy = {};
 
-  /// When we asked the owner to check their prices, in this visit.
-  DateTime? _askedOwner;
+  /// The latest time we asked the owner to check (migration 292): when,
+  /// which points, and when they last wrote in Chats since. Null when
+  /// never asked.
+  Map<String, dynamic>? _ask;
+
+  /// "Show what we asked" opened.
+  bool _showAsked = false;
 
   /// The products as they will be on the page once what waits is
   /// decided: what is there, with the changes and new ones as
@@ -1230,7 +1235,9 @@ class _PriceSpacePageState extends State<_PriceSpacePage> {
   /// "Ask the owner to check": the questions, worded for them, in a box
   /// to change before it goes to their Chats.
   Future<void> _askOwner(String spaceName, List<PriceIssue> issues) async {
-    final ctl = TextEditingController(text: priceCheckMessage(spaceName, issues));
+    final ctl = TextEditingController(
+        text: priceCheckMessage(spaceName, issues,
+            firstName: _ask?['owner_first'] as String?));
     final send = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -1264,8 +1271,24 @@ class _PriceSpacePageState extends State<_PriceSpacePage> {
     setState(() => _busy.add('ask'));
     try {
       await _api.askOwner(widget.venueId, text);
+      // What was asked before stays asked: the points of this message
+      // are added to it.
+      final keys = <String>{
+        ..._askedKeys,
+        for (final i in issues) i.key,
+      }.toList();
+      try {
+        await _api.recordAsk(widget.venueId, keys);
+      } catch (_) {
+        // the message went; only the note of it did not
+      }
       if (!mounted) return;
-      setState(() => _askedOwner = DateTime.now());
+      setState(() => _ask = {
+            ...?_ask,
+            'asked_at': DateTime.now().toUtc().toIso8601String(),
+            'keys': keys,
+            'replied_at': null,
+          });
       _snack('Sent to their Chats. Their answer shows in Chats, and you '
           'can decide the prices once they reply.');
     } catch (e) {
@@ -1275,8 +1298,86 @@ class _PriceSpacePageState extends State<_PriceSpacePage> {
     }
   }
 
+  Set<String> get _askedKeys => {
+        for (final k in (_ask?['keys'] as List? ?? const [])) '$k',
+      };
+
+  /// What "Worth checking" leaves out because the owner was asked about
+  /// it: one line saying so, and whether they have written since.
+  Widget _askedLine(Map<String, dynamic> v, List<PriceIssue> asked) {
+    final at = DateTime.tryParse('${_ask?['asked_at'] ?? ''}')?.toLocal();
+    final replied = DateTime.tryParse('${_ask?['replied_at'] ?? ''}')?.toLocal();
+    String when(DateTime d) => DateFormat('d MMM, HH:mm').format(d);
+    final n = asked.length;
+    return Container(
+      margin: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.fromLTRB(12, 10, 8, 6),
+      decoration: BoxDecoration(
+          color: replied != null ? Brand.successTint : Brand.field,
+          borderRadius: BorderRadius.circular(8)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 1),
+            child: Icon(replied != null ? Icons.mark_chat_read_outlined : Icons.schedule,
+                size: 18, color: replied != null ? Brand.success : Brand.inkSecondary),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+                replied != null
+                    ? 'The owner wrote in Chats on ${when(replied)}, after we asked about '
+                        '$n ${n == 1 ? 'thing' : 'things'}. Read their answer there, then '
+                        'decide below.'
+                    : 'Asked the owner about $n ${n == 1 ? 'thing' : 'things'}'
+                        '${at == null ? '' : ' on ${when(at)}'}. Waiting for their '
+                        'answer in Chats.',
+                style: const TextStyle(fontSize: 13, height: 1.4, color: Brand.ink)),
+          ),
+        ]),
+        if (_showAsked)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(26, 6, 0, 0),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              for (final i in asked)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text('• ${i.see}',
+                      style: const TextStyle(
+                          fontSize: 12.5, height: 1.4, color: Brand.inkSecondary)),
+                ),
+            ]),
+          ),
+        Wrap(spacing: 4, children: [
+          TextButton(
+              onPressed: () => setState(() => _showAsked = !_showAsked),
+              child: Text(_showAsked ? 'Hide what we asked' : 'Show what we asked')),
+          if (v['owned'] == true)
+            TextButton(
+                onPressed: _busy.contains('ask')
+                    ? null
+                    : () => _askOwner('${v['name'] ?? widget.name}', asked),
+                child: const Text('Ask again')),
+        ]),
+      ]),
+    );
+  }
+
   /// Things worth checking before a Go, with a way to ask the owner.
-  Widget _worthChecking(Map<String, dynamic> v, List<PriceIssue> issues) {
+  /// Points the owner was already asked about are left out here and
+  /// shown as one line instead (Jonathan, 9 Nov 2026: "once ive asked
+  /// owner to check ... this worth checking should go no?").
+  Widget _worthChecking(Map<String, dynamic> v, List<PriceIssue> all) {
+    final askedKeys = _askedKeys;
+    final asked = [for (final i in all) if (askedKeys.contains(i.key)) i];
+    final issues = [for (final i in all) if (!askedKeys.contains(i.key)) i];
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      if (asked.isNotEmpty) _askedLine(v, asked),
+      if (issues.isNotEmpty) _worthBox(v, issues),
+    ]);
+  }
+
+  Widget _worthBox(Map<String, dynamic> v, List<PriceIssue> issues) {
     final owned = v['owned'] == true;
     return Container(
       margin: const EdgeInsets.only(top: 12),
@@ -1312,10 +1413,6 @@ class _PriceSpacePageState extends State<_PriceSpacePage> {
                     : () => _askOwner('${v['name'] ?? widget.name}', issues),
                 icon: const Icon(Icons.forum_outlined, size: 18),
                 label: const Text('Ask the owner to check')),
-            if (_askedOwner != null)
-              Text('Asked ${DateFormat('HH:mm').format(_askedOwner!)}',
-                  style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700,
-                      color: Brand.success)),
           ]),
         ],
       ]),
@@ -1332,9 +1429,16 @@ class _PriceSpacePageState extends State<_PriceSpacePage> {
     try {
       final d = await _api.space(widget.venueId);
       await _Fx.load(_api);
+      Map<String, dynamic>? ask;
+      try {
+        ask = await _api.ask(widget.venueId);
+      } catch (_) {
+        ask = _ask; // not readable now: keep what we had
+      }
       if (!mounted) return;
       setState(() {
         _data = d;
+        _ask = ask;
         _error = null;
       });
     } catch (e) {

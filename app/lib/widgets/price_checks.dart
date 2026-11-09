@@ -22,12 +22,16 @@
 library;
 
 class PriceIssue {
+  /// Which check and which products: the same point keeps the same
+  /// key, so once the owner was asked about it, it is not asked again.
+  final String key;
+
   /// What to look at, for us.
   final String see;
 
   /// The same as a question for the owner.
   final String ask;
-  const PriceIssue(this.see, this.ask);
+  const PriceIssue(this.key, this.see, this.ask);
 }
 
 /// One product as it will be on the page.
@@ -138,7 +142,7 @@ List<PriceIssue> priceIssues(List<Map<String, dynamic>> items,
   final out = <PriceIssue>[];
   final asked = <String>{};
   void add(String key, String see, String ask) {
-    if (asked.add(key)) out.add(PriceIssue(see, ask));
+    if (asked.add(key)) out.add(PriceIssue(key, see, ask));
   }
 
   // The same name twice.
@@ -193,7 +197,7 @@ List<PriceIssue> priceIssues(List<Map<String, dynamic>> items,
     priced.sort((a, b) => (a.period == p.period ? 0 : a.period == null ? 1 : 2)
         .compareTo(b.period == p.period ? 0 : b.period == null ? 1 : 2));
     add('ask:${p.name}',
-        '${_q(p.name)} shows "Price on request" while other ${_kindWords[p.kind]} prices are shown. Is there a price, or is it the same as one of them?',
+        '${_q(p.name)} shows "Price on request", while other prices for ${_kindWords[p.kind]} are shown. Is there a price, or is it the same as one of them?',
         '${_q(p.name)} shows "Price on request". Could you give us the price, or tell us if it is the same as ${_q(priced.first.name)}?');
   }
 
@@ -246,8 +250,15 @@ List<PriceIssue> priceIssues(List<Map<String, dynamic>> items,
 }
 
 /// The message to the owner: one question per thing to check.
-String priceCheckMessage(String spaceName, List<PriceIssue> issues) {
-  final team = spaceName.trim().isEmpty ? 'Hi,' : 'Hi ${spaceName.trim()} team,';
+/// [firstName]: the owner's, when we know it ("Hi Amani,"); else the
+/// space's team.
+String priceCheckMessage(String spaceName, List<PriceIssue> issues, {String? firstName}) {
+  final first = (firstName ?? '').trim();
+  final team = first.isNotEmpty
+      ? 'Hi $first,'
+      : spaceName.trim().isEmpty
+          ? 'Hi,'
+          : 'Hi ${spaceName.trim()} team,';
   return [
     team,
     '',
