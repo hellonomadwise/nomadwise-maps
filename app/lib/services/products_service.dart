@@ -15,6 +15,28 @@ class ProductsService {
           if (x is Map) Map<String, dynamic>.from(x)
       ];
 
+  /// How many of each currency make one euro (migration 290), and when
+  /// the rates were read. Empty until the daily job has run.
+  Future<(Map<String, double>, DateTime?)> fxRates() async {
+    final rows = _list(await _db.from('fx_rates').select('currency, per_eur, updated_at'));
+    final out = <String, double>{};
+    DateTime? at;
+    for (final r in rows) {
+      final v = r['per_eur'];
+      final n = v is num ? v.toDouble() : double.tryParse('$v');
+      if (n != null && n > 0) out['${r['currency']}'.toUpperCase()] = n;
+      final t = DateTime.tryParse('${r['updated_at'] ?? ''}');
+      if (t != null && (at == null || t.isAfter(at))) at = t;
+    }
+    return (out, at);
+  }
+
+  /// A message to the space's owner, in their Chats (they are emailed
+  /// when they have not seen it within a minute): Price check's "Ask
+  /// the owner to check".
+  Future<void> askOwner(String venueId, String body) =>
+      _db.rpc('admin_chat_send', params: {'p_venue': venueId, 'p_body': body});
+
   /// The numbers at the top of the Price check screen.
   Future<Map<String, dynamic>> overview() async =>
       _map(await _db.rpc('admin_prices_overview'));

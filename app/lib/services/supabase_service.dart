@@ -3005,6 +3005,17 @@ class SupabaseService {
     return res is Map ? Map<String, dynamic>.from(res) : {};
   }
 
+  /// Home: every message we sent in the week starting [week] (a
+  /// Monday), with the space and where things stand (migration 291).
+  Future<List<Map<String, dynamic>>> adminOutreachWeek(DateTime week) async {
+    final d = '${week.year}-${week.month.toString().padLeft(2, '0')}-${week.day.toString().padLeft(2, '0')}';
+    final res = await _db.rpc('admin_outreach_week', params: {'p_week': d});
+    return [
+      for (final x in (res is List ? res : const []))
+        if (x is Map) Map<String, dynamic>.from(x)
+    ];
+  }
+
   /// Control centre: Owner activity, for the last [days] days.
   Future<Map<String, dynamic>> adminOwnerActivity(int days,
       {bool team = false}) async {

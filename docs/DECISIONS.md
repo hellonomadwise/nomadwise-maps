@@ -6430,3 +6430,21 @@ Jonathan: "i have no idea how to resolve these 6 prices". All six were first pri
 ## 9 Nov 2026: a retired page's two steps at once
 
 Jonathan (Phil Coffee Co): "i pressed retire the page, but i want to instantly get what I need to do re remove from sitemap, and redirect". The card said only "Retiring: the sync is taking the page down now" until the sync (every 10 minutes) had run. Now the redirect (old path and city page, with Copy) and the sitemap step show as soon as Retire is pressed, and can be ticked straight away; the sync keeps those ticks when it writes its note.
+
+## 9 Nov 2026: prices in another currency also show euros
+
+Jonathan, on Westerwelle Arusha's prices in Tanzanian shillings: "how would I know otherwise, if in local currency ... could we add in for review ... how much equivalent that would mean in euros?". Price check now shows "about €3.70" under a price in another currency, in every price box (on our page, proposed, added by the owner). Rates: fx_rates (migration 290), how many of each currency make one euro, copied about once a day from ExchangeRate-API's free daily rates by scripts/fx_rates.py in the ten-minute workflow. Only for judging a price: nothing on nomadwise.io is converted.
+
+## 9 Nov 2026: Price check points out prices worth checking, and asks the owner
+
+Jonathan: "if you can point out possible overlaps ... I'd like to automate or make easier a way to check that the prices could be overlapped or incorrect, and then auto go back to the owner with a request to check". A space's prices now open with "Worth checking before a Go" when the prices as they will be (what is there, plus what waits) have: two products that look like the same thing (same length, same kind of space), a price that does not say per day, week or month (and which product it may duplicate if monthly), "Price on request" next to priced products of the same kind, a longer stay cheaper than a shorter one or dearer than paying daily, more than one currency, a price unusual once in euros (a zero too many or few), or the same name twice (app/lib/widgets/price_checks.dart). These are guesses from the words and numbers, worded as questions.
+- "Ask the owner to check" (spaces with an owner) writes one message with a question per point, shown to change before Send, and sends it to their Chats (admin_chat_send; they are emailed if they have not seen it within a minute). Their answer comes to Chats.
+- Not sent by itself yet: the checks are guesses, and a wrong question to an owner costs goodwill. One tap, after a look. Once we have seen them be right for a while, sending on its own when an owner adds prices is a small change.
+
+## 9 Nov 2026: owner changes show only what the owner really changed
+
+Jonathan (Kopi Club: Cappuccino 750 to 850 LKR, plus Instagram and WhatsApp lines): "most of the time I see a change to the instagram, which i dont know if its accurate or not. as well as the phone number. I just want to know that the change being made is actually one they've done". The Owner account writes Instagram as @name and phone numbers with a space, so the page's link or number looked "changed" on every submission. The owner changes card now compares Instagram by the account name, WhatsApp by its digits, the website without https/www/trailing slash, and prices without spaces and thousands commas. Ones that say the same are not shown as changes; a quiet line underneath names them ("Not changed, only written in a tidier way: Instagram, WhatsApp").
+
+## 9 Nov 2026: Home, tap an outreach bar to see the spaces
+
+Jonathan: "for these bars, if i click onto a particular bar, a modal appears showing me a breakdown of each space contacted, in sensible responsive ux". A bar (or its date) of "Outreach sent each week" opens that week: a box in the middle on a computer, a sheet from the bottom on a phone. It says the week, how many messages, how many of those spaces have claimed or written back, the count by way, the same All / Already listed / Not listed yet switch (starting where the chart was), and one row per message: the space, where, the way and the day, and where things stand now (Claimed, Wrote back, No reply yet, Said no, Put aside, Bounced, Unsubscribed). Tapping a row opens the space's overview. Data: admin_outreach_week (migration 291), counted as Home counts.

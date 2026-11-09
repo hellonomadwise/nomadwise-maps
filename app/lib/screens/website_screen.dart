@@ -3595,6 +3595,11 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       onRefresh: () async {
         await Future.wait([_loadHome(), _loadNextUp(), _load()]);
       },
+      onOutreachWeek: (week, who) => showOutreachWeek(context,
+          week: week,
+          who: who,
+          load: () => _supabase.adminOutreachWeek(week),
+          openSpace: (id, name) => openSpaceProfile(context, id, name)),
       actions: [
         if (!wide)
           IconButton(
@@ -5581,12 +5586,44 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         : null;
     String s(dynamic x) => (x ?? '').toString().trim();
     final rows = <(String, String, String)>[]; // label, before, after
-    void row(String label, dynamic before, dynamic after) {
+    // Fields the Owner account wrote in its own tidy way but that say
+    // the same as the page (an Instagram link that is now @name, a
+    // phone number with a space added): not a change by the owner, so
+    // not shown as one (Jonathan, 9 Nov 2026: "I just want to know
+    // that the change being made is actually one they've done").
+    final sameWords = <String>[];
+    void row(String label, dynamic before, dynamic after,
+        {String Function(String)? same}) {
       final b = s(before), a = s(after);
       if (a.isEmpty && b.isEmpty) return;
       if (a == b) return;
+      if (same != null && a.isNotEmpty && b.isNotEmpty && same(a) == same(b)) {
+        sameWords.add(label);
+        return;
+      }
       rows.add((label, b, a));
     }
+
+    String handle(String x) {
+      var h = x.toLowerCase().trim();
+      h = h.replaceFirst(RegExp(r'^https?://'), '').replaceFirst(RegExp(r'^(www\.)?instagram\.com/'), '');
+      h = h.split('?').first.split('#').first;
+      h = h.replaceAll('@', '').replaceAll(RegExp(r'/+$'), '');
+      return h;
+    }
+
+    String digits(String x) => x.replaceAll(RegExp(r'[^0-9]'), '').replaceFirst(RegExp(r'^00'), '');
+    String site(String x) => x
+        .toLowerCase()
+        .trim()
+        .replaceFirst(RegExp(r'^https?://'), '')
+        .replaceFirst(RegExp(r'^www\.'), '')
+        .split('?')
+        .first
+        .split('#')
+        .first
+        .replaceAll(RegExp(r'/+$'), '');
+    String price(String x) => x.toLowerCase().replaceAll(RegExp(r'[\s,]'), '');
 
     row('Description', oc['description'], draft['description']);
     final np = Map<String, dynamic>.from(draft['prices'] as Map? ?? {});
@@ -5597,7 +5634,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       ('month', 'Month pass'),
       ('coffee', 'Cappuccino')
     ]) {
-      row(label, op[k], np[k]);
+      row(label, op[k], np[k], same: price);
     }
     final nh = Map<String, dynamic>.from(draft['hours'] as Map? ?? {});
     final oh = Map<String, dynamic>.from(v['opening_hours'] as Map? ?? {});
@@ -5636,9 +5673,9 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       String yn(dynamic x) => x == null ? '' : (x == true ? 'Yes' : 'No');
       row(label, yn(of[k]), yn(nf[k]));
     }
-    row('Website', v['website'], draft['website']);
-    row('Instagram', v['instagram'], draft['instagram']);
-    row('WhatsApp', oc['whatsapp'], draft['whatsapp']);
+    row('Website', v['website'], draft['website'], same: site);
+    row('Instagram', v['instagram'], draft['instagram'], same: handle);
+    row('WhatsApp', oc['whatsapp'], draft['whatsapp'], same: digits);
     row('Enquiries to', '', draft['enquiry_email']);
     final photos = List<String>.from((draft['photos'] ?? const []) as List);
     final oldPhotos = List<String>.from((oc['photos'] ?? const []) as List);
@@ -5704,7 +5741,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                       color: Brand.inkSecondary)),
               children: [
         if (rows.isEmpty && photos.isEmpty)
-          const Text('Nothing differs from the page. Put it on or send it back.',
+          const Text('Nothing the owner changed differs from the page. Put it on or send it back.',
               style: TextStyle(fontSize: 12.5, color: Brand.inkSecondary)),
         for (final (label, before, after) in rows)
           Padding(
@@ -5724,6 +5761,13 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
               Text(after.isEmpty ? '(cleared)' : after,
                   style: const TextStyle(fontSize: 13, height: 1.4)),
             ]),
+          ),
+        if (sameWords.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text(
+                'Not changed, only written in a tidier way: ${sameWords.join(', ')}.',
+                style: const TextStyle(fontSize: 12, color: Brand.inkMuted)),
           ),
         if (photos.isNotEmpty) ...[
           Text(
@@ -5755,7 +5799,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
           ),
         ] else ...[
         if (rows.isEmpty && photos.isEmpty)
-          const Text('Nothing differs from the page. Put it on or send it back.',
+          const Text('Nothing the owner changed differs from the page. Put it on or send it back.',
               style: TextStyle(fontSize: 12.5, color: Brand.inkSecondary)),
         for (final (label, before, after) in rows)
           Padding(
@@ -5775,6 +5819,13 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
               Text(after.isEmpty ? '(cleared)' : after,
                   style: const TextStyle(fontSize: 13, height: 1.4)),
             ]),
+          ),
+        if (sameWords.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text(
+                'Not changed, only written in a tidier way: ${sameWords.join(', ')}.',
+                style: const TextStyle(fontSize: 12, color: Brand.inkMuted)),
           ),
         if (photos.isNotEmpty) ...[
           Text(

@@ -8,6 +8,7 @@ import '../services/products_service.dart';
 import '../theme.dart';
 import '../widgets/stat_grid.dart';
 import '../widgets/price.dart';
+import '../widgets/price_checks.dart';
 
 /// The database's own words for a refused action.
 String _plainError(Object e) {
@@ -71,6 +72,38 @@ List<String> _details(dynamic v) => [
 
 Map<String, dynamic> _asMap(dynamic v) =>
     v is Map ? Map<String, dynamic>.from(v) : <String, dynamic>{};
+
+/// Exchange rates, so a price in another currency also shows what it
+/// is in euros (Jonathan, 9 Nov 2026: "if in local currency, how much
+/// equivalent that would mean in euros?"). Read once per visit to
+/// Prices; only for judging a price, nothing on the page changes.
+class _Fx {
+  static Map<String, double> perEur = {};
+  static DateTime? at;
+  static Future<void>? _reading;
+
+  static Future<void> load(ProductsService api) =>
+      _reading ??= api.fxRates().then((r) {
+        perEur = r.$1;
+        at = r.$2;
+      }).catchError((_) {
+        _reading = null; // not readable now: try again next time
+      });
+
+  /// "about €3.70" for a price in another currency, else null.
+  static String? euros(Map<String, dynamic> p) {
+    final amount = p['amount'];
+    final code = '${p['currency'] ?? ''}'.trim().toUpperCase();
+    if (amount is! num || amount <= 0 || code.isEmpty || code == 'EUR') return null;
+    final rate = perEur[code];
+    if (rate == null) return null;
+    final e = amount / rate;
+    final text = e < 10
+        ? e.toStringAsFixed(2)
+        : NumberFormat.decimalPattern().format(e.round());
+    return 'about €$text';
+  }
+}
 
 /// The price as the page shows it.
 String _priceOf(Map<String, dynamic> p) {
@@ -178,6 +211,10 @@ Widget _productBox(String label, Map<String, dynamic> p,
                 fontSize: 17,
                 fontWeight: FontWeight.w800,
                 color: proposed ? Brand.ink : Brand.inkSecondary)),
+        if (_Fx.euros(p) != null)
+          Text(_Fx.euros(p)!,
+              style: const TextStyle(
+                  fontSize: 12.5, fontWeight: FontWeight.w600, color: Brand.inkSecondary)),
         Text(_catLabel(p['category']),
             style: const TextStyle(fontSize: 12, color: Brand.inkMuted)),
         if (details.isNotEmpty) ...[
@@ -548,6 +585,7 @@ class _AdminPricesScreenState extends State<AdminPricesScreen> {
       final rows = await _api.spaces(
           query: _search.text.trim(), filter: _filter, limit: _limit);
       final overview = await _api.overview();
+      await _Fx.load(_api);
       if (!mounted || n != _req) return;
       setState(() {
         _rows = rows;
@@ -1160,6 +1198,130 @@ class _PriceSpacePageState extends State<_PriceSpacePage> {
   // does nothing.
   final Set<String> _busy = {};
 
+  /// When we asked the owner to check their prices, in this visit.
+  DateTime? _askedOwner;
+
+  /// The products as they will be on the page once what waits is
+  /// decided: what is there, with the changes and new ones as
+  /// proposed, without the ones proposed for removal.
+  List<Map<String, dynamic>> _asPlanned(List<Map<String, dynamic>> products,
+      List<Map<String, dynamic>> adds) {
+    final out = <Map<String, dynamic>>[];
+    for (final p in products) {
+      final open = p['open'];
+      if (open is! Map) {
+        out.add(p);
+        continue;
+      }
+      final action = '${open['action']}';
+      if (action == 'remove') continue;
+      final target = _asMap(open['final'] ?? open['proposed']);
+      out.add(target.isEmpty ? p : target);
+    }
+    for (final c in adds) {
+      final status = '${c['status']}';
+      if (status == 'skipped' || status == 'failed') continue;
+      final target = _asMap(c['final'] ?? c['proposed']);
+      if (target.isNotEmpty) out.add(target);
+    }
+    return out;
+  }
+
+  /// "Ask the owner to check": the questions, worded for them, in a box
+  /// to change before it goes to their Chats.
+  Future<void> _askOwner(String spaceName, List<PriceIssue> issues) async {
+    final ctl = TextEditingController(text: priceCheckMessage(spaceName, issues));
+    final send = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Ask the owner to check'),
+        content: SizedBox(
+          width: 560,
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text(
+                'This goes to their Chats in the Owner account. If they have not '
+                'seen it within a minute, they get it by email too. Change '
+                'anything first if you like.',
+                style: TextStyle(fontSize: 13, height: 1.4, color: Brand.inkSecondary)),
+            const SizedBox(height: 10),
+            TextField(
+              controller: ctl,
+              minLines: 8,
+              maxLines: 16,
+              decoration: const InputDecoration(border: OutlineInputBorder()),
+            ),
+          ]),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Not now')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Send')),
+        ],
+      ),
+    );
+    final text = ctl.text.trim();
+    ctl.dispose();
+    if (send != true || text.isEmpty) return;
+    setState(() => _busy.add('ask'));
+    try {
+      await _api.askOwner(widget.venueId, text);
+      if (!mounted) return;
+      setState(() => _askedOwner = DateTime.now());
+      _snack('Sent to their Chats. Their answer shows in Chats, and you '
+          'can decide the prices once they reply.');
+    } catch (e) {
+      _snack('That did not send: ${_plainError(e)}', bad: true);
+    } finally {
+      if (mounted) setState(() => _busy.remove('ask'));
+    }
+  }
+
+  /// Things worth checking before a Go, with a way to ask the owner.
+  Widget _worthChecking(Map<String, dynamic> v, List<PriceIssue> issues) {
+    final owned = v['owned'] == true;
+    return Container(
+      margin: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+          color: Brand.goldTint, borderRadius: BorderRadius.circular(8)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('WORTH CHECKING BEFORE A GO (${issues.length})',
+            style: const TextStyle(
+                fontSize: 11, letterSpacing: 0.5, fontWeight: FontWeight.w800,
+                color: Brand.goldTextDark)),
+        const SizedBox(height: 6),
+        for (final i in issues)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Text('• ${i.see}',
+                style: const TextStyle(fontSize: 13, height: 1.4, color: Brand.ink)),
+          ),
+        const SizedBox(height: 4),
+        Text(
+            owned
+                ? 'These are guesses from the names and prices. Check their website, '
+                    'or ask the owner: their answer comes to Chats.'
+                : 'These are guesses from the names and prices. Check their website '
+                    'before a Go. There is no owner to ask yet.',
+            style: const TextStyle(fontSize: 12, height: 1.4, color: Brand.goldTextDark)),
+        if (owned) ...[
+          const SizedBox(height: 8),
+          Wrap(spacing: 10, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
+            FilledButton.icon(
+                onPressed: _busy.contains('ask')
+                    ? null
+                    : () => _askOwner('${v['name'] ?? widget.name}', issues),
+                icon: const Icon(Icons.forum_outlined, size: 18),
+                label: const Text('Ask the owner to check')),
+            if (_askedOwner != null)
+              Text('Asked ${DateFormat('HH:mm').format(_askedOwner!)}',
+                  style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700,
+                      color: Brand.success)),
+          ]),
+        ],
+      ]),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -1169,6 +1331,7 @@ class _PriceSpacePageState extends State<_PriceSpacePage> {
   Future<void> _load() async {
     try {
       final d = await _api.space(widget.venueId);
+      await _Fx.load(_api);
       if (!mounted) return;
       setState(() {
         _data = d;
@@ -1829,6 +1992,11 @@ class _PriceSpacePageState extends State<_PriceSpacePage> {
           if ('${c['status']}' == 'skipped') c
       ];
       final found = check == null ? null : _asMap(check['result']);
+      final issues = priceIssues(_asPlanned(products, adds),
+          toEur: (a, c) {
+            final r = _Fx.perEur[c];
+            return r == null || r <= 0 ? null : a / r;
+          });
       final checkUrl = '${check?['checked_url'] ?? ''}'.trim();
       final summary = '${check?['summary'] ?? ''}'.trim();
 
@@ -1976,6 +2144,7 @@ class _PriceSpacePageState extends State<_PriceSpacePage> {
                               height: 1.4,
                               color: Brand.goldTextDark)),
                     ),
+                  if (issues.isNotEmpty) _worthChecking(v, issues),
                   if (waiting.isNotEmpty || openAdds.isNotEmpty) ...[
                     _section('To decide'),
                     for (final p in waiting) _productCard(p),
