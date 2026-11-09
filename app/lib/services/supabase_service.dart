@@ -2404,6 +2404,19 @@ class SupabaseService {
     }
   }
 
+  /// What the number beside Outreach is made of (migration 296):
+  /// replies waiting for our answer, and follow-ups that have come due.
+  /// The rest of the number is spaces that looked at claiming or made
+  /// an account.
+  Future<Map<String, dynamic>?> adminOutreachMenuParts() async {
+    try {
+      final r = await _db.rpc('admin_outreach_menu_parts');
+      return r is Map ? Map<String, dynamic>.from(r) : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// "Done for now" on a page of that list ([done] true), or "Back to
   /// the list" (false). Migration 142.
   Future<void> upgradePageDone(String venueId, {required bool done}) =>

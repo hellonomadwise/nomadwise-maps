@@ -1606,6 +1606,9 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   /// Messages from owners nobody has opened (migration 161): the
   /// number beside Chats. Read whenever "Next up" is.
   int _chatsUnread = 0;
+
+  /// What the number beside Outreach is made of (migration 296).
+  Map<String, dynamic>? _outreachParts;
   // Owner requests not answered yet (Owner activity, migration 283).
   int _wishesNew = 0;
   void _ringMenu() => _menuBell.value++;
@@ -1652,7 +1655,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     return switch (key) {
       'home' => (
           _inbox == null || !_nextUpRead ? 0 : _homeWaiting(),
-          'things where someone is waiting on us'
+          'waiting on us: the red-dot lines under To handle on Home'
         ),
       'centre' => (_todoCount, 'waiting in Pages (its To do line)'),
       'upgrades' => (
@@ -1665,12 +1668,10 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
           part('prices'),
           'price changes waiting for your Go, or needing a look'
         ),
-      'outreach' => (
-          part('menu', 'outreach'),
-          'spaces that replied, follow-ups that have come due and have '
-              'not been sent, spaces that looked at claiming, or accounts '
-              'on the map that match a space'
-        ),
+      // The tooltip names the parts with their numbers (Jonathan,
+      // 9 Nov 2026: "the same with the 12 for outreach. i need to be
+      // able to easily see").
+      'outreach' => (part('menu', 'outreach'), _outreachMeaning()),
       'review' => (
           part('menu', 'review'),
           'submissions and photos waiting to be checked'
@@ -1686,6 +1687,30 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         ),
       _ => (0, ''),
     };
+  }
+
+  /// The number beside Outreach in words, part by part, when the parts
+  /// are known: "to do in Outreach: 2 spaces wrote back and wait for
+  /// your answer · 1 looked at claiming or made an account".
+  String _outreachMeaning() {
+    const general = 'to do in Outreach: spaces that wrote back and wait '
+        'for your answer, follow-ups that have come due, and spaces that '
+        'looked at claiming or made an account in the last 2 weeks';
+    final p = _outreachParts;
+    final m = _nextUp?['menu'];
+    final total = m is Map ? ((m['outreach'] as num?)?.toInt() ?? 0) : 0;
+    if (p == null) return general;
+    final replied = (p['replied'] as num?)?.toInt() ?? 0;
+    final followUp = (p['follow_up'] as num?)?.toInt() ?? 0;
+    final looked = total - replied - followUp;
+    if (looked < 0) return general;
+    String n(int k, String one, String many) => '$k ${k == 1 ? one : many}';
+    return 'to do in Outreach:\n'
+        '• ${n(replied, 'space wrote', 'spaces wrote')} back and '
+        '${replied == 1 ? 'waits' : 'wait'} for your answer\n'
+        '• ${n(followUp, 'follow-up has', 'follow-ups have')} come due\n'
+        '• ${n(looked, 'space', 'spaces')} looked at claiming or made an '
+        'account (last 2 weeks)';
   }
 
   /// The menu down the left on a wide screen: the control centre and
@@ -1895,11 +1920,19 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                   color: Colors.white, fontSize: 10.5, fontWeight: FontWeight.w800)),
         );
     Widget tab(String? key, IconData icon, String label,
-        {int count = 0, VoidCallback? onTap}) {
+        {int count = 0, String meaning = '', VoidCallback? onTap}) {
       final on = key == null ? inMore : current == key;
       final color = on ? Brand.red : Brand.inkSecondary;
+      // Press and hold a tab with a number: what the number is made of
+      // (Jonathan, 9 Nov 2026).
+      Widget held(Widget child) => count > 0 && meaning.isNotEmpty
+          ? Tooltip(
+              message: '$count $meaning',
+              triggerMode: TooltipTriggerMode.longPress,
+              child: child)
+          : child;
       return Expanded(
-        child: Semantics(
+        child: held(Semantics(
           button: true,
           selected: on,
           child: InkWell(
@@ -1923,7 +1956,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
               ]),
             ),
           ),
-        ),
+        )),
       );
     }
 
@@ -1935,10 +1968,14 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       child: SafeArea(
         top: false,
         child: Row(children: [
-          tab('home', Icons.home_outlined, 'Home', count: _menuCount('home').$1),
+          tab('home', Icons.home_outlined, 'Home',
+              count: _menuCount('home').$1, meaning: _menuCount('home').$2),
           tab('spaces', Icons.storefront_outlined, 'Spaces'),
-          tab('outreach', Icons.mail_outline, 'Outreach', count: _menuCount('outreach').$1),
-          tab('chats', Icons.forum_outlined, 'Chats', count: _menuCount('chats').$1),
+          tab('outreach', Icons.mail_outline, 'Outreach',
+              count: _menuCount('outreach').$1,
+              meaning: _menuCount('outreach').$2),
+          tab('chats', Icons.forum_outlined, 'Chats',
+              count: _menuCount('chats').$1, meaning: _menuCount('chats').$2),
           tab(null, Icons.more_horiz, 'More',
               count: moreCount, onTap: () => _phoneMore(current)),
         ]),
@@ -3024,6 +3061,9 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     _supabase.adminOwnerWishesNew().then((c) {
       if (mounted && c != _wishesNew) setState(() => _wishesNew = c);
     });
+    _supabase.adminOutreachMenuParts().then((p) {
+      if (mounted && p != null) setState(() => _outreachParts = p);
+    });
     final r = await _supabase.adminNextUp();
     // a later reading is on its way: this one is out of date
     if (!mounted || n != _nextUpReq) return;
@@ -3578,7 +3618,8 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
               'due: a space or a nomad who wrote, owners who looked at '
               'claiming, sign-ups to decide, and closed places to take off the '
               'site. A red dot means a person is waiting for an answer, so '
-              'those are best done first.'),
+              'those are best done first. The number beside Home in the menu '
+              'adds up the red-dot lines.'),
       HomeGroup('Get spaces to claim', claim,
           info: 'Writing to spaces that have a page on nomadwise.io but have '
               'not claimed it yet. Each line is one way to reach them (email, '
@@ -3597,9 +3638,14 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     ];
   }
 
-  /// How many lines have someone waiting on us: the number beside Home.
-  int _homeWaiting() =>
-      _homeGroups().expand((g) => g.rows).where((r) => r.waiting).length;
+  /// The number beside Home: how many things someone is waiting on us
+  /// for, the red-dot lines added up (4 sign-ups to decide is 4, not
+  /// 1 line; Jonathan, 9 Nov 2026: "i dont know what the 1 against home
+  /// relates to").
+  int _homeWaiting() => _homeGroups()
+      .expand((g) => g.rows)
+      .where((r) => r.waiting)
+      .fold(0, (n, r) => n + (r.count ?? 1));
 
   Widget _homeScreen(bool wide) {
     final ready = _inbox != null && _nextUpRead;
