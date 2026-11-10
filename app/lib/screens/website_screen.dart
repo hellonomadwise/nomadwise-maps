@@ -2115,7 +2115,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 14, vertical: 8),
                     decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(999),
+                        borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: Brand.border)),
                     child: const Row(mainAxisSize: MainAxisSize.min, children: [
                       Icon(Icons.add_location_alt_outlined,
@@ -2295,7 +2295,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       Widget pill(String text, Color fg, Color bg) => Container(
             padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
             decoration: BoxDecoration(
-                color: bg, borderRadius: BorderRadius.circular(5)),
+                color: bg, borderRadius: BorderRadius.circular(8)),
             child: Text(text,
                 style: TextStyle(
                     fontSize: 11, fontWeight: FontWeight.w600, color: fg)),

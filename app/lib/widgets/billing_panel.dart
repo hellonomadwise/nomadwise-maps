@@ -306,7 +306,7 @@ class _BillingPanelState extends State<BillingPanel> {
   Widget _pill(String t, Color bg, Color fg) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
         decoration:
-            BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
+            BoxDecoration(color: bg, borderRadius: BorderRadius.circular(8)),
         child: Text(t,
             style: TextStyle(
                 fontSize: 11.5, fontWeight: FontWeight.w800, color: fg)),

@@ -373,7 +373,7 @@ class _ListingUpdatesScreenState extends State<ListingUpdatesScreen> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                    color: Brand.bg, borderRadius: BorderRadius.circular(20)),
+                    color: Brand.bg, borderRadius: BorderRadius.circular(8)),
                 child: Text(k,
                     style: const TextStyle(
                         fontSize: 11.5, fontWeight: FontWeight.w600)),

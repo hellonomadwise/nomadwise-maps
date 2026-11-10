@@ -100,7 +100,7 @@ class _AdminChatsScreenState extends State<AdminChatsScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
             decoration: BoxDecoration(
               color: on ? Colors.white : Colors.transparent,
-              borderRadius: BorderRadius.circular(999),
+              borderRadius: BorderRadius.circular(8),
               boxShadow: on
                   ? const [
                       BoxShadow(
@@ -145,7 +145,7 @@ class _AdminChatsScreenState extends State<AdminChatsScreen> {
           padding: const EdgeInsets.all(4),
           decoration: BoxDecoration(
               color: Brand.field,
-              borderRadius: BorderRadius.circular(999),
+              borderRadius: BorderRadius.circular(10),
               border: Border.all(color: Brand.border)),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
             seg('Owners', 'owners'),

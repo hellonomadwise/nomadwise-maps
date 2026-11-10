@@ -325,7 +325,7 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
       decoration: BoxDecoration(
-          color: Brand.logoTealTint, borderRadius: BorderRadius.circular(20)),
+          color: Brand.logoTealTint, borderRadius: BorderRadius.circular(8)),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         const Icon(Icons.person_outline, size: 12, color: Brand.logoNavy),
         const SizedBox(width: 3),
@@ -2775,10 +2775,11 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
         selected: on,
         child: Material(
         color: on ? color : Brand.surface,
-        shape: StadiumBorder(
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
             side: BorderSide(color: on ? color : Brand.border)),
         child: InkWell(
-          customBorder: const StadiumBorder(),
+          borderRadius: BorderRadius.circular(8),
           onTap: onTap,
           child: Padding(
             padding: EdgeInsets.fromLTRB(12, 6, count == null ? 12 : 6, 6),
@@ -2799,7 +2800,7 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
                       color: on
                           ? Colors.white.withValues(alpha: .22)
                           : Brand.field,
-                      borderRadius: BorderRadius.circular(10)),
+                      borderRadius: BorderRadius.circular(6)),
                   child: Text(NumberFormat.decimalPattern('en').format(count),
                       textAlign: TextAlign.center,
                       style: TextStyle(
@@ -3024,7 +3025,7 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
     Widget pill(String text, Color fg, Color bg) => Container(
           padding: const EdgeInsets.fromLTRB(8, 3, 9, 3),
           decoration: BoxDecoration(
-              color: bg, borderRadius: BorderRadius.circular(6)),
+              color: bg, borderRadius: BorderRadius.circular(8)),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
             Container(
                 width: 6,
@@ -3667,7 +3668,7 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
   Widget _chip(String text, {Color? bg, Color? fg}) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(
-            color: bg ?? Brand.field, borderRadius: BorderRadius.circular(20)),
+            color: bg ?? Brand.field, borderRadius: BorderRadius.circular(8)),
         child: Text(text,
             style: TextStyle(
                 fontSize: 11,

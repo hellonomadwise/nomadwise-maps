@@ -1281,7 +1281,7 @@ class _AdminOwnerFlowScreenState extends State<AdminOwnerFlowScreen>
   Widget _tag(String label, bool system) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: BorderRadius.circular(8),
           border: Border.all(color: system ? Brand.ink : Brand.inkFaint),
         ),
         child: Text(label,

@@ -2973,7 +2973,7 @@ class _MapScreenState extends State<MapScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 14),
           decoration: BoxDecoration(
             color: on ? Brand.ink : Brand.surface,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(8),
             border: on ? null : Border.all(color: Brand.border),
             boxShadow: Brand.shadowResting,
           ),

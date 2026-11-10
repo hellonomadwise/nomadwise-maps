@@ -142,7 +142,9 @@ ThemeData nomadwiseTheme() {
                   ? Colors.white
                   : Brand.ink)),
       side: const BorderSide(color: Brand.border),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      // 8 px corners for every chip, filter and tag (Jonathan, 10 Nov
+      // 2026: "consistent with our styling, so i think border radius 8px")
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
@@ -306,7 +308,7 @@ ThemeData siteButtons(ThemeData t, {double radius = 4}) {
           borderSide: const BorderSide(color: Brand.ink, width: 1.4)),
     ),
     chipTheme: t.chipTheme.copyWith(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
     ),
     visualDensity: VisualDensity.compact,

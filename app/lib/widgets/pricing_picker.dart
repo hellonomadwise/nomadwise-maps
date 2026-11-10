@@ -190,7 +190,7 @@ class PeriodToggle extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
                 color: yearly ? Brand.successTint : Brand.field,
-                borderRadius: BorderRadius.circular(20)),
+                borderRadius: BorderRadius.circular(8)),
             child: Text('Save $save%',
                 style: TextStyle(
                     fontSize: 12,

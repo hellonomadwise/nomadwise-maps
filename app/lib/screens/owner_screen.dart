@@ -7187,7 +7187,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
         decoration: BoxDecoration(
             color: Colors.white,
             border: Border.all(color: const Color(0xFFE4E6EB)),
-            borderRadius: BorderRadius.circular(6)),
+            borderRadius: BorderRadius.circular(8)),
         child: row,
       );
     }

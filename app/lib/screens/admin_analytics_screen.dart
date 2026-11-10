@@ -819,7 +819,7 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
                         const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                     decoration: BoxDecoration(
                       color: Brand.goldTint,
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Text('Friend',
                         style: TextStyle(

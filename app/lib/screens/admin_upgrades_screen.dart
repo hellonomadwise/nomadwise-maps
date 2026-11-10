@@ -106,7 +106,7 @@ String _whereOf(Map<String, dynamic> r) {
 Widget _chip(String text, {Color? bg, Color? fg}) => Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-          color: bg ?? Brand.field, borderRadius: BorderRadius.circular(20)),
+          color: bg ?? Brand.field, borderRadius: BorderRadius.circular(8)),
       child: Text(text,
           style: TextStyle(
               fontSize: 11,
@@ -2206,7 +2206,7 @@ class _PhotoGapsPageState extends State<_PhotoGapsPage> {
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                     color: n <= 1 ? Brand.accentTint : Brand.goldTint,
-                    borderRadius: BorderRadius.circular(20)),
+                    borderRadius: BorderRadius.circular(8)),
                 child: Text('$n OF 5 PHOTOS',
                     style: TextStyle(
                         fontSize: 11,

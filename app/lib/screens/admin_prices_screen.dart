@@ -156,7 +156,7 @@ List<String> _differences(Map<String, dynamic> a, Map<String, dynamic> b) {
 Widget _chip(String text, {Color? bg, Color? fg}) => Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-          color: bg ?? Brand.field, borderRadius: BorderRadius.circular(20)),
+          color: bg ?? Brand.field, borderRadius: BorderRadius.circular(8)),
       child: Text(text,
           style: TextStyle(
               fontSize: 11,

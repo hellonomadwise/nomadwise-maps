@@ -884,7 +884,7 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
               _wifiSsid.text.trim() != _knownSsid) ...[
             const SizedBox(height: 6),
             InkWell(
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(8),
               onTap: () =>
                   setState(() => _wifiSsid.text = _knownSsid!),
               child: Container(
@@ -892,7 +892,7 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
                     horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
                   color: Brand.goldTint,
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
                   const Icon(Icons.wifi,

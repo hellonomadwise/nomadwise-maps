@@ -285,14 +285,14 @@ class _OwnerQuestionCardState extends State<OwnerQuestionCard> {
   Widget _option(String label, bool on, VoidCallback onTap) => Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: BorderRadius.circular(8),
           onTap: onTap,
           child: AnimatedContainer(
             duration: Motion.of(context, const Duration(milliseconds: 160)),
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
             decoration: BoxDecoration(
               color: on ? Brand.ink : Brand.surface,
-              borderRadius: BorderRadius.circular(22),
+              borderRadius: BorderRadius.circular(8),
               border: Border.all(color: on ? Brand.ink : Brand.border),
             ),
             child: Row(mainAxisSize: MainAxisSize.min, children: [

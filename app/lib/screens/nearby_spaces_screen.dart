@@ -557,10 +557,11 @@ class _NearbySpacesScreenState extends State<NearbySpacesScreen> {
       final canPick = region != null && id.isNotEmpty;
       return Material(
         color: on ? Brand.logoTealTint : Brand.surface,
-        shape: StadiumBorder(
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
             side: BorderSide(color: on ? Brand.logoNavy : Brand.border)),
         child: InkWell(
-          customBorder: const StadiumBorder(),
+          borderRadius: BorderRadius.circular(8),
           onTap: canPick ? () => _pick(on ? null : id) : null,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),

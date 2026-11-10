@@ -292,7 +292,7 @@ class _SiteChatsPaneState extends State<SiteChatsPane> {
         margin: const EdgeInsets.only(right: 5, top: 4),
         padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
         decoration:
-            BoxDecoration(color: bg, borderRadius: BorderRadius.circular(10)),
+            BoxDecoration(color: bg, borderRadius: BorderRadius.circular(8)),
         child: Text(text,
             style: TextStyle(
                 fontSize: 11, fontWeight: FontWeight.w700, color: fg)),
