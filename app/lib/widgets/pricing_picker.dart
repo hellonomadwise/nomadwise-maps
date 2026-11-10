@@ -94,7 +94,7 @@ class PricingChoice {
   int? get yearly => amount('yearly');
   int? get chosen => amount(period);
 
-  /// "€10 a month" or "€99 a year".
+  /// "€10 a month" or "€96 a year".
   String get words {
     final a = chosen;
     if (a == null) return '';

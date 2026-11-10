@@ -6540,3 +6540,4 @@ Jonathan: "we are building a brand, getting a strong brand presence" and "a badg
 
 ## 10 Nov 2026: yearly prices in whole months, "Save xx%"
 Jonathan: "5.75 is pretty random ... that would need to change to the Saving xx%", then "yes lets round". Each group's yearly price becomes 12 x a whole monthly figure: A €144 / £132 / $168 / A$240, B €96 / £84 / $108, C €60 / £48 / $72, D €36 / £36 / $42 (savings 14% to 25%). scripts/stripe_round_yearly.py (workflow "Stripe round yearly prices", run once) makes the new yearly prices in Stripe on the same product, points pricing_groups at them and switches the old ones off; nobody was paying yet. The pill by the switch says "Save 14%" (from the real amounts) instead of "2 months free".
+- Group C in US dollars is $60 a year ($5 /month, save 29%) instead of $72: $6 against $7 was too small a gap (Jonathan, same day). Same one-off run; only group C changes.

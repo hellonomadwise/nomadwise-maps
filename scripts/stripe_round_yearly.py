@@ -31,7 +31,7 @@ STRIPE_KEY = os.environ.get('STRIPE_API_KEY', '')
 NEW_YEARLY = {
     'A': {'EUR': 14400, 'GBP': 13200, 'USD': 16800, 'AUD': 24000},
     'B': {'EUR': 9600, 'GBP': 8400, 'USD': 10800},
-    'C': {'EUR': 6000, 'GBP': 4800, 'USD': 7200},
+    'C': {'EUR': 6000, 'GBP': 4800, 'USD': 6000},  # $5 /month (Jonathan, 10 Nov)
     'D': {'EUR': 3600, 'GBP': 3600, 'USD': 4200},
 }
 

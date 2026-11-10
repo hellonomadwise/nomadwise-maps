@@ -346,7 +346,7 @@ class _BillingPanelState extends State<BillingPanel> {
     final price = sub == null
         ? (_pricing?.fromWords.isNotEmpty == true
             ? _pricing!.fromWords
-            : '€99 a year')
+            : '€96 a year')
         : '${_money(sub['amount'] as num?, '${sub['currency']}')} a '
             '${sub['interval'] ?? 'year'}';
 
@@ -478,7 +478,7 @@ class _BillingPanelState extends State<BillingPanel> {
               price: sub == null
                   ? (_pricing?.monthly != null
                       ? formatMoney(_pricing!.monthly!, _pricing!.currency)
-                      : '€99')
+                      : '€96')
                   : _money(sub['amount'] as num?, '${sub['currency']}'),
               per: sub == null
                   ? (_pricing?.yearly != null
