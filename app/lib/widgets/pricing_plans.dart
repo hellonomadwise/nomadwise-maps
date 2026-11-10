@@ -8,8 +8,9 @@ import 'ui.dart' show PlanFeatureRow;
 /// Free and Premium side by side (Premium first on a phone), the way
 /// the pricing page showed them: the price speaks first, more room
 /// between the plans than inside them, Premium is the one to pick (red
-/// border, the MAKE THE MOST OF NOMADWISE pill, the only filled button)
-/// and sits raised, Yearly shows the twelve monthly payments struck
+/// border and the only filled button; the MAKE THE MOST OF NOMADWISE
+/// pill went on 10 Nov 2026),
+/// both cards the same size, Yearly shows the twelve monthly payments struck
 /// through. Used by step two of the claim page (Jonathan, 30 Oct 2026:
 /// find your space first, then the pricing page).
 class PricingPlans extends StatelessWidget {
@@ -44,17 +45,17 @@ class PricingPlans extends StatelessWidget {
         free,
       ]);
     }
-    return IntrinsicHeight(
-      child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Expanded(
-            child:
-                Padding(padding: const EdgeInsets.only(top: 10), child: free)),
-        const SizedBox(width: 32),
-        // The pick, raised.
-        Expanded(
-            child: Transform.translate(
-                offset: const Offset(0, -6), child: premium)),
-      ]),
+    // The two cards the same size, top and bottom level (Jonathan,
+    // 10 Nov 2026: "make left and right card same size").
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: IntrinsicHeight(
+        child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Expanded(child: free),
+          const SizedBox(width: 32),
+          Expanded(child: premium),
+        ]),
+      ),
     );
   }
 
@@ -112,7 +113,9 @@ class PricingPlans extends StatelessWidget {
                   ? 'Free'
                   : formatMoney(0, pricing!.currency))),
           const SizedBox(height: 6),
-          const Text('Where every space starts. No card needed.',
+          // Not "where every space starts": Free is a full page of its
+          // own, not a step down (Jonathan, 10 Nov 2026).
+          const Text('Your page, yours to manage. No card needed.',
               style: TextStyle(fontSize: 14, color: Brand.inkSecondary)),
           SizedBox(height: wide ? 14 : 18),
           OutlinedButton(
@@ -180,7 +183,11 @@ class PricingPlans extends StatelessWidget {
                 style: const TextStyle(fontSize: 14, color: Brand.inkSecondary)),
           ]);
     }
-    return Stack(clipBehavior: Clip.none, children: [
+    // Side by side the card fills its row, so both are the same height.
+    return Stack(
+        clipBehavior: Clip.none,
+        fit: wide ? StackFit.expand : StackFit.loose,
+        children: [
       Container(
         padding: wide
             ? const EdgeInsets.fromLTRB(22, 24, 22, 22)
@@ -228,24 +235,6 @@ class PricingPlans extends StatelessWidget {
           for (final t in planPremiumAdds)
             PlanFeatureRow(t, extra: true, fontSize: wide ? 14 : 15),
         ]),
-      ),
-      Positioned(
-        top: -12,
-        left: 0,
-        right: 0,
-        child: Center(
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-            decoration: BoxDecoration(
-                color: Brand.red, borderRadius: BorderRadius.circular(20)),
-            child: const Text('MAKE THE MOST OF NOMADWISE',
-                style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1,
-                    color: Colors.white)),
-          ),
-        ),
       ),
     ]);
   }

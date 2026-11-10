@@ -6521,3 +6521,10 @@ Jonathan, on Hotel AMANO sitting on "Publishing within a minute or two": speed m
 
 ## 10 Nov 2026: Owner activity reads on a phone
 Jonathan, on "What they open" on his phone: "I think this part could be better". Each row was name, bar and figures side by side at fixed widths, so on a phone the bar vanished and the figures ran off the edge. Now each tab is stacked: its name and "3 of 4 owners" on one line, the bar under it, "8 visits · 3 min each" under that; most opened first; a tab nobody opened says "Nobody yet" in grey instead of red. "What they change in My listing" is stacked the same way, the % saved pill kept on the right.
+
+## 10 Nov 2026: the plan step is calmer, monthly first
+Jonathan, on step 2 of claiming: the line under the plans ("You pay the price for the country your space is in. Your details come next.") is gone; Premium "stands out a little too much", so its card has a soft red edge and a light shadow instead of a thick red border, a big shadow and the "Make the most of Nomadwise" banner; monthly is now chosen first (yearly keeps "2 months free"), here and in the Owner account's plan panel; and Free reads "Your page, yours to manage. No card needed." instead of "Where every space starts", which made it sound lesser.
+
+## 10 Nov 2026: plan cards back to their look, the same size
+Jonathan, on step 2: "do it exactly the same as it is now here, remove bottom small text. make left and right card same size. default monthly". Premium's red border, shadow, "Make the most of Nomadwise" pill and filled button are back as they were (the calmer version of earlier today is undone). The two cards are now level and the same height (Free no longer sits lower, Premium no longer raised). The line under the plans stays gone, monthly stays first, and Free keeps "Your page, yours to manage. No card needed."
+- The "Make the most of Nomadwise" pill on Premium is gone too (Jonathan, same day).

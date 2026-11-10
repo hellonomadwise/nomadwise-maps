@@ -1597,13 +1597,10 @@ class _ClaimScreenState extends State<ClaimScreen> {
                 onFree: () => _choosePlan('free'),
                 onPremium: () => _choosePlan('verified'),
               ),
-              SizedBox(height: wide ? 14 : 24),
-              Text(
-                  'You pay the price for the country your space is in. '
-                  'Your details come next.',
-                  textAlign: align,
-                  style: const TextStyle(
-                      fontSize: 13, height: 1.5, color: Brand.inkSecondary)),
+              // (the line under the plans, "You pay the price for the
+              // country your space is in. Your details come next.", went:
+              // Jonathan, 10 Nov 2026, "i dont think this bottom text
+              // needs to be there")
             ]),
       ),
     );

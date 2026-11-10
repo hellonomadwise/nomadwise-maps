@@ -43,15 +43,17 @@ String formatMoney(num minor, String currency) {
 
 /// What the Verified plan costs for one space, read from pricing_for()
 /// (migration 115), and the two choices on it: monthly or yearly, and
-/// the currency. Yearly is pre-selected and wears the "2 months free"
-/// badge; the currency starts on the country's own and can be switched
+/// the currency. Monthly is pre-selected; yearly wears the "2 months
+/// free" badge; the currency starts on the country's own and can be switched
 /// unless the country locks it (the UK: pounds only).
 class PricingChoice {
   final Map<String, dynamic> pricing;
   String period;
   String currency;
 
-  PricingChoice(this.pricing, {this.period = 'yearly', String? currency})
+  // Monthly first (Jonathan, 10 Nov 2026: "the default position should
+  // be monthly"); yearly keeps its "2 months free" badge.
+  PricingChoice(this.pricing, {this.period = 'monthly', String? currency})
       : currency = currency ?? '${pricing['currency'] ?? 'EUR'}';
 
   List<String> get currencies => [
@@ -167,16 +169,23 @@ class PeriodToggle extends StatelessWidget {
       word('Yearly', 'yearly'),
       if (months >= 1) ...[
         const SizedBox(width: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          decoration: BoxDecoration(
-              color: yearly ? Brand.successTint : Brand.field,
-              borderRadius: BorderRadius.circular(20)),
-          child: Text('$months month${months == 1 ? '' : 's'} free',
-              style: TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w800,
-                  color: yearly ? Brand.success : Brand.inkMuted)),
+        // More room inside the pill (Jonathan, 10 Nov 2026: "the yearly
+        // pill, to be padded better"); tapping it chooses yearly.
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => onChanged(c..period = 'yearly'),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+                color: yearly ? Brand.successTint : Brand.field,
+                borderRadius: BorderRadius.circular(20)),
+            child: Text('$months month${months == 1 ? '' : 's'} free',
+                style: TextStyle(
+                    fontSize: 12,
+                    height: 1.2,
+                    fontWeight: FontWeight.w800,
+                    color: yearly ? Brand.success : Brand.inkSecondary)),
+          ),
         ),
       ],
     ]);
