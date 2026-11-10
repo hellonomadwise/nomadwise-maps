@@ -164,6 +164,8 @@ class _HomeViewState extends State<HomeView> {
                 phone ? _standPhone() : _standWide(inner),
                 const SizedBox(height: 14),
                 _outreachCard(phone),
+                const SizedBox(height: 14),
+                _ownerDaysCard(phone),
               ],
               const SizedBox(height: 22),
               const _Heading('WHAT YOU COULD DO'),
@@ -493,6 +495,137 @@ class _HomeViewState extends State<HomeView> {
     );
   }
 
+  // ------------------------------------------------ owners each day
+
+  /// Owners each day, the last 30 days: claimed, signed in, sent
+  /// changes, one row of bars each over the same days (Jonathan,
+  /// 10 Nov 2026: "daily activity bar chart on users claimed as well
+  /// as users logged in, users updated info"). Tapping a day lists the
+  /// spaces.
+  static const _ownerRows = [
+    ('claimed', 'Claimed', Brand.success),
+    ('signed_in', 'Signed in', _blue),
+    ('updated', 'Sent changes', Color(0xFFC2407A)),
+  ];
+
+  Widget _ownerDaysCard(bool phone) {
+    final days = _list('owner_days');
+    if (days.isEmpty) return const SizedBox.shrink();
+    String label(int i) {
+      final d = _date(days[i]['day']);
+      if (d == null) return '';
+      // a date under every Monday, and under today
+      if (d.weekday == DateTime.monday || i == days.length - 1) {
+        return DateFormat('d MMM').format(d);
+      }
+      return '';
+    }
+
+    Widget row((String, String, Color) r, {required bool last}) {
+      final total = days.fold(0.0, (t, d) => t + _num(d[r.$1]));
+      return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(children: [
+          Container(
+              width: 9,
+              height: 9,
+              decoration: BoxDecoration(color: r.$3, borderRadius: BorderRadius.circular(2))),
+          const SizedBox(width: 6),
+          Text(r.$2,
+              style: const TextStyle(
+                  fontSize: 12.5, fontWeight: FontWeight.w700, color: Brand.ink)),
+          const SizedBox(width: 6),
+          Text('${_trim(total)} in 30 days',
+              style: const TextStyle(fontSize: 12, color: Brand.inkSecondary)),
+        ]),
+        HomeBarChart(
+          columns: [
+            for (final (i, d) in days.indexed)
+              BarColumn(last ? label(i) : '', [(_num(d[r.$1]), r.$3)]),
+          ],
+          height: phone ? 44 : 52,
+          barGap: phone ? 1 : 3,
+          compactLabels: phone,
+          onTap: (i) => _showOwnerDay(days[i]),
+        ),
+      ]);
+    }
+
+    return _Card(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Text(phone ? 'Owners each day' : 'Owners each day · last 30 days',
+            style: const TextStyle(
+                fontSize: 13.5, fontWeight: FontWeight.w800, color: Brand.ink)),
+        const SizedBox(height: 10),
+        for (final (i, r) in _ownerRows.indexed) ...[
+          row(r, last: i == _ownerRows.length - 1),
+          if (i < _ownerRows.length - 1) const SizedBox(height: 10),
+        ],
+        const SizedBox(height: 4),
+        const Center(
+            child: Text('Our own team left out · tap a day to see the spaces',
+                style: TextStyle(fontSize: 11, color: Brand.inkMuted))),
+      ]),
+    );
+  }
+
+  /// One day of owners: who claimed, signed in and sent changes.
+  void _showOwnerDay(Map<String, dynamic> d) {
+    final day = _date(d['day']);
+    List<String> names(String k) =>
+        (d[k] as List?)?.map((e) => '$e').toList() ?? const <String>[];
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(day == null ? 'That day' : DateFormat('EEEE d MMMM').format(day)),
+        content: SizedBox(
+          width: 420,
+          child: SingleChildScrollView(
+            child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (final r in _ownerRows) ...[
+                    Row(children: [
+                      Container(
+                          width: 9,
+                          height: 9,
+                          decoration: BoxDecoration(
+                              color: r.$3, borderRadius: BorderRadius.circular(2))),
+                      const SizedBox(width: 6),
+                      Text('${r.$2} (${names('${r.$1}_names').length})',
+                          style: const TextStyle(fontWeight: FontWeight.w800)),
+                    ]),
+                    const SizedBox(height: 4),
+                    if (names('${r.$1}_names').isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.only(left: 15, bottom: 12),
+                        child: Text('Nobody',
+                            style: TextStyle(fontSize: 13, color: Brand.inkMuted)),
+                      )
+                    else
+                      Padding(
+                        padding: const EdgeInsets.only(left: 15, bottom: 12),
+                        child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              for (final n in names('${r.$1}_names'))
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 3),
+                                  child: Text(n, style: const TextStyle(fontSize: 13.5)),
+                                ),
+                            ]),
+                      ),
+                  ],
+                ]),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
+        ],
+      ),
+    );
+  }
+
   // ------------------------------------------------ what you could do
 
   Widget _groupsLaid(bool two) {
@@ -728,6 +861,10 @@ class HomeBarChart extends StatelessWidget {
 
   /// A bar (or its label) tapped, by its place in [columns].
   final void Function(int index)? onTap;
+
+  /// Space either side of each bar; null picks it from the number of
+  /// bars (a chart of 30 days needs thin gaps).
+  final double? barGap;
   const HomeBarChart({
     super.key,
     required this.columns,
@@ -736,6 +873,7 @@ class HomeBarChart extends StatelessWidget {
     this.height = 96,
     this.compactLabels = false,
     this.onTap,
+    this.barGap,
   });
 
   Widget _tappable(int i, Widget child) => onTap == null
@@ -817,7 +955,8 @@ class HomeBarChart extends StatelessWidget {
                     Expanded(
                       child: _tappable(i, Padding(
                         padding: EdgeInsets.symmetric(
-                            horizontal: columns.length > 4 ? (compactLabels ? 4 : 8) : 6),
+                            horizontal: barGap ??
+                                (columns.length > 4 ? (compactLabels ? 4 : 8) : 6)),
                         child: Stack(clipBehavior: Clip.none, children: [
                           Positioned(
                             left: 0,

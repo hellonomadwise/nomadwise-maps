@@ -1504,7 +1504,11 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         'outreach' || 'claimplan' || 'sequences' => ToolGroupScreen(
             initial: switch (k) {
               'sequences' => 2,
-              'outreach' => query != null ? 1 : 0,
+              // Something waiting behind the number beside Outreach:
+              // straight to Cards, whose To do says what it is
+              // (Jonathan, 10 Nov 2026: "I can't work out what the 1
+              // is").
+              'outreach' => query != null || _menuCount('outreach').$1 > 0 ? 1 : 0,
               _ => 0,
             },
             tabs: [
@@ -1705,10 +1709,15 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     final looked = total - replied - followUp;
     if (looked < 0) return general;
     String n(int k, String one, String many) => '$k ${k == 1 ? one : many}';
-    return 'to do in Outreach:\n'
+    String who(String k) {
+      final l = (p[k] as List?)?.map((e) => '$e').toList() ?? const <String>[];
+      return l.isEmpty ? '' : ' (${l.join(', ')})';
+    }
+    return 'to do in Outreach (open Outreach, then To do):\n'
         '• ${n(replied, 'space wrote', 'spaces wrote')} back and '
-        '${replied == 1 ? 'waits' : 'wait'} for your answer\n'
-        '• ${n(followUp, 'follow-up has', 'follow-ups have')} come due\n'
+        '${replied == 1 ? 'waits' : 'wait'} for your answer${who('replied_names')}\n'
+        '• ${n(followUp, 'follow-up has', 'follow-ups have')} come due'
+        '${who('follow_up_names')}\n'
         '• ${n(looked, 'space', 'spaces')} looked at claiming or made an '
         'account (last 2 weeks)';
   }

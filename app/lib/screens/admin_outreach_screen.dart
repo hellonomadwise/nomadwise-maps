@@ -381,6 +381,9 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
     if (_tab != 'all' || _board == null) _loadBoard();
     // Started first and read last: it never throws, and the list does
     // not wait for it.
+    _supabase.adminOutreachMenuParts().then((m) {
+      if (mounted && m != null) setState(() => _menuParts = m);
+    });
     final pathF = _supabase.outreachPath();
     final wholeF = _supabase.outreachWhole();
     final newF = _supabase.outreachNewPages();
@@ -5213,6 +5216,64 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
   }
 
   String _tab = 'todo';
+
+  /// What the number beside Outreach in the menu is made of, with names
+  /// (migration 301), shown at the top of To do.
+  Map<String, dynamic>? _menuParts;
+
+  /// The top of To do: who is behind the number beside Outreach, each
+  /// name a tap away from its line (Jonathan, 10 Nov 2026: "i want to be
+  /// able to know how to action that 1").
+  Widget _menuNumberBox() {
+    final m = _menuParts;
+    if (m == null) return const SizedBox.shrink();
+    List<String> names(String k) =>
+        (m[k] as List?)?.map((e) => '$e').toList() ?? const <String>[];
+    final rows = <(String, String, String)>[
+      for (final x in names('replied_names'))
+        (x, 'wrote back and waits for your answer', 'They wrote back'),
+      for (final x in names('follow_up_names'))
+        (x, 'the follow-up date you set has come', 'They showed interest'),
+    ];
+    if (rows.isEmpty) return const SizedBox.shrink();
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+      decoration: BoxDecoration(
+          color: Brand.accentTint, borderRadius: BorderRadius.circular(12)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('Waiting on you (the number beside Outreach)',
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Brand.ink)),
+        const SizedBox(height: 6),
+        for (final r in rows)
+          InkWell(
+            onTap: () {
+              _search.text = r.$1;
+              _searchChanged();
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(children: [
+                const Icon(Icons.circle, size: 8, color: Brand.red),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text.rich(TextSpan(children: [
+                    TextSpan(
+                        text: r.$1,
+                        style: const TextStyle(fontWeight: FontWeight.w700)),
+                    TextSpan(text: ': ${r.$2}. In the list under "${r.$3}".'),
+                  ]), style: const TextStyle(fontSize: 13, height: 1.4)),
+                ),
+                const SizedBox(width: 6),
+                const Text('Show',
+                    style: TextStyle(
+                        fontSize: 13, fontWeight: FontWeight.w700, color: Brand.accent)),
+              ]),
+            ),
+          ),
+      ]),
+    );
+  }
   Map<String, List<Map<String, dynamic>>>? _board;
   String? _boardError;
   Map<String, Map<String, dynamic>> _asides = const {};
@@ -5863,6 +5924,7 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
       ('owner_ready', 'Set up by us, not claimed'),
     ];
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      _menuNumberBox(),
       if (old.isNotEmpty) _tidyBanner(old.length),
       for (final g in groups)
         if (tasks.any((t) => t.kind == g.$1)) ...[

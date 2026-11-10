@@ -6509,3 +6509,9 @@ Jonathan, showing the email to The Capsule in Spark: "Can we make it better?" It
 
 ## 9 Nov 2026: new opening hours reach a live page by themselves
 Jonathan: "I can't see the updated opening hours are live on the site yet" (The Capsule). The hours were saved on the space, but a live page only gets a listing sync when a plan or an owner's change asks for one, and that sync wrote hours only from owner content. The Capsule's page was updated and published by hand. Migration 300 asks for a listing sync whenever a live space's hours change, and the sync now writes the space's own hours.
+
+## 10 Nov 2026: the number beside Outreach says who, and opens where to act
+Jonathan: "the 1 on the left. when i click into outreach, I can't work out what the 1 is. i want to be able to know how to action that 1". It was Avila Spaces, whose follow-up date (set when its old reply was tidied) had come; Outreach opened on the Plan tab, where it does not show. Now: with a number beside it, Outreach opens on Cards, To do; the top of To do lists who is behind the number ("Avila Spaces: the follow-up date you set has come"), each with Show, which finds its line; the menu tooltip names them too (migration 301 gives the names).
+
+## 10 Nov 2026: Home shows owners each day
+Jonathan: "I would like to see daily activity bar chart on users claimed as well as users logged in, users updated info". Under Outreach sent each week, a card "Owners each day · last 30 days": three rows of daily bars over the same days, Claimed (first claim of a space), Signed in (an owner opened their Owner account), Sent changes (an owner sent changes for review), each with its 30-day total. Tapping a day lists the spaces behind each row. Our own team's addresses and test claims are left out. Migration 302 (admin_home_owner_days, read inside admin_home).
