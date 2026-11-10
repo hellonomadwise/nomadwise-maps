@@ -310,15 +310,23 @@ class _AdminOwnerActivityScreenState extends State<AdminOwnerActivityScreen> {
   Widget _tabs() {
     final rows = {for (final t in _list('tabs')) '${t['tab']}': t};
     final active = ((_d?['owners_active'] as num?) ?? 0).toInt();
+    int ownersOf(String k) => ((rows[k]?['owners'] as num?) ?? 0).toInt();
+    int opensOf(String k) => ((rows[k]?['opens'] as num?) ?? 0).toInt();
     final keys = [
       ..._tabNames.keys.where(rows.containsKey),
       ...rows.keys.where((k) => !_tabNames.containsKey(k)),
       ..._tabNames.keys.where((k) => !rows.containsKey(k)),
     ];
+    // most owners first, then most visits; the ones nobody opened last
+    keys.sort((a, b) {
+      final o = ownersOf(b).compareTo(ownersOf(a));
+      return o != 0 ? o : opensOf(b).compareTo(opensOf(a));
+    });
     return _card(
       'What they open',
-      'How many owners opened each tab, how often, and the time spent there. '
-          'A tab nobody opens is a sign it is hidden, unclear or not needed.',
+      'Each tab of the Owner account: how many owners opened it, how many '
+          'visits, and the time each visit. Most opened first. A tab nobody '
+          'opens may be hidden, unclear or not needed.',
       Column(children: [
         for (final k in keys)
           Builder(builder: (_) {
@@ -327,36 +335,43 @@ class _AdminOwnerActivityScreenState extends State<AdminOwnerActivityScreen> {
             final opens = ((r?['opens'] as num?) ?? 0).toInt();
             final secs = (r?['secs'] as num?) ?? 0;
             final share = active == 0 ? 0.0 : owners / active;
+            // Stacked, so it reads on a phone too (Jonathan, 10 Nov
+            // 2026: "I think this part could be better"): the tab and
+            // how many owners on one line, the bar under it, the visits
+            // in small under that.
             return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6),
-              child: Row(children: [
-                SizedBox(
-                    width: 170,
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                Row(children: [
+                  Expanded(
                     child: Text(_tab(k),
-                        style: const TextStyle(fontWeight: FontWeight.w600))),
-                Expanded(
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: LinearProgressIndicator(
-                      value: share.clamp(0, 1).toDouble(),
-                      minHeight: 8,
-                      backgroundColor: Brand.field,
-                      color: owners == 0 ? Brand.inkFaint : Brand.red,
-                    ),
+                        style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: owners == 0 ? Brand.inkSecondary : Brand.ink)),
                   ),
-                ),
-                const SizedBox(width: 12),
-                SizedBox(
-                  width: 230,
-                  child: Text(
-                      owners == 0
-                          ? 'Nobody opened this'
-                          : '$owners of $active owners · $opens ${opens == 1 ? 'open' : 'opens'} · '
-                              '${_dur(opens == 0 ? 0 : secs / opens)} each',
+                  Text(owners == 0 ? 'Nobody yet' : '$owners of $active owners',
                       style: TextStyle(
                           fontSize: 12.5,
-                          color: owners == 0 ? _red : Brand.inkSecondary)),
+                          fontWeight: FontWeight.w700,
+                          color: owners == 0 ? Brand.inkMuted : Brand.ink)),
+                ]),
+                const SizedBox(height: 5),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: share.clamp(0, 1).toDouble(),
+                    minHeight: 7,
+                    backgroundColor: Brand.field,
+                    color: Brand.red,
+                  ),
                 ),
+                if (owners > 0) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                      '$opens ${opens == 1 ? 'visit' : 'visits'} · '
+                      '${_dur(opens == 0 ? 0 : secs / opens)} each',
+                      style: const TextStyle(fontSize: 12, color: Brand.inkSecondary)),
+                ],
               ]),
             );
           }),
@@ -384,19 +399,24 @@ class _AdminOwnerActivityScreenState extends State<AdminOwnerActivityScreen> {
                   final pct = started == 0 ? 0 : (100 * saved / started).round();
                   final hard = left > saved;
                   return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
                     child: Row(children: [
-                      SizedBox(
-                          width: 170,
-                          child: Text(_part(e['part']),
-                              style: const TextStyle(fontWeight: FontWeight.w600))),
                       Expanded(
-                        child: Text(
-                            '$started started · $saved saved · $left left without saving'
-                            ' · ${e['owners']} owners',
-                            style: const TextStyle(
-                                fontSize: 13, color: Brand.inkSecondary)),
+                        child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(_part(e['part']),
+                                  style: const TextStyle(fontWeight: FontWeight.w700)),
+                              const SizedBox(height: 2),
+                              Text(
+                                  '$started started · $saved saved · $left left without '
+                                  'saving · ${e['owners']} '
+                                  '${e['owners'] == 1 ? 'owner' : 'owners'}',
+                                  style: const TextStyle(
+                                      fontSize: 12, color: Brand.inkSecondary)),
+                            ]),
                       ),
+                      const SizedBox(width: 10),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(

@@ -6515,3 +6515,9 @@ Jonathan: "the 1 on the left. when i click into outreach, I can't work out what 
 
 ## 10 Nov 2026: Home shows owners each day
 Jonathan: "I would like to see daily activity bar chart on users claimed as well as users logged in, users updated info". Under Outreach sent each week, a card "Owners each day · last 30 days": three rows of daily bars over the same days, Claimed (first claim of a space), Signed in (an owner opened their Owner account), Sent changes (an owner sent changes for review), each with its 30-day total. Tapping a day lists the spaces behind each row. Our own team's addresses and test claims are left out. Migration 302 (admin_home_owner_days, read inside admin_home).
+
+## 10 Nov 2026: Publish has its own fast lane
+Jonathan, on Hotel AMANO sitting on "Publishing within a minute or two": speed matters, so he can get a new space live and tell the owner straight away. Publish used to ask for the general website push, which shares a queue ("enrich") with the hourly Stripe run and the nightly enrichment and also scores photos, so it could wait behind them. Now Publish also starts "Website publish" (.github/workflows/webflow_publish.yml, migration 303): its own queue, one step, `webflow_sync.py --push-only --publish-only`, which checks the drafts asked for, publishes the listing and its Images entry, and stops. The general push is still started as the backstop.
+
+## 10 Nov 2026: Owner activity reads on a phone
+Jonathan, on "What they open" on his phone: "I think this part could be better". Each row was name, bar and figures side by side at fixed widths, so on a phone the bar vanished and the figures ran off the edge. Now each tab is stacked: its name and "3 of 4 owners" on one line, the bar under it, "8 visits · 3 min each" under that; most opened first; a tab nobody opened says "Nobody yet" in grey instead of red. "What they change in My listing" is stacked the same way, the % saved pill kept on the right.

@@ -62,6 +62,15 @@ google_meter.install('website push' if '--push-only' in sys.argv else 'website s
 # control centre feels immediate; exits in a second when nothing is
 # queued.
 PUSH_ONLY = '--push-only' in sys.argv
+# --publish-only: only the drafts whose Publish was pressed (and the
+# quick release check), then stop. Run by webflow_publish.yml, which
+# the database starts the moment Publish is pressed, in its own queue
+# so it never waits behind a long push or the hourly Stripe run
+# (Jonathan, 10 Nov 2026: Hotel AMANO sat on "Publishing within a
+# minute or two"; speed matters so he can tell the owner it is live).
+PUBLISH_ONLY = '--publish-only' in sys.argv
+if PUBLISH_ONLY:
+    PUSH_ONLY = True
 
 SUPABASE_URL = os.environ.get('SUPABASE_URL', '').rstrip('/')
 SERVICE_KEY = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
@@ -1213,6 +1222,10 @@ if PUSH_ONLY:
         time.sleep(0.3)
     report['drafts_checked'] = checked
     report['drafts_published'] = published
+
+# A publish-only run has done its job.
+if PUBLISH_ONLY:
+    finish(1 if report['errors'] else 0)
 
 # Region and Location requests from the app (handled further down,
 # after the places are read); they count as work too.
