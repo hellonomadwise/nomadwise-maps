@@ -227,3 +227,28 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+
+  # How the run ended, written to Supabase (public.build_runs) so a
+  # failure can be read and fixed from the chat without anyone opening
+  # this page (Jonathan, 10 Nov 2026). Runs whatever happened above and
+  # never fails the run.
+  report:
+    needs: [build, deploy-pages]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Report how the build ended
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          GH_TOKEN: ${{ github.token }}
+          BUILD_RESULT: ${{ needs.build.result }}
+          DEPLOY_RESULT: ${{ needs.deploy-pages.result }}
+        run: |
+          python3 scripts/report_build.py
