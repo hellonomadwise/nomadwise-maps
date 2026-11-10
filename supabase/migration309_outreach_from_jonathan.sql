@@ -23,3 +23,16 @@ $a$      -- from Jonathan himself, answers back to him, a copy to the shared
       'To', c.email,
       'Bcc', 'spaces@nomadwise.io',$a$,
 $m$from Jonathan himself, answers back to him$m$);
+
+-- Later the same day (Jonathan: "replies back to spaces@ keeping my
+-- name as sender"): answers go to the shared inbox again.
+select public.pm_patch_fn('public.admin_outreach_send(uuid,text,text,text,boolean)',
+$a$      'From', 'Jonathan Heavens <jonathan@nomadwise.io>',
+      'To', c.email,
+      'Bcc', 'spaces@nomadwise.io',$a$,
+$a$      'From', 'Jonathan Heavens <jonathan@nomadwise.io>',
+      'To', c.email,
+      -- answers to the shared inbox, where both founders see them
+      'ReplyTo', 'spaces@nomadwise.io',
+      'Bcc', 'spaces@nomadwise.io',$a$,
+$m$answers to the shared inbox, where both founders see them$m$);

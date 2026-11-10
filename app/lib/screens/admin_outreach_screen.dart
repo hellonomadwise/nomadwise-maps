@@ -1979,8 +1979,8 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
                         'email ready to send by hand from Spark: use it '
                         'for invitations to spaces that have not written '
                         'to us. "Send from here" goes out at once from '
-                        'jonathan@nomadwise.io, with a copy to '
-                        'spaces@nomadwise.io: use it to answer someone who '
+                        'jonathan@nomadwise.io, with a copy and any reply '
+                        'to spaces@nomadwise.io: use it to answer someone who '
                         'wrote. Either way an unsubscribe line is added if '
                         'the email has none.',
                         style: const TextStyle(
@@ -3588,8 +3588,8 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
       'Press Reply on its card and pick a template. Their name, space, '
           'claim link and price fill in. Read it and change anything.\n'
           '"Send from here" goes at once from jonathan@nomadwise.io, with a '
-          'copy to spaces@nomadwise.io. Use it to answer someone who wrote '
-          'to us.\n'
+          'copy to spaces@nomadwise.io, where replies come too. Use it to '
+          'answer someone who wrote to us.\n'
           '"From my own inbox" gets the email ready to send by hand from '
           'Spark: on a Mac the draft opens there; on Windows, where Spark '
           'cannot be handed an email, you copy the address, subject and '

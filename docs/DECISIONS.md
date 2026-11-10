@@ -6561,3 +6561,4 @@ Jonathan, on the reply to WORX: "this template could be better. the claim link l
 
 ## 10 Nov 2026: outreach emails come from Jonathan
 Jonathan: "if its a semi outreach email, I'm kind of wanting it to come from jonathan@nomadwise.io bcc spaces@nomadwise.io". "Send from here" in Outreach now sends as Jonathan Heavens <jonathan@nomadwise.io> with a copy to spaces@nomadwise.io; answers go to jonathan@ (no separate reply address). Postmark accepts the address. Automatic owner emails and enquiry emails still come from Nomadwise Spaces. Migration 309; the two help texts and the History note say the new address.
+- Later the same day: replies go to spaces@nomadwise.io again (Reply-To), the sender stays Jonathan Heavens <jonathan@nomadwise.io> (Jonathan: "replies back to spaces@ keeping my name as sender").
