@@ -21,7 +21,7 @@ import 'admin_spaces_screen.dart';
 /// Outreach (migration 121): every cafe, coworking or coliving space
 /// we are talking to, in one list. Who they are, what they wrote,
 /// which stage they are at, and a Reply button that fills one of our
-/// templates with their details, sends it from spaces@nomadwise.io and
+/// templates with their details, sends it from jonathan@nomadwise.io and
 /// logs it. Founders only.
 class AdminOutreachScreen extends StatelessWidget {
   const AdminOutreachScreen(
@@ -1979,6 +1979,7 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
                         'email ready to send by hand from Spark: use it '
                         'for invitations to spaces that have not written '
                         'to us. "Send from here" goes out at once from '
+                        'jonathan@nomadwise.io, with a copy to '
                         'spaces@nomadwise.io: use it to answer someone who '
                         'wrote. Either way an unsubscribe line is added if '
                         'the email has none.',
@@ -3586,8 +3587,9 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
       'Writing to a space',
       'Press Reply on its card and pick a template. Their name, space, '
           'claim link and price fill in. Read it and change anything.\n'
-          '"Send from here" goes at once from spaces@nomadwise.io. Use it to '
-          'answer someone who wrote to us.\n'
+          '"Send from here" goes at once from jonathan@nomadwise.io, with a '
+          'copy to spaces@nomadwise.io. Use it to answer someone who wrote '
+          'to us.\n'
           '"From my own inbox" gets the email ready to send by hand from '
           'Spark: on a Mac the draft opens there; on Windows, where Spark '
           'cannot be handed an email, you copy the address, subject and '

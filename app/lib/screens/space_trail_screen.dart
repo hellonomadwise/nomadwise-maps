@@ -129,9 +129,10 @@ class _SpaceTrailScreenState extends State<SpaceTrailScreen> {
                             for (var i = 0; i < rows.length; i++) _item(i, rows[i]),
                             const SizedBox(height: 12),
                             const Text(
-                                'Owners\' replies to our emails go to '
-                                'spaces@nomadwise.io, so they are in that inbox '
-                                'rather than here. Email text is kept from 29 Sep '
+                                'Replies to emails sent from Outreach go to '
+                                'jonathan@nomadwise.io (to spaces@nomadwise.io for '
+                                'those sent before 10 Nov 2026), so they are in '
+                                'that inbox rather than here. Email text is kept from 29 Sep '
                                 '2026; older emails show their subject only.',
                                 style: TextStyle(
                                     fontSize: 12, color: Brand.inkMuted, height: 1.45)),
