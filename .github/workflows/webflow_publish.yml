@@ -1,0 +1,35 @@
+name: Website publish (Publish pressed)
+
+# The fast lane for one thing: a draft whose Publish was pressed in the
+# control centre goes live. The database starts this the moment Publish
+# is pressed (migration 303). It has its own queue, so it never waits
+# behind a long website push, the hourly Stripe run or the nightly
+# enrichment (Jonathan, 10 Nov 2026: Hotel AMANO sat on "Publishing
+# within a minute or two"). It checks the draft, publishes the listing
+# and its Images entry, and stops: usually live within a minute.
+# The ten-minute website push still publishes anything this misses.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Publish the drafts asked for
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          WEBFLOW_API_TOKEN: ${{ secrets.WEBFLOW_API_TOKEN }}
+          GOOGLE_PLACES_KEY: ${{ secrets.GOOGLE_PLACES_SERVER_KEY || secrets.GOOGLE_PLACES_KEY }}
+        run: |
+          python3 scripts/webflow_sync.py --push-only --publish-only
