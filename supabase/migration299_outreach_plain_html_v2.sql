@@ -119,17 +119,17 @@ begin
       -- breaks kept
       p := replace(replace(replace(p, '&', '&amp;'), '<', '&lt;'), '>', '&gt;');
       p := regexp_replace(p, '(https?://)(www\.)?([^\s<]+[^\s<.,;:!?)])',
-                          '<a href="\1\2\3" style="color:#1A56DB;">\3</a>', 'g');
+                          '<a href="\1\2\3" style="color:#FF444F;text-decoration:underline;">\3</a>', 'g');
       p := regexp_replace(p, '(^|[\s(])www\.([^\s<]+[^\s<.,;:!?)])',
-                          '\1<a href="https://www.\2" style="color:#1A56DB;">\2</a>', 'g');
+                          '\1<a href="https://www.\2" style="color:#FF444F;text-decoration:underline;">\2</a>', 'g');
       p := replace(p, E'\n', '<br>');
       if page is not null then
         p := replace(p, 'ZZPAGELINKZZ',
-               '<a href="' || replace(page, '&', '&amp;') || '" style="color:#1A56DB;">nomadwise.io</a>');
+               '<a href="' || replace(page, '&', '&amp;') || '" style="color:#FF444F;text-decoration:underline;">nomadwise.io</a>');
       end if;
       if yours is not null then
         p := replace(p, 'ZZYOURPAGEZZ',
-               '<a href="' || replace(yours, '&', '&amp;') || '" style="color:#1A56DB;">your page</a>');
+               '<a href="' || replace(yours, '&', '&amp;') || '" style="color:#FF444F;text-decoration:underline;">your page</a>');
       end if;
       html := html || '<p style="' || font || para || '">' || p || '</p>';
     end if;
