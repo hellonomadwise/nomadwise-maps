@@ -1517,10 +1517,13 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
     final onWindows = defaultTargetPlatform == TargetPlatform.windows;
     String unsubLink = '';
     String? problem;
-    // The space has no page tied to it, so the links in the email go to
-    // the home page and a long search link (Jonathan, 9 Nov 2026: "The
-    // link is looking dodgy").
-    var noPage = false;
+    // Why this email would be refused when sent, in the database's own
+    // words (it does not point at the space's page; migrations 304 and
+    // 308), shown as a note above the subject.
+    String? pageNote;
+    // The template was picked for the line, not by hand: the database
+    // may say a better one (a space with several locations) once.
+    var autoPicked = true;
     final lastOut = DateTime.tryParse('${c['last_out_at'] ?? ''}');
     final recent = lastOut != null &&
         DateTime.now().difference(lastOut).inDays < 30;
@@ -1539,9 +1542,22 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
         subject.text = '${p['subject'] ?? ''}';
         body.text = '${p['body'] ?? ''}';
         unsubLink = '${p['unsubscribe_link'] ?? ''}';
-        final claim = '${p['claim_link'] ?? ''}';
-        noPage = claim.startsWith('https://nomadmaps.io/?claim=') &&
-            body.text.contains(claim);
+        final note = '${p['problem'] ?? ''}'.trim();
+        pageNote = note.isEmpty ? null : note;
+        // A space with several locations has an email of its own
+        // (Jonathan, 10 Nov 2026, on WORX: "this template could be
+        // better. the claim link looks dodgy").
+        final better = '${p['suggest'] ?? ''}';
+        if (autoPicked &&
+            better.isNotEmpty &&
+            better != k &&
+            _templates.any((t) => t['key'] == better)) {
+          autoPicked = false;
+          key = better;
+          await fill(better, setD);
+          return;
+        }
+        autoPicked = false;
       } catch (e) {
         problem = _plain(e);
       }
@@ -1794,22 +1810,15 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
                             fill(k, setD);
                           },
                   ),
-                  if (noPage && !loading)
+                  if (pageNote != null && !loading)
                     Container(
                       margin: const EdgeInsets.only(top: 10),
                       padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
                       decoration: BoxDecoration(
                           color: Brand.goldTint,
                           borderRadius: BorderRadius.circular(10)),
-                      child: const Text(
-                          'This line is not tied to a page on nomadwise.io, so '
-                          'the links in this email do not go to their page. If '
-                          'they have one, close this, press Remove... on the '
-                          'line and choose "Already in touch on another line" '
-                          'to join it with their page\'s line (every message is '
-                          'kept). If they have no page, pick a template without '
-                          'a claim link.',
-                          style: TextStyle(
+                      child: Text(pageNote!,
+                          style: const TextStyle(
                               fontSize: 12.5, height: 1.4, color: Brand.goldTextDark)),
                     ),
                   const SizedBox(height: 10),
