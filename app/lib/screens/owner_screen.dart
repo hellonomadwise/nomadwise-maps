@@ -5784,7 +5784,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
   };
 
   static const _plusPerks = [
-    'Verified by Nomadwise badge on your page',
+    'Verified by Nomadwise badge, on your page and for your own website and Instagram',
     "Top positioning on your region's page",
     'Promote your events and offers on your page',
     'Unlimited requests from nomads, straight to your inbox',

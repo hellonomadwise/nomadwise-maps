@@ -1705,6 +1705,41 @@ class ClaimedScreen extends StatefulWidget {
 class _ClaimedScreenState extends State<ClaimedScreen> {
   Map<String, dynamic>? _claim;
 
+  /// The badge that comes with the page, shown as soon as the claim is
+  /// in (Jonathan, 10 Nov 2026: "we are building a brand, getting a
+  /// strong brand presence"): "Find us on nomadwise.io" for Free,
+  /// "Verified by nomadwise.io" for Premium. The code and the media pack
+  /// are in the Owner account, under Website badges.
+  Widget _badgeCard(bool free) => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+        decoration: BoxDecoration(
+            color: Brand.surface,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: Brand.border)),
+        child: Column(children: [
+          const Text('Your Nomadwise badge',
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15.5)),
+          const SizedBox(height: 12),
+          Image.network(
+              '/badges/${free ? 'find' : 'verified'}-line.png',
+              height: 44,
+              errorBuilder: (_, __, ___) => const SizedBox.shrink()),
+          const SizedBox(height: 12),
+          Text(
+              free
+                  ? 'Once the page is yours, add this badge to your website and '
+                      'Instagram so people know they can find you on Nomadwise. '
+                      'It is waiting in your Owner account, under Website badges.'
+                  : 'Once Premium is on, show you are Verified by Nomadwise on '
+                      'your website and Instagram. Your badge is waiting in your '
+                      'Owner account, under Website badges.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                  fontSize: 13.5, height: 1.5, color: Brand.inkSecondary)),
+        ]),
+      );
+
   @override
   void initState() {
     super.initState();
@@ -1800,6 +1835,8 @@ class _ClaimedScreenState extends State<ClaimedScreen> {
                             vertical: 14, horizontal: 22)),
                     icon: const Icon(Icons.arrow_back, size: 16),
                     label: const Text('Back to nomadwise.io')),
+                SizedBox(height: wide ? 28 : 22),
+                _badgeCard(free),
                 const SizedBox(height: 14),
                 const Text('Questions? spaces@nomadwise.io',
                     style: TextStyle(color: Brand.inkMuted, fontSize: 12.5)),

@@ -10,13 +10,14 @@ const planFreeGets = [
   'Your Owner account, to keep your hours, prices and contact details '
       'up to date',
   'Optimised to be found on Google and by AI assistants',
+  'A "Find us on Nomadwise" badge for your website and Instagram',
   '2 free requests from nomads',
 ];
 
 /// The paid plan is Premium; the badge it brings is still called
 /// Verified by Nomadwise.
 const planPremiumAdds = [
-  'Verified by Nomadwise badge on your page',
+  'Verified by Nomadwise badge, on your page and for your own website and Instagram',
   "Top positioning on your region's page",
   'Promote your events and offers on your page',
   'Unlimited requests from nomads, straight to your inbox',
@@ -43,17 +44,18 @@ String formatMoney(num minor, String currency) {
 
 /// What the Verified plan costs for one space, read from pricing_for()
 /// (migration 115), and the two choices on it: monthly or yearly, and
-/// the currency. Monthly is pre-selected; yearly wears the "2 months
-/// free" badge; the currency starts on the country's own and can be switched
+/// the currency. Yearly is pre-selected and wears the "2 months free"
+/// badge; the currency starts on the country's own and can be switched
 /// unless the country locks it (the UK: pounds only).
 class PricingChoice {
   final Map<String, dynamic> pricing;
   String period;
   String currency;
 
-  // Monthly first (Jonathan, 10 Nov 2026: "the default position should
-  // be monthly"); yearly keeps its "2 months free" badge.
-  PricingChoice(this.pricing, {this.period = 'monthly', String? currency})
+  // Yearly first, shown as its monthly figure next to the monthly
+  // price (Jonathan, 10 Nov 2026, after trying monthly first: "toggled
+  // to yearly, but show the per month price equivalent").
+  PricingChoice(this.pricing, {this.period = 'yearly', String? currency})
       : currency = currency ?? '${pricing['currency'] ?? 'EUR'}';
 
   List<String> get currencies => [

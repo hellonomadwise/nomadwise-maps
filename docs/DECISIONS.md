@@ -6528,3 +6528,12 @@ Jonathan, on step 2 of claiming: the line under the plans ("You pay the price fo
 ## 10 Nov 2026: plan cards back to their look, the same size
 Jonathan, on step 2: "do it exactly the same as it is now here, remove bottom small text. make left and right card same size. default monthly". Premium's red border, shadow, "Make the most of Nomadwise" pill and filled button are back as they were (the calmer version of earlier today is undone). The two cards are now level and the same height (Free no longer sits lower, Premium no longer raised). The line under the plans stays gone, monthly stays first, and Free keeps "Your page, yours to manage. No card needed."
 - The "Make the most of Nomadwise" pill on Premium is gone too (Jonathan, same day).
+
+## 10 Nov 2026: yearly first, priced per month
+Jonathan: "would it make sense to instead have it toggled to yearly, but show the per month price equivalent, and then if the person toggles to monthly it shows the monthly increased cost". Agreed, with the charge said plainly. Yearly is chosen first again; Premium's big price is always per month ($5.75 /month on yearly, $7 /month on monthly), and on yearly the line under it says "Billed $69 once a year. Cancel any time." The struck-through twelve-month price is gone. This replaces "monthly first" from earlier the same day.
+
+## 10 Nov 2026: the Nomadwise badge, put in front of owners
+Jonathan: "we are building a brand, getting a strong brand presence" and "a badge, kind of like a as seen on Nomadwise". The Website badges tab (CR-26) already had "Find us on nomadwise.io" (Free) and "Verified by nomadwise.io" (Premium), but only 1 of 4 owners had opened it. Now:
+- Plan lists: Free gains 'A "Find us on Nomadwise" badge for your website and Instagram'; Premium's first line reads "Verified by Nomadwise badge, on your page and for your own website and Instagram" (claim page, Get Premium window, Plan & billing).
+- The end of claiming shows the badge they will get, and where to find it.
+- Emails (Postmark, pushed 10 Nov after taking Postmark's latest copy; earlier versions kept in email_template_versions): "Approved: Free", "Approved: Premium" and "Your page is live" show the badge image linking to their page, with a line to add it to their website and Instagram, once the page is live.

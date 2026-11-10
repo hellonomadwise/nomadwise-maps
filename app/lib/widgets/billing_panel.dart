@@ -52,7 +52,7 @@ class _BillingPanelState extends State<BillingPanel> {
   // The same lists as the claim page (Leonie's wording, 23 Oct).
   // The paid plan is Premium; its badge is still Verified by Nomadwise.
   static const _benefits = [
-    'Verified by Nomadwise badge on your page',
+    'Verified by Nomadwise badge, on your page and for your own website and Instagram',
     "Top positioning on your region's page",
     'Promote your events and offers on your page',
     'Unlimited requests from nomads, straight to your inbox',
@@ -64,6 +64,7 @@ class _BillingPanelState extends State<BillingPanel> {
     'Your Owner account, to keep your hours, prices and contact details '
         'up to date',
     'Optimised to be found on Google and by AI assistants',
+    'A "Find us on Nomadwise" badge for your website and Instagram',
     '2 free requests from nomads',
   ];
 

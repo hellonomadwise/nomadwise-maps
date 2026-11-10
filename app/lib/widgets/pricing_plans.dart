@@ -10,8 +10,8 @@ import 'ui.dart' show PlanFeatureRow;
 /// between the plans than inside them, Premium is the one to pick (red
 /// border and the only filled button; the MAKE THE MOST OF NOMADWISE
 /// pill went on 10 Nov 2026),
-/// both cards the same size, Yearly shows the twelve monthly payments struck
-/// through. Used by step two of the claim page (Jonathan, 30 Oct 2026:
+/// both cards the same size, and Premium's price always a monthly figure
+/// (on yearly, the yearly charge said under it). Used by step two of the claim page (Jonathan, 30 Oct 2026:
 /// find your space first, then the pricing page).
 class PricingPlans extends StatelessWidget {
   /// The prices for the space's country; null while they load.
@@ -169,16 +169,16 @@ class PricingPlans extends StatelessWidget {
           key: ValueKey('${p.period}-${p.currency}'),
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _bigPrice(formatMoney(yearly ? y : m, p.currency),
-                unit: yearly ? '/year' : '/month',
-                was: yearly && m * 12 > y
-                    ? formatMoney(m * 12, p.currency)
-                    : null),
+            // Always a monthly figure, so the two choices compare at a
+            // glance; on yearly, what is charged is said plainly under it
+            // (Jonathan, 10 Nov 2026). No struck-through price.
+            _bigPrice(formatMoney(yearly ? (y / 12).round() : m, p.currency),
+                unit: '/month'),
             const SizedBox(height: 6),
             Text(
                 yearly
-                    ? 'Works out at ${formatMoney((y / 12).round(), p.currency)} a '
-                        'month, billed once a year.'
+                    ? 'Billed ${formatMoney(y, p.currency)} once a year. '
+                        'Cancel any time.'
                     : 'Billed every month. Cancel any time.',
                 style: const TextStyle(fontSize: 14, color: Brand.inkSecondary)),
           ]);
