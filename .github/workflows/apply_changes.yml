@@ -1,0 +1,37 @@
+name: Apply changes
+
+# Changes reach main without a zip (Jonathan, 10 Nov 2026). Claude
+# queues a change as a row in Supabase (public.code_changes, migration
+# 306) and the database starts this workflow, which applies the patch,
+# pushes it to main and starts the build. See docs/AUTO_APPLY.md.
+#
+# Off switch: Actions > Apply changes > ... > Disable workflow.
+# It cannot change files under .github/ (a workflow may not rewrite
+# workflows); those are still uploaded by hand.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: apply-changes
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply the waiting changes
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 scripts/apply_changes.py
