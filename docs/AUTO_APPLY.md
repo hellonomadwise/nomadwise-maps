@@ -57,3 +57,21 @@ rows then wait; zips work as before.
 - `select id, message, status, error, run_url from code_changes order by id desc limit 5;`
 - `select public.code_changes_run();` starts the workflow again.
 - A row to drop: `update code_changes set status = 'cancelled' where id = N;`
+
+## Knowing how the build ended
+
+Claude cannot open GitHub's Actions page. Two things tell it how a
+build went:
+
+- `public.build_runs` (migration 307): the build workflow's last job
+  (`scripts/report_build.py`) writes one row per run with the result
+  of the build and the deploy, and on a failure the step that failed
+  and the end of its log. A failed run also pings the founders' phones.
+  `select run_number, sha, result, failed, log_tail from build_runs order by finished_at desc limit 3;`
+- The `ci-debug` branch, which the build has always pushed: the smoke
+  screenshots, `migrations_report.json` (which migrations ran or
+  failed) and, after a failed build, `last_failure.log`.
+  `git fetch origin ci-debug && git show FETCH_HEAD:ci-debug/migrations_report.json`
+
+After sending a change, Claude checks back about a quarter of an hour
+later and, if the build failed, reads the log and sends the fix.
