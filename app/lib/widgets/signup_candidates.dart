@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -74,6 +75,12 @@ class _SignupCandidatesState extends State<SignupCandidates> {
 
   static String _s(Object? v) => (v ?? '').toString().trim();
 
+  /// A place Google Maps does not have cannot go on our map: the
+  /// commonest "no" for a sign-up, so it has its own reason, first.
+  static const notOnGoogle = 'Not on Google Maps, or no real address';
+
+  List<String> get _reasons => [notOnGoogle, ...widget.dismissReasons];
+
   Future<void> _open(String url) async {
     var u = url.trim();
     if (u.isEmpty) return;
@@ -95,7 +102,8 @@ class _SignupCandidatesState extends State<SignupCandidates> {
         .where((x) => x.isNotEmpty)
         .join(' ');
     // The address the space gave us, to tell branches apart.
-    final given = _s(s['address']).isEmpty
+    final given = _s(s['address']).isEmpty ||
+            _s(s['address']).toLowerCase().contains('no street address')
         ? ''
         : [s['address'], s['city'], s['country']]
             .map(_s)
@@ -106,7 +114,7 @@ class _SignupCandidatesState extends State<SignupCandidates> {
     // 2026: "the ux can be better on mobile").
     final phone = MediaQuery.sizeOf(context).width < 600;
     final picked = phone
-        ? await showModalBottomSheet<(String, PlaceLive)>(
+        ? await showModalBottomSheet<(String, PlaceLive?)>(
             context: context,
             isScrollControlled: true,
             useSafeArea: true,
@@ -117,12 +125,18 @@ class _SignupCandidatesState extends State<SignupCandidates> {
                 start: start,
                 given: given,
                 sheet: true))
-        : await showDialog<(String, PlaceLive)>(
+        : await showDialog<(String, PlaceLive?)>(
             context: context,
             builder: (_) => _FindPlaceDialog(
                 places: widget.places, start: start, given: given));
     if (picked == null || !mounted) return;
-    final (placeId, live) = picked;
+    final (placeId, found) = picked;
+    // "Google does not have it": off the list with that reason.
+    if (found == null) {
+      await _dismiss(s, notOnGoogle);
+      return;
+    }
+    final live = found;
     setState(() => _busy.add(id));
     try {
       final region = widget.regionForCity(live.city);
@@ -222,20 +236,148 @@ class _SignupCandidatesState extends State<SignupCandidates> {
                 color: Brand.inkMuted)),
       ),
       const Padding(
-        padding: EdgeInsets.fromLTRB(2, 0, 2, 10),
+        padding: EdgeInsets.fromLTRB(2, 0, 2, 8),
         child: Text(
             'These places are not on nomadwise.io yet: spaces that signed '
-            'up through our old forms, then places travellers suggested. '
-            'Find each one on Google, check it is still open and good to '
-            'work from, and queue it, or say why it is not for the site.',
+            'up through our old forms, then places travellers suggested.',
             style: TextStyle(
                 fontSize: 12.5, height: 1.4, color: Brand.inkSecondary)),
       ),
+      _howToDecide(),
       for (final s in _rows) _card(s),
       const SizedBox(height: 6),
       const Divider(height: 1),
       const SizedBox(height: 14),
     ]);
+  }
+
+  /// The rule for yes or no, in sight while deciding (Jonathan, 10 Nov
+  /// 2026: "i have no idea when im going through this section how to
+  /// assess yes or no").
+  Widget _howToDecide() {
+    Widget point(String n, String text) => Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            SizedBox(
+                width: 18,
+                child: Text(n,
+                    style: const TextStyle(
+                        fontSize: 12.5,
+                        height: 1.4,
+                        fontWeight: FontWeight.w800,
+                        color: Brand.inkSecondary))),
+            Expanded(
+                child: Text(text,
+                    style: const TextStyle(fontSize: 12.5, height: 1.4))),
+          ]),
+        );
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(0, 0, 0, 12),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+      decoration: BoxDecoration(
+          color: Brand.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Brand.inkFaint.withValues(alpha: .5))),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('HOW TO DECIDE',
+            style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                letterSpacing: .8,
+                color: Brand.inkMuted)),
+        const SizedBox(height: 4),
+        const Text('It is a yes when all three are true:',
+            style: TextStyle(
+                fontSize: 12.5, height: 1.4, fontWeight: FontWeight.w700)),
+        point('1.', 'Google Maps has it, at a street address. The search on '
+            'each card tells you.'),
+        point('2.', 'Anyone can walk in or book a desk: it is a business, '
+            'not a home or a private office.'),
+        point('3.', 'You would send a remote worker there: a coworking '
+            'space, or a cafe that welcomes laptops.'),
+        const SizedBox(height: 8),
+        const Text(
+            'If one of them is a no, press "Not for the site" and pick the '
+            'reason. A yes here is not final: queueing only makes a draft '
+            'page, and nothing goes on the site until you approve it.',
+            style: TextStyle(
+                fontSize: 12.5, height: 1.4, color: Brand.inkSecondary)),
+      ]),
+    );
+  }
+
+  /// What the sign-up itself suggests, before any search: a hint, in
+  /// words, from what the form does and does not hold.
+  ({String title, String why, Color color}) _read(Map<String, dynamic> s) {
+    final suggested = _s(s['form']) == 'Suggested by a visitor';
+    final address = _s(s['address']);
+    final lower = '$address ${_s(s['history'])}'.toLowerCase();
+    final hasWeb = _s(s['website']).isNotEmpty ||
+        _s(s['instagram']).isNotEmpty ||
+        _s(s['link']).isNotEmpty;
+    final noStreet =
+        address.isEmpty || lower.contains('no street address');
+    final home = RegExp(
+            r'\b(app|apt|apartment|appartement|flat|piso)\b\.?\s*\d|apartment address')
+        .hasMatch(lower);
+    final doubts = <String>[
+      if (!hasWeb) 'it has no website or social page to check it against',
+      if (home)
+        'its address looks like a home, not a business'
+      else if (noStreet && !suggested)
+        'it gave no street address, so Google Maps is unlikely to have it',
+    ];
+    String cap(String t) => t[0].toUpperCase() + t.substring(1);
+    if (doubts.length >= 2) {
+      return (
+        title: 'Probably not for the site',
+        why: '${cap(doubts.join(', and '))}. Try the Google search '
+            'once; if it is not there, it is a no.',
+        color: Brand.red,
+      );
+    }
+    if (doubts.length == 1) {
+      return (
+        title: 'Check before you queue it',
+        why: '${cap(doubts.first)}. Find it on Google and see whether '
+            'it is a real place people can work from.',
+        color: Brand.gold,
+      );
+    }
+    return (
+      title: 'Worth a look',
+      why: suggested
+          ? 'A traveller recommended it and left a link. Find it on '
+              'Google, check it is the same place, and queue it.'
+          : 'It gave a street address and a website. Find it on Google, '
+              'check it is the same place and open to anyone, and queue it.',
+      color: Brand.success,
+    );
+  }
+
+  Widget _readBox(Map<String, dynamic> s) {
+    final r = _read(s);
+    // gold words do not read on a gold tint
+    final ink = r.color == Brand.gold ? Brand.goldTextDark : r.color;
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 6, bottom: 2),
+      padding: const EdgeInsets.fromLTRB(10, 8, 10, 9),
+      decoration: BoxDecoration(
+          color: r.color.withValues(alpha: .07),
+          borderRadius: BorderRadius.circular(8)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('OUR READ: ${r.title.toUpperCase()}',
+            style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                letterSpacing: .6,
+                color: ink)),
+        const SizedBox(height: 3),
+        Text(r.why, style: const TextStyle(fontSize: 12.5, height: 1.4)),
+      ]),
+    );
   }
 
   Widget _line(IconData icon, String text, {VoidCallback? onTap}) {
@@ -359,6 +501,7 @@ class _SignupCandidatesState extends State<SignupCandidates> {
             _line(Icons.subdirectory_arrow_right,
                 'Suggested from '
                 '${from.startsWith('/') ? 'nomadwise.io$from' : from}'),
+          _readBox(s),
           const SizedBox(height: 6),
           Wrap(
               spacing: 4,
@@ -371,7 +514,7 @@ class _SignupCandidatesState extends State<SignupCandidates> {
                   tooltip: 'Why it is not for the site',
                   onSelected: (reason) => _dismiss(s, reason),
                   itemBuilder: (_) => [
-                    for (final r in widget.dismissReasons)
+                    for (final r in _reasons)
                       PopupMenuItem<String>(value: r, child: Text(r)),
                   ],
                   child: Padding(
@@ -420,6 +563,13 @@ class _FindPlaceDialogState extends State<_FindPlaceDialog> {
   late final _q = TextEditingController(text: widget.start);
   List<PlaceHit> _hits = [];
   bool _searching = false;
+  // True once a search has come back, so "nothing found" is not shown
+  // before the first answer.
+  bool _searched = false;
+  // Typing searches by itself after a short pause (Jonathan, 10 Nov
+  // 2026: "if i ... try and adjust or type, the auto finder isnt
+  // working": it only searched on Enter or the magnifier).
+  Timer? _typing;
   String? _pickedId;
   PlaceLive? _picked;
   bool _loadingPick = false;
@@ -439,23 +589,33 @@ class _FindPlaceDialogState extends State<_FindPlaceDialog> {
 
   @override
   void dispose() {
+    _typing?.cancel();
     _q.dispose();
     super.dispose();
   }
 
+  void _typed(String _) {
+    _typing?.cancel();
+    _typing = Timer(const Duration(milliseconds: 550), _search);
+  }
+
   Future<void> _search() async {
+    _typing?.cancel();
     final text = _q.text.trim();
     if (text.length < 2) return;
     setState(() => _searching = true);
     final hits = await widget.places.findPlaces(text);
     if (!mounted) return;
+    // The words changed while Google answered: the search for the new
+    // words is already on its way (or runs now), and gives the answer.
     if (text != _q.text.trim()) {
-      setState(() => _searching = false);
+      if (!(_typing?.isActive ?? false)) _search();
       return;
     }
     setState(() {
       _hits = hits;
       _searching = false;
+      _searched = true;
     });
   }
 
@@ -596,9 +756,11 @@ class _FindPlaceDialogState extends State<_FindPlaceDialog> {
         controller: _q,
         autofocus: !widget.sheet,
         textInputAction: TextInputAction.search,
+        onChanged: _typed,
         onSubmitted: (_) => _search(),
         decoration: InputDecoration(
             labelText: 'Name and town',
+            helperText: 'Change the words and the list follows.',
             suffixIcon: IconButton(
                 tooltip: 'Search',
                 onPressed: _search,
@@ -615,18 +777,25 @@ class _FindPlaceDialogState extends State<_FindPlaceDialog> {
           ),
         ),
       const SizedBox(height: 8),
-      if (_searching)
-        const Padding(
-          padding: EdgeInsets.all(16),
-          child: CircularProgressIndicator(color: Brand.red),
-        )
-      else if (_hits.isEmpty)
+      // A thin bar while Google answers, with the last list left in
+      // place, so the window does not jump on every letter.
+      SizedBox(
+          height: 3,
+          child: _searching
+              ? const LinearProgressIndicator(
+                  color: Brand.red, backgroundColor: Colors.transparent)
+              : null),
+      const SizedBox(height: 6),
+      if (_hits.isEmpty && _searching)
         const Padding(
           padding: EdgeInsets.all(12),
-          child: Text(
-              'Nothing found. Try the name alone, or the name and the street.',
+          child: Text('Asking Google…',
               style: TextStyle(color: Brand.inkMuted)),
         )
+      else if (_hits.isEmpty && _searched)
+        _nothingFound()
+      else if (_hits.isEmpty)
+        const SizedBox(height: 24)
       else
         ConstrainedBox(
           constraints: BoxConstraints(maxHeight: widget.sheet ? 420 : 340),
@@ -634,7 +803,61 @@ class _FindPlaceDialogState extends State<_FindPlaceDialog> {
             for (final h in _sorted) _hitRow(h, match),
           ]),
         ),
+      // Google always offers something: say what to do when none of
+      // them is the place.
+      if (_hits.isNotEmpty)
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton(
+              onPressed: () =>
+                  Navigator.pop<(String, PlaceLive?)>(context, ('', null)),
+              child: const Text('None of these is it: not for the site')),
+        ),
     ]);
+  }
+
+  /// Google has no such place: say what that means, and offer the
+  /// answer it leads to.
+  Widget _nothingFound() => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+        decoration: BoxDecoration(
+            color: Brand.goldTint, borderRadius: BorderRadius.circular(10)),
+        child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Google Maps has no place by these words.',
+                  style:
+                      TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 4),
+              const Text(
+                  'Try the name alone, or the name and the street. A place '
+                  'that is not on Google Maps cannot go on our map, so if '
+                  'it still is not there, it is a no.',
+                  style: TextStyle(fontSize: 12.5, height: 1.4)),
+              const SizedBox(height: 8),
+              OutlinedButton(
+                  onPressed: () =>
+                      Navigator.pop<(String, PlaceLive?)>(context, ('', null)),
+                  child: const Text('It is not on Google: not for the site')),
+            ]),
+      );
+
+  /// What Google calls the place, when that is not a place to work
+  /// from ("gym", "apartment building"): a reason to look twice.
+  static String? _typeDoubt(String? type) {
+    final t = (type ?? '').trim();
+    if (t.isEmpty) return null;
+    const fine = {
+      'coworking_space', 'cafe', 'coffee_shop', 'cafeteria', 'bakery',
+      'restaurant', 'brunch_restaurant', 'breakfast_restaurant',
+      'tea_house', 'bar', 'library', 'book_store', 'corporate_office',
+      'hotel', 'hostel', 'community_center', 'internet_cafe',
+    };
+    if (fine.contains(t) || t.endsWith('_restaurant')) return null;
+    return 'Google lists it as "${t.replaceAll('_', ' ')}", not as a '
+        'place to work. Queue it only if you know people can work there.';
   }
 
   Widget _checkPicked(PlaceLive? picked) {
@@ -679,6 +902,22 @@ class _FindPlaceDialogState extends State<_FindPlaceDialog> {
                 'Google gave no location for this one, so it cannot go on '
                 'the map.',
                 style: TextStyle(fontSize: 12.5, color: Brand.red)),
+          ] else ...[
+            if (_typeDoubt(picked.primaryType) != null) ...[
+              const SizedBox(height: 8),
+              Text(_typeDoubt(picked.primaryType)!,
+                  style: const TextStyle(
+                      fontSize: 12.5,
+                      height: 1.4,
+                      color: Brand.goldTextDark)),
+            ],
+            const SizedBox(height: 10),
+            const Text(
+                'Queue it if this is the same place and anyone can go and '
+                'work there. Queueing makes a draft page for you to check; '
+                'nothing goes on the site until you approve it.',
+                style: TextStyle(
+                    fontSize: 12.5, height: 1.4, color: Brand.inkSecondary)),
           ],
         ]);
   }
@@ -693,7 +932,8 @@ class _FindPlaceDialogState extends State<_FindPlaceDialog> {
     final picked = _picked;
     final body = _pickedId != null ? _checkPicked(picked) : _results();
     final canQueue = picked != null && picked.lat != null;
-    void queue() => Navigator.pop(context, (_pickedId!, picked!));
+    void queue() => Navigator.pop<(String, PlaceLive?)>(
+        context, (_pickedId!, picked!));
 
     if (widget.sheet) {
       // Phone: full-width buttons, the one that acts first.

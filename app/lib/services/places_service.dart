@@ -42,8 +42,13 @@ class PlaceSuggestion {
   final String placeId;
   final String main;
   final String secondary;
+  /// What Google says it is ("cafe", "locality"...), when it says.
+  final List<String> types;
   PlaceSuggestion(
-      {required this.placeId, required this.main, required this.secondary});
+      {required this.placeId,
+      required this.main,
+      required this.secondary,
+      this.types = const []});
 }
 
 /// Fetches live venue details (rating, review count, open/closed, hours,
@@ -386,10 +391,32 @@ class PlacesService {
     }
   }
 
+  /// A town, a street or a district is never the answer to "which
+  /// place is it" (the search for "Estudio Independiente Llíria Spain"
+  /// offered the town of Llíria itself: Jonathan, 10 Nov 2026).
+  static const _areaTypes = {
+    'locality', 'political', 'country', 'route', 'geocode', 'postal_code',
+    'postal_town', 'sublocality', 'sublocality_level_1', 'neighborhood',
+    'administrative_area_level_1', 'administrative_area_level_2',
+    'administrative_area_level_3', 'colloquial_area', 'street_address',
+    'premise', 'subpremise', 'plus_code', 'intersection',
+  };
+
+  /// Google calls it an area or an address, and not a business.
+  static bool isAreaNotPlace(Object? types) {
+    if (types is! List || types.isEmpty) return false;
+    final t = {for (final x in types) x.toString()};
+    if (t.contains('establishment') || t.contains('point_of_interest')) {
+      return false;
+    }
+    return t.any(_areaTypes.contains);
+  }
+
   /// Places matching a name and town, each with its full street
   /// address and position, so two branches of the same business can be
   /// told apart (Shloka, Ahmedabad, 25 Oct 2026). One Text Search call;
   /// falls back to the lighter autocomplete when it finds nothing.
+  /// Towns, streets and districts are left out.
   Future<List<PlaceHit>> findPlaces(String query, {int max = 8}) async {
     final q = query.trim();
     if (q.length < 2) return [];
@@ -400,7 +427,8 @@ class PlacesService {
           'X-Goog-Api-Key': AppConfig.googlePlacesKey,
           'Content-Type': 'application/json',
           'X-Goog-FieldMask':
-              'places.id,places.displayName,places.formattedAddress,places.location',
+              'places.id,places.displayName,places.formattedAddress,'
+                  'places.location,places.types',
         },
         body: jsonEncode({
           'languageCode': 'en',
@@ -415,6 +443,7 @@ class PlacesService {
           if (x is! Map) continue;
           final id = (x['id'] ?? '').toString();
           if (id.isEmpty) continue;
+          if (isAreaNotPlace(x['types'])) continue;
           final loc = x['location'];
           hits.add(PlaceHit(
             placeId: id,
@@ -432,7 +461,8 @@ class PlacesService {
     final sugg = await autocomplete(q);
     return [
       for (final h in sugg)
-        PlaceHit(placeId: h.placeId, name: h.main, address: h.secondary),
+        if (!isAreaNotPlace(h.types))
+          PlaceHit(placeId: h.placeId, name: h.main, address: h.secondary),
     ];
   }
 
@@ -657,6 +687,9 @@ class PlacesService {
                     '',
                 secondary:
                     p['structuredFormat']?['secondaryText']?['text'] ?? '',
+                types: [
+                  for (final t in (p['types'] as List?) ?? const []) '$t'
+                ],
               ))
           .toList();
     } catch (_) {
