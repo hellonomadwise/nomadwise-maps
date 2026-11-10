@@ -1,0 +1,30 @@
+name: Stripe round yearly prices (one-off)
+
+# Jonathan, 10 Nov 2026: yearly Premium prices become 12 x a whole
+# monthly figure ($72 a year = $6 /month), shown with "Save xx%".
+# Makes the new yearly prices in Stripe, points the app at them and
+# switches the old ones off. Running it again changes nothing.
+# Press "Run workflow" once.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: enrich
+  cancel-in-progress: false
+
+jobs:
+  round:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: New yearly prices
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          STRIPE_API_KEY: ${{ secrets.STRIPE_API_KEY }}
+        run: |
+          python3 scripts/stripe_round_yearly.py
