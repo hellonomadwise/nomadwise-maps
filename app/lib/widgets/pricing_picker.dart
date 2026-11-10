@@ -110,6 +110,15 @@ class PricingChoice {
     return a == null ? '' : 'from ${formatMoney(a, currency)} a month';
   }
 
+  /// The yearly saving against twelve monthly payments, in per cent:
+  /// "Save 14%" (the yearly prices are whole months since 10 Nov 2026,
+  /// so the saving is no longer a whole number of months).
+  int get savePercent {
+    final m = monthly, y = yearly;
+    if (m == null || y == null || m == 0) return 0;
+    return ((1 - y / (12 * m)) * 100).round();
+  }
+
   /// The yearly saving against twelve monthly payments, as months.
   double get monthsFree {
     final m = monthly, y = yearly;
@@ -119,7 +128,7 @@ class PricingChoice {
 }
 
 /// Monthly / Yearly, the way pricing pages do it: the two words with a
-/// switch between them and a "2 months free" pill on the yearly side.
+/// switch between them and a "Save xx%" pill on the yearly side.
 /// Tapping either word also switches.
 class PeriodToggle extends StatelessWidget {
   final PricingChoice choice;
@@ -131,7 +140,7 @@ class PeriodToggle extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = choice;
     final yearly = c.period == 'yearly';
-    final months = c.monthsFree.round();
+    final save = c.savePercent;
 
     Widget word(String label, String value) {
       final on = c.period == value;
@@ -169,10 +178,11 @@ class PeriodToggle extends StatelessWidget {
       ),
       const SizedBox(width: 8),
       word('Yearly', 'yearly'),
-      if (months >= 1) ...[
+      if (save >= 1) ...[
         const SizedBox(width: 8),
         // More room inside the pill (Jonathan, 10 Nov 2026: "the yearly
-        // pill, to be padded better"); tapping it chooses yearly.
+        // pill, to be padded better"); tapping it chooses yearly. It says
+        // the saving in per cent ("Save 14%"), not months free.
         GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: () => onChanged(c..period = 'yearly'),
@@ -181,7 +191,7 @@ class PeriodToggle extends StatelessWidget {
             decoration: BoxDecoration(
                 color: yearly ? Brand.successTint : Brand.field,
                 borderRadius: BorderRadius.circular(20)),
-            child: Text('$months month${months == 1 ? '' : 's'} free',
+            child: Text('Save $save%',
                 style: TextStyle(
                     fontSize: 12,
                     height: 1.2,

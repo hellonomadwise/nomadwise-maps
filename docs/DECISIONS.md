@@ -6537,3 +6537,6 @@ Jonathan: "we are building a brand, getting a strong brand presence" and "a badg
 - Plan lists: Free gains 'A "Find us on Nomadwise" badge for your website and Instagram'; Premium's first line reads "Verified by Nomadwise badge, on your page and for your own website and Instagram" (claim page, Get Premium window, Plan & billing).
 - The end of claiming shows the badge they will get, and where to find it.
 - Emails (Postmark, pushed 10 Nov after taking Postmark's latest copy; earlier versions kept in email_template_versions): "Approved: Free", "Approved: Premium" and "Your page is live" show the badge image linking to their page, with a line to add it to their website and Instagram, once the page is live.
+
+## 10 Nov 2026: yearly prices in whole months, "Save xx%"
+Jonathan: "5.75 is pretty random ... that would need to change to the Saving xx%", then "yes lets round". Each group's yearly price becomes 12 x a whole monthly figure: A €144 / £132 / $168 / A$240, B €96 / £84 / $108, C €60 / £48 / $72, D €36 / £36 / $42 (savings 14% to 25%). scripts/stripe_round_yearly.py (workflow "Stripe round yearly prices", run once) makes the new yearly prices in Stripe on the same product, points pricing_groups at them and switches the old ones off; nobody was paying yet. The pill by the switch says "Save 14%" (from the real amounts) instead of "2 months free".
