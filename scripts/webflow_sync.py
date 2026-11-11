@@ -697,7 +697,11 @@ def slugify(x):
     x = unicodedata.normalize('NFKD', x)
     x = ''.join(c for c in x if not unicodedata.combining(c))
     x = (x.replace('ø', 'o').replace('Ø', 'o').replace('ß', 'ss')
-          .replace('æ', 'ae').replace('Æ', 'ae').replace('œ', 'oe'))
+          .replace('æ', 'ae').replace('Æ', 'ae').replace('œ', 'oe')
+          # letters with no accent to fold away: Turkish dotless i
+          # (Yapı -> yapi, not yap-), Polish l, Croatian d
+          .replace('ı', 'i').replace('ł', 'l').replace('Ł', 'l')
+          .replace('đ', 'd').replace('Đ', 'd'))
     x = re.sub(r'[^a-z0-9]+', '-', x.lower()).strip('-')
     return re.sub(r'-{2,}', '-', x)
 

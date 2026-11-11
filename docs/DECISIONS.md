@@ -6658,3 +6658,11 @@ Jonathan, on three SwissOffices claims in Istanbul: "These spaces are in Turkey,
 - country_of() now takes the Region's Country on the site first, then the word on the venue (for a region new to the site), then Google's address. Live pages already follow the site's word almost everywhere (cape-verde 16 of 16, england 186 of 186, czech-republic 5 of 7), so this is the existing convention made the rule. A live page keeps its address; only pages not built yet are affected, and a proposed address under the old word is redone by pick_slug.
 - The three SwissOffices venues (all queued, none built) were set to country Turkey by hand on the day.
 - Left as is: the venue's own country word in the control centre and Nomad Maps still shows what Google says for other spaces; two live Prague pages keep czechia-prague-...
+
+## 11 Nov 2026: three SwissOffices pages named by building; addresses fold the Turkish dotless i
+Jonathan agreed to name the three Istanbul SwissOffices pages apart ("Yes but do I need to find out what area each is for"). He did not need to: the addresses are on the claims and on Google, and swissoffices.com names its own sites. Named after their own location names, not the district, because their site lists a separate "Levent" site as coming soon, which a "SwissOffices Levent" of ours would have collided with.
+- Beşiktaş (Yapı Kredi Plaza, Block C, floor 17, Levent): SwissOffices Yapı Kredi Plaza, turkey-istanbul-swissoffices-yapi-kredi-plaza.
+- Şişli (Astoria, Block A, floor 8, Esentepe): SwissOffices Astoria Kempinski, turkey-istanbul-swissoffices-astoria-kempinski.
+- Ümraniye (Exen Istanbul Residence, floor 12, Tantavi): SwissOffices Exen Residence, turkey-istanbul-swissoffices-exen-residence ("Exen Residence" as their own page text says, so the heading does not read Istanbul twice).
+- Set by hand on the venues (name and website_slug_override) and on their Outreach lines; all three were queued with no page built. Their website links were left as the owner gave them: the claim note asks for swissoffices.com/en as the official website.
+- slugify() in scripts/webflow_sync.py now turns the Turkish dotless i into i (Yapı gave yap-kredi, Kadıköy gave kad-koy), and Polish l and Croatian d likewise; these letters have no accent to fold away.
