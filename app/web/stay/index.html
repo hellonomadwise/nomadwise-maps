@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
+<title>Places to stay nearby · Nomadwise</title>
+<!-- "Somewhere to stay" from an enquiry's confirmation email (migration
+     317; Jonathan, 11 Nov 2026: the link should be "relevant to where
+     they are looking, and its fluid and doesn't damage our overall
+     brand"). The email carries a short link on our own address,
+     nomadmaps.io/stay/?to=<lat>_<lng>_<region slug>, and this page sends
+     the person on to our booking partner's map of places to stay
+     around that point. Only ever sends to stay22.com: the three parts
+     are checked and nothing else from the address is used. -->
+<style>
+  body{margin:0;background:#F7F8F9;font-family:Roboto,Arial,sans-serif;color:#1F2328}
+  .wrap{max-width:480px;margin:0 auto;padding:40px 16px}
+  .logo{font-size:22px;font-weight:800;color:#FF444F;letter-spacing:-.3px}
+  .card{margin-top:16px;background:#fff;border:1px solid rgba(20,32,50,.10);border-radius:8px;padding:28px 24px}
+  h1{margin:0 0 10px;font-size:22px;line-height:1.3;font-weight:800}
+  p{margin:0 0 14px;font-size:15px;line-height:1.55;color:#4A525C}
+  a.go{display:block;height:48px;line-height:48px;border-radius:8px;background:#1F2328;color:#fff;font-weight:700;font-size:16px;text-align:center;text-decoration:none}
+  a{color:#D42F3A;font-weight:700;text-decoration:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="logo">nomadwise</div>
+  <div class="card">
+    <h1 id="h">Places to stay nearby</h1>
+    <p id="p">Taking you to a map of places to stay, with prices.</p>
+    <p><a class="go" id="go" href="https://www.nomadwise.io/" rel="noopener">Open the map</a></p>
+    <p style="margin:0;font-size:13px">If you book through it, the booking site pays us a small commission. It costs you nothing extra, and it helps keep Nomadwise free to use.</p>
+  </div>
+</div>
+<script>
+(function () {
+  var go = document.getElementById('go');
+  var m = /[?&]to=([^&#]+)/.exec(location.search);
+  var parts = m ? decodeURIComponent(m[1]).split('_') : [];
+  var lat = parseFloat(parts[0]), lng = parseFloat(parts[1]);
+  var slug = (parts.slice(2).join('-') || 'other').toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 80) || 'other';
+  var ok = parts.length >= 2 && /^-?\d{1,2}(\.\d+)?$/.test(parts[0]) && /^-?\d{1,3}(\.\d+)?$/.test(parts[1]) &&
+           lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+  if (!ok) {
+    document.getElementById('h').textContent = 'That link is not complete';
+    document.getElementById('p').textContent = 'Find cafes and coworking spaces, and where to stay near them, on Nomadwise.';
+    go.textContent = 'Open nomadwise.io';
+    return;
+  }
+  var url = 'https://www.stay22.com/allez/wildcard?aid=nomadwise&campaign=enquiry-' + slug +
+            '&lat=' + lat.toFixed(4) + '&lng=' + lng.toFixed(4);
+  go.href = url;
+  location.replace(url);
+})();
+</script>
+</body>
+</html>
