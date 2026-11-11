@@ -116,6 +116,16 @@ class _HomeViewState extends State<HomeView> {
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
     final phone = width < 600;
+    // What the number beside Home counts: the red-dot lines. They come
+    // first on the page, under that number, so the two are plainly the
+    // same thing (Jonathan, 11 Nov 2026: "for Home, i dont know what the
+    // 4 relates to": the lines were below the charts, a scroll away).
+    final urgent = [for (final g in widget.groups) if (g.urgent) g];
+    final waitingN = urgent
+        .expand((g) => g.rows)
+        .where((r) => r.waiting)
+        .fold<int>(0, (n, r) => n + (r.count ?? 1));
+    final waitingFirst = waitingN > 0;
     return Scaffold(
       backgroundColor: Brand.bg,
       appBar: AppBar(
@@ -132,6 +142,37 @@ class _HomeViewState extends State<HomeView> {
             padding: EdgeInsets.symmetric(
                 horizontal: math.max(pad, (box.maxWidth - inner) / 2), vertical: phone ? 12 : 20),
             children: [
+              if (waitingFirst) ...[
+                Row(children: [
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                    decoration: BoxDecoration(
+                        color: Brand.red,
+                        borderRadius: BorderRadius.circular(8)),
+                    child: Text(_whole(waitingN),
+                        style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white)),
+                  ),
+                  const SizedBox(width: 8),
+                  const Expanded(child: _Heading('WAITING ON YOU')),
+                ]),
+                const SizedBox(height: 6),
+                Text(
+                    'This is the $waitingN beside Home in the menu: the lines '
+                    'with a red dot, added up. Each line opens where it is '
+                    'done, and the number goes down as you clear them.',
+                    style: const TextStyle(
+                        fontSize: 12.5, height: 1.4, color: Brand.inkSecondary)),
+                const SizedBox(height: 10),
+                for (final g in urgent)
+                  Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _groupCard(g)),
+                const SizedBox(height: 10),
+              ],
               if (!phone)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 4),
@@ -170,10 +211,15 @@ class _HomeViewState extends State<HomeView> {
               const SizedBox(height: 22),
               const _Heading('WHAT YOU COULD DO'),
               const SizedBox(height: 4),
-              const Text('Pick any. A red dot means someone is waiting on us.',
-                  style: TextStyle(fontSize: 12.5, color: Brand.inkSecondary)),
+              Text(
+                  waitingFirst
+                      ? 'Pick any. What is waiting on you is at the top of '
+                          'this page.'
+                      : 'Pick any. A red dot means someone is waiting on us.',
+                  style: const TextStyle(
+                      fontSize: 12.5, color: Brand.inkSecondary)),
               const SizedBox(height: 10),
-              _groupsLaid(inner >= 820),
+              _groupsLaid(inner >= 820, withoutUrgent: waitingFirst),
               const SizedBox(height: 24),
             ],
           );
@@ -628,8 +674,13 @@ class _HomeViewState extends State<HomeView> {
 
   // ------------------------------------------------ what you could do
 
-  Widget _groupsLaid(bool two) {
-    final cards = [for (final g in widget.groups) _groupCard(g)];
+  /// [withoutUrgent]: the "To handle" card is at the top of the page
+  /// already, so it is not shown a second time here.
+  Widget _groupsLaid(bool two, {bool withoutUrgent = false}) {
+    final cards = [
+      for (final g in widget.groups)
+        if (!(withoutUrgent && g.urgent)) _groupCard(g)
+    ];
     if (!two) {
       return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         for (final c in cards) Padding(padding: const EdgeInsets.only(bottom: 12), child: c),

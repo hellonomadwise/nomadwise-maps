@@ -6589,3 +6589,6 @@ Jonathan, on Madeira Friends Hub under "They showed interest" (opened their clai
 - "Done for now" brought a space back the moment its claim page was opened again. Snooze (migration 313, space_contacts.snooze_until) leaves the whole space alone until a day: off To do whatever they open meanwhile; a claim ends it for good; otherwise it is back that day. 3 days, 1 week, 2 weeks or 1 month. A follow-up date already due moves to the same day.
 - A Snooze button on every "They showed interest" card. Waiting says "Snoozed until Wed 18 Nov" and its menu has "End the snooze".
 - The look card now says what decides it: "visit 2 in the last two months" and "We last wrote 16 hours ago".
+
+## 11 Nov 2026: the number beside Home is explained at the top of Home
+Jonathan: "for Home, i dont know what the 4 relates to" (he asked the same about a 1 on 9 Nov; the answer was behind an (i) on a card below the charts, a scroll away). The number adds up the red-dot lines of "To handle". While there are any, that card is now the first thing on Home, under a red count and the heading WAITING ON YOU, with a line saying it is the number beside Home; it is not repeated lower down. With nothing waiting, Home is as before. On the day the 4 was three sign-ups to decide and Madeira Friends Hub's look at its claim page.

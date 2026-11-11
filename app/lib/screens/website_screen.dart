@@ -1660,7 +1660,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     return switch (key) {
       'home' => (
           _inbox == null || !_nextUpRead ? 0 : _homeWaiting(),
-          'waiting on us: the red-dot lines under To handle on Home'
+          'waiting on you: the red-dot lines at the top of Home'
         ),
       'centre' => (_todoCount, 'waiting in Pages (its To do line)'),
       'upgrades' => (
@@ -3642,7 +3642,8 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
               'claiming, sign-ups to decide, and closed places to take off the '
               'site. A red dot means a person is waiting for an answer, so '
               'those are best done first. The number beside Home in the menu '
-              'adds up the red-dot lines.'),
+              'adds up the red-dot lines, and while there are any this card '
+              'sits at the top of Home.'),
       HomeGroup('Get spaces to claim', claim,
           info: 'Writing to spaces that have a page on nomadwise.io but have '
               'not claimed it yet. Each line is one way to reach them (email, '
