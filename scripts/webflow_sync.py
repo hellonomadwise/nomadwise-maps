@@ -3188,6 +3188,21 @@ if queued:
                 report['needs_location'].append(
                     {'name': v['name'], 'why': 'fewer than 3 photos'})
                 continue
+            # A space that already has an owner (it was claimed before
+            # it had a page) is made with the owner's mark on it, so the
+            # page never says "Is this your business? Claim your
+            # listing", not even for the minute until owner_marks()
+            # reaches it (Jonathan, 11 Nov 2026, on the SwissOffices
+            # pages a moment after they went live). If the question
+            # cannot be asked, the page is made as before and
+            # owner_marks() marks it on a later run.
+            try:
+                if sb('rpc/listing_has_owner', method='POST',
+                      body={'p_venue': v['id']}) is True:
+                    fields['discount-available-2'] = with_owner_mark(
+                        fields.get('discount-available-2'), True)
+            except Exception:  # noqa: BLE001
+                pass
             try:
                 create_listing(v, fields, slug_, where)
             except urllib.error.HTTPError as e:
