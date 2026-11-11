@@ -79,7 +79,7 @@ class PassOnCard extends StatelessWidget {
     var tell = true;
     final checked = e['contact_checked'] == true;
 
-    final ok = await showDialog<bool>(
+    final ok = await showDialog<Object>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setD) => AlertDialog(
@@ -116,7 +116,8 @@ class PassOnCard extends StatelessWidget {
                         child: Text(
                             checked
                                 ? 'No email found on their website. Try the links '
-                                    'below and paste one here.'
+                                    'below and paste one here, or send it by '
+                                    'WhatsApp with their number.'
                                 : 'Still looking for an email on their website. '
                                     'Check back in a few minutes, or paste one below.',
                             style: const TextStyle(
@@ -136,7 +137,12 @@ class PassOnCard extends StatelessWidget {
                     if (_matched) ...[
                       const SizedBox(height: 4),
                       ContactPhoneBox(
-                          venueId: '${e['venue_id']}', supabase: supabase),
+                          venueId: '${e['venue_id']}',
+                          supabase: supabase,
+                          initial: '${e['contact_phone'] ?? ''}',
+                          // No email, or he would sooner message them:
+                          // the enquiry as a WhatsApp draft (migration 316).
+                          onWhatsApp: (number) => Navigator.pop(ctx, number)),
                     ],
                     const SizedBox(height: 4),
                     CheckboxListTile(
@@ -180,7 +186,12 @@ class PassOnCard extends StatelessWidget {
       ),
     );
     final to = ctl.text.trim();
-    if (ok != true || !context.mounted) return;
+    if (!context.mounted) return;
+    if (ok is String) {
+      await _byWhatsApp(context, ok, tell);
+      return;
+    }
+    if (ok != true) return;
     // Every email shown as it will arrive, editable, before anything
     // is sent (migration 194).
     final r = await Navigator.of(context).push<EnquiryReviewResult>(
@@ -202,6 +213,125 @@ class PassOnCard extends StatelessWidget {
                 '${r.customerSkipped ? '. The email to $_first did not go: write to them by hand' : ''}.',
         bad: r.passed == 0 || r.customerSkipped);
     await onDone();
+  }
+
+  /// The enquiry as a WhatsApp draft (migration 316; Jonathan, 11 Nov
+  /// 2026, on Coworking Space H24, which has no email anywhere: "need
+  /// to have a button that provides a draft message to whatsapp").
+  /// WhatsApp opens with the words; he presses send there, then says
+  /// so here, and only then does the enquiry leave the list.
+  Future<void> _byWhatsApp(
+      BuildContext context, String number, bool tellFirst) async {
+    final digits = number.replaceAll(RegExp(r'[^0-9]'), '');
+    var draft = '';
+    try {
+      draft = await supabase.enquiryWhatsAppDraft('${e['id']}');
+    } catch (_) {}
+    if (draft.trim().isEmpty) {
+      final msg = (e['message'] ?? '').toString().trim();
+      draft = 'Hi, this is Jonathan from Nomadwise. A remote worker found '
+          '$_space on our site and sent this enquiry for you:\n\n'
+          '${msg.isEmpty ? '' : '"$msg"\n\n'}'
+          'Name: ${e['name'] ?? ''}\nEmail: ${e['email'] ?? ''}\n\n'
+          'Could you reply to $_first directly? Thank you.';
+    }
+    if (!context.mounted) return;
+    final text = TextEditingController(text: draft);
+    var tell = tellFirst;
+    var opened = false;
+
+    final sent = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setD) => AlertDialog(
+          title: Text('WhatsApp to $_space'),
+          content: SizedBox(
+            width: 460,
+            child: SingleChildScrollView(
+              child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('To $number. Change the words if you like.',
+                        style: const TextStyle(
+                            fontSize: 12.5, color: Brand.inkSecondary)),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: text,
+                      minLines: 6,
+                      maxLines: 14,
+                      style: const TextStyle(fontSize: 13.5, height: 1.45),
+                      decoration: const InputDecoration(
+                          labelText: 'Message', alignLabelWithHint: true),
+                    ),
+                    const SizedBox(height: 6),
+                    CheckboxListTile(
+                      value: tell,
+                      onChanged: (v) => setD(() => tell = v ?? true),
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      title: Text('Tell $_first it has been passed on',
+                          style: const TextStyle(fontSize: 13.5)),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                        opened
+                            ? 'Sent it in WhatsApp? Press "I sent it" and the '
+                                'enquiry leaves this list'
+                                '${tell ? ', and $_first gets an email saying it went by WhatsApp' : ''}.'
+                            : 'WhatsApp opens with these words. Nothing is '
+                                'sent until you press send there.',
+                        style: TextStyle(
+                            fontSize: 12,
+                            height: 1.45,
+                            color: opened ? Brand.goldTextDark : Brand.inkMuted)),
+                  ]),
+            ),
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: Text(opened ? 'Not sent' : 'Cancel')),
+            opened
+                ? TextButton(
+                    onPressed: () => launchUrl(
+                        Uri.parse('https://wa.me/$digits'
+                            '?text=${Uri.encodeComponent(text.text.trim())}'),
+                        mode: LaunchMode.externalApplication),
+                    child: const Text('Open again'))
+                : FilledButton.icon(
+                    onPressed: () async {
+                      await launchUrl(
+                          Uri.parse('https://wa.me/$digits'
+                              '?text=${Uri.encodeComponent(text.text.trim())}'),
+                          mode: LaunchMode.externalApplication);
+                      setD(() => opened = true);
+                    },
+                    icon: const Icon(Icons.chat_outlined, size: 16),
+                    label: const Text('Open WhatsApp')),
+            if (opened)
+              FilledButton.icon(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  icon: const Icon(Icons.check, size: 16),
+                  label: const Text('I sent it')),
+          ],
+        ),
+      ),
+    );
+    if (sent != true || !context.mounted) return;
+    try {
+      final told = await supabase.enquiryPassedByWhatsApp(
+          '${e['id']}', number,
+          body: text.text.trim(), tellNomad: tell);
+      if (!context.mounted) return;
+      _snack(context,
+          'Passed on to $_space by WhatsApp${told ? ', and $_first has been told' : ''}.');
+      await onDone();
+    } catch (err) {
+      if (context.mounted) _snack(context, 'That did not work: $err', bad: true);
+    }
   }
 
   Future<void> _close(BuildContext context, String reason) async {
@@ -634,8 +764,20 @@ class SpaceLinks extends StatelessWidget {
 class ContactPhoneBox extends StatefulWidget {
   final String venueId;
   final SupabaseService supabase;
+
+  /// The number already kept on the space in Outreach, if any.
+  final String initial;
+
+  /// Given, a button under the box sends what is being passed on by
+  /// WhatsApp to this number (migration 316). The number is saved first.
+  final void Function(String number)? onWhatsApp;
+
   const ContactPhoneBox(
-      {super.key, required this.venueId, required this.supabase});
+      {super.key,
+      required this.venueId,
+      required this.supabase,
+      this.initial = '',
+      this.onWhatsApp});
 
   @override
   State<ContactPhoneBox> createState() => _ContactPhoneBoxState();
@@ -646,6 +788,29 @@ class _ContactPhoneBoxState extends State<ContactPhoneBox> {
   bool _saving = false;
   String? _saved; // the number as kept
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    final n = widget.initial.trim();
+    if (n.isNotEmpty) {
+      _ctl.text = n;
+      _saved = n;
+    }
+  }
+
+  /// WhatsApp needs the country code, and only a "+" says it is there.
+  bool get _whatsAppReady =>
+      _ctl.text.trim().startsWith('+') &&
+      _ctl.text.replaceAll(RegExp(r'[^0-9]'), '').length >= 8;
+
+  Future<void> _whatsApp() async {
+    if (!(_saved != null && _saved == _ctl.text.trim())) {
+      await _save();
+      if (!mounted || _error != null) return;
+    }
+    widget.onWhatsApp?.call(_saved ?? _ctl.text.trim());
+  }
 
   @override
   void dispose() {
@@ -723,6 +888,20 @@ class _ContactPhoneBoxState extends State<ContactPhoneBox> {
                 height: 1.35,
                 color: _error != null ? Brand.red : Brand.inkMuted)),
       ),
+      if (widget.onWhatsApp != null && _looksLikeNumber)
+        Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: _whatsAppReady
+              ? OutlinedButton.icon(
+                  onPressed: _saving ? null : _whatsApp,
+                  icon: const Icon(Icons.chat_outlined, size: 16),
+                  label: const Text('Send it by WhatsApp'))
+              : const Text(
+                  'To send it by WhatsApp, start the number with the '
+                  'country code, for example +66.',
+                  style: TextStyle(
+                      fontSize: 11.5, height: 1.35, color: Brand.goldTextDark)),
+        ),
     ]);
   }
 }

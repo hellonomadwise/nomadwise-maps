@@ -1121,6 +1121,28 @@ class SupabaseService {
         if (body != null) 'p_body': body,
       });
 
+  /// Admin: a waiting enquiry as a WhatsApp message to the space
+  /// (migration 316), to show and edit before WhatsApp is opened.
+  Future<String> enquiryWhatsAppDraft(String id) async {
+    final r = await _db.rpc('admin_enquiry_whatsapp_draft', params: {'p_id': id});
+    return r is Map ? '${r['text'] ?? ''}' : '';
+  }
+
+  /// Admin: the founder sent this enquiry to the space by WhatsApp
+  /// himself (migration 316). It leaves the pass-on list, the message
+  /// is kept on the space in Outreach and, when asked, the customer is
+  /// told. Returns whether the customer was told.
+  Future<bool> enquiryPassedByWhatsApp(String id, String phone,
+      {String? body, bool tellNomad = true}) async {
+    final r = await _db.rpc('admin_enquiry_passed_whatsapp', params: {
+      'p_id': id,
+      'p_phone': phone,
+      'p_body': body,
+      'p_tell_nomad': tellNomad,
+    });
+    return r is Map && r['told'] == true;
+  }
+
   /// Admin: the emails these enquiries would send, to show and edit
   /// before sending (migration 194): {spaces: [{id, venue_name,
   /// subject, body}], nomad: {to, subject, body}}.
