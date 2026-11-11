@@ -291,6 +291,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     if (!widget.standalone) addr.setAddress('/');
     _searchTimer?.cancel();
     _photoWait?.cancel();
+    _pageWatch?.cancel();
     _searchCtl.dispose();
     _cleanCtl.dispose();
     _tabScroll.dispose();
@@ -414,6 +415,8 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         _nextUpFolded = false;
       });
       _ringMenu();
+      // Pages being built or going live are watched until they arrive.
+      _watchPages();
       // The first reading was started with the page (initState).
       if (!firstLoad) _loadNextUp();
       // Live pages without a Location (migration 173): their own
@@ -556,6 +559,159 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     });
   }
 
+  // ---- pages on their way to the site, watched until they arrive
+  //
+  // Jonathan, 11 Nov 2026, on the green "being created" boxes: "how
+  // will i know when these are available to be published. usually im
+  // just waiting ... a loading bar, or something that gives me clarity
+  // on where things are standing, and that it can auto update".
+  // While a page is being built in Webflow, or going live, its state is
+  // read every ten seconds (a small read of those pages only). The
+  // boxes show how far along each one is, and when one arrives the
+  // lists are read again and a line says so. Nothing to refresh.
+
+  Timer? _pageWatch;
+  // id -> what was last seen ("building", "draft", "going live")
+  Map<String, String> _pageSeen = {};
+  Map<String, String> _pageNames = {};
+  DateTime _pageWatchUntil = DateTime.fromMillisecondsSinceEpoch(0);
+
+  /// The pages worth watching now: approved and not built yet, and
+  /// drafts whose Publish was pressed.
+  Map<String, String> _pagesOnTheWay() => {
+        for (final v in _approvedTonight) '${v['id']}': 'building',
+        for (final v in _drafts)
+          if (v['website_publish_requested_at'] != null && !_publishWaits(v))
+            '${v['id']}': 'going live',
+      };
+
+  void _watchPages() {
+    final now = _pagesOnTheWay();
+    // What arrived since the last look, in words.
+    final said = <String>[];
+    for (final e in _pageSeen.entries) {
+      if (now.containsKey(e.key)) continue;
+      final name = _pageNames[e.key] ?? 'A page';
+      final draft = _drafts
+          .where((d) => '${d['id']}' == e.key)
+          .cast<Map<String, dynamic>?>()
+          .firstWhere((_) => true, orElse: () => null);
+      if (draft != null) {
+        final c = _checkOf(draft);
+        said.add(c.isNotEmpty && c['ok'] != true
+            ? '$name is built, but the check found something to fix.'
+            : '$name is built and checked: ready to publish.');
+      } else if (_released.any((r) => '${r['id']}' == e.key)) {
+        said.add('$name is live on nomadwise.io.');
+      }
+    }
+    _pageSeen = now;
+    _pageNames = {
+      for (final v in [..._approvedTonight, ..._drafts])
+        '${v['id']}': '${v['name'] ?? 'A page'}',
+    };
+    if (said.isNotEmpty && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(said.join('\n')),
+          duration: const Duration(seconds: 6)));
+    }
+    if (now.isEmpty) {
+      _pageWatch?.cancel();
+      _pageWatch = null;
+      return;
+    }
+    // A watch runs for at most half an hour after the last change.
+    _pageWatchUntil = DateTime.now().add(const Duration(minutes: 30));
+    _pageWatch ??= Timer.periodic(const Duration(seconds: 10), (t) async {
+      if (!mounted || DateTime.now().isAfter(_pageWatchUntil)) {
+        t.cancel();
+        _pageWatch = null;
+        return;
+      }
+      final watching = Map<String, String>.from(_pageSeen);
+      final rows = await _supabase.websiteStates(watching.keys.toList());
+      if (!mounted) return;
+      var moved = false;
+      for (final r in rows) {
+        final was = watching['${r['id']}'];
+        final status = '${r['website_status'] ?? ''}';
+        if (was == 'building' && status != 'queued') moved = true;
+        if (was == 'going live' && status != 'published_hidden') moved = true;
+      }
+      if (moved) {
+        await _load();
+      } else {
+        // the bars move on with the clock
+        setState(() {});
+      }
+    });
+  }
+
+  /// "3 min" since a time, for the boxes of pages on their way.
+  static Duration _since(Object? ts) {
+    final t = DateTime.tryParse('${ts ?? ''}');
+    if (t == null) return Duration.zero;
+    final d = DateTime.now().toUtc().difference(t.toUtc());
+    return d.isNegative ? Duration.zero : d;
+  }
+
+  static String _mins(Duration d) => d.inSeconds < 60
+      ? 'under a minute'
+      : '${d.inMinutes} min';
+
+  /// Where a page is on its way: the step in words, and a bar. Building
+  /// takes two to four minutes, going live about one; the bar fills
+  /// against that, and says so when it is taking longer.
+  Widget _onTheWay(Map<String, dynamic> v, {required bool building}) {
+    final d = _since(building
+        ? v['website_approved_at']
+        : v['website_publish_requested_at']);
+    final usual = building ? 210 : 75; // seconds
+    final late_ = d.inSeconds > (building ? 420 : 240);
+    final goesLive = v['website_publish_requested_at'] != null;
+    final String words;
+    if (building) {
+      words = late_
+          ? 'Building the page in Webflow: ${_mins(d)} so far, longer than '
+              'usual. It is tried again by itself within ten minutes.'
+          : 'Building the page in Webflow: ${_mins(d)} so far, usually 2 '
+              'to 4.';
+    } else {
+      words = late_
+          ? 'Going live: ${_mins(d)} so far, longer than usual. It is tried '
+              'again by itself within ten minutes.'
+          : 'Going live on nomadwise.io: usually within a minute or two.';
+    }
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      ClipRRect(
+        borderRadius: BorderRadius.circular(3),
+        child: LinearProgressIndicator(
+            // past the usual time nobody knows how far it is: the bar
+            // just moves
+            value: late_ ? null : (d.inSeconds / usual).clamp(0.04, 0.94),
+            minHeight: 5,
+            color: late_ ? Brand.gold : Brand.success,
+            backgroundColor: building ? Colors.white : Brand.field),
+      ),
+      const SizedBox(height: 6),
+      Text(words,
+          style: TextStyle(
+              fontSize: 12.5,
+              height: 1.35,
+              fontWeight: FontWeight.w600,
+              color: late_ ? Brand.goldTextDark : Brand.success)),
+      if (building)
+        Text(
+            goesLive
+                ? 'Next: it is checked and goes live by itself. Nothing for '
+                    'you to do.'
+                : 'Next: it is checked, then waits just below for you to '
+                    'press Publish.',
+            style: const TextStyle(
+                fontSize: 12, height: 1.35, color: Brand.inkSecondary)),
+    ]);
+  }
+
   static const dismissReasons = [
     'Not really a place to work from',
     // A hostel, hotel or coliving: off the list, and found again
@@ -693,43 +849,65 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
           content: Text('Add at least $minPhotos photos first.')));
       return;
     }
-    final ok = await showDialog<bool>(
+    // Jonathan, 11 Nov 2026: "usually im just waiting for it to be
+    // published ... in what scenario would i do something other than
+    // publish button". Almost never, so the page can go live from here:
+    // "Approve and publish" asks for both, and the run that builds the
+    // page publishes it as soon as it has passed the check (the same
+    // check Publish always ran). "Approve only" keeps the old way, for
+    // the page he wants to look at in Webflow first.
+    final how = await showDialog<String>(
         context: context,
         builder: (ctx) => AlertDialog(
               title: const Text('Approve for nomadwise.io?'),
               content: DialogBody(child: Text(
-                  'Within about ten minutes a draft page will be created '
-                  'in Webflow at\n\n'
+                  'The page is built in Webflow, with your photos, at\n\n'
                   '/coworking/$slug\n\n'
-                  'under $regionName. This exact slug is used; if it turns '
-                  'out to be taken the space comes back to you instead of '
-                  'being renamed. The slug cannot be changed afterwards '
-                  'without a redirect. Your photos go in with it; you then '
-                  'add the words in Webflow and publish.'
+                  'under $regionName. That takes 2 to 4 minutes, and Pages '
+                  'shows how far it is. The address is used exactly as '
+                  'shown and cannot be changed afterwards without a '
+                  'redirect; if it is taken, the space comes back to you.\n\n'
+                  'Approve and publish: it goes live by itself once it is '
+                  'built and has passed the check. If the check finds '
+                  'something, it waits for you.\n'
+                  'Approve only: it waits as a draft until you press '
+                  'Publish.'
                   '${slug.length > _slugMax ? '\n\nThis slug is long (${slug.length} characters). Press Not yet and tap the slug to shorten it.' : ''}',
                   style: const TextStyle(height: 1.45))),
+              actionsOverflowButtonSpacing: 4,
               actions: [
                 TextButton(
-                    onPressed: () => Navigator.pop(ctx, false),
+                    onPressed: () => Navigator.pop(ctx),
                     child: const Text('Not yet')),
+                TextButton(
+                    onPressed: () => Navigator.pop(ctx, 'draft'),
+                    child: const Text('Approve only')),
                 ElevatedButton(
-                    onPressed: () => Navigator.pop(ctx, true),
-                    child: const Text('Approve')),
+                    onPressed: () => Navigator.pop(ctx, 'publish'),
+                    child: const Text('Approve and publish')),
               ],
             ));
-    if (ok == true) {
+    if (how != null) {
+      final publish = how == 'publish';
+      final at = DateTime.now().toUtc().toIso8601String();
       await _update(
           v,
           {
-            'website_approved_at': DateTime.now().toUtc().toIso8601String(),
+            'website_approved_at': at,
+            // Publish asked for now: the run that builds the page puts
+            // it live once it has passed the check.
+            if (publish) 'website_publish_requested_at': at,
             // Lock the slug you approved so it is used exactly.
             'website_slug_override': slug,
             if (region != null) 'website_region_override': region['id'],
             // Approving the suggested photos makes them yours.
             'website_photos_auto': false,
           },
-          '${v['name']} approved. The draft is created within minutes. '
-          'Once the page is live, it shows in Next up to make contact.');
+          publish
+              ? '${v['name']} approved. It is built, checked and goes live '
+                  'by itself, in a few minutes. Pages shows how far it is.'
+              : '${v['name']} approved. The draft is ready in 2 to 4 '
+                  'minutes; Pages shows how far it is.');
       _recordPicks(v);
     }
   }
@@ -8820,35 +8998,44 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       if (approved.isNotEmpty) ...[
         // No "Start the run now" button any more (change request 7):
         // approving already starts the run, and it has never stuck.
-        _section('APPROVED, BEING CREATED', approved.length,
-            'Approving starts a run on GitHub that builds the Webflow '
-            'draft and its Images entry, usually within a few minutes. '
-            'Pull down to refresh. Still here after ten minutes? On '
-            'GitHub: Actions, "Website push (queued spaces)", Run '
-            'workflow.'),
+        _section('APPROVED, BEING BUILT', approved.length,
+            'Each page is being built in Webflow, with its Images entry. '
+            'This list updates by itself: nothing to refresh. When a page '
+            'is built it moves down to "In Webflow", or goes straight '
+            'live if you chose Approve and publish. Still here after ten '
+            'minutes? On GitHub: Actions, "Website push (queued '
+            'spaces)", Run workflow.'),
         ...approved.map((v) => _card(
               tint: Brand.successTint,
-              child: Row(children: [
-                const Icon(Icons.nightlight_outlined, color: Brand.success),
-                const SizedBox(width: 10),
-                Expanded(
-                    child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                      Text(v['name'] ?? '',
-                          style:
-                              const TextStyle(fontWeight: FontWeight.w700)),
-                      Text('/coworking/${_prepared(v)['slug'] ?? ''}',
-                          style: const TextStyle(
-                              fontSize: 12, color: Brand.inkSecondary)),
-                    ])),
-                TextButton(
-                    onPressed: () => _update(
-                        v,
-                        {'website_approved_at': null},
-                        'Approval withdrawn; back in the inbox.'),
-                    child: const Text('Undo')),
-              ]),
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(children: [
+                      Expanded(
+                          child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                            Text(v['name'] ?? '',
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w700)),
+                            Text('/coworking/${_prepared(v)['slug'] ?? ''}',
+                                style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Brand.inkSecondary)),
+                          ])),
+                      TextButton(
+                          onPressed: () => _update(
+                              v,
+                              {
+                                'website_approved_at': null,
+                                'website_publish_requested_at': null,
+                              },
+                              'Approval withdrawn; back in the inbox.'),
+                          child: const Text('Undo')),
+                    ]),
+                    const SizedBox(height: 8),
+                    _onTheWay(v, building: true),
+                  ]),
             )),
       ],
       if (_drafts.isNotEmpty) ...[
@@ -8906,18 +9093,19 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                         TextButton(
                             onPressed: () => _checkAgain(v),
                             child: const Text('Check again')),
-                      if (v['website_publish_requested_at'] != null)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          child: Text(
-                              _publishWaits(v)
-                                  ? 'Publishes once the above is fixed'
-                                  : 'Publishing within a minute or two',
-                              style: const TextStyle(
+                      if (v['website_publish_requested_at'] != null &&
+                          _publishWaits(v))
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 8),
+                          child: Text('Publishes once the above is fixed',
+                              style: TextStyle(
                                   fontSize: 12.5,
                                   fontWeight: FontWeight.w600,
                                   color: Brand.goldTextDark)),
                         )
+                      else if (v['website_publish_requested_at'] != null)
+                        // going live: the bar is under the buttons
+                        const SizedBox.shrink()
                       else
                         // Jonathan, 25 Oct 2026: "this takes too long to
                         // make it so I can publish a new space". Publish
@@ -8932,6 +9120,12 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                             icon: const Icon(Icons.publish_outlined, size: 18),
                             label: const Text('Publish on nomadwise.io')),
                     ]),
+                if (v['website_publish_requested_at'] != null &&
+                    !_publishWaits(v))
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: _onTheWay(v, building: false),
+                  ),
                 if (v['website_publish_requested_at'] == null &&
                     _checkOf(v).isEmpty)
                   const Padding(

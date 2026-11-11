@@ -2644,6 +2644,24 @@ class SupabaseService {
   Future<void> resendEnquiry(String id) =>
       _db.rpc('resend_enquiry', params: {'p_id': id});
 
+  /// Where a few pages stand on their way to the site: a small read,
+  /// for the control centre to watch pages being built or going live
+  /// without reading everything again. Empty when it cannot be read.
+  Future<List<Map<String, dynamic>>> websiteStates(List<String> ids) async {
+    if (ids.isEmpty) return const [];
+    try {
+      final rows = await _db
+          .from('venues')
+          .select('id, name, website_status, webflow_cms_id, '
+              'website_approved_at, website_publish_requested_at, '
+              'website_synced_at')
+          .inFilter('id', ids);
+      return (rows as List).map((r) => Map<String, dynamic>.from(r)).toList();
+    } catch (_) {
+      return const [];
+    }
+  }
+
   /// Admin fixes venue fields (spelling, wrong toggles) before approving.
   Future<void> updateVenueFields(
           String venueId, Map<String, dynamic> fields) =>
