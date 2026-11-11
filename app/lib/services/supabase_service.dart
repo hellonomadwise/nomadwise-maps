@@ -1922,6 +1922,12 @@ class SupabaseService {
     }
   }
 
+  /// Snooze (migration 313): the space is left alone for [days] days,
+  /// off To do whatever they open in the meantime. It comes back that
+  /// day unless they have claimed. 0 ends the snooze now.
+  Future<void> outreachSnooze(String id, int days) => _db
+      .rpc('admin_outreach_snooze', params: {'p_id': id, 'p_days': days});
+
   /// "Done for now" on a look at the claim page: the space leaves the
   /// step until its claim page is opened again.
   Future<void> outreachLookDone(String id) =>

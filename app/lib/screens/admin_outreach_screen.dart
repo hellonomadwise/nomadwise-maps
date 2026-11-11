@@ -3532,6 +3532,10 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
           'you), WhatsApp (the number is yours to type, or looked up on '
           'Google), or Done for now. Writing to them, or Done for now, '
           'takes it off the step until the claim page is opened again.\n'
+          'Snooze (on To do) is for leaving them to it: the space is off '
+          'To do until the day you pick, whatever they open in the '
+          'meantime. If they claim, it never comes back; if not, it is '
+          'back that day. Waiting shows what is snoozed, and can end it.\n'
           'We do not know the visitor was the owner, so the words ask '
           '"if that was you".\n'
           'The card also says roughly where the visitor was: the '
@@ -5404,26 +5408,36 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
 
     // 2. Signs of interest.
     for (final c in b['signed'] ?? const <Map<String, dynamic>>[]) {
-      if (_closedLine(c)) continue;
+      if (_closedLine(c) || _snoozed(c)) continue;
       final u = c['signup'] is Map ? c['signup'] as Map : const {};
       if (_wroteSince(c, u['at'])) continue;
       add('follow_up', c,
           'Made an account on the map ${_agoOf(u['at'])} but has not claimed the page.');
     }
     for (final c in b['looked'] ?? const <Map<String, dynamic>>[]) {
-      if (_closedLine(c)) continue;
+      if (_closedLine(c) || _snoozed(c)) continue;
       final l = c['claim_look'] is Map ? c['claim_look'] as Map : const {};
       if (_wroteSince(c, l['last_at'])) continue;
       final form = '${l['form_email'] ?? ''}'.trim();
+      // What decides whether to write again or leave them to it
+      // (Jonathan, 11 Nov 2026: "I'm pretty sure they've already done
+      // that before, and I don't want to repeatedly send them a
+      // message"): how often they have looked, and when we last wrote.
+      final opens = (l['opens'] as num?)?.toInt() ?? 1;
+      final again = opens > 1 ? ', visit $opens in the last two months' : '';
+      final wrote = c['last_out_at'] == null
+          ? ''
+          : ' We last wrote ${_agoOf(c['last_out_at'])}.';
       add(
           'follow_up',
           c,
           form.isNotEmpty
-              ? 'Began the claim form ${_agoOf(l['last_at'])} and stopped.'
-              : 'Opened their claim page ${_agoOf(l['last_at'])}. No claim yet.');
+              ? 'Began the claim form ${_agoOf(l['last_at'])} and stopped.$wrote'
+              : 'Opened their claim page ${_agoOf(l['last_at'])}$again. '
+                  'No claim yet.$wrote');
     }
     for (final c in b['due'] ?? const <Map<String, dynamic>>[]) {
-      if (_closedLine(c)) continue;
+      if (_closedLine(c) || _snoozed(c)) continue;
       add('follow_up', c,
           'We wrote ${_agoOf(c['last_out_at'])} and the follow-up date has come.');
     }
@@ -5946,6 +5960,76 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
     ]);
   }
 
+  /// Left alone until a day that has not come (migration 313).
+  static bool _snoozed(Map<String, dynamic> c) {
+    final till = DateTime.tryParse('${c['snooze_until'] ?? ''}');
+    return till != null && till.isAfter(DateTime.now());
+  }
+
+  /// Snooze: leave the space alone for a while, to see whether they
+  /// claim by themselves (Jonathan, 11 Nov 2026, on Madeira Friends Hub:
+  /// "I want the opportunity to delay the suggestion, to wait if they
+  /// try and claim again on their own"). It is off To do until the day
+  /// picked, whatever they open in the meantime; a claim ends it for
+  /// good; otherwise it is back that day.
+  Future<void> _snooze(String id, String name) async {
+    String day(int d) => DateFormat('EEE d MMM')
+        .format(DateTime.now().add(Duration(days: d)));
+    final days = await showDialog<int>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: Text('Give $name time'),
+        children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(24, 0, 24, 10),
+            child: Text(
+                'It leaves To do until the day you pick, whatever they open '
+                'in the meantime. If they claim before then, it never comes '
+                'back. If they have not, it is back in To do that day.',
+                style: TextStyle(
+                    fontSize: 13.5, height: 1.4, color: Brand.inkSecondary)),
+          ),
+          for (final (d, label) in const [
+            (3, '3 days'),
+            (7, '1 week'),
+            (14, '2 weeks'),
+            (30, '1 month'),
+          ])
+            SimpleDialogOption(
+                onPressed: () => Navigator.pop(ctx, d),
+                child: Text('$label  ·  until ${day(d)}',
+                    style: const TextStyle(fontSize: 15))),
+          SimpleDialogOption(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel',
+                  style: TextStyle(color: Brand.inkMuted))),
+        ],
+      ),
+    );
+    if (days == null || !mounted) return;
+    try {
+      await _supabase.outreachSnooze(id, days);
+      if (!mounted) return;
+      _snack('$name is left until ${day(days)}. Back in To do then, unless '
+          'they claim first.');
+      await _load();
+    } catch (e) {
+      if (mounted) _snack(_plain(e), bad: true);
+    }
+  }
+
+  /// Ends a snooze now: the space is judged again as it stands.
+  Future<void> _wake(String id, String name) async {
+    try {
+      await _supabase.outreachSnooze(id, 0);
+      if (!mounted) return;
+      _snack('The snooze on $name is over.');
+      await _load();
+    } catch (e) {
+      if (mounted) _snack(_plain(e), bad: true);
+    }
+  }
+
   /// One line of To do: who, why, and the one thing to do.
   Widget _taskRow(_Task t) {
     final c = t.c;
@@ -6026,6 +6110,12 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
               },
               icon: const Icon(Icons.facebook, size: 16),
               label: const Text('Facebook')),
+        // Not now, and not never: leave them to claim by themselves.
+        if (t.kind == 'follow_up' && c != null)
+          TextButton.icon(
+              onPressed: () => _snooze(t.id, t.name),
+              icon: const Icon(Icons.snooze, size: 16),
+              label: const Text('Snooze')),
       ],
       who: c,
       menu: [
@@ -6186,6 +6276,13 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
         : nextAt.isAfter(DateTime.now())
             ? ' Follow up from ${DateFormat('EEE d MMM').format(nextAt.toLocal())} if they stay quiet.'
             : ' No answer yet: a follow-up can go any time.';
+    // Snoozed (migration 313): say until when, and offer to end it.
+    final snoozed = _snoozed(c);
+    final till = DateTime.tryParse('${c['snooze_until'] ?? ''}');
+    final snoozeNote = snoozed && till != null
+        ? ' Snoozed until ${DateFormat('EEE d MMM').format(till.toLocal())}: '
+            'back in To do then, unless they claim first.'
+        : '';
     final open = _rowOpen.contains(id);
     return _rowShell(
       icon: Icons.hourglass_empty,
@@ -6194,7 +6291,7 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
       name: '${c['space_name'] ?? c['venue_name'] ?? c['email'] ?? 'A space'}',
       sub: _placeLine(c['kind'], c['city'] ?? c['venue_city'],
           c['country'] ?? c['venue_country']),
-      why: '$wrote$next${_askedNote(c['venue_id'])}',
+      why: '$wrote${snoozed ? snoozeNote : next}${_askedNote(c['venue_id'])}',
       open: open,
       onToggle: () => setState(() => open ? _rowOpen.remove(id) : _rowOpen.add(id)),
       actions: [
@@ -6207,6 +6304,7 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
       menu: [
         ('edit', 'Edit details'),
         ..._assignMenu(c),
+        if (snoozed) ('wake', 'End the snooze'),
         if (!(c['owner'] is Map && (c['owner'] as Map)['mine'] == false))
           ('remove', 'Remove from Waiting...'),
       ],
@@ -6214,7 +6312,9 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
           ? _assign(c, k.substring(7))
           : k == 'edit'
               ? _editContact(c)
-              : _remove(id, '${c['space_name'] ?? 'this space'}', c: c),
+              : k == 'wake'
+                  ? _wake(id, '${c['space_name'] ?? 'this space'}')
+                  : _remove(id, '${c['space_name'] ?? 'this space'}', c: c),
       detail: open ? _card(c) : null,
     );
   }

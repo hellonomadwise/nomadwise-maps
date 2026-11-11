@@ -6583,3 +6583,9 @@ Jonathan, after approving Olga (olga@stonesoup.io) for Stone Soup by hand: "I wo
 - The owner gets "the page is yours" at once and not "we are checking"; the thank-you page says so. Jonathan gets a phone ping with the reason; listing_claims.auto_approved keeps it; Owners has a card "Claims approved by themselves" with the last ones and an off switch (sync_settings claim_auto).
 - Tried in a transaction that was rolled back: gmail waits; reception@betahaus.de on hamburg.betahaus.de is approved with one email; a second person on the same domain waits; Premium paid from lisbon@impacthub.net goes on; Premium with enquiries to a gmail address waits; switch off and "taken off before" both wait.
 - Of the 299 outreach lines with an email on an unclaimed live page, 220 are on the space's own domain.
+
+## 11 Nov 2026: snooze a space in Outreach
+Jonathan, on Madeira Friends Hub under "They showed interest" (opened their claim page a day after we wrote): "I would like the option of snoozing this listing ... I don't want to repeatedly send them a message. So I want the opportunity to delay the suggestion, to wait if they try and claim again on their own."
+- "Done for now" brought a space back the moment its claim page was opened again. Snooze (migration 313, space_contacts.snooze_until) leaves the whole space alone until a day: off To do whatever they open meanwhile; a claim ends it for good; otherwise it is back that day. 3 days, 1 week, 2 weeks or 1 month. A follow-up date already due moves to the same day.
+- A Snooze button on every "They showed interest" card. Waiting says "Snoozed until Wed 18 Nov" and its menu has "End the snooze".
+- The look card now says what decides it: "visit 2 in the last two months" and "We last wrote 16 hours ago".
