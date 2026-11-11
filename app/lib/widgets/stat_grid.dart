@@ -21,11 +21,11 @@ class StatGrid extends StatelessWidget {
         const gap = 8.0;
         final fit = (box.maxWidth / 170).floor();
         final cols = narrow ? 3 : (fit < 3 ? 3 : (fit > stats.length ? stats.length : fit));
-        final w = (box.maxWidth - (cols - 1) * gap) / cols;
-        return Wrap(spacing: gap, runSpacing: gap, children: [
-          for (final s in stats)
-            Container(
-              width: w,
+        // Rows, not a Wrap, so every box in a row is as tall as the
+        // tallest one beside it (Jonathan, 11 Nov 2026: "these
+        // containers should be consistent"). A label that runs to two
+        // lines used to make its own box taller than its neighbours.
+        Widget cell(int i) => Container(
               padding: EdgeInsets.all(narrow ? 10 : 14),
               decoration: BoxDecoration(
                 color: boxed ? Colors.white : Brand.bg,
@@ -33,17 +33,32 @@ class StatGrid extends StatelessWidget {
                 border: boxed ? Border.all(color: Brand.border) : null,
               ),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(s.$1,
+                Text(stats[i].$1,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                        fontSize: narrow ? 19 : 24, fontWeight: FontWeight.w800, color: s.$3)),
+                        fontSize: narrow ? 19 : 24,
+                        fontWeight: FontWeight.w800,
+                        color: stats[i].$3)),
                 const SizedBox(height: 2),
-                Text(s.$2,
+                Text(stats[i].$2,
                     style: TextStyle(
                         fontSize: narrow ? 11.5 : 12.5, height: 1.3, color: Brand.inkSecondary)),
               ]),
+            );
+        return Column(mainAxisSize: MainAxisSize.min, children: [
+          for (var r = 0; r < stats.length; r += cols) ...[
+            if (r > 0) const SizedBox(height: gap),
+            IntrinsicHeight(
+              child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                for (var c = 0; c < cols; c++) ...[
+                  if (c > 0) const SizedBox(width: gap),
+                  // an empty place keeps a short last row in line
+                  Expanded(child: r + c < stats.length ? cell(r + c) : const SizedBox()),
+                ],
+              ]),
             ),
+          ],
         ]);
       });
 }
