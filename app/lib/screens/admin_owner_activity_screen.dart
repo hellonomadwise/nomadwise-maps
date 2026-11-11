@@ -86,6 +86,9 @@ String _part(dynamic k) {
   return s.isEmpty ? s : s[0].toUpperCase() + s.substring(1).replaceAll('_', ' ');
 }
 
+/// "1 visit", "2 visits".
+String _n(int n, String word) => '$n $word${n == 1 ? '' : 's'}';
+
 String _dur(num? secs) {
   final s = (secs ?? 0).round();
   if (s < 60) return '$s s';
@@ -235,13 +238,13 @@ class _AdminOwnerActivityScreenState extends State<AdminOwnerActivityScreen> {
             ChoiceChip(
               label: Text('Last $n days'),
               selected: _days == n,
+              showCheckmark: false,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               onSelected: (_) {
                 setState(() => _days = n);
                 _load();
               },
             ),
-          const SizedBox(width: 8),
           FilterChip(
             label: const Text('Include our own visits'),
             selected: _team,
@@ -277,14 +280,49 @@ class _AdminOwnerActivityScreenState extends State<AdminOwnerActivityScreen> {
     final d = _d!;
     final newWishes =
         _list('wishes').where((w) => w['status'] == 'new').length;
-    return StatGrid(boxed: true, stats: [
-      ('${d['owners_active'] ?? 0} of ${d['owners_total'] ?? 0}', 'owners came in', null),
-      ('${d['sessions'] ?? 0}', 'visits', null),
-      (_dur(d['median_secs'] as num?), 'a typical visit', null),
-      ('${d['minutes'] ?? 0} min', 'time in accounts', null),
-      ('${d['phone_share'] ?? 0}%', 'of visits on a phone', null),
-      ('$newWishes', newWishes == 1 ? 'request to answer' : 'requests to answer', null),
+    final since = DateTime.tryParse('${d['tracking_since'] ?? ''}')?.toLocal();
+    // Visits are only recorded from the day this was switched on. Until
+    // that day is further back than the period picked, every period
+    // holds the same visits, which reads as a filter that does nothing
+    // (Jonathan, 11 Nov 2026).
+    final note = since != null && DateTime.now().difference(since).inDays < _days
+        ? 'Visits are recorded since ${DateFormat('d MMM').format(since)}, '
+            'so the last $_days days only reach back that far.'
+        : null;
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      StatGrid(boxed: true, stats: [
+        ('${d['owners_active'] ?? 0} of ${d['owners_total'] ?? 0}', 'owners came in', null),
+        ('${d['sessions'] ?? 0}', 'visits', null),
+        (_dur(d['median_secs'] as num?), 'typical visit', null),
+        // time doing something: a tab left open does not count
+        (_dur(((d['minutes'] as num?) ?? 0) * 60), 'active time', null),
+        ('${d['phone_share'] ?? 0}%', 'on a phone', null),
+        ('$newWishes', 'to answer', null),
+      ]),
+      if (note != null) ...[
+        const SizedBox(height: 8),
+        Text(note, style: const TextStyle(fontSize: 12.5, color: Brand.inkMuted)),
+      ],
     ]);
+  }
+
+  /// What to say of an owner with no visit in the period.
+  String _quiet(Map p) {
+    if (p['last_at'] != null) return 'No visits in this period · last ${_ago(p['last_at'])}';
+    DateTime? t(String k) => DateTime.tryParse('${p[k] ?? ''}');
+    final signedIn = t('signed_in_at');
+    final approved = t('approved_at');
+    final since = DateTime.tryParse('${_d?['tracking_since'] ?? ''}');
+    if (signedIn == null) return 'Has never signed in';
+    final when = 'Signed in ${_ago(p['signed_in_at'])}';
+    // A visit only counts once the listing is theirs.
+    if (approved != null && signedIn.isBefore(approved)) {
+      return '$when, before we approved the claim · not back since';
+    }
+    if (since != null && signedIn.isBefore(since)) {
+      return '$when, before visits were recorded';
+    }
+    return '$when · did not open the account';
   }
 
   // ------------------------------------------------------------ wishes
@@ -485,7 +523,8 @@ class _AdminOwnerActivityScreenState extends State<AdminOwnerActivityScreen> {
                   builder: (_) => OwnerTimelineScreen(
                       email: '${p['email']}',
                       title: spaces.join(', '),
-                      days: _days))),
+                      days: _days,
+                      quiet: sessions == 0 ? _quiet(p) : null))),
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
                 child: Row(children: [
@@ -496,24 +535,27 @@ class _AdminOwnerActivityScreenState extends State<AdminOwnerActivityScreen> {
                           Text(spaces.join(', '),
                               style: const TextStyle(fontWeight: FontWeight.w700)),
                           Text('${p['email']}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
                                   fontSize: 12.5, color: Brand.inkMuted)),
+                          const SizedBox(height: 3),
+                          // Under the name, not beside it: side by side
+                          // both halves broke into three lines on a phone.
+                          Text(
+                              sessions == 0
+                                  ? _quiet(p)
+                                  : '${_n(sessions, 'visit')} · ${_dur(p['secs'] as num?)} · '
+                                      '${_n(tabs, 'tab')} · ${_n(((p['saves'] as num?) ?? 0).toInt(), 'save')}'
+                                      '${((p['wishes'] as num?) ?? 0) > 0 ? ' · ${p['wishes']} asked' : ''}'
+                                      ' · last ${_ago(p['last_at'])}',
+                              style: TextStyle(
+                                  fontSize: 12.5,
+                                  height: 1.35,
+                                  color: sessions == 0 ? Brand.inkMuted : Brand.inkSecondary)),
                         ]),
                   ),
-                  const SizedBox(width: 12),
-                  Flexible(
-                    child: Text(
-                        sessions == 0
-                            ? 'No visits in this period · last ${_ago(p['last_at'])}'
-                            : '$sessions visits · ${_dur(p['secs'] as num?)} · '
-                                '$tabs tabs · ${p['saves']} saves'
-                                '${((p['wishes'] as num?) ?? 0) > 0 ? ' · ${p['wishes']} asked' : ''}'
-                                ' · last ${_ago(p['last_at'])}',
-                        textAlign: TextAlign.right,
-                        style: TextStyle(
-                            fontSize: 12.5,
-                            color: sessions == 0 ? Brand.inkMuted : Brand.inkSecondary)),
-                  ),
+                  const SizedBox(width: 8),
                   const Icon(Icons.chevron_right, color: Brand.inkMuted),
                 ]),
               ),
@@ -690,8 +732,12 @@ class OwnerTimelineScreen extends StatefulWidget {
   final String email;
   final String title;
   final int days;
+
+  /// What we know of an owner with no visits (signed in before the
+  /// claim was approved, never signed in ...), shown under "No visits".
+  final String? quiet;
   const OwnerTimelineScreen(
-      {required this.email, required this.title, required this.days});
+      {required this.email, required this.title, required this.days, this.quiet});
   @override
   State<OwnerTimelineScreen> createState() => OwnerTimelineScreenState();
 }
@@ -739,8 +785,10 @@ class OwnerTimelineScreenState extends State<OwnerTimelineScreen> {
                           if (_error != null)
                             Text(_error!, style: const TextStyle(color: _red))
                           else if (visits.isEmpty)
-                            Text('No visits in the last ${widget.days} days.',
-                                style: const TextStyle(color: Brand.inkMuted)),
+                            Text(
+                                'No visits in the last ${widget.days} days.'
+                                '${widget.quiet == null ? '' : '\n${widget.quiet}.'}',
+                                style: const TextStyle(color: Brand.inkMuted, height: 1.5)),
                           for (final s in visits) _visit(s),
                         ]),
                   ),
@@ -752,12 +800,23 @@ class OwnerTimelineScreenState extends State<OwnerTimelineScreen> {
 
   Widget _visit(Map<String, dynamic> s) {
     final start = DateTime.tryParse('${s['started_at']}')?.toLocal();
-    final end = DateTime.tryParse('${s['last_at']}')?.toLocal();
     final steps = [
       for (final x in (s['steps'] as List? ?? const []))
         Map<String, dynamic>.from(x as Map)
     ];
-    final len = start == null || end == null ? 0 : end.difference(start).inSeconds;
+    // Time doing something, as on the summary (migration 321): the gaps
+    // between steps, a gap over five minutes counting as five. A tab
+    // left open overnight is not a 23 hour visit.
+    final times = <DateTime>[
+      if (start != null) start,
+      for (final st in steps)
+        if (DateTime.tryParse('${st['at']}')?.toLocal() case final DateTime t) t,
+    ]..sort();
+    var len = 0;
+    for (var i = 1; i < times.length; i++) {
+      final gap = times[i].difference(times[i - 1]).inSeconds;
+      len += gap > 300 ? 300 : gap;
+    }
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.all(16),
