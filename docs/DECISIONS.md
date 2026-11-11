@@ -6649,3 +6649,6 @@ Jonathan: "can we make it so that I receive a notification whenever anyone downl
 
 ## 11 Nov 2026: a note on pushing Postmark templates after a migration
 pm_templates_backup() copies Postmark's version over email_templates ("Postmark is where edits are made"). So when a migration has changed email_templates, push first (pm_template_push(alias, true)) and back up after. A backup in between puts the old words back, and the push then sends the old words with a 200. This happened with migration 317 on the day: the two rows were put back by hand, pushed, and the backup after read both back from Postmark with the new block. The nightly backup would do the same to any migration left unpushed overnight.
+
+## 11 Nov 2026: an enquiry passed on by WhatsApp counts as WhatsApp on Home
+Found while recording Jonathan's Instagram message to H24 ("I also messaged H24 on IG, through my phone", logged on their contact with admin_outreach_log_message; the words were not kept). The pass-on of migration 316 saved its Outreach line under the subject "WhatsApp: an enquiry passed on", and Home's "Outreach sent each week" tells the ways apart by that word alone, so it would have counted as an email. Migration 320 makes the subject the plain word "WhatsApp"; H24's line was corrected by hand on the day.
