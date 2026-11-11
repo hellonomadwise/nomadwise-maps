@@ -27,6 +27,9 @@ class _EnquiryScreenState extends State<EnquiryScreen> {
   bool _loading = true;
   bool _sending = false;
   bool _sent = false;
+  // "I also need somewhere to stay" (migration 315): counted, so the
+  // coliving plan is decided on numbers.
+  bool _stay = false;
   String? _error;
 
   final _name = TextEditingController();
@@ -98,6 +101,7 @@ class _EnquiryScreenState extends State<EnquiryScreen> {
         'message':
             _message.text.trim().isEmpty ? null : _message.text.trim(),
         'source': 'nomadwise',
+        'wants_stay': _stay,
       });
       Analytics.capture('enquiry_sent', {'venue': v['name'], 'want': _want});
       if (mounted) setState(() => _sent = true);
@@ -290,6 +294,15 @@ class _EnquiryScreenState extends State<EnquiryScreen> {
               labelText: 'Anything else (optional)',
               hintText: 'Quiet desk, meeting room, a call booth, parking...',
               alignLabelWithHint: true)),
+      const SizedBox(height: 4),
+      CheckboxListTile(
+          value: _stay,
+          onChanged: (v) => setState(() => _stay = v ?? false),
+          dense: true,
+          contentPadding: EdgeInsets.zero,
+          controlAffinity: ListTileControlAffinity.leading,
+          title: const Text('I also need somewhere to stay',
+              style: TextStyle(fontSize: 14, color: Brand.ink))),
       // Honeypot, kept out of sight and out of the tab order.
       Offstage(
           offstage: true,

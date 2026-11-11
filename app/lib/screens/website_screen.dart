@@ -215,6 +215,10 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   /// days, whether the "Did you find a place?" email is on, and the
   /// latest answers.
   int _booked30 = 0;
+  // Enquiries whose nomad also asked for somewhere to stay, and all
+  // enquiries, over 90 days (migration 315).
+  int _stay90 = 0;
+  int _all90 = 0;
   bool _followupOn = false;
   List<Map<String, dynamic>> _answers = const [];
   Map<String, dynamic>? _importNote;
@@ -347,6 +351,8 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         _passed30 = (passOn['passed_30d'] as num?)?.toInt() ?? 0;
         _direct30 = (passOn['direct_30d'] as num?)?.toInt() ?? 0;
         _booked30 = (passOn['booked_30d'] as num?)?.toInt() ?? 0;
+        _stay90 = (passOn['stay_90d'] as num?)?.toInt() ?? 0;
+        _all90 = (passOn['all_90d'] as num?)?.toInt() ?? 0;
         _followupOn = passOn['followup_on'] == true;
         _answers = [
           for (final r in (passOn['answers'] as List? ?? const []))
@@ -5086,6 +5092,16 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                   'Last 30 days: $_passed30 passed on, $_direct30 sent '
                   'straight to spaces'
                   '${_booked30 > 0 ? ', $_booked30 booked (customers told us)' : ''}.',
+                  style: const TextStyle(
+                      fontSize: 12.5, color: Brand.inkSecondary)),
+            ),
+          if (_stay90 > 0)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
+              child: Text(
+                  'Somewhere to stay: $_stay90 of the last $_all90 '
+                  '${_all90 == 1 ? 'enquiry' : 'enquiries'} (90 days) also '
+                  'asked for it.',
                   style: const TextStyle(
                       fontSize: 12.5, color: Brand.inkSecondary)),
             ),

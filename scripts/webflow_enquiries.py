@@ -165,6 +165,10 @@ else:
                 'email': field(r, 'Email Of Customer 2', 'Email'),
                 'phone': field(r, 'Contact Number 3', 'Contact Number', 'Phone'),
                 'marketing': field(r, 'Agree To Receive Marketing 2', 'Marketing'),
+                # The tick "I also need somewhere to stay" (migration
+                # 315). Empty until the form has it; any field whose
+                # name has "stay" or "accommodation" in it is read.
+                'stay': field(r, 'Stay', 'Somewhere To Stay', 'Accommodation'),
             }
             try:
                 res = sb('rpc/import_webflow_enquiry', 'POST', {'p': payload})

@@ -476,6 +476,19 @@ class PassOnCard extends StatelessWidget {
                 style: const TextStyle(
                     fontSize: 13.5, height: 1.5, color: Brand.ink)),
           ),
+          if (e['wants_stay'] == true) ...[
+            const SizedBox(height: 8),
+            const Row(children: [
+              Icon(Icons.hotel_outlined, size: 16, color: Brand.inkSecondary),
+              SizedBox(width: 6),
+              Expanded(
+                  child: Text('Also asked about somewhere to stay',
+                      style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: Brand.inkSecondary))),
+            ]),
+          ],
           if (_asked != null) ...[
             const SizedBox(height: 8),
             Container(
