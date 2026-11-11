@@ -2955,16 +2955,20 @@ if queued:
         return None, None
 
     def country_of(v, country):
-        """The country word for the slug: what the founder typed on the
-        venue, else the Region's Country on the site, else Google's
-        address. The site comes before Google because they disagree
-        for the UK: Google says United Kingdom, the site files London
-        under England (england-london-...)."""
-        if v.get('country'):
-            return v['country']
+        """The country word for the slug: the Region's Country on the
+        site when the region is there, else the word on the venue (a
+        region that is new to the site), else Google's address. The
+        site comes first because Google's names are not ours (Türkiye
+        / Turkey, Czechia / Czech Republic, Cabo Verde / Cape Verde,
+        United Kingdom / England) and a venue made from a claim or
+        from Google carries Google's word: three SwissOffices claims
+        on 11 Nov 2026 were about to get turkiye-istanbul-... beside
+        the live turkey-istanbul-... page."""
         site = (country.get('fieldData') or {}).get('name') if country else ''
         if site:
             return site
+        if v.get('country'):
+            return v['country']
         for c in ((v.get('g_details') or {}).get('addressComponents') or []):
             if 'country' in (c.get('types') or []):
                 return c.get('longText') or c.get('shortText')
