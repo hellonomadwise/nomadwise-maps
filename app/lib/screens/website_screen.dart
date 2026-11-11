@@ -851,11 +851,13 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     }
     // Jonathan, 11 Nov 2026: "usually im just waiting for it to be
     // published ... in what scenario would i do something other than
-    // publish button". Almost never, so the page can go live from here:
-    // "Approve and publish" asks for both, and the run that builds the
-    // page publishes it as soon as it has passed the check (the same
-    // check Publish always ran). "Approve only" keeps the old way, for
-    // the page he wants to look at in Webflow first.
+    // publish button". Almost never, so approving now asks for both:
+    // the run that builds the page publishes it as soon as it has
+    // passed the check (the same check Publish always ran). First as a
+    // choice beside "Approve only"; then, the same day, the only way:
+    // "i was just thinking if its able to just go ahead and publish,
+    // unless there is an error". A page whose check finds something is
+    // not published: it waits under In Webflow, as before.
     final how = await showDialog<String>(
         context: context,
         builder: (ctx) => AlertDialog(
@@ -867,11 +869,9 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                   'shows how far it is. The address is used exactly as '
                   'shown and cannot be changed afterwards without a '
                   'redirect; if it is taken, the space comes back to you.\n\n'
-                  'Approve and publish: it goes live by itself once it is '
-                  'built and has passed the check. If the check finds '
-                  'something, it waits for you.\n'
-                  'Approve only: it waits as a draft until you press '
-                  'Publish.'
+                  'It then goes live by itself, once it has passed the '
+                  'check. Only if the check finds a problem does it stop '
+                  'and wait for you, under In Webflow.'
                   '${slug.length > _slugMax ? '\n\nThis slug is long (${slug.length} characters). Press Not yet and tap the slug to shorten it.' : ''}',
                   style: const TextStyle(height: 1.45))),
               actionsOverflowButtonSpacing: 4,
@@ -879,9 +879,6 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                 TextButton(
                     onPressed: () => Navigator.pop(ctx),
                     child: const Text('Not yet')),
-                TextButton(
-                    onPressed: () => Navigator.pop(ctx, 'draft'),
-                    child: const Text('Approve only')),
                 ElevatedButton(
                     onPressed: () => Navigator.pop(ctx, 'publish'),
                     child: const Text('Approve and publish')),
@@ -8999,11 +8996,11 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         // No "Start the run now" button any more (change request 7):
         // approving already starts the run, and it has never stuck.
         _section('APPROVED, BEING BUILT', approved.length,
-            'Each page is being built in Webflow, with its Images entry. '
-            'This list updates by itself: nothing to refresh. When a page '
-            'is built it moves down to "In Webflow", or goes straight '
-            'live if you chose Approve and publish. Still here after ten '
-            'minutes? On GitHub: Actions, "Website push (queued '
+            'Each page is being built in Webflow, with its Images entry, '
+            'then checked, then it goes live by itself. This list updates '
+            'by itself: nothing to refresh. A page only stops below, under '
+            '"In Webflow", if the check finds a problem. Still here after '
+            'ten minutes? On GitHub: Actions, "Website push (queued '
             'spaces)", Run workflow.'),
         ...approved.map((v) => _card(
               tint: Brand.successTint,
@@ -9040,9 +9037,9 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       ],
       if (_drafts.isNotEmpty) ...[
         _section('IN WEBFLOW, NOT RELEASED', _drafts.length,
-            'Each draft is checked against Webflow as soon as it is made. '
-            'Publish puts the listing and its Images entry live, checking '
-            'first, so it can be pressed before the check shows. It then '
+            'A page is here for a moment on its way live, or because its '
+            'check found something to fix (it says what). Publish puts the '
+            'listing and its Images entry live, checking first. It then '
             'moves to Released, its entry appears under Sitemap, and it '
             'gets a line in Outreach, under New pages, ready to make '
             'contact.'),
