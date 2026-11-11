@@ -2588,6 +2588,22 @@ class SupabaseService {
     return res == null ? null : Map<String, dynamic>.from(res as Map);
   }
 
+  /// Claims approved by themselves (migration 312): the switch, how
+  /// many so far and the last ones with the reason. Null when it
+  /// cannot be read.
+  Future<Map<String, dynamic>?> claimAuto() async {
+    try {
+      final res = await _db.rpc('admin_claim_auto');
+      return res == null ? null : Map<String, dynamic>.from(res as Map);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Turns approving by itself on or off.
+  Future<void> claimAutoSet(bool on) =>
+      _db.rpc('admin_claim_auto_set', params: {'p_on': on});
+
   /// Wrong space or wrong person. The page is untouched; the refund is
   /// done in Stripe.
   Future<void> rejectClaim(String id, String reason) =>

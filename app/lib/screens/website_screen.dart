@@ -52,6 +52,7 @@ import 'owner_screen.dart';
 import 'region_help_screen.dart';
 import 'space_trail_screen.dart';
 import 'venue_detail.dart';
+import '../widgets/claim_auto_card.dart';
 import '../widgets/motion.dart';
 
 /// Admin-only: the nomadwise.io control centre.
@@ -4958,6 +4959,11 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
           _journeysCard(),
           _insightsCard(),
           _emailsCard(),
+          // Claims from a space's own email address approve themselves
+          // (migration 312): the switch and the last ones, with why.
+          ClaimAutoCard(
+              supabase: _supabase,
+              onOpenVenue: (id) => _openVenue({'id': id})),
           if (_held.isNotEmpty) ...[
             _ownersSection('Waiting for your decision', _held.length),
             ..._held.map(_heldCard),

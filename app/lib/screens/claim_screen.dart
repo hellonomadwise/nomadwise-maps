@@ -817,8 +817,11 @@ class _ClaimScreenState extends State<ClaimScreen> {
       if (!mounted) return;
       // Our step entries go, so Back from the thank-you page leaves.
       if (_at > 0) ua.goHistory(-_at);
+      // From the space's own email address the claim is approved on the
+      // spot (migration 312), and the thank-you page says so.
+      final approved = res?['approved'] == true;
       Navigator.of(context).pushReplacement(MaterialPageRoute(
-          builder: (_) => const ClaimedScreen(free: true)));
+          builder: (_) => ClaimedScreen(free: true, approved: approved)));
     } catch (e) {
       _done = false;
       _track('claim_failed', {'why': _plain(e), 'plan': 'free'});
@@ -1692,11 +1695,15 @@ class _ClaimScreenState extends State<ClaimScreen> {
 /// wondering whether anything reached us. The Owner account button
 /// carries the email they claimed with, so signing in is one tap.
 class ClaimedScreen extends StatefulWidget {
-  const ClaimedScreen({super.key, this.free = false});
+  const ClaimedScreen({super.key, this.free = false, this.approved = false});
 
   /// A free claim: no payment, the page stays free, we confirm the
   /// person runs the space and record them as its owner.
   final bool free;
+
+  /// A free claim that needed no check: the email is on the space's own
+  /// website address, so the page is theirs already.
+  final bool approved;
 
   @override
   State<ClaimedScreen> createState() => _ClaimedScreenState();
@@ -1767,10 +1774,22 @@ class _ClaimedScreenState extends State<ClaimedScreen> {
     final ownerUrl = email.contains('@')
         ? 'https://nomadmaps.io/?owner&email=${Uri.encodeQueryComponent(email)}'
         : AppConfig.ownerAccountUrl;
-    final heading = free
-        ? "You've claimed your $kind"
-        : "Payment received, you're almost there";
-    final text = free
+    // No check was needed (migration 312): the page is theirs already.
+    final approved = free && widget.approved;
+    final heading = approved
+        ? 'Your page is yours to manage'
+        : free
+            ? "You've claimed your $kind"
+            : "Payment received, you're almost there";
+    final text = approved
+        ? '${space.isEmpty ? '' : 'Thank you for claiming $space. '}'
+            "Your email address is on $spaceName's own website address, so "
+            'there is nothing for us to check: the page is yours now.\n\n'
+            'Sign in to your Owner account to update your details and add '
+            'your own photos, description, prices and opening hours. We '
+            'send a sign-in link${email.contains('@') ? ' to $email' : ''}; '
+            'there is no password.'
+        : free
         ? '${space.isEmpty ? '' : 'Thank you for claiming $space. '}'
             'Next we check you are with the team at $spaceName; we email you'
             '${email.contains('@') ? ' at $email' : ''} as soon as that is '
