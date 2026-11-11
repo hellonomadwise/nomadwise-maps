@@ -1133,12 +1133,12 @@ class _AdminOwnerFlowScreenState extends State<AdminOwnerFlowScreen>
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('What counts as healthy?', style: TextStyle(fontSize: 16)),
-        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+        content: DialogBody(child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text('$label', style: const TextStyle(fontSize: 13, color: Brand.inkSecondary)),
           const SizedBox(height: 10),
           TextField(controller: ctl, autofocus: true, keyboardType: const TextInputType.numberWithOptions(decimal: true),
               decoration: InputDecoration(suffixText: unit, border: const OutlineInputBorder(), isDense: true)),
-        ]),
+        ])),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           FilledButton(onPressed: () => Navigator.pop(ctx, double.tryParse(ctl.text.trim())), child: const Text('Save')),

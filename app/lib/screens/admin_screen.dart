@@ -326,9 +326,9 @@ class _SubmissionCardState extends State<_SubmissionCard> {
           context: context,
           builder: (ctx) => AlertDialog(
                 title: Text('Reject $name?'),
-                content: const Text(
+                content: const DialogBody(child: Text(
                     'It will not appear on the map, and it will not go '
-                    'on to the Pages tabs for nomadwise.io.'),
+                    'on to the Pages tabs for nomadwise.io.')),
                 actions: [
                   TextButton(
                       onPressed: () => Navigator.pop(ctx, false),
@@ -360,7 +360,7 @@ class _SubmissionCardState extends State<_SubmissionCard> {
         context: context,
         builder: (ctx) => AlertDialog(
               title: const Text('Fix space details'),
-              content: Column(mainAxisSize: MainAxisSize.min, children: [
+              content: DialogBody(child: Column(mainAxisSize: MainAxisSize.min, children: [
                 TextField(
                     controller: name,
                     decoration:
@@ -375,7 +375,7 @@ class _SubmissionCardState extends State<_SubmissionCard> {
                     controller: city,
                     decoration:
                         const InputDecoration(labelText: 'City')),
-              ]),
+              ])),
               actions: [
                 TextButton(
                     onPressed: () => Navigator.pop(ctx, false),

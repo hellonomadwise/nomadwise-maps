@@ -212,7 +212,7 @@ class PassOnCard extends StatelessWidget {
         builder: (ctx) => StatefulBuilder(
           builder: (ctx, setD) => AlertDialog(
             title: const Text('Can\'t reach the space?'),
-            content: Column(
+            content: DialogBody(child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -232,7 +232,7 @@ class PassOnCard extends StatelessWidget {
                         'they can contact them directly',
                         style: const TextStyle(fontSize: 13.5)),
                   ),
-                ]),
+                ])),
             actions: [
               TextButton(
                   onPressed: () => Navigator.pop(ctx, false),

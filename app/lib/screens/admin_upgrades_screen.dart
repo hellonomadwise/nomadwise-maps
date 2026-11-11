@@ -263,9 +263,9 @@ mixin _UpgradeActions<T extends StatefulWidget> on State<T> {
         context: context,
         builder: (ctx) => AlertDialog(
           title: const Text('Put the earlier version back?'),
-          content: Text(
+          content: DialogBody(child: Text(
               'The page for ${u['name']} goes back to what it had before '
-              'this change. It takes a few minutes.'),
+              'this change. It takes a few minutes.')),
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(ctx, false),

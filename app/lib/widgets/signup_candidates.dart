@@ -182,14 +182,14 @@ class _SignupCandidatesState extends State<SignupCandidates> {
           builder: (ctx) => StatefulBuilder(
                 builder: (ctx, setLocal) => AlertDialog(
                   title: Text('Why not ${s['name']}?'),
-                  content: TextField(
+                  content: DialogBody(child: TextField(
                       controller: text,
                       autofocus: true,
                       maxLength: 200,
                       onChanged: (_) => setLocal(() {}),
                       decoration: const InputDecoration(
                           labelText: 'The reason',
-                          hintText: 'In a few words, for later')),
+                          hintText: 'In a few words, for later'))),
                   actions: [
                     TextButton(
                         onPressed: () => Navigator.pop(ctx),

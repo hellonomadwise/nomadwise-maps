@@ -270,14 +270,14 @@ class _MapScreenState extends State<MapScreen> {
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20)),
               title: const Text('Your nickname'),
-              content: TextField(
+              content: DialogBody(child: TextField(
                 controller: ctrl,
                 autofocus: true,
                 maxLength: 24,
                 decoration: const InputDecoration(
                     labelText: 'Shown on the leaderboard',
                     counterText: ''),
-              ),
+              )),
               actions: [
                 TextButton(
                     onPressed: () => Navigator.pop(ctx, false),

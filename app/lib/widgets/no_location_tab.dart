@@ -105,7 +105,7 @@ class _NoLocationTabState extends State<NoLocationTab> {
         context: context,
         builder: (ctx) => AlertDialog(
               title: Text(title),
-              content: Text(body),
+              content: DialogBody(child: Text(body)),
               actions: [
                 TextButton(
                     onPressed: () => Navigator.pop(ctx, false),

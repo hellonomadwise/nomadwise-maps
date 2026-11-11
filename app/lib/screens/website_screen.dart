@@ -581,7 +581,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         builder: (ctx) => StatefulBuilder(
               builder: (ctx, setLocal) => AlertDialog(
                 title: Text('Why not ${v['name']}?'),
-                content: SingleChildScrollView(
+                content: DialogBody(child: SingleChildScrollView(
                   child: Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -615,7 +615,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                                     ? 'In a few words, for later'
                                     : 'Anything worth remembering')),
                       ]),
-                ),
+                )),
                 actions: [
                   TextButton(
                       onPressed: () => Navigator.pop(ctx, false),
@@ -697,7 +697,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         context: context,
         builder: (ctx) => AlertDialog(
               title: const Text('Approve for nomadwise.io?'),
-              content: Text(
+              content: DialogBody(child: Text(
                   'Within about ten minutes a draft page will be created '
                   'in Webflow at\n\n'
                   '/coworking/$slug\n\n'
@@ -707,7 +707,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                   'without a redirect. Your photos go in with it; you then '
                   'add the words in Webflow and publish.'
                   '${slug.length > _slugMax ? '\n\nThis slug is long (${slug.length} characters). Press Not yet and tap the slug to shorten it.' : ''}',
-                  style: const TextStyle(height: 1.45)),
+                  style: const TextStyle(height: 1.45))),
               actions: [
                 TextButton(
                     onPressed: () => Navigator.pop(ctx, false),
@@ -744,7 +744,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         context: context,
         builder: (ctx) => AlertDialog(
               title: const Text('Change the slug'),
-              content: Column(mainAxisSize: MainAxisSize.min, children: [
+              content: DialogBody(child: Column(mainAxisSize: MainAxisSize.min, children: [
                 const Text(
                     'This is the last chance to change it: after '
                     'approval the page address is fixed. Lowercase '
@@ -756,7 +756,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                     autofocus: true,
                     decoration: const InputDecoration(
                         prefixText: '/coworking/', labelText: 'Slug')),
-              ]),
+              ])),
               actions: [
                 TextButton(
                     onPressed: () => Navigator.pop(ctx, false),
@@ -5444,11 +5444,11 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Move to pass on?'),
-        content: Text(
+        content: DialogBody(child: Text(
             'The enquiry from ${e['name'] ?? 'this nomad'} to '
             '${e['venue_name'] ?? 'this space'} joins the pass-on list, '
             'where you can send it to the space by hand. Nothing is sent '
-            'yet.'),
+            'yet.')),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
@@ -6326,7 +6326,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         context: context,
         builder: (_) => AlertDialog(
               title: Text('Retire ${v['name']}?'),
-              content: Text(
+              content: DialogBody(child: Text(
                   'The page comes off nomadwise.io within a minute or two: '
                   'the listing and its Images entry are unpublished and '
                   'archived, the slug /coworking/${v['webflow_slug'] ?? ''} '
@@ -6334,7 +6334,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                   'the city page. Webflow only accepts that on some plans: '
                   'the card says afterwards whether it was added or needs '
                   'adding by hand. A redirect goes live when you next '
-                  'publish the site.'),
+                  'publish the site.')),
               actions: [
                 TextButton(
                     onPressed: () => Navigator.pop(context, false),
@@ -7622,7 +7622,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('Reject the claim on $spaceName?'),
-        content: Column(mainAxisSize: MainAxisSize.min, children: [
+        content: DialogBody(child: Column(mainAxisSize: MainAxisSize.min, children: [
           Text(
               c['status'] == 'free_pending'
                   ? 'The page stays exactly as it is. Nothing to refund. '
@@ -7643,7 +7643,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                   labelText: 'Reason',
                   hintText: 'Wrong space, not the owner, does not fit...',
                   border: OutlineInputBorder())),
-        ]),
+        ])),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
@@ -10403,7 +10403,7 @@ class _ListingPlanPageState extends State<_ListingPlanPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Remove the owner?'),
-        content: SingleChildScrollView(
+        content: DialogBody(child: SingleChildScrollView(
           child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -10437,7 +10437,7 @@ class _ListingPlanPageState extends State<_ListingPlanPage> {
                     decoration: const InputDecoration(
                         labelText: 'Why (optional, kept in the notes)')),
               ]),
-        ),
+        )),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),

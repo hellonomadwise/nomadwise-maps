@@ -257,7 +257,7 @@ class _AdminPricingScreenState extends State<AdminPricingScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setD) => AlertDialog(
           title: Text('${c['name']}'),
-          content: Column(
+          content: DialogBody(child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -296,7 +296,7 @@ class _AdminPricingScreenState extends State<AdminPricingScreen> {
                   title: const Text('Only this currency, no toggle',
                       style: TextStyle(fontSize: 13.5)),
                 ),
-              ]),
+              ])),
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(ctx, false),

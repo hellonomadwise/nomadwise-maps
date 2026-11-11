@@ -975,7 +975,7 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20)),
               title: const Text('Share the WiFi network name'),
-              content: Column(mainAxisSize: MainAxisSize.min, children: [
+              content: DialogBody(child: Column(mainAxisSize: MainAxisSize.min, children: [
                 TextField(
                     controller: ssid,
                     decoration: const InputDecoration(
@@ -984,7 +984,7 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
                             'Just the name. Passwords are the venue\'s '
                             'to share, so we do not collect them.',
                         helperMaxLines: 2)),
-              ]),
+              ])),
               actions: [
                 TextButton(
                     onPressed: () => Navigator.pop(ctx, false),
@@ -1116,10 +1116,10 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20)),
               title: const Text('On the space\'s WiFi?'),
-              content: const Text(
+              content: const DialogBody(child: Text(
                   'Make sure you\'re connected to this space\'s WiFi, not '
                   'mobile data. Tests on mobile data don\'t count and this '
-                  'uses about 12 MB.'),
+                  'uses about 12 MB.')),
               actions: [
                 TextButton(
                     onPressed: () => Navigator.pop(ctx, false),
@@ -1163,9 +1163,9 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
                 const SizedBox(width: 8),
                 Text('$mbps Mbps'),
               ]),
-              content: Text(
+              content: DialogBody(child: Text(
                   'Measured on the connection you\'re using right now. '
-                  'Submit it for ${venue.name}?'),
+                  'Submit it for ${venue.name}?')),
               actions: [
                 TextButton(
                     onPressed: () => Navigator.pop(ctx, false),
@@ -1222,12 +1222,12 @@ class _VenueDetailScreenState extends State<VenueDetailScreen> {
                 const SizedBox(width: 8),
                 Text(CoinsGate.t('+${AppConfig.coinsWifiTest} coins', 'Thank you')),
               ]),
-              content: Text(CoinsGate.t(
+              content: DialogBody(child: Text(CoinsGate.t(
                   'Thanks! Coins are credited after verification, '
                   'usually within a few days. (WiFi tests pay once '
                   'per space per month.)',
                   'Thanks! Your WiFi test helps remote workers know '
-                  'what to expect.')),
+                  'what to expect.'))),
               actions: [
                 TextButton(
                     onPressed: () => Navigator.pop(ctx),

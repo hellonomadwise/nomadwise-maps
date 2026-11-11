@@ -1549,7 +1549,7 @@ class _PriceSpacePageState extends State<_PriceSpacePage> {
         context: context,
         builder: (ctx) => AlertDialog(
           title: const Text('Undo this change?'),
-          content: Text('$what It takes a few minutes.'),
+          content: DialogBody(child: Text('$what It takes a few minutes.')),
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
@@ -1593,14 +1593,14 @@ class _PriceSpacePageState extends State<_PriceSpacePage> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('Take "${p['name']}" off the page?'),
-        content: Text(
+        content: DialogBody(child: Text(
             'It is removed from the public page within minutes. It is kept '
             'in Webflow, archived, so Undo can put it back.'
             '${headline ? '\n\nThis is the product whose price shows as '
                 '"starting from" on the page. Without it the page has no '
                 'starting price until another product is chosen in '
                 'Webflow.' : ''}',
-            style: const TextStyle(height: 1.45)),
+            style: const TextStyle(height: 1.45))),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),

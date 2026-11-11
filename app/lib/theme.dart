@@ -404,3 +404,23 @@ ThemeData controlCentreButtons(ThemeData t) {
     ),
   );
 }
+
+/// The body of a plain pop-up (a question, a short form), kept to a
+/// readable width. An AlertDialog is as wide as its longest line, so
+/// a paragraph ran the whole width of a wide screen (Jonathan, 11 Nov
+/// 2026, on "Approve for nomadwise.io?": "can this approve modal be
+/// thinner, its too wide i think"). On a phone the screen is narrower
+/// than this already and nothing changes. A pop-up that sets its own
+/// width (SizedBox) does not use this.
+class DialogBody extends StatelessWidget {
+  final Widget child;
+  const DialogBody({super.key, required this.child});
+
+  /// The widest the words run. With the pop-up's own margins the
+  /// window is about 530 wide.
+  static const double maxWidth = 480;
+
+  @override
+  Widget build(BuildContext context) => ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: maxWidth), child: child);
+}

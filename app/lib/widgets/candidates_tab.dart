@@ -460,7 +460,7 @@ class _CandidatesTabState extends State<CandidatesTab> {
         builder: (ctx) => StatefulBuilder(
               builder: (ctx, setLocal) => AlertDialog(
                 title: Text('Why not ${c.name}?'),
-                content: TextField(
+                content: DialogBody(child: TextField(
                     controller: text,
                     autofocus: true,
                     minLines: 1,
@@ -469,7 +469,7 @@ class _CandidatesTabState extends State<CandidatesTab> {
                     onChanged: (_) => setLocal(() {}),
                     decoration: const InputDecoration(
                         labelText: 'The reason',
-                        hintText: 'In a few words, for later')),
+                        hintText: 'In a few words, for later'))),
                 actions: [
                   TextButton(
                       onPressed: () => Navigator.pop(ctx),

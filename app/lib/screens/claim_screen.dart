@@ -1116,9 +1116,9 @@ class _ClaimScreenState extends State<ClaimScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('$name is already on Premium'),
-        content: const Text(
+        content: const DialogBody(child: Text(
             'Someone has already claimed this listing. If that was not you, '
-            'email spaces@nomadwise.io and we will look into it.'),
+            'email spaces@nomadwise.io and we will look into it.')),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx), child: const Text('Close')),

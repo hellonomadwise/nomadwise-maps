@@ -53,11 +53,11 @@ class _WalletScreenState extends State<WalletScreen> {
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20)),
               title: const Text('Convert to euros?'),
-              content: Text(
+              content: DialogBody(child: Text(
                   '${w.withdrawable} coins become €$euros in your euro '
                   'balance. Your leaderboard score keeps every coin you '
                   'have ever earned, so your rank stays exactly where '
-                  'it is.'),
+                  'it is.')),
               actions: [
                 TextButton(
                     onPressed: () => Navigator.pop(ctx, false),

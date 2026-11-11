@@ -3885,9 +3885,9 @@ class _OwnerScreenState extends State<OwnerScreen> {
         context: context,
         builder: (ctx) => AlertDialog(
           title: const Text('Remove this price?'),
-          content: Text(
+          content: DialogBody(child: Text(
               '"${r.name.text.trim()}" comes off your page once you save '
-              'and Nomadwise approves the change.'),
+              'and Nomadwise approves the change.')),
           actions: [
             TextButton(
                 onPressed: () => Navigator.of(ctx).pop(false),

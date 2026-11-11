@@ -315,8 +315,8 @@ class _ChatThreadState extends State<ChatThread> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Delete this message?'),
-        content: const Text(
-            'It has not been emailed or read yet, so they will never see it.'),
+        content: const DialogBody(child: Text(
+            'It has not been emailed or read yet, so they will never see it.')),
         actions: [
           TextButton(
               onPressed: () => Navigator.of(ctx).pop(false),

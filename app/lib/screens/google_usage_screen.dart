@@ -342,7 +342,7 @@ class _GoogleUsageScreenState extends State<GoogleUsageScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Daily Google limit'),
-        content: Column(mainAxisSize: MainAxisSize.min, children: [
+        content: DialogBody(child: Column(mainAxisSize: MainAxisSize.min, children: [
           const Text(
               'Once today\'s lookups reach this, every job and the app stop '
               'asking Google until midnight UTC. Between £1 and £500.',
@@ -355,7 +355,7 @@ class _GoogleUsageScreenState extends State<GoogleUsageScreen> {
             decoration: const InputDecoration(
                 labelText: 'Limit a day', prefixText: '£'),
           ),
-        ]),
+        ])),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx),
@@ -614,11 +614,11 @@ class _GoogleUsageScreenState extends State<GoogleUsageScreen> {
                     context: context,
                     builder: (ctx) => AlertDialog(
                       title: Text('Pause ${_jobs[job]?.name ?? job}?'),
-                      content: Text(
+                      content: DialogBody(child: Text(
                           '${_jobs[job]?.what ?? ''}\n\nWhile paused it asks '
                           'Google nothing, so whatever it keeps up to date '
                           'will slowly get older. Switch it back on here any '
-                          'time.'),
+                          'time.')),
                       actions: [
                         TextButton(
                             onPressed: () => Navigator.pop(ctx, false),

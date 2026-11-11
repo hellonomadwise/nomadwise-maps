@@ -877,11 +877,11 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Remove this contact?'),
-        content: Text(
+        content: DialogBody(child: Text(
             'Everything we have on ${c['space_name'] ?? c['email']} goes, '
             'including the messages. For a space that asked not to be '
             'written to, use Declined or Unsubscribed instead, so we '
-            'remember.'),
+            'remember.')),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
@@ -1226,11 +1226,11 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Bring in the listed spaces?'),
-        content: const Text(
+        content: const DialogBody(child: Text(
             'Every space on nomadwise.io that nobody has claimed gets a '
             'card here, in the Listed group. Nothing is sent. Where we do '
             'not have an email address yet, the sync reads the space\'s own '
-            'website for one over the next day.'),
+            'website for one over the next day.')),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
@@ -1379,13 +1379,13 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
         context: context,
         builder: (ctx) => AlertDialog(
               title: const Text('Is this a business address?'),
-              content: Text(
+              content: DialogBody(child: Text(
                   '$email for $space.\n\n'
                   'Under GDPR we only write to a business address without '
                   'their consent. Check it belongs to the business: on '
                   'their website, Google listing or social pages, and not '
                   'a person\'s own address.',
-                  style: const TextStyle(height: 1.45)),
+                  style: const TextStyle(height: 1.45))),
               actions: [
                 TextButton(
                     onPressed: () => Navigator.pop(ctx),
@@ -2235,9 +2235,9 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
                           context: ctx,
                           builder: (c2) => AlertDialog(
                             title: const Text('Delete this template?'),
-                            content: Text(
+                            content: DialogBody(child: Text(
                                 '"${t['name']}" goes for good. Emails already '
-                                'sent with it stay in each space\'s history.'),
+                                'sent with it stay in each space\'s history.')),
                             actions: [
                               TextButton(
                                   onPressed: () => Navigator.pop(c2, false),

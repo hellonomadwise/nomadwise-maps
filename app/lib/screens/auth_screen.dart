@@ -58,11 +58,11 @@ class _AuthScreenState extends State<AuthScreen> {
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(20)),
                     title: const Text('Check your inbox'),
-                    content: Text(
+                    content: DialogBody(child: Text(
                         'We sent a confirmation link to '
                         '${_email.text.trim()}. Tap it, then come back '
                         'here and sign in. (Check spam if it\'s not '
-                        'there in a minute.)'),
+                        'there in a minute.)')),
                     actions: [
                       TextButton(
                           onPressed: () => Navigator.pop(ctx),

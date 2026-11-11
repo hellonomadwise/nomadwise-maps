@@ -372,10 +372,10 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20)),
                 title: const Text('Already on the map!'),
-                content: Text(
+                content: DialogBody(child: Text(
                     '${existing.name} is already listed, so you\'re now '
                     'confirming it instead'
-                    '${CoinsGate.t(', still worth ${AppConfig.coinsConfirmVenue} coins', '')}.'),
+                    '${CoinsGate.t(', still worth ${AppConfig.coinsConfirmVenue} coins', '')}.')),
                 actions: [
                   TextButton(
                       onPressed: () => Navigator.pop(ctx),
@@ -454,10 +454,10 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20)),
               title: const Text('On the space\'s WiFi?'),
-              content: const Text(
+              content: const DialogBody(child: Text(
                   'Make sure you\'re connected to this space\'s WiFi, not '
                   'mobile data. Tests on mobile data don\'t count and this '
-                  'uses about 12 MB.'),
+                  'uses about 12 MB.')),
               actions: [
                 TextButton(
                     onPressed: () => Navigator.pop(ctx, false),
@@ -639,7 +639,7 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
                   const SizedBox(width: 8),
                   Text(CoinsGate.t('+$coins coins', 'Thank you')),
                 ]),
-                content: Text(CoinsGate.off
+                content: DialogBody(child: Text(CoinsGate.off
                     ? (isConfirm
                         ? 'Thanks! Your confirmation helps remote workers '
                             'know what to expect.'
@@ -650,7 +650,7 @@ class _AddVenueScreenState extends State<AddVenueScreen> {
                         'verification, usually within a few days.'
                     : 'Thanks! New spaces get a quick once-over by the '
                         'Nomadwise team. Your coins are usually credited '
-                        'within a day.'),
+                        'within a day.')),
                 actions: [
                   TextButton(
                       onPressed: () {
