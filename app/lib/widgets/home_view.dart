@@ -544,7 +544,7 @@ class _HomeViewState extends State<HomeView> {
   // ------------------------------------------------ owners each day
 
   /// Owners each day, the last 30 days: claimed, signed in, sent
-  /// changes, one row of bars each over the same days (Jonathan,
+  /// changes, took a badge, one row of bars each over the same days (Jonathan,
   /// 10 Nov 2026: "daily activity bar chart on users claimed as well
   /// as users logged in, users updated info"). Tapping a day lists the
   /// spaces.
@@ -552,6 +552,10 @@ class _HomeViewState extends State<HomeView> {
     ('claimed', 'Claimed', Brand.success),
     ('signed_in', 'Signed in', _blue),
     ('updated', 'Sent changes', Color(0xFFC2407A)),
+    // Copied the badge code or downloaded the media pack (migration
+    // 318; Jonathan, 11 Nov 2026: "recorded within the dashboard
+    // summary").
+    ('badge', 'Took a badge', Color(0xFF7A5AC2)),
   ];
 
   Widget _ownerDaysCard(bool phone) {
@@ -614,7 +618,8 @@ class _HomeViewState extends State<HomeView> {
     );
   }
 
-  /// One day of owners: who claimed, signed in and sent changes.
+  /// One day of owners: who claimed, signed in, sent changes and took
+  /// a badge.
   void _showOwnerDay(Map<String, dynamic> d) {
     final day = _date(d['day']);
     List<String> names(String k) =>

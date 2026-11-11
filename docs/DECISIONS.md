@@ -6632,3 +6632,20 @@ Jonathan, on Coworking Space H24 (no email anywhere: its website is an Instagram
 - Postmark templates enquiry-received-nomad and enquiry-sent-nomad carry the block (email_templates, pushed by hand after the migration). The plain words the functions keep as a fallback carry it too.
 - Tried in a transaction that was rolled back: a ticked enquiry to H24 sends the first email with the link; the pass-on email does not repeat it; an unticked one has nothing; a space that gets it directly has it in "Your request has been sent".
 - Not done: the sales feed does not yet know the campaign prefix "enquiry-" (it knows region- and location-); the "has rooms" suggestion of our own spaces waits for the coliving plan.
+
+## 11 Nov 2026: passing on by WhatsApp shows the customer's email
+Jonathan, with the WhatsApp window open on Alessandro's enquiry to H24: "how do i know the customer will receive the text i want", then "i just want to be able to see what will be sent". The email route has "Check the emails"; the WhatsApp route showed only the message to the space and sent the customer's email unseen. He passed H24's on by WhatsApp at 16:47 UTC anyway (the first real use: passed, kept in Outreach, Alessandro emailed).
+- The window now has two numbered parts: 1, the WhatsApp message to the space; 2, "Email {first} that it has been passed on" with who it goes to, the subject and the words, in a box he can change. It is sent as written there when he presses "I sent it". Unticked, no email goes and the box is hidden.
+- If the email's words cannot be read when the window opens, the tick is off and greyed with a line saying so, so nothing is ever sent unseen.
+- Migration 319: enquiry_nomad_whatsapp_email (the wording in one place), admin_enquiry_whatsapp_draft returns it, admin_enquiry_passed_whatsapp takes the subject and words (six arguments; the four-argument one is dropped, an app still open from before lands on the new one).
+
+## 11 Nov 2026: a ping when an owner takes a website badge, and "Took a badge" on Home
+Jonathan: "can we make it so that I receive a notification whenever anyone downloads the website badges. and that this is recorded within the dashboard summary".
+- An owner takes a badge two ways in the Owner account: "Copy code" (for their website) and "Download media pack (ZIP)". Both were already steps in Owner activity (badge_copied, badge_pack); nobody had pressed either before today.
+- Migration 318: a trigger on owner_activity pings the phone, "Badge code copied: {space}" or "Badge pack downloaded: {space}", with which badge or which pack. One ping per owner per kind an hour (an owner copying three styles is one ping). Our own team is left out. The Owner account now sends these two steps at once, not with the next batch 15 seconds later.
+- Home, "Owners each day": a fourth row, "Took a badge", counted per space per day like the other three; tapping a day lists the spaces.
+- Not covered, because nothing tells us: someone saving the badge image straight off one of our emails or pages.
+- Tried in a transaction that was rolled back: three copies and one pack by one owner gave two pings; Home showed the space under today.
+
+## 11 Nov 2026: a note on pushing Postmark templates after a migration
+pm_templates_backup() copies Postmark's version over email_templates ("Postmark is where edits are made"). So when a migration has changed email_templates, push first (pm_template_push(alias, true)) and back up after. A backup in between puts the old words back, and the push then sends the old words with a 200. This happened with migration 317 on the day: the two rows were put back by hand, pushed, and the backup after read both back from Postmark with the new block. The nightly backup would do the same to any migration left unpushed overnight.

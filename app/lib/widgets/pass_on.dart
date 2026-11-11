@@ -224,8 +224,19 @@ class PassOnCard extends StatelessWidget {
       BuildContext context, String number, bool tellFirst) async {
     final digits = number.replaceAll(RegExp(r'[^0-9]'), '');
     var draft = '';
+    // The email the customer gets once it has gone (migration 319;
+    // Jonathan, 11 Nov 2026: "how do i know the customer will receive
+    // the text i want ... i just want to be able to see what will be
+    // sent"). Shown in the window, and his to change.
+    var mailTo = '${e['email'] ?? ''}';
+    var mailSubject = '';
+    var mailBody = '';
     try {
-      draft = await supabase.enquiryWhatsAppDraft('${e['id']}');
+      final d = await supabase.enquiryWhatsAppDraft('${e['id']}');
+      draft = '${d['text'] ?? ''}';
+      if ('${d['nomad_to'] ?? ''}'.isNotEmpty) mailTo = '${d['nomad_to']}';
+      mailSubject = '${d['nomad_subject'] ?? ''}';
+      mailBody = '${d['nomad_body'] ?? ''}';
     } catch (_) {}
     if (draft.trim().isEmpty) {
       final msg = (e['message'] ?? '').toString().trim();
@@ -237,7 +248,10 @@ class PassOnCard extends StatelessWidget {
     }
     if (!context.mounted) return;
     final text = TextEditingController(text: draft);
-    var tell = tellFirst;
+    final mail = TextEditingController(text: mailBody);
+    // Without the words to show, he is not asked to send them unseen.
+    final mailKnown = mailBody.trim().isNotEmpty;
+    var tell = tellFirst && mailKnown;
     var opened = false;
 
     final sent = await showDialog<bool>(
@@ -253,34 +267,72 @@ class PassOnCard extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('To $number. Change the words if you like.',
+                    Text('1. To $_space by WhatsApp, $number. Change the '
+                        'words if you like.',
                         style: const TextStyle(
-                            fontSize: 12.5, color: Brand.inkSecondary)),
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w700,
+                            color: Brand.ink)),
                     const SizedBox(height: 10),
                     TextField(
                       controller: text,
-                      minLines: 6,
-                      maxLines: 14,
+                      minLines: 5,
+                      maxLines: 10,
                       style: const TextStyle(fontSize: 13.5, height: 1.45),
                       decoration: const InputDecoration(
-                          labelText: 'Message', alignLabelWithHint: true),
+                          labelText: 'WhatsApp message',
+                          alignLabelWithHint: true),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 10),
                     CheckboxListTile(
                       value: tell,
-                      onChanged: (v) => setD(() => tell = v ?? true),
+                      onChanged: mailKnown
+                          ? (v) => setD(() => tell = v ?? true)
+                          : null,
                       contentPadding: EdgeInsets.zero,
                       dense: true,
                       controlAffinity: ListTileControlAffinity.leading,
-                      title: Text('Tell $_first it has been passed on',
-                          style: const TextStyle(fontSize: 13.5)),
+                      title: Text('2. Email $_first that it has been passed on',
+                          style: const TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w700,
+                              color: Brand.ink)),
                     ),
-                    const SizedBox(height: 4),
+                    if (!mailKnown)
+                      const Padding(
+                        padding: EdgeInsets.only(bottom: 6),
+                        child: Text(
+                            'The email could not be read just now, so none '
+                            'will be sent. Close this and try again to send one.',
+                            style: TextStyle(
+                                fontSize: 12, height: 1.45, color: Brand.goldTextDark)),
+                      ),
+                    if (tell && mailKnown) ...[
+                      const SizedBox(height: 4),
+                      Text('To $mailTo  ·  $mailSubject',
+                          style: const TextStyle(
+                              fontSize: 12.5, color: Brand.inkSecondary)),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: mail,
+                        minLines: 5,
+                        maxLines: 10,
+                        style: const TextStyle(fontSize: 13.5, height: 1.45),
+                        decoration: const InputDecoration(
+                            labelText: 'Email to the customer',
+                            alignLabelWithHint: true),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                          'Sent as written here when you press "I sent it".',
+                          style: TextStyle(fontSize: 12, color: Brand.inkMuted)),
+                    ],
+                    const SizedBox(height: 8),
                     Text(
                         opened
                             ? 'Sent it in WhatsApp? Press "I sent it" and the '
                                 'enquiry leaves this list'
-                                '${tell ? ', and $_first gets an email saying it went by WhatsApp' : ''}.'
+                                '${tell ? ', and $_first gets the email above' : ''}.'
                             : 'WhatsApp opens with these words. Nothing is '
                                 'sent until you press send there.',
                         style: TextStyle(
@@ -324,7 +376,10 @@ class PassOnCard extends StatelessWidget {
     try {
       final told = await supabase.enquiryPassedByWhatsApp(
           '${e['id']}', number,
-          body: text.text.trim(), tellNomad: tell);
+          body: text.text.trim(),
+          tellNomad: tell,
+          nomadSubject: tell && mailSubject.isNotEmpty ? mailSubject : null,
+          nomadBody: tell && mail.text.trim().isNotEmpty ? mail.text.trim() : null);
       if (!context.mounted) return;
       _snack(context,
           'Passed on to $_space by WhatsApp${told ? ', and $_first has been told' : ''}.');

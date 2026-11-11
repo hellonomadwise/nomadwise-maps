@@ -1123,22 +1123,31 @@ class SupabaseService {
 
   /// Admin: a waiting enquiry as a WhatsApp message to the space
   /// (migration 316), to show and edit before WhatsApp is opened.
-  Future<String> enquiryWhatsAppDraft(String id) async {
+  /// {text} is the message to the space; {nomad_to, nomad_subject,
+  /// nomad_body} the email the customer gets afterwards (migration 319).
+  Future<Map<String, dynamic>> enquiryWhatsAppDraft(String id) async {
     final r = await _db.rpc('admin_enquiry_whatsapp_draft', params: {'p_id': id});
-    return r is Map ? '${r['text'] ?? ''}' : '';
+    return r is Map ? Map<String, dynamic>.from(r) : {};
   }
 
   /// Admin: the founder sent this enquiry to the space by WhatsApp
   /// himself (migration 316). It leaves the pass-on list, the message
   /// is kept on the space in Outreach and, when asked, the customer is
   /// told. Returns whether the customer was told.
+  /// [nomadSubject] and [nomadBody]: the customer's email as the
+  /// founder left it in the window (migration 319); null sends the draft.
   Future<bool> enquiryPassedByWhatsApp(String id, String phone,
-      {String? body, bool tellNomad = true}) async {
+      {String? body,
+      bool tellNomad = true,
+      String? nomadSubject,
+      String? nomadBody}) async {
     final r = await _db.rpc('admin_enquiry_passed_whatsapp', params: {
       'p_id': id,
       'p_phone': phone,
       'p_body': body,
       'p_tell_nomad': tellNomad,
+      if (nomadSubject != null) 'p_nomad_subject': nomadSubject,
+      if (nomadBody != null) 'p_nomad_body': nomadBody,
     });
     return r is Map && r['told'] == true;
   }

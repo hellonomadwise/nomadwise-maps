@@ -9046,6 +9046,8 @@ class _OwnerScreenState extends State<OwnerScreen> {
                     ClipboardData(text: _badgeCode(file, w, h, alt)));
                 _cap('owner_badge_copied',
                     {'space': _venue?['name'], 'badge': file});
+                // at once, so the founders' ping is not 15 seconds late
+                _trk.flush();
                 if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
                     content: Text('Code copied. Paste it into your website '
@@ -9198,6 +9200,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
             onPressed: () {
               _cap('owner_badge_pack',
                   {'space': _venue?['name'], 'plan': kind});
+              _trk.flush();
               launchUrl(Uri.parse('${_badgeBase}nomadwise-media-pack-'
                   '${_verified ? 'premium' : 'free'}.zip'));
             },
