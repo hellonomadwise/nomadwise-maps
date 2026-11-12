@@ -1617,9 +1617,29 @@ for v in liveloc_:
                 continue   # not made yet: next run
         lf = loc.get('fieldData') or {}
         cms = v['webflow_cms_id']
+        patch_ = {'locations': loc['id'],
+                  'locations-label': lf.get('name-label')}
+        # The heading names the area too ("<name> in <area> - <region>").
+        # A heading this sync made itself follows the page to its new
+        # Location; one written by hand is left as it is (SwissOffices
+        # Astoria, 12 Nov 2026: filed under Levent, it is in Şişli).
+        try:
+            item_ = wf(f'/v2/collections/{COLLECTION_ID}/items/{cms}') or {}
+            time.sleep(0.6)
+            ifd_ = item_.get('fieldData') or {}
+            region_ = next((r for r in regions
+                            if r['id'] == v.get('webflow_region_id')), None)
+            rlabel_ = ((region_ or {}).get('fieldData') or {}).get('name-label')
+            if rlabel_ and ifd_.get('h1-label'):
+                ours_ = {h1_label(v['name'], a, rlabel_)
+                         for a in (ifd_.get('locations-label') or None, None)}
+                if ifd_.get('h1-label') in ours_:
+                    patch_['h1-label'] = h1_label(
+                        v['name'], lf.get('name-label'), rlabel_)
+        except Exception:  # noqa: BLE001
+            pass
         wf_write(f'/v2/collections/{COLLECTION_ID}/items/{cms}', 'PATCH',
-                 {'fieldData': {'locations': loc['id'],
-                                'locations-label': lf.get('name-label')}})
+                 {'fieldData': patch_})
         time.sleep(1.1)
         wf_write(f'/v2/collections/{COLLECTION_ID}/items/publish', 'POST',
                  {'itemIds': [cms]})
