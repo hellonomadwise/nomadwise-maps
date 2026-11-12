@@ -1652,8 +1652,12 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
         // Windows drops a link much over 2,000 characters without a
         // word, so there a long email goes over with its address and
         // subject only (for the "try this computer's mail app" button).
+        // A copy to the shared inbox, so both founders see what went
+        // out (the Round 1 plan of 8 Nov; Jonathan was adding it by
+        // hand on each draft: "Added spaces@", 13 Nov 2026).
         final head = 'mailto:${c['email']}'
-            '?subject=${Uri.encodeComponent(subject.text.trim())}';
+            '?subject=${Uri.encodeComponent(subject.text.trim())}'
+            '&bcc=${Uri.encodeComponent('spaces@nomadwise.io')}';
         final full = '$head&body='
             '${Uri.encodeComponent(text.replaceAll('\r\n', '\n').replaceAll('\n', '\r\n'))}';
         // With the designed email on the clipboard, the draft opens with
