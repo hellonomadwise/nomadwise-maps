@@ -6776,3 +6776,11 @@ Jonathan, after shortening the hello ("you can look after and update your page, 
 - Unchanged for everyone else: the pricing page, the Get listed page and the listing pages' own claim links (from=pricing, from=/coworking/...) still show both plans.
 - Step events carry "_free" on the end for these visits (link_matched_free and so on), so the two routes can be told apart in the numbers.
 - Not seen on a screen from the session (no local Flutter); the build is the compile check.
+
+## 13 Nov 2026: "My own inbox" hands over the whole email
+Jonathan, sending Round 1 from his iPhone (screenshot of the Spark draft): "When I'm selecting my own inbox, the content isn't moving across. If I paste it misses out the end and the unsubscribe is above the default spark signature. Please could you fix".
+- What was happening: the draft opened with the address and subject only, for the designed email to be pasted in (since 10 Oct); the pasted email stopped at "Kind regards," with the name left for Spark's own signature (since 31 Oct); and Spark puts its signature under everything, so the unsubscribe line sat between "Kind regards," and the name. With "No signature" chosen in Spark the email simply ended at "Kind regards,".
+- Now the email is whole wherever it goes: "Kind regards," / Jonathan Heavens / Co-founder, nomadwise.io (the agreed signature of migration 327 in the designed version), then the unsubscribe line last. Spark's own signature is set to "No signature" for these. This reverses 31 Oct ("it shouldn't include my signature if I'm going to copy and paste it into spark") because of the order problem above; on a computer, where Spark was adding his signature, he now chooses "No signature" there too or it shows twice.
+- On a phone the draft carries the whole email as text, so nothing has to be pasted. The designed version (the button) is still on the clipboard: select everything in the body and paste over it. On a computer nothing changes in the steps: the draft opens with address and subject and the designed email is pasted in.
+- The window's words after the draft opens say which address to send from (jonathan@nomadwise.io; his draft had come up as hello@nomadwise.io) and to set "No signature".
+- Not seen on a screen from the session (no local Flutter); the build is the compile check.

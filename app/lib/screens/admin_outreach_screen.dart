@@ -1509,6 +1509,9 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
     String? richHtml;
     bool richCopied = false;
     String? copied;
+    // True when the draft was handed over with the whole email in it
+    // (a phone): nothing to paste.
+    bool bodyInDraft = false;
     // Spark on Windows cannot take an email link (Readdle: "you cannot
     // currently set Spark as your default email client"), so there the
     // parts are copied over by hand and no link is fired at whatever
@@ -1572,15 +1575,18 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
       return '$b\n\nIf you would rather not hear from us again: $unsubLink';
     }
 
-    // The same email as it is pasted into Spark: "Kind regards," stays,
-    // the name and role under it go, because Spark adds the sender's
-    // own signature there (Jonathan, 31 Oct 2026: "it shouldn't include
-    // my signature if I'm going to copy and paste it into spark"). The
-    // log keeps the full words.
-    String pasteBody() => ownInboxBody().replaceFirst(
-        RegExp(r'Kind regards,\s*\n\s*Jonathan Heavens\s*\n\s*Co-?founder(,| -) Nomadwise\.io',
-            caseSensitive: false),
-        'Kind regards,');
+    // The same email as it goes into Spark: whole, with the name and
+    // role under "Kind regards," and the unsubscribe line last. From
+    // 31 Oct to 12 Nov 2026 the name and role were left off for Spark's
+    // own signature to follow ("it shouldn't include my signature if
+    // I'm going to copy and paste it into spark"); but Spark puts its
+    // signature under everything, so the unsubscribe line came between
+    // "Kind regards," and the name, and with no Spark signature the
+    // email ended at "Kind regards," (Jonathan, 13 Nov 2026: "it misses
+    // out the end and the unsubscribe is above the default spark
+    // signature"). So the email carries the agreed signature itself
+    // (migration 327) and Spark's is set to "No signature".
+    String pasteBody() => ownInboxBody();
 
     // Gets the email ready to be sent from our own mailbox by hand.
     // Where the computer's mail app can take a link (a Mac with Spark
@@ -1588,6 +1594,8 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
     // subject and text are offered to copy into Spark. The full text
     // also goes on the clipboard.
     Future<void> openDraft(void Function(void Function()) setD) async {
+      // asked before anything is waited for
+      final onPhone = MediaQuery.sizeOf(context).width < 600;
       setD(() {
         loading = true;
         problem = null;
@@ -1623,8 +1631,8 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
           }
           return;
         }
-        // Without our signature: Spark adds the sender's own
-        // (Jonathan, 26 Oct 2026: it showed twice). The log keeps it.
+        // The whole email, signature and unsubscribe line included
+        // (see pasteBody).
         final text = pasteBody();
         // The designed version first (Jonathan, 10 Oct 2026: Spark
         // showed the bare text, long links and no button); a browser
@@ -1652,8 +1660,14 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
             '${Uri.encodeComponent(text.replaceAll('\r\n', '\n').replaceAll('\n', '\r\n'))}';
         // With the designed email on the clipboard, the draft opens with
         // its address and subject only, for the email to be pasted in.
-        final uri = Uri.tryParse(
-            richCopied || (onWindows && full.length > 1800) ? head : full);
+        // Not on a phone: there the draft carries the whole email as
+        // text, so nothing has to be pasted (Jonathan, 13 Nov 2026, on
+        // his iPhone: "the content isn't moving across"). The designed
+        // version is still on the clipboard to paste over it.
+        final withBody =
+            onPhone || !(richCopied || (onWindows && full.length > 1800));
+        final uri = Uri.tryParse(withBody ? full : head);
+        bodyInDraft = withBody && !onWindows;
         draftUri = uri;
         if (!onWindows && uri != null) {
           // The page cannot tell whether a mail app took the link, so
@@ -1882,23 +1896,37 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
                                         'Send it there, then come back and '
                                         'press "I sent it" so the card '
                                         'moves on.'
-                                    : richCopied
+                                    : bodyInDraft
                                         ? 'Your mail app should now be open '
-                                            'with the address and subject. '
-                                            'The email is copied with its '
-                                            'design (the button and the '
-                                            'signature): click in the body '
-                                            'and paste it (Cmd+V). Choose '
-                                            'the inbox to send from, read '
-                                            'it, and send it there. Then '
-                                            'come back and press "I sent '
-                                            'it" so the card moves on.'
-                                        : 'Your mail app should now be open '
-                                            'with the draft. Choose the inbox '
-                                            'to send from, read it, and send '
-                                            'it there. Then come back and '
-                                            'press "I sent it" so the card '
-                                            'moves on.',
+                                            'with the whole email. Send it '
+                                            'from jonathan@nomadwise.io, '
+                                            'with Spark\'s own signature set '
+                                            'to "No signature" (the email '
+                                            'ends with yours). Then come '
+                                            'back and press "I sent it" so '
+                                            'the card moves on.'
+                                            '${richCopied ? ' For the version with the button, select everything in the body and paste over it.' : ''}'
+                                        : richCopied
+                                            ? 'Your mail app should now be '
+                                                'open with the address and '
+                                                'subject. The email is copied '
+                                                'with its design (the button '
+                                                'and your signature): click '
+                                                'in the body and paste it '
+                                                '(Cmd+V). Send it from '
+                                                'jonathan@nomadwise.io, with '
+                                                'Spark\'s own signature set to '
+                                                '"No signature". Then come '
+                                                'back and press "I sent it" '
+                                                'so the card moves on.'
+                                            : 'Your mail app should now be '
+                                                'open with the draft. Send '
+                                                'it from '
+                                                'jonathan@nomadwise.io, with '
+                                                'Spark\'s own signature set to '
+                                                '"No signature". Then come '
+                                                'back and press "I sent it" '
+                                                'so the card moves on.',
                                 style: const TextStyle(
                                     fontSize: 13,
                                     height: 1.4,
