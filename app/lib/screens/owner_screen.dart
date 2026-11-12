@@ -5883,7 +5883,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
     'Remove ads from your page',
   ];
 
-  /// The Get Premium window. "See the Premium plan" opens Plan & billing,
+  /// The Get Premium window. "Unlock with Premium" opens Plan & billing,
   /// where the price for their country is shown before anything is
   /// charged.
   Future<void> _getPlus(String why) {
@@ -6041,8 +6041,10 @@ class _OwnerScreenState extends State<OwnerScreen> {
                             textStyle: const TextStyle(
                                 fontSize: 15, fontWeight: FontWeight.w600),
                           ),
+                          // Jonathan, 12 Nov 2026: 'button "Unlock with Premium"',
+                          // the same words as on Promotions and events.
                           child:
-                              const Text('See the Premium plan', softWrap: false),
+                              const Text('Unlock with Premium', softWrap: false),
                         ),
                       ]),
                 ]),

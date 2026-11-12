@@ -6742,3 +6742,6 @@ Jonathan: "is it possible for the owner to be able to send me a message, which w
 - Migration 325: owner_chat_send also emails spaces@nomadwise.io, subject "New message from <space>", with who wrote, the message and "Answer in Chats" (nomadmaps.io/chats/). Reply-To is the owner, so a reply from the inbox reaches them, but is not kept in the chat; the email says to answer in Chats to keep it together.
 - Tried as SwissOffices' owner inside a rolled-back transaction: the email row was written with the right subject, body and Reply-To; nothing was sent or kept.
 - Same morning, with his yes: the Webflow site was published (07:55 UTC), putting the Get listed page's new wording live.
+
+## 12 Nov 2026: the Get Premium window's button reads "Unlock with Premium"
+Jonathan, on a screenshot of the window ("Add your Instagram and WhatsApp"): 'button "Unlock with Premium'. It read "See the Premium plan". Same words now as the button on Promotions and events. It still opens Plan & billing, where the price is shown before anything is charged; nothing else in the window changed.
