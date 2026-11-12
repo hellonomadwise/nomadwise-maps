@@ -6735,3 +6735,10 @@ Jonathan: "can you change where the other references mention around a day pass a
 - Outreach letters (migration 324): with no country known, {price_words} is "a monthly or yearly fee, shown on the claim form before you pay". With a country it is the real price, as before.
 - docs/GET_LISTED_PAGE_REPLACE.md and docs/OUTREACH.md say the same.
 - Offered, not done: a price range on the Get listed page ("between €4 and €15 a month, depending on your country"), which would name figures without the "from €4" bait.
+
+## 12 Nov 2026: an owner's message in Inbox & support is also emailed to spaces@
+Jonathan: "is it possible for the owner to be able to send me a message, which will be sent to me, where I'll get a notification in my inbox"; the inbox: spaces@nomadwise.io.
+- Owners could already write there; it went under Chats with a phone ping (who, not what). The message box is hidden in the founders' preview, which is why it looked absent.
+- Migration 325: owner_chat_send also emails spaces@nomadwise.io, subject "New message from <space>", with who wrote, the message and "Answer in Chats" (nomadmaps.io/chats/). Reply-To is the owner, so a reply from the inbox reaches them, but is not kept in the chat; the email says to answer in Chats to keep it together.
+- Tried as SwissOffices' owner inside a rolled-back transaction: the email row was written with the right subject, body and Reply-To; nothing was sent or kept.
+- Same morning, with his yes: the Webflow site was published (07:55 UTC), putting the Get listed page's new wording live.
