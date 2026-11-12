@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../services/supabase_service.dart';
 import '../theme.dart';
+import '../widgets/admin_read_card.dart';
 
 /// Emails (migration 272): every email we send space owners, and what
 /// happened after it, opened from the Owner flow.
@@ -130,6 +131,17 @@ class _AdminEmailFlowScreenState extends State<AdminEmailFlowScreen> {
                             child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                               _intro(),
                               const SizedBox(height: 12),
+                              // What the numbers show and what to do next
+                              // (migration 326). One read per period, so
+                              // the card starts again when the period changes.
+                              if (_emails.isNotEmpty) ...[
+                                AdminReadCard(
+                                    key: ValueKey('emails-$_days'),
+                                    page: 'emails',
+                                    scope: '$_days',
+                                    scopeLabel: _days == 0 ? 'Everything' : 'Last $_days days'),
+                                const SizedBox(height: 12),
+                              ],
                               if (_emails.isEmpty)
                                 _card(
                                     child: const Text('No emails to owners in this period.',

@@ -2233,6 +2233,35 @@ class SupabaseService {
     return r is Map ? Map<String, dynamic>.from(r) : <String, dynamic>{};
   }
 
+  /// "What does this show?" (migration 326): asks for a plain read of a
+  /// control-centre page's numbers. [note] is the founder's own line on
+  /// what they changed since the last read. Returns the read's number;
+  /// the answer comes from [adminReadAnswer].
+  Future<int> adminReadAsk(String page, String scope, {String? note}) async {
+    final r = await _db.rpc('admin_read_ask', params: {
+      'p_page': page,
+      'p_scope': scope,
+      'p_note': (note ?? '').trim().isEmpty ? null : note!.trim(),
+    });
+    return (r as num).toInt();
+  }
+
+  /// {status: 'waiting'}, {status: 'error', error} or {status: 'done',
+  /// asked_at, note, headline, shows, actions: [{do, why, watch}],
+  /// changed, caveat, previous_at}.
+  Future<Map<String, dynamic>> adminReadAnswer(int id) async {
+    final r = await _db.rpc('admin_read_answer', params: {'p_ask': id});
+    return Map<String, dynamic>.from(r as Map);
+  }
+
+  /// The newest read of a page's numbers, or null when there is none.
+  /// {status: 'waiting', id} when one is on its way.
+  Future<Map<String, dynamic>?> adminReadLatest(String page, String scope) async {
+    final r = await _db.rpc('admin_read_latest',
+        params: {'p_page': page, 'p_scope': scope});
+    return r is Map ? Map<String, dynamic>.from(r) : null;
+  }
+
   /// Owner flow (migration 206): the numbers behind each stage's verdict,
   /// the targets and the open "build it" asks.
   Future<Map<String, dynamic>> adminOwnerFlowSignals() async {
