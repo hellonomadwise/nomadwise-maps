@@ -585,7 +585,10 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   /// The pages worth watching now: approved and not built yet, and
   /// drafts whose Publish was pressed.
   Map<String, String> _pagesOnTheWay() => {
-        for (final v in _approvedTonight) '${v['id']}': 'building',
+        // (an approved page that is waiting for something from him,
+        // such as a third photo, is not on its way: nothing to watch)
+        for (final v in _approvedTonight)
+          if (_prepared(v)['error'] == null) '${v['id']}': 'building',
         for (final v in _drafts)
           if (v['website_publish_requested_at'] != null && !_publishWaits(v))
             '${v['id']}': 'going live',
@@ -8998,6 +9001,53 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         ]),
       );
 
+  /// An approved page: the bar while it is being built, or, when it
+  /// cannot be built yet, the reason and the button that settles it
+  /// (Jonathan, 12 Nov 2026, on SwissOffices Yapı Kredi Plaza: "This is
+  /// still like this". The card had said "Building the page in
+  /// Webflow: 417 min so far ... Nothing for you to do" all night,
+  /// while the page was waiting for a third photo).
+  Widget _approvedState(Map<String, dynamic> v) {
+    final p = _prepared(v);
+    final error = p['error'];
+    if (error == null) return _onTheWay(v, building: true);
+    final why = '${p['why'] ?? ''}'.trim();
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(
+          error == 'needs_photos'
+              ? 'Waiting for you: this page needs one more photo.'
+              : error == 'slug_taken'
+                  ? 'Waiting for you: its address is already used.'
+                  : 'Not built yet: something is in the way.',
+          style: const TextStyle(
+              fontSize: 13.5,
+              fontWeight: FontWeight.w700,
+              color: Brand.goldTextDark)),
+      if (why.isNotEmpty) ...[
+        const SizedBox(height: 4),
+        Text(why,
+            style: const TextStyle(
+                fontSize: 12.5, height: 1.4, color: Brand.inkSecondary)),
+      ],
+      const SizedBox(height: 8),
+      if (error == 'needs_photos')
+        ElevatedButton.icon(
+            onPressed: () => _editPhotos(v),
+            icon: const Icon(Icons.add_photo_alternate_outlined, size: 18),
+            label: const Text('Add photos'))
+      else if (error == 'slug_taken')
+        ElevatedButton.icon(
+            onPressed: () => _editSlug(v),
+            icon: const Icon(Icons.link, size: 18),
+            label: const Text('Change the slug')),
+      const SizedBox(height: 6),
+      const Text(
+          'Once that is done it is built, checked and goes live by '
+          'itself, within about ten minutes.',
+          style: TextStyle(fontSize: 12, color: Brand.inkMuted)),
+    ]);
+  }
+
   // -------------------------------------------------------------- drafts
 
   Widget _draftsTab() {
@@ -9014,10 +9064,11 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         _section('APPROVED, BEING BUILT', approved.length,
             'Each page is being built in Webflow, with its Images entry, '
             'then checked, then it goes live by itself. This list updates '
-            'by itself: nothing to refresh. A page only stops below, under '
-            '"In Webflow", if the check finds a problem. Still here after '
-            'ten minutes? On GitHub: Actions, "Website push (queued '
-            'spaces)", Run workflow.'),
+            'by itself: nothing to refresh. A page that cannot be built '
+            'yet says here what it needs from you. One that is built but '
+            'fails its check stops below, under "In Webflow". A bar still '
+            'running after ten minutes? On GitHub: Actions, "Website push '
+            '(queued spaces)", Run workflow.'),
         ...approved.map((v) => _card(
               tint: Brand.successTint,
               child: Column(
@@ -9047,7 +9098,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                           child: const Text('Undo')),
                     ]),
                     const SizedBox(height: 8),
-                    _onTheWay(v, building: true),
+                    _approvedState(v),
                   ]),
             )),
       ],
