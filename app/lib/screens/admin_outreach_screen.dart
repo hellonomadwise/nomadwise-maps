@@ -1509,8 +1509,8 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
     String? richHtml;
     bool richCopied = false;
     String? copied;
-    // True when the draft was handed over with the whole email in it
-    // (a phone): nothing to paste.
+    // True when the draft was handed over with the whole email in it as
+    // text (the designed copy was refused): nothing to paste.
     bool bodyInDraft = false;
     // Spark on Windows cannot take an email link (Readdle: "you cannot
     // currently set Spark as your default email client"), so there the
@@ -1594,8 +1594,6 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
     // subject and text are offered to copy into Spark. The full text
     // also goes on the clipboard.
     Future<void> openDraft(void Function(void Function()) setD) async {
-      // asked before anything is waited for
-      final onPhone = MediaQuery.sizeOf(context).width < 600;
       setD(() {
         loading = true;
         problem = null;
@@ -1660,12 +1658,12 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
             '${Uri.encodeComponent(text.replaceAll('\r\n', '\n').replaceAll('\n', '\r\n'))}';
         // With the designed email on the clipboard, the draft opens with
         // its address and subject only, for the email to be pasted in.
-        // Not on a phone: there the draft carries the whole email as
-        // text, so nothing has to be pasted (Jonathan, 13 Nov 2026, on
-        // his iPhone: "the content isn't moving across"). The designed
-        // version is still on the clipboard to paste over it.
-        final withBody =
-            onPhone || !(richCopied || (onWindows && full.length > 1800));
+        // The same on a phone. For an hour on 13 Nov 2026 a phone's
+        // draft carried the whole email as text, so nothing had to be
+        // pasted; Jonathan, on seeing it: "Try again this looks not
+        // good" (bare text, long links, and Spark's own signature under
+        // ours). A mail app takes a designed email only by pasting.
+        final withBody = !(richCopied || (onWindows && full.length > 1800));
         final uri = Uri.tryParse(withBody ? full : head);
         bodyInDraft = withBody && !onWindows;
         draftUri = uri;
@@ -1905,18 +1903,18 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
                                             'ends with yours). Then come '
                                             'back and press "I sent it" so '
                                             'the card moves on.'
-                                            '${richCopied ? ' For the version with the button, select everything in the body and paste over it.' : ''}'
                                         : richCopied
                                             ? 'Your mail app should now be '
                                                 'open with the address and '
                                                 'subject. The email is copied '
                                                 'with its design (the button '
-                                                'and your signature): click '
-                                                'in the body and paste it '
-                                                '(Cmd+V). Send it from '
+                                                'and your signature): tap or '
+                                                'click in the body and paste '
+                                                'it. Send it from '
                                                 'jonathan@nomadwise.io, with '
                                                 'Spark\'s own signature set to '
-                                                '"No signature". Then come '
+                                                '"No signature" so yours is '
+                                                'not there twice. Then come '
                                                 'back and press "I sent it" '
                                                 'so the card moves on.'
                                             : 'Your mail app should now be '
