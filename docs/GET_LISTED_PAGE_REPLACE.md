@@ -4,8 +4,11 @@ Page: `/list-my-coworking-space-on-nomadwise` in the Webflow Designer.
 Updated 3 Oct 2026: prices are per country (monthly or yearly), and
 the page names no figure at all: "from €4" is the cheapest country's
 price and reads as a bait to a European owner (Jonathan), so the
-anchor is "around a day pass a month" and the claim form shows each
-space its own price. The
+page says only that Premium is paid monthly or yearly and can be
+cancelled, and the claim form shows each space its own price. (Until
+12 Nov 2026 the anchor was "around a day pass a month"; Jonathan
+dropped it: a day pass "varies quite a lot". The live page was
+reworded that day.) The
 button on a page is "Send an enquiry", so "enquiries" not "booking
 requests".
 Work top to bottom. Every text block on the live page today is listed
@@ -29,7 +32,7 @@ List your coworking space or cafe on nomadwise.io | Free and Verified
 With this:
 Get your coworking space or laptop-friendly cafe on nomadwise.io, the
 directory Google and AI assistants use to answer "where can I work
-from?". Free listing, or Verified costs around a day pass a month.
+from?". Free listing, or Nomadwise Premium, paid monthly or yearly.
 
 ---
 
@@ -61,7 +64,7 @@ With this (short, about their benefit, bold part first, as the old
 ticks were styled):
 **Found by Google and AI assistants** when nomads ask where to work
 **Enquiries straight to your inbox**, no commission
-**Free to list.** Verified costs around a day pass a month
+**Free to list.** Nomadwise Premium is paid monthly or yearly, and you can cancel any time
 
 **Button 1.** Replace this: List for free (opens a form)
 With this: Claim your space, link https://nomadmaps.io/?claim, open in
@@ -119,8 +122,8 @@ Zero risk and no upfront cost
 You will only pay commission when customers buy your products.
 With this:
 Free to be listed, always
-A free page stays free. Verified costs around a day pass a month, and
-there is no commission.
+A free page stays free. Premium is paid monthly or yearly, you can
+cancel any time, and there is no commission.
 
 ---
 
@@ -166,7 +169,8 @@ No tech setup required.
 Get booking requests straight into your inbox. No new tools or
 integrations needed.
 With this:
-Verified, around a day pass a month.
+Nomadwise Premium, a paid plan you pay for monthly or yearly and can
+cancel any time.
 The badge, a place above every free listing in your city, enquiries
 straight to your inbox, and your own photos and prices.
 
@@ -215,8 +219,8 @@ every free listing in your city.
 **Q3.** Replace "What does it cost to be on Nomadwise?" and its
 answer with:
 What does it cost?
-A listing is free and stays free. Verified costs around a day pass a
-month, monthly or yearly, and the claim form shows your exact price.
+A listing is free and stays free. Premium is paid monthly or yearly,
+and the claim form shows your exact price before you pay.
 Cancel any time and your listing stays, back on the free plan. No
 commission on anything.
 (Nothing on the page says "priced for your country": it invites an

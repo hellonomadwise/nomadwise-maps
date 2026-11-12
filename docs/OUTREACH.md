@@ -35,7 +35,9 @@ stage.
 **Reply** on a card opens the email with a template already filled in
 with their name, space, the claim link for their space (with their
 email in it, so the form opens half done) and the Verified price for
-their country when we know it, otherwise "around a day pass a month".
+their country when we know it, otherwise "a monthly or yearly fee,
+shown on the claim form before you pay" (no day-pass comparison since
+12 Nov 2026).
 Read it, change anything, press Send. It goes from
 hello@nomadwise.io through Postmark, replies land in the inbox as
 usual, a copy is sent to hello@ so the inbox has it too, and the card
