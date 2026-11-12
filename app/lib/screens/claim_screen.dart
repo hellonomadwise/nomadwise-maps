@@ -151,6 +151,28 @@ class _ClaimScreenState extends State<ClaimScreen> {
   /// Your details, both are there again, so the choice is never final.
   String _plan = 'free';
 
+  /// Here from our own hello (the claim link in an email, or a WhatsApp
+  /// or Instagram message: from=email / from=whatsapp, see web/c.js).
+  /// The hello says the page can be looked after "for free", and the
+  /// link used to open on the plans with Premium first on a phone.
+  /// Jonathan, 12 Nov 2026: "we say free in the email, and then it
+  /// points half to premium. You think that's fine?" So these visitors
+  /// get no plan step: the space, then Your details, on Free. Premium
+  /// is offered in the Owner account once the page is theirs. Anyone
+  /// from the pricing or Get listed pages still sees both plans.
+  bool get _fromHello => widget.from == 'email' || widget.from == 'whatsapp';
+
+  /// The step after the space is known: the plans, or for a visitor
+  /// from our hello straight to Your details on Free.
+  void _afterSpace(String how, {bool push = true}) {
+    if (_fromHello) {
+      _plan = 'free';
+      _go(_Step.about, how: '${how}_free', push: push);
+    } else {
+      _go(_Step.plans, how: how, push: push);
+    }
+  }
+
   /// A button on step two: the plan, then Your details.
   void _choosePlan(String plan) {
     _track('claim_plan_pick', {'plan': plan});
@@ -665,7 +687,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
         _search.text = '${exact.first['name']}';
         // Not a tap, so no history entry (Chrome would skip the one
         // before it); Back still goes to the search, through PopScope.
-        _go(_Step.plans, how: 'link_matched', push: false);
+        _afterSpace('link_matched', push: false);
       }
     });
   }
@@ -709,7 +731,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
               ? 'cafe'
               : _newType;
       _placeBusy = false;
-      _go(_Step.plans, how: 'google_place');
+      _afterSpace('google_place');
     });
   }
 
@@ -943,7 +965,10 @@ class _ClaimScreenState extends State<ClaimScreen> {
       _error = null;
       _go(
           switch (_step) {
-            _Step.about => _Step.plans,
+            // no plan step for a visitor from our hello
+            _Step.about => !_fromHello
+                ? _Step.plans
+                : (_picked != null ? _Step.find : _Step.addSpace),
             _Step.plans => _picked != null ? _Step.find : _Step.addSpace,
             _Step.addSpace => _Step.find,
             _Step.find => _Step.find,
@@ -960,7 +985,11 @@ class _ClaimScreenState extends State<ClaimScreen> {
   Widget _heading(bool wide, int step, String title, String blurb) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('STEP $step OF 3',
+          // two steps, not three, for a visitor from our hello
+          Text(
+              _fromHello
+                  ? 'STEP ${step > 1 ? 2 : 1} OF 2'
+                  : 'STEP $step OF 3',
               style: const TextStyle(
                   color: Brand.inkMuted,
                   fontSize: 11.5,
@@ -1022,10 +1051,17 @@ class _ClaimScreenState extends State<ClaimScreen> {
                       'yet? You can add it. We check each new location '
                       'before it goes live, usually within an hour or two, '
                       'and it then shows in your Owner account.')
-              : _heading(wide, 1, 'Find your space',
-                  'Search for your coworking space or cafe. Next you will see '
-                      'Free and Premium, with the Premium price for your '
-                      'country. Not here yet? You can add it.'),
+              : _heading(
+                  wide,
+                  1,
+                  'Find your space',
+                  // from our hello there are no plans next (see _fromHello)
+                  _fromHello
+                      ? 'Search for your coworking space or cafe. Claiming '
+                          'it is free. Not here yet? You can add it.'
+                      : 'Search for your coworking space or cafe. Next you '
+                          'will see Free and Premium, with the Premium price '
+                          'for your country. Not here yet? You can add it.'),
           SizedBox(height: wide ? 24 : 16),
           TextField(
             controller: _search,
@@ -1105,8 +1141,8 @@ class _ClaimScreenState extends State<ClaimScreen> {
             : () => setState(() {
                   _picked = h;
                   _pickedPlace = null;
-                  _go(_Step.plans,
-                      how: onSite ? 'picked_listed' : 'picked_unpublished');
+                  _afterSpace(
+                      onSite ? 'picked_listed' : 'picked_unpublished');
                 }),
       ),
     );
@@ -1670,7 +1706,12 @@ class _ClaimScreenState extends State<ClaimScreen> {
             size: 20, color: premium ? Brand.success : Brand.inkMuted),
         const SizedBox(width: 10),
         Expanded(
-          child: Text('Your plan: ${premium ? 'Premium' : 'Free'}$price',
+          child: Text(
+              // from our hello there was no plan to choose: say what the
+              // hello said
+              _fromHello && !premium
+                  ? 'Free to claim. No card needed.'
+                  : 'Your plan: ${premium ? 'Premium' : 'Free'}$price',
               style: const TextStyle(
                   fontSize: 14.5, fontWeight: FontWeight.w700, color: Brand.ink)),
         ),
