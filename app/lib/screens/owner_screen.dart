@@ -69,6 +69,11 @@ class _OwnerScreenState extends State<OwnerScreen> {
   // ---- founders' preview (?owner&preview=<slug>) ----
   bool get _isPreview => widget.previewKey != null;
   Map<String, dynamic>? _previewBase; // the listing as it is
+  // Every space on the same owner's account, as the owner has them
+  // (Jonathan, 12 Nov 2026: "i want to see how the join account works,
+  // where they can see the multiple spaces"). Empty for a single space
+  // and in Team edit.
+  List<Map<String, dynamic>> _previewGroup = const [];
   // What the owner would see: 'waiting_free' / 'waiting_paid' (claimed,
   // not checked yet: the blurred account), 'free' or 'verified'.
   String _previewAs = 'free';
@@ -635,7 +640,24 @@ class _OwnerScreenState extends State<OwnerScreen> {
       }
       _previewBase = v;
       _previewAs = v['listing_tier'] == 'verified' ? 'verified' : 'free';
+      // The owner's other spaces, so a founder sees the account as the
+      // owner does: All locations first, and the name menu to switch.
+      var group = const <Map<String, dynamic>>[];
+      if (!widget.team) {
+        try {
+          group = await _supabase.adminOwnerViewGroup(widget.previewKey!);
+        } catch (_) {
+          // the one space still shows
+        }
+        if (!mounted) return;
+      }
+      _previewGroup = group.length > 1 ? group : const [];
       _applyPreview();
+      if (_previewGroup.isNotEmpty && !_landed) {
+        _landed = true;
+        setState(() => _tab = _Tab.locations);
+        _loadLocStats();
+      }
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -657,14 +679,20 @@ class _OwnerScreenState extends State<OwnerScreen> {
     setState(() {
       _loading = false;
       _error = null;
+      final shown = <String, dynamic>{
+        ...b,
+        'listing_tier': _previewAs == 'verified' ? 'verified' : 'free'
+      };
+      // A group: every space as it is, the one opened shown in the
+      // chosen state.
       _venues = waiting
           ? []
-          : [
-              {
-                ...b,
-                'listing_tier': _previewAs == 'verified' ? 'verified' : 'free'
-              }
-            ];
+          : _previewGroup.isEmpty
+              ? [shown]
+              : [
+                  for (final g in _previewGroup)
+                    '${g['id']}' == '${b['id']}' ? shown : g
+                ];
       _pending = waiting
           ? [
               {
@@ -684,7 +712,8 @@ class _OwnerScreenState extends State<OwnerScreen> {
               }
             ]
           : [];
-      _current = 0;
+      final at = _venues.indexWhere((g) => '${g['id']}' == '${b['id']}');
+      _current = at < 0 ? 0 : at;
     });
     if (!waiting) _fillEditor();
   }
@@ -733,8 +762,10 @@ class _OwnerScreenState extends State<OwnerScreen> {
           TextButton.icon(
             onPressed: () => Navigator.of(context).pushReplacement(
                 MaterialPageRoute(
+                    // the space on screen (a group shows several)
                     builder: (_) => OwnerScreen(
-                        previewKey: widget.previewKey, team: true))),
+                        previewKey: '${_venue?['id'] ?? widget.previewKey}',
+                        team: true))),
             style: TextButton.styleFrom(
                 foregroundColor: Colors.white,
                 visualDensity: VisualDensity.compact),
@@ -2562,9 +2593,11 @@ class _OwnerScreenState extends State<OwnerScreen> {
   }
 
   Future<void> _loadLocStats() async {
-    if (_isPreview) return;
+    if (_isPreview && _previewGroup.isEmpty) return;
     try {
-      final r = await _supabase.ownerLocations();
+      final r = _isPreview
+          ? await _supabase.adminOwnerLocations(widget.previewKey!)
+          : await _supabase.ownerLocations();
       if (mounted) setState(() => _locStats = r);
     } catch (_) {
       // the rows show without numbers; the next visit tries again
@@ -6661,6 +6694,60 @@ class _OwnerScreenState extends State<OwnerScreen> {
             ),
           ),
         );
+    // Premium, not filled in yet: the link is unlocked and waiting to
+    // be added (Jonathan, 12 Nov 2026: on Premium the two icons were
+    // simply missing; "as if to say these are unlocked, you can now add
+    // them"). Its own colours, faint, with a red plus; pressing it
+    // opens Links and contact.
+    Widget addCircle(String key, IconData icon, Color color, String what) =>
+        Tooltip(
+          message: 'Add your $what',
+          child: Semantics(
+            button: true,
+            label: 'Add your $what',
+            child: Padding(
+              padding: const EdgeInsets.only(right: 10),
+              child: InkWell(
+                onTap: () => _startEdit('links'),
+                customBorder: const CircleBorder(),
+                child: SizedBox(
+                  width: 44,
+                  height: 44,
+                  child: Stack(clipBehavior: Clip.none, children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: _pageRed, width: 1.5)),
+                      child: Opacity(
+                          opacity: .5,
+                          child: _siteIcon(key, icon, color, size: 22)),
+                    ),
+                    Positioned(
+                      right: -3,
+                      top: -3,
+                      child: Container(
+                        width: 18,
+                        height: 18,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                            color: _pageRed,
+                            shape: BoxShape.circle,
+                            border:
+                                Border.all(color: Colors.white, width: 1.5)),
+                        child: const Icon(Icons.add,
+                            size: 12, color: Colors.white),
+                      ),
+                    ),
+                  ]),
+                ),
+              ),
+            ),
+          ),
+        );
     final linksPart = _editing == 'links'
         ? _editFrame(
             'Links and contact',
@@ -6734,12 +6821,18 @@ class _OwnerScreenState extends State<OwnerScreen> {
                   if (_website.text.trim().isNotEmpty)
                     circle('link', Icons.link, _pageInk),
                   circle('map', Icons.location_on, _pageRed),
-                  if (_verified && _instagram.text.trim().isNotEmpty)
-                    circle('instagram', Icons.camera_alt_outlined,
-                        const Color(0xFFD62976)),
-                  if (_verified && _whatsapp.text.trim().isNotEmpty)
-                    circle('whatsapp', Icons.chat_outlined,
-                        const Color(0xFF25D366)),
+                  if (_verified)
+                    _instagram.text.trim().isNotEmpty
+                        ? circle('instagram', Icons.camera_alt_outlined,
+                            const Color(0xFFD62976))
+                        : addCircle('instagram', Icons.camera_alt_outlined,
+                            const Color(0xFFD62976), 'Instagram'),
+                  if (_verified)
+                    _whatsapp.text.trim().isNotEmpty
+                        ? circle('whatsapp', Icons.chat_outlined,
+                            const Color(0xFF25D366))
+                        : addCircle('whatsapp', Icons.chat_outlined,
+                            const Color(0xFF25D366), 'WhatsApp'),
                   if (!_verified) ...[
                     lockedCircle(
                         'instagram', Icons.camera_alt_outlined, 'Instagram'),

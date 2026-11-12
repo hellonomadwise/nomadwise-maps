@@ -230,6 +230,29 @@ class SupabaseService {
     return res is Map ? Map<String, dynamic>.from(res) : null;
   }
 
+  /// Admin only (migration 323): every space on the same owner's
+  /// account as this one, each in the shape of adminOwnerView, so the
+  /// preview shows a group as its owner sees it.
+  Future<List<Map<String, dynamic>>> adminOwnerViewGroup(String key) async {
+    final res =
+        await _db.rpc('admin_owner_view_group', params: {'p_key': key});
+    return [
+      for (final x in (res as List? ?? const []))
+        if (x is Map) Map<String, dynamic>.from(x)
+    ];
+  }
+
+  /// Admin only (migration 323): the last 30 days of each of those
+  /// spaces, as ownerLocations gives the owner.
+  Future<Map<String, Map<String, dynamic>>> adminOwnerLocations(
+      String key) async {
+    final r = await _db.rpc('admin_owner_locations', params: {'p_key': key});
+    return {
+      for (final x in (r as List? ?? const []))
+        if (x is Map) '${x['id']}': Map<String, dynamic>.from(x)
+    };
+  }
+
   /// Claims made with the signed-in email that are not approved yet.
   Future<List<Map<String, dynamic>>> ownerPendingClaims() async {
     try {
