@@ -6712,3 +6712,11 @@ Jonathan, looking at SwissOffices' account through the preview.
 Jonathan, in the preview of SwissOffices Astoria: the photo grid was five empty grey tiles ("they should be able to see the photos as they are on the live site here right?"). The live pages were fine. The owner's photo list (owner_content.photos, set by hand that morning) held the addresses on swissoffices.com, and their site does not let another website's page load its pictures, so the Owner account (theirs too, not only the preview) drew blanks.
 - The three lists, and website_photos, now hold the WebP copies the website run had already made in our web-photos storage (the same pictures the live pages show, same order). No sync was asked for; a later save by the owner sends the same copies to the page again.
 - For next time: photos put on for an owner by hand go in as our own copies (or are uploaded), never as links to the owner's website.
+
+## 12 Nov 2026: 8 px corners across the Owner account, pop-ups included; "Unlock with Premium"
+Jonathan, on the "Change your location" pop-up in Settings (big round corners, pill buttons, a round text box): "remember for border radius px8".
+- Why it happened: a pop-up is drawn above the page, outside the theme the Owner account wraps its page in, so every pop-up there fell back to the app's own rounder look. And that theme's buttons were 4 px, its boxes 6 px.
+- All nine pop-ups in the Owner account now open through _ownerDialog, which carries the page's theme: 8 px corners on the pop-up, its buttons and its boxes. siteButtons() gained a pop-up shape (8 px) and the Owner account now asks it for 8 px buttons and boxes.
+- Stray corners in owner_screen.dart brought to 8: every 10, 12 and 16 (cards, the page card, lock boxes, the Get Premium window, notes), and the 6 on our own chips and the Performance period buttons. Left as they are: round counters (9 and 11 on 18 and 22 px circles), the colour key squares (3), the map label (4), the progress bar, the "Main photo" label and the tag pills drawn as the live page draws them.
+- Not touched: the claim form (claim_screen.dart) still uses 16 px corners (_corner). Asked Jonathan.
+Same sitting, Promotions and events on a free page: the button "Get Premium" now reads "Unlock with Premium" (his words). It goes where it went before, to the upgrade form.

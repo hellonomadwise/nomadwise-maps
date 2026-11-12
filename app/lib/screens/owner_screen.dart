@@ -31,6 +31,27 @@ import '../widgets/price_checks.dart' show pricePers, perOf, withoutPer, withPer
 import '../widgets/email_typo_hint.dart';
 import '../widgets/motion.dart';
 
+/// A pop-up in the Owner account's own style. A pop-up is drawn above
+/// the page, outside the page's theme, so it used to come out in the
+/// app's rounder look (28 px corners, pill buttons, a 20 px box).
+/// Opened through here it carries the same 8 px corners, buttons and
+/// boxes as the page under it (Jonathan, 12 Nov 2026: "remember for
+/// border radius px8").
+Future<T?> _ownerDialog<T>({
+  required BuildContext context,
+  required WidgetBuilder builder,
+  bool barrierDismissible = true,
+  Color? barrierColor,
+}) =>
+    showDialog<T>(
+      context: context,
+      barrierDismissible: barrierDismissible,
+      barrierColor: barrierColor ?? Colors.black54,
+      builder: (ctx) => Theme(
+          data: siteButtons(Theme.of(ctx), radius: 8),
+          child: Builder(builder: builder)),
+    );
+
 /// The Owner account at nomadmaps.io/?owner ("Nomadwise for Spaces"
 /// to the owner; never "members area").
 ///
@@ -440,12 +461,12 @@ class _OwnerScreenState extends State<OwnerScreen> {
         color: Colors.white,
         elevation: 10,
         shadowColor: Colors.black26,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(8),
         child: Container(
           width: wide ? 360 : double.infinity,
           padding: const EdgeInsets.fromLTRB(16, 14, 8, 10),
           decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(8),
               border: Border.all(color: Brand.hairline)),
           child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -858,7 +879,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-          color: Brand.field, borderRadius: BorderRadius.circular(10)),
+          color: Brand.field, borderRadius: BorderRadius.circular(8)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text('$left of $limit free requests left',
             style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
@@ -1343,11 +1364,11 @@ class _OwnerScreenState extends State<OwnerScreen> {
   Future<void> _confirmRemovePhoto(int i) async {
     if (i < 0 || i >= _photos.length) return;
     final p = _photos[i];
-    final yes = await showDialog<bool>(
+    final yes = await _ownerDialog<bool>(
       context: context,
       builder: (ctx) => Dialog(
         insetPadding: const EdgeInsets.all(16),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 420),
           child: Padding(
@@ -1357,7 +1378,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(8),
                     child: Image.network(p,
                         width: 120,
                         height: 88,
@@ -1467,7 +1488,9 @@ class _OwnerScreenState extends State<OwnerScreen> {
   @override
   Widget build(BuildContext context) {
     _trackChanges();
-    return Theme(data: siteButtons(Theme.of(context)), child: _page(context));
+    return Theme(
+        data: siteButtons(Theme.of(context), radius: 8),
+        child: _page(context));
   }
 
   Widget _page(BuildContext context) {
@@ -2232,7 +2255,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
             'few words.'
         : "Tell us what you'd like to do, in your own words.";
     var sent = false;
-    await showDialog<void>(
+    await _ownerDialog<void>(
       context: context,
       barrierColor: Colors.black38,
       builder: (ctx) => StatefulBuilder(builder: (ctx, set) {
@@ -2457,7 +2480,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
         padding: const EdgeInsets.fromLTRB(12, 10, 4, 10),
         decoration: BoxDecoration(
           color: const Color(0xFFF7F8FA),
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(8),
           border: Border.all(color: const Color(0xFFE8EBEF)),
         ),
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -3807,7 +3830,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: const Color(0xFFEAF6EE),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(8),
               border: Border.all(color: const Color(0xFFB9DFC5)),
             ),
             child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -3845,7 +3868,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: const Color(0xFFF7F8FA),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(color: _edBorder),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -3938,7 +3961,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
   /// Asks before a price that is on the page now is taken out.
   Future<void> _removePriceRow(_PriceRow r) async {
     if (r.id != null) {
-      final yes = await showDialog<bool>(
+      final yes = await _ownerDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
           title: const Text('Remove this price?'),
@@ -4675,7 +4698,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
     }
     final c = TextEditingController(text: _enquiryEmail.text.trim());
     final signIn = _signInEmail;
-    final picked = await showDialog<String>(
+    final picked = await _ownerDialog<String>(
       context: context,
       builder: (ctx) => StatefulBuilder(builder: (ctx, setD) {
         final t = c.text.trim();
@@ -4901,7 +4924,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
       padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
       decoration: BoxDecoration(
         color: const Color(0xFFF7F8FA),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(color: const Color(0xFFE8EBEF)),
       ),
       child: Row(children: [
@@ -5010,7 +5033,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
     final note = TextEditingController();
     var sending = false;
     String? error;
-    final sent = await showDialog<bool>(
+    final sent = await _ownerDialog<bool>(
       context: context,
       // Closed only with Cancel or after sending, so a send in progress
       // always finishes inside the dialog.
@@ -5327,7 +5350,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
         side: const BorderSide(color: _edBorder),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)));
 
-    await showDialog<void>(
+    await _ownerDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => StatefulBuilder(builder: (ctx, setD) {
@@ -5550,7 +5573,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
             color: const Color(0xFFFDF3DF),
-            borderRadius: BorderRadius.circular(6)),
+            borderRadius: BorderRadius.circular(8)),
         child: const Text('Waiting for Nomadwise approval',
             style: TextStyle(
                 fontSize: 12,
@@ -5591,7 +5614,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border.all(color: _edRed, width: 2),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Text(title,
@@ -5663,7 +5686,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
         decoration: BoxDecoration(
           color: Colors.white,
           border: Border.all(color: const Color(0xFFE4E6EB)),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(8),
         ),
         child: child,
       );
@@ -5859,11 +5882,11 @@ class _OwnerScreenState extends State<OwnerScreen> {
     final lead = rawLead.replaceFirst('includes 2 requests',
         'includes $limit ${limit == 1 ? 'request' : 'requests'}');
     _cap('owner_plus_window', {'why': why});
-    return showDialog<void>(
+    return _ownerDialog<void>(
       context: context,
       builder: (ctx) => Dialog(
         insetPadding: const EdgeInsets.all(16),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 520),
           child: SingleChildScrollView(
@@ -5878,7 +5901,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
                       height: 44,
                       decoration: BoxDecoration(
                           color: const Color(0xFFFFECED),
-                          borderRadius: BorderRadius.circular(12)),
+                          borderRadius: BorderRadius.circular(8)),
                       child: const Icon(Icons.lock_outline,
                           color: _pageRed, size: 22),
                     ),
@@ -5930,7 +5953,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
                         color: const Color(0xFFF7F7F7),
-                        borderRadius: BorderRadius.circular(10)),
+                        borderRadius: BorderRadius.circular(8)),
                     child: const Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -6000,13 +6023,13 @@ class _OwnerScreenState extends State<OwnerScreen> {
         label: '$label, locked. See what Premium adds',
         child: InkWell(
           onTap: () => _getPlus(why),
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(8),
           child: Container(
             height: 30,
             padding: const EdgeInsets.symmetric(horizontal: 10),
             decoration: BoxDecoration(
                 color: _lockFill,
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: _lockBorder)),
             child: Row(mainAxisSize: MainAxisSize.min, children: [
               Icon(icon, size: 14, color: _edMuted),
@@ -6031,13 +6054,13 @@ class _OwnerScreenState extends State<OwnerScreen> {
         label: 'Promotions and events, locked. See what Premium adds',
         child: InkWell(
           onTap: () => _getPlus('promo'),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(8),
           child: Container(
             width: double.infinity,
             padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
             decoration: BoxDecoration(
                 color: _lockFill,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: _lockBorder, width: 1.5)),
             child: const Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -6132,11 +6155,11 @@ class _OwnerScreenState extends State<OwnerScreen> {
     final country = '${_venue?['country'] ?? ''}'.trim().toLowerCase();
     final ad = _adByCountry[country] ?? _adDefault;
     return ClipRRect(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(8),
         child: Container(
           decoration: BoxDecoration(
               border: Border.all(color: const Color(0xFFD5DAE0)),
-              borderRadius: BorderRadius.circular(16)),
+              borderRadius: BorderRadius.circular(8)),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Container(
               color: Colors.white,
@@ -6807,12 +6830,12 @@ class _OwnerScreenState extends State<OwnerScreen> {
                   width: 420,
                   child: InkWell(
                     onTap: () => _getPlus('social'),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(8),
                     child: Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                           color: _lockFill,
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(8),
                           border: Border.all(color: _lockBorder)),
                       child: const Row(children: [
                         Icon(Icons.lock_outline, size: 18, color: _edMuted),
@@ -7191,7 +7214,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
     return Container(
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
-          color: Brand.field, borderRadius: BorderRadius.circular(10)),
+          color: Brand.field, borderRadius: BorderRadius.circular(8)),
       child: Row(children: [
         side(false, Icons.phone_iphone, 'Phone'),
         side(true, Icons.computer, 'Computer'),
@@ -7214,7 +7237,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
 
   /// The computer view at its real size, in a window over the page
   /// (made smaller only when the screen is narrower than the page).
-  Future<void> _openComputerPreview(Widget layout) => showDialog<void>(
+  Future<void> _openComputerPreview(Widget layout) => _ownerDialog<void>(
         context: context,
         builder: (ctx) => Dialog(
           insetPadding: const EdgeInsets.all(16),
@@ -7350,11 +7373,11 @@ class _OwnerScreenState extends State<OwnerScreen> {
 
   /// "What is true for your space?": every tag with what it means, to
   /// tick. The same facts as the list in the form.
-  Future<void> _openTagGuide() => showDialog<void>(
+  Future<void> _openTagGuide() => _ownerDialog<void>(
         context: context,
         builder: (ctx) => StatefulBuilder(
           builder: (ctx, redraw) => Theme(
-            data: siteButtons(Theme.of(ctx)),
+            data: siteButtons(Theme.of(ctx), radius: 8),
             child: AlertDialog(
             title: const Text('What is true for your space?'),
             content: SizedBox(
@@ -7416,7 +7439,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(8),
           border: Border.all(color: const Color(0xFFEDEDED)),
         ),
         child: child,
@@ -7444,7 +7467,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
     final h = w * _slotH / _slotW;
     final pic = Stack(children: [
           ClipRRect(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(8),
             child: Image.network(p,
                 width: w,
                 height: h,
@@ -7481,9 +7504,9 @@ class _OwnerScreenState extends State<OwnerScreen> {
     final feedback = Material(
       color: Colors.transparent,
       elevation: 8,
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(8),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(8),
         child: Image.network(p,
             width: w * .9,
             height: h * .9,
@@ -7521,7 +7544,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
       builder: (context, _, __) => Container(
         foregroundDecoration: _photoDropAt == i
             ? BoxDecoration(
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: _pageRed, width: 3),
               )
             : null,
@@ -7580,13 +7603,13 @@ class _OwnerScreenState extends State<OwnerScreen> {
   Widget _addPhotoSlot({double w = _slotW}) => SizedBox(
         width: w,
         child: InkWell(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(8),
           onTap: _saving ? null : _addPhotos,
           child: Container(
             height: w * _slotH / _slotW,
             decoration: BoxDecoration(
               color: Brand.field,
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(8),
               border: Border.all(color: Brand.border),
             ),
             child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
@@ -7842,7 +7865,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
     if (!_verified) {
       final country = '${_venue?['country'] ?? ''}'.trim().toLowerCase();
       return ClipRRect(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(8),
         child: Container(
           color: Colors.white,
           constraints: const BoxConstraints(maxHeight: 420),
@@ -7859,7 +7882,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: const Color(0xFF4A5A66),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         const Text('Advert',
@@ -7952,7 +7975,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
       decoration: BoxDecoration(
           color: Colors.white,
           border: Border.all(color: const Color(0xFFE4E6EB)),
-          borderRadius: BorderRadius.circular(16)),
+          borderRadius: BorderRadius.circular(8)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         _promoLabel,
         const SizedBox(height: 12),
@@ -8250,7 +8273,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
       button: true,
       selected: on,
       child: InkWell(
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(8),
         onTap: on
             ? null
             : () {
@@ -8263,7 +8286,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: on ? Colors.white : Colors.transparent,
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: BorderRadius.circular(8),
             boxShadow: on
                 ? const [BoxShadow(color: Color(0x14000000), blurRadius: 3, offset: Offset(0, 1))]
                 : null,
@@ -9378,7 +9401,9 @@ class _OwnerScreenState extends State<OwnerScreen> {
               onPressed: () => _saveThenOpen('https://nomadmaps.io/?claim='
                   '${Uri.encodeComponent('${_venue?['webflow_slug'] ?? _venue?['name'] ?? ''}')}'),
               style: FilledButton.styleFrom(backgroundColor: Brand.red),
-              child: const Text('Get Premium')),
+              // Jonathan, 12 Nov 2026: "maybe this says 'Unlock with
+              // Premium'" (was "Get Premium").
+              child: const Text('Unlock with Premium')),
         ]),
       );
     }
@@ -9524,7 +9549,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   color: Brand.logoTealTint,
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Text(
                     'Write a headline and your message replaces the advert '

@@ -311,6 +311,13 @@ ThemeData siteButtons(ThemeData t, {double radius = 4}) {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
     ),
+    // Pop-ups: 8 px corners, the house rule (Jonathan, 12 Nov 2026:
+    // "remember for border radius px8"). The app's own pop-ups are
+    // rounder; a pop-up only gets this when it is opened inside this
+    // theme.
+    dialogTheme: t.dialogTheme.copyWith(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+    ),
     visualDensity: VisualDensity.compact,
   );
 }
