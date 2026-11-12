@@ -9158,13 +9158,15 @@ class _OwnerScreenState extends State<OwnerScreen> {
   ];
 
   Widget _badgeCard(String title, String note, String base, int w, int h,
-      String alt) {
+      String alt,
+      {double? width}) {
     final style = _badgeStyle[base] ?? 'white';
     final pick = _badgeStyles.firstWhere((x) => x.$1 == style);
     final file = '$base${pick.$3}';
     return Container(
         // fits a phone: never wider than the screen allows
-        width: (MediaQuery.sizeOf(context).width - 64).clamp(220.0, 320.0),
+        width: width ??
+            (MediaQuery.sizeOf(context).width - 64).clamp(220.0, 320.0),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
             color: Colors.white,
@@ -9352,23 +9354,44 @@ class _OwnerScreenState extends State<OwnerScreen> {
                 ]),
           ),
           const SizedBox(height: 18),
-          Wrap(spacing: 16, runSpacing: 16, children: [
-            _badgeCard(
+          // Side by side whenever the panel has room for both (Jonathan,
+          // 12 Nov 2026: "on desktop, these can be side by side"). Two
+          // 320 px cards did not fit beside the page preview, so they
+          // stacked; now each takes half the panel, down to 250 px (the
+          // one-line badge is 212 wide). Narrower than that, one above
+          // the other as before.
+          LayoutBuilder(builder: (context, box) {
+            const gap = 16.0;
+            final pair = box.maxWidth.isFinite && box.maxWidth >= 2 * 250 + gap;
+            final each = pair
+                ? ((box.maxWidth - gap) / 2).clamp(250.0, 320.0)
+                : null;
+            final line = _badgeCard(
                 'One line',
                 'Fits a footer or a sidebar. ${_verified ? 212 : 210} pixels '
                     'wide.',
                 '$kind-line',
                 _verified ? 212 : 210,
                 44,
-                '$words nomadwise.io'),
-            _badgeCard(
+                '$words nomadwise.io',
+                width: each);
+            final square = _badgeCard(
                 'Square',
                 'For a corner or a column. 104 by 104 pixels.',
                 '$kind-square',
                 104,
                 104,
-                '$words nomadwise.io'),
-          ]),
+                '$words nomadwise.io',
+                width: each);
+            if (!pair) {
+              return Wrap(
+                  spacing: gap, runSpacing: gap, children: [line, square]);
+            }
+            return Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [line, const SizedBox(width: gap), square]);
+          }),
           const SizedBox(height: 18),
           const Text('How to add it to your website',
               style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),

@@ -6745,3 +6745,8 @@ Jonathan: "is it possible for the owner to be able to send me a message, which w
 
 ## 12 Nov 2026: the Get Premium window's button reads "Unlock with Premium"
 Jonathan, on a screenshot of the window ("Add your Instagram and WhatsApp"): 'button "Unlock with Premium'. It read "See the Premium plan". Same words now as the button on Promotions and events. It still opens Plan & billing, where the price is shown before anything is charged; nothing else in the window changed.
+
+## 12 Nov 2026: the two website badges sit side by side on a computer
+Jonathan, on the Website badges tab in the preview: "on desktop, these can be side by side I think". The two cards (One line, Square) were 320 px each in a Wrap, and the panel beside the page preview is narrower than two of them, so they stacked and left the right half empty.
+- Each card now takes half the panel when both fit at 250 px or more (the one-line badge is 212 px wide), up to 320 px as before. Narrower than that (phones), one above the other, unchanged.
+- Not seen on a screen from the session (no local Flutter); the build is the compile check.
