@@ -843,8 +843,10 @@ class _ClaimScreenState extends State<ClaimScreen> {
   // ----------------------------------------------------------------- build
 
   /// One corner radius for every box on the form: the plan cards, the
-  /// search field, the result tiles, the buttons.
-  static const double _corner = 16;
+  /// search field, the result tiles, the buttons. 8 px, as on
+  /// nomadwise.io and in the Owner account (it was 16; Jonathan, 12 Nov
+  /// 2026: "whichever carries continuity throughout nomadwise").
+  static const double _corner = 8;
 
   // Buttons drawn the way nomadwise.io draws them (S3-13/14).
   @override
@@ -1114,7 +1116,10 @@ class _ClaimScreenState extends State<ClaimScreen> {
     _track('claim_already_verified', {'space': name});
     showDialog<void>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      // in the form's own style (a pop-up is drawn outside its theme)
+      builder: (ctx) => Theme(
+        data: siteButtons(Theme.of(ctx), radius: _corner),
+        child: AlertDialog(
         title: Text('$name is already on Premium'),
         content: const DialogBody(child: Text(
             'Someone has already claimed this listing. If that was not you, '
@@ -1132,6 +1137,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
             child: const Text('Email us'),
           ),
         ],
+      ),
       ),
     );
   }
@@ -1436,7 +1442,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
             margin: const EdgeInsets.only(top: 12),
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-                color: Brand.goldTint, borderRadius: BorderRadius.circular(10)),
+                color: Brand.goldTint, borderRadius: BorderRadius.circular(_corner)),
             child: Text(
                 'You are signed in as $me. The space will be claimed with '
                 '$typed, so sign in with $typed to manage it.',
@@ -1533,7 +1539,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
           horizontal: wide ? 16 : 14, vertical: wide ? 10 : 14),
       decoration: BoxDecoration(
           color: Brand.surface,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(_corner),
           border: Border.all(color: Brand.border)),
       child: Wrap(
           spacing: 28,
@@ -1722,7 +1728,7 @@ class _ClaimedScreenState extends State<ClaimedScreen> {
         padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
         decoration: BoxDecoration(
             color: Brand.surface,
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(8),
             border: Border.all(color: Brand.border)),
         child: Column(children: [
           const Text('Your Nomadwise badge',

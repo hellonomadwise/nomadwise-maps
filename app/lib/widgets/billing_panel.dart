@@ -346,7 +346,9 @@ class _BillingPanelState extends State<BillingPanel> {
     final price = sub == null
         ? (_pricing?.fromWords.isNotEmpty == true
             ? _pricing!.fromWords
-            : '€96 a year')
+            // no price read: no figure (it was a fixed "€96 a year",
+            // wrong for most countries)
+            : 'price shown before you pay')
         : '${_money(sub['amount'] as num?, '${sub['currency']}')} a '
             '${sub['interval'] ?? 'year'}';
 

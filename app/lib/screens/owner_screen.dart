@@ -27,6 +27,7 @@ import '../widgets/ideas_board.dart';
 import '../widgets/owner_question_card.dart';
 import '../widgets/phone_field.dart';
 import '../widgets/price.dart';
+import '../widgets/pricing_picker.dart' show PricingChoice, formatMoney;
 import '../widgets/price_checks.dart' show pricePers, perOf, withoutPer, withPer, perFromName;
 import '../widgets/email_typo_hint.dart';
 import '../widgets/motion.dart';
@@ -98,6 +99,14 @@ class _OwnerScreenState extends State<OwnerScreen> {
   // not checked yet: the blurred account), 'free' or 'verified'.
   String _previewAs = 'free';
   int _current = 0;
+  // What Premium costs where a space is (pricing_for, by country), kept
+  // so the Get Premium window can name the price the moment it opens.
+  final Map<String, Future<Map<String, dynamic>?>> _planPrices = {};
+  Future<Map<String, dynamic>?> _planPriceFor(Map<String, dynamic>? v) {
+    final country = '${v?['country'] ?? ''}'.trim();
+    return _planPrices[country] ??= _supabase.pricingFor(country);
+  }
+
   // All locations (migration 281): each space's last 30 days, by id;
   // and whether a group owner has been taken to it on arrival.
   Map<String, Map<String, dynamic>> _locStats = const {};
@@ -924,6 +933,8 @@ class _OwnerScreenState extends State<OwnerScreen> {
   void _fillEditor({bool closeEditing = true}) {
     final v = _venue;
     if (v == null) return;
+    // A free page: have its Premium price ready for the window.
+    if (v['listing_tier'] != 'verified') _planPriceFor(v);
     if (closeEditing) {
       _editing = null;
       _snap = null;
@@ -5954,20 +5965,45 @@ class _OwnerScreenState extends State<OwnerScreen> {
                     decoration: BoxDecoration(
                         color: const Color(0xFFF7F7F7),
                         borderRadius: BorderRadius.circular(8)),
-                    child: const Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Premium: about the price of a day pass a month',
-                              style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w700,
-                                  color: _edInk)),
-                          SizedBox(height: 2),
-                          Text(
-                              'Monthly or yearly subscription, cancel any '
-                              'time. See your price on the next page.',
-                              style: TextStyle(fontSize: 13, color: _edMuted)),
-                        ]),
+                    // The price itself, for this space's country, and
+                    // that it can be cancelled (Jonathan, 12 Nov 2026:
+                    // no "price of a day pass", which "varies quite a
+                    // lot"; "just clear on what the pricing is, and that
+                    // they can cancel at anytime"). No figure when the
+                    // price cannot be read: never another country's.
+                    child: FutureBuilder<Map<String, dynamic>?>(
+                        future: _planPriceFor(_venue),
+                        builder: (_, snap) {
+                          var head = 'Premium is a monthly or yearly '
+                              'subscription';
+                          var sub = 'Cancel any time. Your price is on the '
+                              'next page.';
+                          final p = snap.data;
+                          if (p != null && p['mapped'] == true) {
+                            final c = PricingChoice(p);
+                            final m = c.monthly, y = c.yearly;
+                            if (m != null && y != null) {
+                              head = 'Premium is '
+                                  '${formatMoney(m, c.currency)} a month, or '
+                                  '${formatMoney(y, c.currency)} a year';
+                              sub = 'Pay monthly or yearly, and cancel any '
+                                  'time.';
+                            }
+                          }
+                          return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(head,
+                                    style: const TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w700,
+                                        color: _edInk)),
+                                const SizedBox(height: 2),
+                                Text(sub,
+                                    style: const TextStyle(
+                                        fontSize: 13, color: _edMuted)),
+                              ]);
+                        }),
                   ),
                   const Text(
                       'Nothing is charged until you confirm. Your free page '

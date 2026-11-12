@@ -103,9 +103,10 @@ class PricingChoice {
 
   /// "from €10 a month" for headings before a choice. With no country
   /// yet there is no figure, since the cheapest country's price reads
-  /// as a bait everywhere else: "around a day pass a month".
+  /// as a bait everywhere else. Not "around a day pass a month" either
+  /// (Jonathan, 12 Nov 2026: a day pass "varies quite a lot").
   String get fromWords {
-    if (!mapped) return 'around a day pass a month';
+    if (!mapped) return 'price shown before you pay';
     final a = monthly;
     return a == null ? '' : 'from ${formatMoney(a, currency)} a month';
   }
