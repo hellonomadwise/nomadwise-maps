@@ -71,8 +71,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
   Map<String, dynamic>? _previewBase; // the listing as it is
   // Every space on the same owner's account, as the owner has them
   // (Jonathan, 12 Nov 2026: "i want to see how the join account works,
-  // where they can see the multiple spaces"). Empty for a single space
-  // and in Team edit.
+  // where they can see the multiple spaces"). Empty for a single space.
   List<Map<String, dynamic>> _previewGroup = const [];
   // What the owner would see: 'waiting_free' / 'waiting_paid' (claimed,
   // not checked yet: the blurred account), 'free' or 'verified'.
@@ -642,20 +641,30 @@ class _OwnerScreenState extends State<OwnerScreen> {
       _previewAs = v['listing_tier'] == 'verified' ? 'verified' : 'free';
       // The owner's other spaces, so a founder sees the account as the
       // owner does: All locations first, and the name menu to switch.
+      // The space on screen before a reload (Team edit reloads after a
+      // save): stay on it.
+      final keep = _venues.isEmpty ? null : '${_venue?['id']}';
       var group = const <Map<String, dynamic>>[];
-      if (!widget.team) {
-        try {
-          group = await _supabase.adminOwnerViewGroup(widget.previewKey!);
-        } catch (_) {
-          // the one space still shows
-        }
-        if (!mounted) return;
+      try {
+        group = await _supabase.adminOwnerViewGroup(widget.previewKey!);
+      } catch (_) {
+        // the one space still shows
       }
+      if (!mounted) return;
       _previewGroup = group.length > 1 ? group : const [];
       _applyPreview();
+      if (keep != null) {
+        final i = _venues.indexWhere((g) => '${g['id']}' == keep);
+        if (i >= 0 && i != _current) {
+          setState(() => _current = i);
+          _fillEditor();
+        }
+      }
       if (_previewGroup.isNotEmpty && !_landed) {
         _landed = true;
-        setState(() => _tab = _Tab.locations);
+        // The preview opens where the owner lands, on All locations;
+        // Team edit opens on the space that was asked for.
+        if (!widget.team) setState(() => _tab = _Tab.locations);
         _loadLocStats();
       }
     } catch (e) {
@@ -1466,17 +1475,32 @@ class _OwnerScreenState extends State<OwnerScreen> {
       backgroundColor: Brand.bg,
       appBar: AppBar(
         titleSpacing: 20,
+        // The Nomadwise logo itself (the round mark and "nomadwise.io"),
+        // then "for spaces" (Jonathan, 12 Nov 2026: the header was the
+        // name typed in red, with no logo). The typed name stays as the
+        // fallback if the picture cannot load.
         title: Row(children: [
-          const Text('nomadwise',
-              style: TextStyle(
-                  fontWeight: FontWeight.w800, fontSize: 20, color: Brand.red)),
-          const SizedBox(width: 8),
-          Text('for spaces',
-              style: TextStyle(
-                  fontSize: 12,
-                  letterSpacing: 1.2,
-                  fontWeight: FontWeight.w700,
-                  color: Brand.inkSecondary)),
+          Image.asset('assets/brand/logo_full.png',
+              height: 30,
+              filterQuality: FilterQuality.medium,
+              semanticLabel: 'Nomadwise',
+              errorBuilder: (_, __, ___) => const Text('nomadwise',
+                  style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 20,
+                      color: Brand.red))),
+          const SizedBox(width: 10),
+          const Flexible(
+            child: Text('for spaces',
+                maxLines: 1,
+                softWrap: false,
+                overflow: TextOverflow.fade,
+                style: TextStyle(
+                    fontSize: 12,
+                    letterSpacing: 1.2,
+                    fontWeight: FontWeight.w700,
+                    color: Brand.inkSecondary)),
+          ),
         ]),
         actions: [
           if (_supabase.signedIn)
@@ -9212,9 +9236,12 @@ class _OwnerScreenState extends State<OwnerScreen> {
             width: double.infinity,
             constraints: const BoxConstraints(maxWidth: 660),
             padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+            // Neutral, with green ticks: these are benefits, and a red
+            // box reads as a warning (Jonathan, 12 Nov 2026).
             decoration: BoxDecoration(
-                color: Brand.accentTint,
-                borderRadius: BorderRadius.circular(8)),
+                color: const Color(0xFFF7F8FA),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFE8EBEF))),
             child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -9242,12 +9269,24 @@ class _OwnerScreenState extends State<OwnerScreen> {
                         'reviews',
                   ])
                     Padding(
-                      padding: const EdgeInsets.only(top: 3),
-                      child: Text('\u2022  $line',
-                          style: const TextStyle(
-                              fontSize: 13.5,
-                              height: 1.45,
-                              color: Brand.inkSecondary)),
+                      padding: const EdgeInsets.only(top: 5),
+                      child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Padding(
+                              padding: EdgeInsets.only(top: 2),
+                              child: Icon(Icons.check,
+                                  size: 16, color: Brand.success),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(line,
+                                  style: const TextStyle(
+                                      fontSize: 13.5,
+                                      height: 1.45,
+                                      color: Brand.inkSecondary)),
+                            ),
+                          ]),
                     ),
                 ]),
           ),

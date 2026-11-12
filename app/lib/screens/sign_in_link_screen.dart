@@ -116,11 +116,19 @@ class _SignInLinkScreenState extends State<SignInLinkScreen> {
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Text('nomadwise',
-                        style: TextStyle(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 22,
-                            color: Brand.red)),
+                    // The logo itself, as in the Owner account's header.
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Image.asset('assets/brand/logo_full.png',
+                          height: 32,
+                          filterQuality: FilterQuality.medium,
+                          semanticLabel: 'Nomadwise',
+                          errorBuilder: (_, __, ___) => const Text('nomadwise',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 22,
+                                  color: Brand.red))),
+                    ),
                     const SizedBox(height: 18),
                     Text(
                         widget.owner
