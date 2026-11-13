@@ -6798,3 +6798,13 @@ Jonathan: "Also want to track the days I send outreach and times, to over time w
 - Two things he was told: the time kept is when "I sent it" is pressed, so Spark's "send later" or pressing for a batch afterwards makes it wrong; and sending always at the same time leaves nothing to compare, so vary it once the daily numbers go up.
 - At the time: 9 first hellos and 13 follow-ups, none of the 9 opened, claimed or replied to yet. Far too few to read.
 - Not seen on a screen from the session (no local Flutter); the build is the compile check.
+
+## 13 Nov 2026: a follow-up is held until a while after our last message
+Jonathan: "Can we grey out the follow up so that by default follow-ups are not allowed until a certain amount of time after specific comms. Whatever time frame you think is best."
+- The gaps, counted from the last thing we sent the space: a week after our first message; three days when they have opened their claim page since (his ruling of 14 Oct stands); two weeks after a second message or more of ours with no answer; a week after our answer to something they wrote. A follow-up date set on the space by hand ("Note and follow-up date", "Still talking: follow up in a week") is the day instead.
+- Until that day, every button in Outreach that would write again is grey and says "Follow up from 20 Nov": on Waiting, on the To do lines for a sign of interest (with "Too soon to write again: held until ..." in the line), and the write button on the space's card. WhatsApp, Instagram and Facebook are held the same way.
+- "By default": pressing a grey button opens "Too soon to follow up", which says when we wrote, the day and the rule, with "Leave it" and "Write anyway". Nothing is blocked for good.
+- Not held: a first message, an answer to a space that wrote last ("They replied" is there for a reply that came in elsewhere), a space that has claimed, test lines, and the emails that name their own template (the Owner account one, the claim email from a signed-up line).
+- Why a week: these spaces did not ask to be listed and the hello says "there is nothing you need to do", so a nudge inside a few days reads as chasing; a week is the usual gap for a first follow-up to a small business. Two weeks before a third message for the same reason, more so.
+- The rule lives in the app (admin_outreach_screen.dart, _followFrom); the database is unchanged. Claim plan's steps are unchanged: "Opened their claim page" still lists a space at once, and its button in Outreach is grey until the day.
+- Not seen on a screen from the session (no local Flutter); the build is the compile check.

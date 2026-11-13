@@ -1287,6 +1287,106 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
     return (interest: true, due: out.add(_followUpGap));
   }
 
+  /// When a follow-up may go, and the rule that says so; null when
+  /// writing now is not a follow-up (never written to, they wrote
+  /// last, a space that has claimed, a test line).
+  ///
+  /// Jonathan, 13 Nov 2026: "Can we grey out the follow up so that by
+  /// default follow-ups are not allowed until a certain amount of time
+  /// after specific comms. Whatever time frame you think is best."
+  ///   - a date set on the space by hand ("Note and follow-up date",
+  ///     "Still talking: follow up in a week") is the day;
+  ///   - after our first message: a week, or three days when they have
+  ///     opened their claim page since (his ruling of 14 Oct);
+  ///   - after a second message or more of ours with no answer: two
+  ///     weeks;
+  ///   - after our answer to something they wrote: a week.
+  /// Until that day every button that would write again is grey and
+  /// names the day; pressing it explains, and "Write anyway" is there
+  /// for the day he knows better.
+  static const _gapFirst = Duration(days: 7);
+  static const _gapAgain = Duration(days: 14);
+  ({DateTime from, String rule})? _followFrom(Map<String, dynamic> c) {
+    final out = DateTime.tryParse('${c['last_out_at'] ?? ''}');
+    final inAt = DateTime.tryParse('${c['last_in_at'] ?? ''}');
+    if (out == null || (inAt != null && inAt.isAfter(out))) return null;
+    if (c['is_test'] == true ||
+        c['stage'] == 'claimed' ||
+        c['stage'] == 'verified') {
+      return null;
+    }
+    final byHand = DateTime.tryParse('${c['follow_up_on'] ?? ''}');
+    if (byHand != null && byHand.isAfter(out)) {
+      return (from: byHand, rule: 'the follow-up date set on this space');
+    }
+    if (inAt != null) {
+      return (from: out.add(_gapFirst), rule: 'a week after our answer to them');
+    }
+    final once = (num.tryParse('${c['message_count'] ?? 0}') ?? 0) <= 1;
+    if (!once) {
+      return (
+        from: out.add(_gapAgain),
+        rule: 'two weeks after our last message, as we have written more than once'
+      );
+    }
+    if (_followUp(c).interest) {
+      return (
+        from: out.add(_followUpGap),
+        rule: 'three days after our first message, as they have opened '
+            'their claim page since'
+      );
+    }
+    return (from: out.add(_gapFirst), rule: 'a week after our first message');
+  }
+
+  /// The day a follow-up is held until, or null when one may go now.
+  DateTime? _heldUntil(Map<String, dynamic> c) {
+    final f = _followFrom(c);
+    return f != null && f.from.isAfter(DateTime.now()) ? f.from : null;
+  }
+
+  static String _heldWord(DateTime till) =>
+      'Follow up from ${DateFormat('d MMM').format(till.toLocal())}';
+  static final ButtonStyle _heldFilled = FilledButton.styleFrom(
+      backgroundColor: Brand.field, foregroundColor: Brand.inkMuted);
+  static final ButtonStyle _heldPlain =
+      TextButton.styleFrom(foregroundColor: Brand.inkMuted);
+
+  /// True when writing to the line may go ahead: it is not a follow-up
+  /// held for later, or the founder said "Write anyway".
+  Future<bool> _followOk(Map<String, dynamic> c) async {
+    final f = _followFrom(c);
+    if (f == null || !f.from.isAfter(DateTime.now())) return true;
+    final name =
+        '${c['space_name'] ?? c['venue_name'] ?? c['email'] ?? 'this space'}';
+    final out = DateTime.tryParse('${c['last_out_at'] ?? ''}');
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Too soon to follow up'),
+        content: SizedBox(
+          width: 440,
+          child: Text(
+              'We wrote to $name ${out == null ? 'not long ago' : _ago(out.toLocal())}. '
+              'A follow-up is held until '
+              '${DateFormat('EEE d MMM').format(f.from.toLocal())}: ${f.rule}.\n\n'
+              'If they have written to you, press They replied and answer '
+              'as usual.',
+              style: const TextStyle(height: 1.45)),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Write anyway')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Leave it')),
+        ],
+      ),
+    );
+    return ok == true;
+  }
+
   /// The WhatsApp (and Instagram, Facebook) words for a space: the
   /// follow-up after our message, the note for a stranger who opened
   /// the claim page, or the first hello to a space we put on the site
@@ -1427,6 +1527,10 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
       _snack('No email address for this contact yet. Edit it first.', bad: true);
       return false;
     }
+    // A follow-up too soon after our last message is held (13 Nov
+    // 2026); a caller that names its template knows what it is sending.
+    if (template == null && !await _followOk(c)) return false;
+    if (!mounted) return false;
     // A first email to someone who has not written to us goes only to
     // a business address (GDPR). Replies to people who wrote are fine.
     if (c['last_in_at'] == null) {
@@ -3962,11 +4066,15 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
         Wrap(spacing: 8, runSpacing: 6, children: [
           FilledButton.icon(
             onPressed: () => _reply(c),
+            // Grey while a follow-up is held (13 Nov 2026).
+            style: _heldUntil(c) != null ? _heldFilled : null,
             icon: const Icon(Icons.send_rounded, size: 16),
             // What the button does, read from the line (Jonathan, 25 Oct
             // 2026: "why does the button say Reply ... there is no
             // history"): Reply only when they wrote last.
-            label: Text(_writeLabel(c)),
+            label: Text(_heldUntil(c) != null
+                ? _heldWord(_heldUntil(c)!)
+                : _writeLabel(c)),
           ),
           if ('${c['stage']}' == 'contacted')
             OutlinedButton(
@@ -4306,6 +4414,7 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
   /// search for it); the founder pastes and sends there, then presses
   /// "I sent it" so the card moves on. Nothing is sent from here.
   Future<void> _social(Map<String, dynamic> c, String channel) async {
+    if (!await _followOk(c) || !mounted) return;
     final id = '${c['id']}';
     final insta = channel == 'instagram';
     final label = insta ? 'Instagram' : 'Facebook';
@@ -4520,6 +4629,7 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
   /// both, and "I sent it" so the card moves on. Nothing is sent from
   /// here.
   Future<void> _whatsApp(Map<String, dynamic> c) async {
+    if (!await _followOk(c) || !mounted) return;
     final id = '${c['id']}';
     final placeId = '${c['place_id'] ?? ''}'.trim();
     final number = TextEditingController(text: '${c['phone'] ?? ''}'.trim());
@@ -6102,6 +6212,13 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
       if (p != null) return _withLine(p, _whatsApp);
     }
 
+    // A follow-up that would go too soon after our last message: its
+    // buttons are grey and say from when (13 Nov 2026).
+    final till = t.kind == 'follow_up' && c != null ? _heldUntil(c) : null;
+    final heldNote = till == null
+        ? ''
+        : ' Too soon to write again: held until '
+            '${DateFormat('EEE d MMM').format(till.toLocal())}.';
     final open = c != null && _rowOpen.contains(t.id);
     return _rowShell(
       icon: icon,
@@ -6109,7 +6226,7 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
       bg: bg,
       name: t.name,
       sub: t.sub,
-      why: t.why + _askedNote(c?['venue_id'] ?? p?['venue_id']),
+      why: t.why + heldNote + _askedNote(c?['venue_id'] ?? p?['venue_id']),
       open: open,
       onToggle: c == null
           ? null
@@ -6117,15 +6234,17 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
       actions: [
         FilledButton.icon(
             onPressed: primary,
+            style: till != null ? _heldFilled : null,
             icon: Icon(
                 t.kind == 'add_address'
                     ? Icons.alternate_email
                     : Icons.send_rounded,
                 size: 16),
-            label: Text(label)),
+            label: Text(till != null ? _heldWord(till) : label)),
         if (t.kind != 'reply')
           TextButton.icon(
               onPressed: whatsApp,
+              style: till != null ? _heldPlain : null,
               icon: const Icon(Icons.chat_outlined, size: 16),
               label: const Text('WhatsApp')),
         // Their "website" is a Facebook page: a message there reaches
@@ -6298,14 +6417,15 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
   Widget _waitRow(Map<String, dynamic> c) {
     final id = '${c['id']}';
     final outAt = DateTime.tryParse('${c['last_out_at'] ?? ''}');
-    final follow = DateTime.tryParse('${c['follow_up_on'] ?? ''}');
-    final nextAt = follow ?? outAt?.add(_followUpGap);
+    // When a follow-up may go (13 Nov 2026): held until then.
+    final nextAt = _followFrom(c)?.from;
+    final till = _heldUntil(c);
     final wrote = outAt == null ? 'We wrote to them.' : 'We wrote ${_ago(outAt.toLocal())}.';
     final next = nextAt == null
         ? ''
         : nextAt.isAfter(DateTime.now())
             ? ' Follow up from ${DateFormat('EEE d MMM').format(nextAt.toLocal())} if they stay quiet.'
-            : ' No answer yet: a follow-up can go any time.';
+            : ' No answer yet: a follow-up can go now.';
     // Snoozed (migration 313): say until when, and offer to end it.
     final snoozed = _snoozed(c);
     final till = DateTime.tryParse('${c['snooze_until'] ?? ''}');
@@ -6328,7 +6448,9 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
         OutlinedButton(
             onPressed: () => _logReply(c), child: const Text('They replied')),
         TextButton(
-            onPressed: () => _reply(c), child: const Text('Follow up now')),
+            onPressed: () => _reply(c),
+            style: till != null ? _heldPlain : null,
+            child: Text(till != null ? _heldWord(till) : 'Follow up now')),
       ],
       who: c,
       menu: [
