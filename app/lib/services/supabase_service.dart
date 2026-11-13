@@ -3154,6 +3154,14 @@ class SupabaseService {
     return res is Map ? Map<String, dynamic>.from(res) : {};
   }
 
+  /// Control centre: Claim plan, "When we send" (migration 328). Every
+  /// hello and follow-up since 1 October 2026 with the day and hour it
+  /// landed in the space's local time and what came of it.
+  Future<Map<String, dynamic>> adminOutreachTiming() async {
+    final res = await _db.rpc('admin_outreach_timing');
+    return res is Map ? Map<String, dynamic>.from(res) : {};
+  }
+
   /// Control centre: Home, where we stand (migration 288). The goal,
   /// claims a month, Google and page views by month, outreach a week,
   /// the Claim plan's counts and the targets.

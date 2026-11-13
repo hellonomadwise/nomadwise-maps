@@ -7,6 +7,7 @@ import '../services/supabase_service.dart';
 import '../theme.dart';
 import 'admin_outreach_screen.dart';
 import 'admin_spaces_screen.dart';
+import '../widgets/outreach_timing_card.dart';
 import '../widgets/stat_grid.dart';
 
 /// Control centre: Claim plan (migration 284).
@@ -239,6 +240,10 @@ class _AdminClaimPlanScreenState extends State<AdminClaimPlanScreen> {
       _overview(here, claimedHere),
       const SizedBox(height: 20),
       _splits(rows, claimed),
+      const SizedBox(height: 20),
+      // When we send (migration 328): the days and times hellos went
+      // out, in each space's local time, and what came of them.
+      const OutreachTimingCard(),
       const SizedBox(height: 24),
       const Text('What to do next',
           style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
