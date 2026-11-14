@@ -25,6 +25,7 @@ Report: ci-debug/map_export_report.json
 import datetime
 import json
 import os
+import shutil
 import sys
 import urllib.error
 import urllib.request
@@ -60,11 +61,81 @@ def fill_chat_box(web_dir, url, key):
             print(f'{name} not filled in: {e}')
 
 
+def site_was_built(web_dir, url, key):
+    """True when the build before this step made the site.
+
+    14 Nov 2026: nomadmaps.io answered "404 File not found" for hours.
+    The step that builds the site sends its output through "tee", so
+    when the build itself fails the step still counts as passed; this
+    script then made app/build/web/data/ for the map file, and that
+    nearly empty folder went live as the whole site.
+
+    So before anything is written: the folder must hold the app's page
+    and its program. If not, the folder is taken away, which makes the
+    upload step fail and stops the run before it goes live. The site
+    that was live stays live, the run is reported as failed, and the
+    end of the build's own log is printed here and sent to app_events
+    (name ci_site_not_built) so the reason can be read without opening
+    GitHub."""
+    has_page = os.path.exists(os.path.join(web_dir, 'index.html'))
+    has_app = any(os.path.exists(os.path.join(web_dir, n))
+                  for n in ('main.dart.js', 'main.dart.mjs', 'main.dart.wasm'))
+    if has_page and has_app:
+        return True
+    print(f'THE SITE WAS NOT BUILT: {web_dir} has '
+          f'{"no index.html" if not has_page else "no main.dart.js"}. '
+          'Nothing goes live from this run; the site that is live stays.')
+    tail = ''
+    try:
+        with open('ci_debug.log', encoding='utf-8', errors='replace') as f:
+            tail = f.read()[-6000:]
+    except OSError as e:
+        tail = f'(no ci_debug.log: {e})'
+    # nothing of ours in what leaves the runner
+    for secret in (key, os.environ.get('GOOGLE_PLACES_KEY', '')):
+        if secret:
+            tail = tail.replace(secret, '***')
+    print('---- the end of the build log ----')
+    print(tail)
+    print('---- end ----')
+    try:
+        if url and key:
+            req = urllib.request.Request(
+                f'{url}/rest/v1/app_events',
+                data=json.dumps({
+                    'anon_id': 'ci-build',
+                    'name': 'ci_site_not_built',
+                    'props': {
+                        'run': os.environ.get('GITHUB_RUN_NUMBER', ''),
+                        'sha': os.environ.get('GITHUB_SHA', '')[:7],
+                        'event': os.environ.get('GITHUB_EVENT_NAME', ''),
+                        'has_page': has_page,
+                        'has_app': has_app,
+                        'tail': tail[-4000:],
+                    },
+                }).encode('utf-8'),
+                method='POST',
+                headers={
+                    'apikey': key,
+                    'Authorization': f'Bearer {key}',
+                    'Content-Type': 'application/json',
+                    'Prefer': 'return=minimal',
+                })
+            urllib.request.urlopen(req, timeout=30).close()
+    except (urllib.error.URLError, ValueError, OSError) as e:
+        print(f'(the note to app_events did not go: {e})')
+    shutil.rmtree(web_dir, ignore_errors=True)
+    return False
+
+
 def main():
     out = sys.argv[1] if len(sys.argv) > 1 else 'app/build/web/data/map.json'
     url = os.environ.get('SUPABASE_URL', '').rstrip('/')
     key = os.environ.get('SUPABASE_ANON_KEY', '')
-    fill_chat_box(os.path.dirname(os.path.dirname(out)), url, key)
+    web_dir = os.path.dirname(os.path.dirname(out))
+    if not site_was_built(web_dir, url, key):
+        sys.exit(1)
+    fill_chat_box(web_dir, url, key)
     report = {'at': datetime.datetime.now(datetime.timezone.utc).isoformat(),
               'written': False}
     try:
