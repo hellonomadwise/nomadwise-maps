@@ -6419,7 +6419,7 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
     final outAt = DateTime.tryParse('${c['last_out_at'] ?? ''}');
     // When a follow-up may go (13 Nov 2026): held until then.
     final nextAt = _followFrom(c)?.from;
-    final till = _heldUntil(c);
+    final heldTill = _heldUntil(c);
     final wrote = outAt == null ? 'We wrote to them.' : 'We wrote ${_ago(outAt.toLocal())}.';
     final next = nextAt == null
         ? ''
@@ -6449,8 +6449,8 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
             onPressed: () => _logReply(c), child: const Text('They replied')),
         TextButton(
             onPressed: () => _reply(c),
-            style: till != null ? _heldPlain : null,
-            child: Text(till != null ? _heldWord(till) : 'Follow up now')),
+            style: heldTill != null ? _heldPlain : null,
+            child: Text(heldTill != null ? _heldWord(heldTill) : 'Follow up now')),
       ],
       who: c,
       menu: [
