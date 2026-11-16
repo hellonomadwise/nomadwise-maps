@@ -6854,3 +6854,10 @@ Jonathan, with a screenshot of Correct "Flex Desk Corporate Monthly" on his phon
 - The hint under "Shown on the page as" is no longer cut off.
 - The same box is used for "Add a product".
 - Not seen on a screen from the session (no local Flutter); the build is the compile check.
+
+## 16 Nov 2026: a space we put on Premium could not claim its page (migration 329)
+Jonathan, with Aytek's reply from Ofis Voyvoda Istanbul to that morning's email: "Thank you for your listing. Unfortunately, the link you have sent does not work. Can you resend it."
+- Found: for a space on Premium the claim page said "already on Premium" and, on a tap, "Someone has already claimed this listing"; and the claim itself was refused ("This listing is already on Premium"). Both took Premium to mean claimed. Six pages are on Premium because we put them there and have no owner: Ofis Voyvoda Istanbul, SOKKOOL, DEOS Coworking, Neighbors and Nomads, Nomio Coworking Lounge, Monday. Four of them were written to that morning with exactly that claim link.
+- Now "already on Premium" needs an owner as well (claim_search and start_claim, changed in the database, live at once). The six open on their own space from the link like any other page; a free claim keeps their Premium.
+- Not proven that this is what Aytek met: nothing was recorded of anyone reaching his claim page or his listing page that morning, and neither link could be opened from the session (the site cannot be reached from it, and Chrome was not connected). Both links are well formed in the email as sent, and his page is published in Webflow. Jonathan was asked to tap both in his own copy.
+- This fault has been there since the "already on Premium" email was first written (migration 229): the email offered a claim the claim page refused. Nobody had followed the link from that email until now.
