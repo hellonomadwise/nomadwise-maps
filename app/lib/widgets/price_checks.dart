@@ -53,12 +53,34 @@ String _words(Map<String, dynamic> p) {
 bool _has(String s, List<String> words) =>
     words.any((w) => RegExp('(^|[^a-z])${RegExp.escape(w)}([^a-z]|\$)').hasMatch(s));
 
+/// A pack of days in a name ("10 day pass", "100 Day Pass", "5-day
+/// bundle"): that many day passes bought at once, not a day's price
+/// (Jonathan, 16 Nov 2026, on Avila Spaces: "10 day pass means 10 x
+/// day passes. So a bulk amount of passes"). Any number from 2 up; it
+/// used to stop at 99, so "100 Day Pass" was read as one dear day.
+final _packRe = RegExp(r'\b([2-9]|[1-9][0-9]+)[ -]?(day|days|visit|visits|entries)\b');
+
+/// How many passes a pack holds, from its name; null when not a pack.
+int? _packCount(String name) {
+  final m = _packRe.firstMatch(name.toLowerCase());
+  return m == null ? null : int.tryParse(m.group(1)!);
+}
+
+/// For how long: what the owner chose ("Per month") first, then what
+/// the name says, and only then the details. The details used to count
+/// as much as the name, so "24 hour access" or "8 hours meeting room
+/// per month" in a list of what is included could decide it.
 String? _periodOf(Map<String, dynamic> p) {
-  final s = _words(p);
-  // a pack of days ("10 day pass", "5-day bundle") is not a day price
-  if (RegExp(r'\b([2-9]|[1-9][0-9])[ -]?(day|days|visit|visits|entries)\b').hasMatch(s)) {
-    return 'pack';
-  }
+  final details = [
+    for (final d in (p['details'] is List ? p['details'] as List : const [])) '$d'
+  ];
+  return perOf(details) ??
+      _periodIn(' ${p['name'] ?? ''} '.toLowerCase()) ??
+      _periodIn(_words(p));
+}
+
+String? _periodIn(String s) {
+  if (_packRe.hasMatch(s)) return 'pack';
   if (_has(s, ['year', 'yearly', 'annual', 'annually', 'per year', '/yr'])) return 'year';
   if (_has(s, ['month', 'monthly', 'months', '/mo', '/month', 'mes', 'mensal', 'mensual', 'monat', 'mois'])) {
     return 'month';
@@ -71,19 +93,56 @@ String? _periodOf(Map<String, dynamic> p) {
   return null;
 }
 
-String _kindOf(Map<String, dynamic> p) {
-  final s = _words(p);
-  final cat = '${p['category'] ?? ''}';
-  if (cat == 'meeting_room' || _has(s, ['meeting', 'conference', 'boardroom', 'event', 'events'])) {
-    return 'meeting';
-  }
-  if (cat == 'private_office' || _has(s, ['office', 'offices', 'suite', 'studio'])) return 'office';
-  if (_has(s, ['dedicated', 'fixed', 'resident', 'permanent', 'own desk', 'assigned'])) return 'fixed';
-  if (cat == 'coworking' ||
-      _has(s, ['hot desk', 'hot-desk', 'hotdesk', 'flex', 'flexible', 'pass', 'coworking', 'co-working', 'desk', 'membership'])) {
+const _fixedWords = ['dedicated', 'fixed', 'resident', 'permanent', 'own desk', 'assigned'];
+
+/// The space a text speaks of, or null when it does not say.
+String? _kindIn(String s) {
+  if (_has(s, ['meeting', 'conference', 'boardroom', 'event', 'events'])) return 'meeting';
+  if (_has(s, ['office', 'offices', 'suite', 'studio'])) return 'office';
+  if (_has(s, _fixedWords)) return 'fixed';
+  if (_has(s, ['hot desk', 'hot-desk', 'hotdesk', 'flex', 'flexible', 'pass', 'coworking', 'co-working', 'desk', 'membership'])) {
     return 'shared';
   }
-  return 'other';
+  return null;
+}
+
+/// What space: the name first, then the group it is filed in, and the
+/// details last. A desk that includes "4 hour meeting room per month"
+/// or an "address for head office" is still a desk (16 Nov 2026: two
+/// of Avila Spaces' desks were read as a meeting room).
+String _kindOf(Map<String, dynamic> p) {
+  final byName = _kindIn(' ${p['name'] ?? ''} '.toLowerCase());
+  if (byName != null) return byName;
+  final cat = '${p['category'] ?? ''}';
+  if (cat == 'meeting_room') return 'meeting';
+  if (cat == 'private_office') return 'office';
+  final s = _words(p);
+  if (cat == 'coworking') return _has(s, _fixedWords) ? 'fixed' : 'shared';
+  return _kindIn(s) ?? 'other';
+}
+
+/// Words that tell two levels of one product apart ("Fixed Desk Basic
+/// Monthly", "Fixed Desk Premium Monthly"): not the same thing twice.
+const _tierWords = {
+  'basic', 'standard', 'premium', 'corporate', 'plus', 'pro', 'lite', 'light',
+  'starter', 'essential', 'essentials', 'business', 'enterprise', 'executive',
+  'gold', 'silver', 'bronze', 'platinum', 'vip', 'small', 'medium', 'large',
+  'part', 'full', 'time', 'unlimited', 'limited', 'single', 'double', 'team',
+  'person', 'people', 'pax', 'seat', 'seats', 'seater', 'for', 'up', 'to',
+  's', 'm', 'l', 'xl', 'a', 'b', 'c', 'i', 'ii', 'iii',
+};
+
+/// True when two names are one product at two levels: what differs
+/// between them is only level words or numbers.
+bool _tiers(String a, String b) {
+  Set<String> toks(String x) =>
+      {for (final t in x.toLowerCase().split(RegExp(r'[^a-z0-9]+'))) if (t.isNotEmpty) t};
+  final ta = toks(a), tb = toks(b);
+  if (ta.intersection(tb).isEmpty) return false;
+  final da = ta.difference(tb), db = tb.difference(ta);
+  if (da.isEmpty && db.isEmpty) return false;
+  bool level(String t) => _tierWords.contains(t) || RegExp(r'^\d+$').hasMatch(t);
+  return da.every(level) && db.every(level);
 }
 
 const _kindWords = {
@@ -163,6 +222,8 @@ List<PriceIssue> priceIssues(List<Map<String, dynamic>> items,
       final a = ps[i], b = ps[j];
       if (a.name.toLowerCase() == b.name.toLowerCase()) continue;
       if (!kinds.contains(a.kind) || a.kind != b.kind) continue;
+      // two levels of one product (Basic and Premium) are not twins
+      if (_tiers(a.name, b.name)) continue;
       if (a.period != null && a.period == b.period && a.period != 'pack') {
         add('same:${a.name}|${b.name}',
             '${_q(a.name)} and ${_q(b.name)} both look like ${_periodWords[a.period]} at ${_kindWords[a.kind]}. Are they the same thing?',
@@ -220,6 +281,28 @@ List<PriceIssue> priceIssues(List<Map<String, dynamic>> items,
           add('order:${s.name}|${l.name}',
               '${_q(l.name)} costs more than paying ${_q(s.name)} every day for ${_periodWords[l.period]}.',
               '${_q(l.name)} costs more than buying ${_q(s.name)} every day. Is that right?');
+        }
+      }
+    }
+  }
+
+  // A pack of day passes against one day pass: more than buying them
+  // one at a time, or less than a single one.
+  for (final k in kinds) {
+    final days = ps.where((p) => p.kind == k && p.period == 'day' && p.amount != null).toList();
+    for (final pk in ps.where((p) => p.kind == k && p.period == 'pack' && p.amount != null)) {
+      final n = _packCount(pk.name);
+      if (n == null) continue;
+      for (final d in days) {
+        if (d.currency != pk.currency) continue;
+        if (pk.amount! > d.amount! * n * 1.05) {
+          add('pack:${pk.name}|${d.name}',
+              '${_q(pk.name)} costs more than ${_q(d.name)} bought $n times.',
+              '${_q(pk.name)} costs more than buying ${_q(d.name)} $n times. Is that right?');
+        } else if (pk.amount! < d.amount!) {
+          add('pack:${pk.name}|${d.name}',
+              '${_q(pk.name)} costs less than one ${_q(d.name)}.',
+              '${_q(pk.name)} costs less than one ${_q(d.name)}. Is that right, or has one of them a zero too many or too few?');
         }
       }
     }
@@ -310,7 +393,7 @@ List<String> withPer(String? per, List<String> details) {
 /// null when the name does not say.
 String? perFromName(String name) {
   final s = ' ${name.toLowerCase()} ';
-  if (RegExp(r'\b([2-9]|[1-9][0-9])[ -]?(day|days)\b').hasMatch(s)) return null;
+  if (RegExp(r'\b([2-9]|[1-9][0-9]+)[ -]?(day|days)\b').hasMatch(s)) return null;
   if (RegExp(r'\b(hour|hourly)\b').hasMatch(s)) return 'hour';
   if (RegExp(r'\b(day|daily)\b').hasMatch(s)) return 'day';
   if (RegExp(r'\b(week|weekly)\b').hasMatch(s)) return 'week';

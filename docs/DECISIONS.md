@@ -6838,3 +6838,11 @@ Jonathan, on Ogre's new prices in Price check ("Dedicated desk" 150,000 TZS and 
 - The step is recorded in Owner activity ("Was asked per what for a price").
 - Ogre's two prices were saved before this; "Ask the owner to check" in Price check is the way to settle those.
 - Not seen on a screen from the session (no local Flutter); the build is the compile check, and since 14 Nov a build that does not compile cannot go live.
+
+## 16 Nov 2026: Price check, a pack of day passes is a pack, and a desk is a desk
+Jonathan, on Avila Spaces Parque das Nacoes in Price check (four points, all about "100 Day Pass" or desks read as a meeting room): "I think this is correct, 10 day pass means 10 x day passes. So a bulk amount of passes".
+- A pack of days in a name was only known up to 99, so "10 Day Pass", "20" and "50" were packs and "100 Day Pass" was read as one day at 1,950 euros: "the same thing as Day Pass", "unusual for a day", and dearer than a month. Any number from 2 up is a pack now.
+- A pack is compared with the day pass beside it instead: a point is raised only when it costs more than buying that many day passes one at a time, or less than a single one.
+- What a price is for (which space, how long) is read from its name first, then the group it is filed in, and the details last; "Per month" chosen by the owner comes before all of them. Before, the list of what is included counted as much as the name, so a flex desk with "4 hour meeting room per month" and a fixed desk with "8 hours meeting room per month" were both "a month at a meeting room", and one with an "address for head office" was an office.
+- Two levels of one product ("Fixed Desk Basic Monthly", "Fixed Desk Premium Monthly"; "Private office for 2", "for 4") are not asked about as "the same thing": when the only words that differ are level words or numbers, they are left alone. Two differently named products for the same space and length ("Hot desk monthly", "Coworking membership monthly") are still asked about.
+- Checked against Avila's ten prices and Ogre's in a copy of the rules: Avila now raises nothing; Ogre still raises "Dedicated desk" and "Meeting room" (no per what).
