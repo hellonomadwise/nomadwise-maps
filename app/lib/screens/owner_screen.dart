@@ -4000,6 +4000,116 @@ class _OwnerScreenState extends State<OwnerScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) => r.dispose());
   }
 
+  /// True for a price that should say per what and does not: a desk,
+  /// an office or a meeting room with an amount. Not asked of the
+  /// "Other" group (a locker, printing), of "price on request", of a
+  /// name that carries its own length ("10 day pass", "5 visits"), or
+  /// of one the owner has just said has no set period.
+  static bool _needsPer(_PriceRow r) {
+    if (r.isBlank || r.per != null || r.noPer) return false;
+    if (r.amount.text.trim().isEmpty) return false;
+    if (r.category == 'other') return false;
+    final n = r.name.text.toLowerCase();
+    if (RegExp(r'\b\d+[ -]?(hours?|days?|weeks?|months?|visits?|entries|passes|credits?)\b')
+        .hasMatch(n)) {
+      return false;
+    }
+    return true;
+  }
+
+  /// What is usual for this kind of price, said under its name.
+  static String _perHint(_PriceRow r) {
+    final n = r.name.text.toLowerCase();
+    if (r.category == 'meeting_room') {
+      return 'Meeting rooms are usually per hour or per day.';
+    }
+    if (r.category == 'private_office') return 'Offices are usually per month.';
+    if (RegExp(r'dedicated|fixed|resident|member').hasMatch(n)) {
+      return 'A desk of your own is usually per month.';
+    }
+    return 'A desk can be per day, per week or per month.';
+  }
+
+  /// Asks per what for each of [rows] and sets it; false when the
+  /// owner goes back without answering.
+  Future<bool> _askPer(List<_PriceRow> rows) async {
+    final picked = <_PriceRow, String>{};
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (dctx, setD) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          title: const Text('One thing before we save'),
+          content: SizedBox(
+            width: 460,
+            child: SingleChildScrollView(
+              child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                        rows.length == 1
+                            ? 'Is this price per hour, day, week or month? '
+                                'It shows next to the price on your page.'
+                            : 'Are these prices per hour, day, week or month? '
+                                'It shows next to each price on your page.',
+                        style: const TextStyle(
+                            fontSize: 14, height: 1.45, color: _edInk)),
+                    for (final r in rows) ...[
+                      const SizedBox(height: 18),
+                      Text(
+                          '${r.name.text.trim()}  ·  '
+                          '${Price.format(r._plainAmount, _currency).trim()}',
+                          style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: _edInk)),
+                      const SizedBox(height: 2),
+                      Text(_perHint(r),
+                          style: const TextStyle(fontSize: 12.5, color: _edMuted)),
+                      const SizedBox(height: 8),
+                      Wrap(spacing: 8, runSpacing: 8, children: [
+                        for (final p in [...pricePers, ('none', 'No set period')])
+                          ChoiceChip(
+                            label: Text(p.$2),
+                            selected: picked[r] == p.$1,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8)),
+                            onSelected: (_) => setD(() => picked[r] = p.$1),
+                          ),
+                      ]),
+                    ],
+                  ]),
+            ),
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(dctx, false),
+                child: const Text('Back')),
+            FilledButton(
+                onPressed: picked.length == rows.length
+                    ? () => Navigator.pop(dctx, true)
+                    : null,
+                child: const Text('Save prices')),
+          ],
+        ),
+      ),
+    );
+    if (ok != true || !mounted) return false;
+    setState(() {
+      for (final r in rows) {
+        final p = picked[r];
+        if (p == null || p == 'none') {
+          r.noPer = true;
+        } else {
+          r.per = p;
+        }
+      }
+      _dirty = true;
+    });
+    return true;
+  }
+
   /// One price in the editor, on one line where there is room: the
   /// name, the price, "from", and a menu (add a note, move to another
   /// group, remove). The group comes from where the price sits.
@@ -4634,10 +4744,6 @@ class _OwnerScreenState extends State<OwnerScreen> {
     if (part == 'prices' && !_isPreview && !_saving) {
       // The price list goes to the founders' Price check, one change
       // per price (migration 218); the rest of the listing as before.
-      final rows = [
-        for (final r in _priceRows)
-          if (!r.isBlank) r.toJson()
-      ];
       final missing = _priceRows
           .where((r) => !r.isBlank && r.name.text.trim().length < 2)
           .length;
@@ -4645,6 +4751,22 @@ class _OwnerScreenState extends State<OwnerScreen> {
         setState(() => _savedNote = 'Please give every price a name.');
         return;
       }
+      // A desk, office or meeting room with a price that does not say
+      // per what: asked here, before it is sent (Jonathan, 16 Nov 2026,
+      // on Ogre's "Dedicated desk" and "Meeting room": "is it possible
+      // depending on what it is, to prompt whether per day or per week
+      // or per month etc is needed"). The "Per" box was already there
+      // and could be left empty, so the question came to us instead.
+      final unsaid = _priceRows.where(_needsPer).toList();
+      if (unsaid.isNotEmpty) {
+        _trk.step('price_per', {'asked': unsaid.length}, _venueId);
+        if (!await _askPer(unsaid)) return;
+        if (!mounted) return;
+      }
+      final rows = [
+        for (final r in _priceRows)
+          if (!r.isBlank) r.toJson()
+      ];
       setState(() => _saving = true);
       try {
         final res = await _supabase.ownerProposeProducts(
@@ -9636,6 +9758,10 @@ class _PriceRow {
   /// Per hour, day, week, month or year; null when not said. Kept as
   /// the first detail line on the page ("Per month").
   String? per;
+
+  /// The owner said this price has no set period (a one-off), when
+  /// asked on Save (16 Nov 2026). For this visit only.
+  bool noPer = false;
   // Named by the owner: filed by its name until they move it.
   bool autoType;
   bool showNote = false;

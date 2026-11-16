@@ -54,6 +54,7 @@ const _partNames = {
 const _actionNames = {
   'see_page': 'Opened their live page',
   'period': 'Changed the Performance period',
+  'price_per': 'Was asked per what for a price (hour, day, week or month)',
   'name_menu': 'Opened the name menu',
   'space': 'Switched location',
   'wifi_test': 'Ran the Wi-Fi test',

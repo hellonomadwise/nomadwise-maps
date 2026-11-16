@@ -6828,3 +6828,13 @@ Jonathan, asked what was left open ("4 do this please"): the owner survey questi
 - claim_looked_wa: "good places" is "great places" (his ruling of 12 Nov); otherwise as it was, since it is the message that has brought claims.
 - Left as they were: follow_up, followup_after_ours and its WhatsApp version (already short), reply_fee and reply_listing (answers to a question, the detail is the point), owner_account_how (instructions), forms_app_v3 (one group, already written to).
 - Each changed template was previewed with a test space: every name and link filled in, and the designed email still turns the claim link into the button.
+
+## 16 Nov 2026: Owner account, a price that does not say per what is asked on Save
+Jonathan, on Ogre's new prices in Price check ("Dedicated desk" 150,000 TZS and "Meeting room" 50,000 TZS "does not say per day, week or month"): "When owner adds prices, is it possible depending on what it is, to prompt whether per day or per week or per month etc is needed".
+- The "Per" box next to each price has been there since 9 Nov, with a gold edge when empty, but it could be left empty, so the question still came to us and went back to the owner by chat.
+- Now, on Save in My listing > Prices, a window "One thing before we save" lists each price that needs it, with its amount and what is usual for that kind (meeting rooms per hour or per day, offices per month, a desk of your own per month, any desk per day, week or month), and the choices Per hour, Per day, Per week, Per month, Per year and "No set period". Save prices is live once each has an answer; Back returns to the list.
+- Asked only where a period is expected: desks, offices and meeting rooms that have an amount. Not asked for the "Other" group (a locker, printing), for "price on request", or for a name that carries its own length ("10 day pass", "5 visits"). "No set period" is remembered for that visit only.
+- Nothing is guessed for them: a name that says it ("Day pass") is still filled in as before; everything else is their choice.
+- The step is recorded in Owner activity ("Was asked per what for a price").
+- Ogre's two prices were saved before this; "Ask the owner to check" in Price check is the way to settle those.
+- Not seen on a screen from the session (no local Flutter); the build is the compile check, and since 14 Nov a build that does not compile cannot go live.
