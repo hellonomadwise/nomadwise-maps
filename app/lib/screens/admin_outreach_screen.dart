@@ -1387,6 +1387,65 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
     return ok == true;
   }
 
+  // ------------------------------------------------- do they know us
+
+  /// Whether the space knows Nomadwise already (migration 331): what
+  /// one of us said on the card, and when nobody has, a guess from what
+  /// the card holds, a booking or a partnership talk. Most of what we
+  /// know about a space is in our inboxes, so the card's switch is what
+  /// counts; the guess only saves a tap.
+  static bool _knowsUs(Map<String, dynamic> c) {
+    final said = c['knows_us'];
+    if (said is bool) return said;
+    return c['topic'] == 'booking' || c['topic'] == 'partnership';
+  }
+
+  /// They wrote last and we have not answered yet.
+  static bool _awaitsUs(Map<String, dynamic> c) {
+    final lastIn = DateTime.tryParse('${c['last_in_at'] ?? ''}');
+    if (lastIn == null) return false;
+    final lastOut = DateTime.tryParse('${c['last_out_at'] ?? ''}');
+    return lastOut == null || lastIn.isAfter(lastOut);
+  }
+
+  /// The email for a space that knows us. One we put on Premium
+  /// ourselves, with no owner yet, is told so (migration 229).
+  static String _weKnowKey(Map<String, dynamic> c) =>
+      '${c['listing_tier'] ?? ''}' == 'verified' &&
+              '${c['listing_owner_email'] ?? ''}'.trim().isEmpty
+          ? 'reply_we_know_you_premium'
+          : 'reply_we_know_you';
+
+  /// The first hellos that come in two kinds, for a space that knows us
+  /// and one that does not: the email window offers the switch on them.
+  static const _helloKeys = {
+    'invite_listed',
+    'invite_new_page',
+    'reply_we_know_you',
+    'reply_we_know_you_premium',
+  };
+
+  /// Says on the card whether the space knows us (null: not said, the
+  /// app guesses again).
+  Future<bool> _setKnows(Map<String, dynamic> c, bool? knows,
+      {bool quiet = false}) async {
+    try {
+      await _supabase.outreachUpdate('${c['id']}', {'knows_us': knows});
+      c['knows_us'] = knows;
+      if (!mounted) return true;
+      if (!quiet) {
+        _snack(knows == true
+            ? '${c['space_name'] ?? 'It'}: knows us. Emails skip the introduction.'
+            : '${c['space_name'] ?? 'It'}: does not know us yet. Emails say who we are.');
+        await _load();
+      }
+      return true;
+    } catch (e) {
+      if (mounted) _snack(_plain(e), bad: true);
+      return false;
+    }
+  }
+
   /// The WhatsApp (and Instagram, Facebook) words for a space: the
   /// follow-up after our message, the note for a stranger who opened
   /// the claim page, or the first hello to a space we put on the site
@@ -1395,6 +1454,12 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
     if (_followUp(c).interest) return 'followup_after_ours_wa';
     if (c['claim_look'] is Map) return 'claim_looked_wa';
     if (c['last_out_at'] == null && c['last_in_at'] == null) {
+      // A space that knows us is not told who we are (migration 331).
+      if (_knowsUs(c) &&
+          c['on_site'] == true &&
+          _templates.any((t) => t['key'] == 'reply_we_know_you_wa')) {
+        return 'reply_we_know_you_wa';
+      }
       // A page of ours from the last weeks says "we have added you"; a
       // page listed a while says "now yours to manage" (migration 284).
       final newPage = (_newPages ?? const [])
@@ -1572,7 +1637,16 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
         !(c['owner'] is Map && (c['owner'] as Map)['mine'] == false);
     // A space we know from a booking or a partnership talk is not
     // thanked for asking to be listed (migration 171).
-    final known = c['topic'] == 'booking' || c['topic'] == 'partnership';
+    // A space that knows us is not told who we are (16 Nov 2026,
+    // migration 331): said on the card, or guessed from a booking or
+    // partnership talk. Something of theirs waiting for an answer is
+    // answered first.
+    final known = _knowsUs(c) && !_awaitsUs(c);
+    // They wrote to us at some point and nothing is waiting: the plain
+    // "thank you for getting in touch" is not it either.
+    final wroteBefore = c['knows_us'] != false &&
+        c['first_in_at'] != null &&
+        !_awaitsUs(c);
     // Never written to and never wrote to us: a first hello, not a
     // reply. A page we approved has its own (migration 178).
     final cold = c['last_in_at'] == null &&
@@ -1583,12 +1657,13 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
     String key = <String>[
       if (template != null) template,
       if (theirOwn) 'owner_account_how',
-      if (known && onSite) 'reply_we_know_you',
+      if (known && onSite) _weKnowKey(c),
       if (c['signup'] is Map) 'signed_up',
       if (_followUp(c).interest) 'followup_after_ours',
       if (c['claim_look'] is Map) 'claim_looked',
       if (cold && onSite && newPage) 'invite_new_page',
       if (cold && onSite) 'invite_listed',
+      if (wroteBefore && onSite) _weKnowKey(c),
       onSite ? 'reply_already_listed' : 'reply_listing',
     ].firstWhere((k) => _templates.any((t) => t['key'] == k),
         orElse: () => '');
@@ -1669,6 +1744,19 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
         problem = _plain(e);
       }
       if (open) setD(() => loading = false);
+    }
+
+    // "They know us already", flipped in this window: said on the card,
+    // and the other kind of first hello is put in.
+    Future<void> knows(bool v, void Function(void Function()) setD) async {
+      if (!await _setKnows(c, v, quiet: true)) return;
+      if (!open) return;
+      final k = v
+          ? _weKnowKey(c)
+          : (newPage ? 'invite_new_page' : 'invite_listed');
+      if (!_templates.any((t) => t['key'] == k)) return;
+      key = k;
+      await fill(k, setD);
     }
 
     // The email as it leaves from our own inbox: the same words, with
@@ -1930,6 +2018,27 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
                             fill(k, setD);
                           },
                   ),
+                  // The first hello comes in two kinds (migration 331):
+                  // one tap says the space knows us, on its card too,
+                  // and puts the other kind in.
+                  if (!drafted && onSite && _helloKeys.contains(key))
+                    InkWell(
+                      borderRadius: BorderRadius.circular(8),
+                      onTap: loading
+                          ? null
+                          : () => knows(
+                              !key.startsWith('reply_we_know_you'), setD),
+                      child: Row(children: [
+                        Switch(
+                            value: key.startsWith('reply_we_know_you'),
+                            onChanged: loading ? null : (v) => knows(v, setD)),
+                        const SizedBox(width: 6),
+                        const Expanded(
+                            child: Text('They know us already (no introduction)',
+                                style: TextStyle(
+                                    fontSize: 14, fontWeight: FontWeight.w600))),
+                      ]),
+                    ),
                   if (pageNote != null && !loading)
                     Container(
                       margin: const EdgeInsets.only(top: 10),
@@ -3898,6 +4007,9 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
                   _chip(_topicLabel(c['topic'])!.toUpperCase(),
                       bg: c['aside'] == true ? Brand.accentTint : Brand.field,
                       fg: c['aside'] == true ? Brand.red : Brand.inkSecondary),
+                // said by one of us on the card (migration 331)
+                if (c['knows_us'] == true)
+                  _chip('KNOWS US', bg: Brand.field, fg: Brand.inkSecondary),
               ]),
               const SizedBox(height: 3),
               Text(
@@ -3984,6 +4096,7 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
               'in' => _logReply(c),
               'test' => _setTest(c),
               'topic' => _pickTopic(c),
+              'knows' => _setKnows(c, !_knowsUs(c)),
               'delete' => _delete(c),
               _ when k.startsWith('assign:') => _assign(c, k.substring(7)),
               _ => _setStage(c, k),
@@ -3995,6 +4108,11 @@ class _AdminOutreachScreenState extends State<_OutreachBody> {
               const PopupMenuItem(value: 'note', child: Text('Note and follow-up date')),
               const PopupMenuItem(value: 'in', child: Text('Log what they wrote')),
               const PopupMenuItem(value: 'topic', child: Text('What it was about')),
+              PopupMenuItem(
+                  value: 'knows',
+                  child: Text(_knowsUs(c)
+                      ? 'They do not know us yet'
+                      : 'They know us already')),
               const PopupMenuDivider(),
               for (final m in _assignMenu(c))
                 PopupMenuItem(value: m.$1, child: Text(m.$2)),
