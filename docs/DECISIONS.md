@@ -6846,3 +6846,11 @@ Jonathan, on Avila Spaces Parque das Nacoes in Price check (four points, all abo
 - What a price is for (which space, how long) is read from its name first, then the group it is filed in, and the details last; "Per month" chosen by the owner comes before all of them. Before, the list of what is included counted as much as the name, so a flex desk with "4 hour meeting room per month" and a fixed desk with "8 hours meeting room per month" were both "a month at a meeting room", and one with an "address for head office" was an office.
 - Two levels of one product ("Fixed Desk Basic Monthly", "Fixed Desk Premium Monthly"; "Private office for 2", "for 4") are not asked about as "the same thing": when the only words that differ are level words or numbers, they are left alone. Two differently named products for the same space and length ("Hot desk monthly", "Coworking membership monthly") are still asked about.
 - Checked against Avila's ten prices and Ogre's in a copy of the rules: Avila now raises nothing; Ogre still raises "Dedicated desk" and "Meeting room" (no per what).
+
+## 16 Nov 2026: Price check, the Correct box on a phone
+Jonathan, with a screenshot of Correct "Flex Desk Corporate Monthly" on his phone: "Can this have better ui/ux on mobile for me. Month and year are too far away". The "Per" chips had wrapped (hour, day, week on one line; month and year on the next), the group chips took two lines as well, and the box used only about two thirds of the screen's width.
+- "Per" and the group are each one bar of equal parts now, 44 high, every choice on one line: hour, day, week, month, year; Coworking, Meeting room, Private office, Other. The chosen part is dark; pressing the chosen "Per" again clears it, as before. A label too long for its part is drawn a little smaller, not cut. Each bar has a small caption above it ("Group", "Per").
+- On a phone the box now takes nearly the whole width (12 at each side, was 40) with tighter padding and a smaller title, so the fields and bars have room and Cancel sits beside the save button. Corners are 8, per the house rule.
+- The hint under "Shown on the page as" is no longer cut off.
+- The same box is used for "Add a product".
+- Not seen on a screen from the session (no local Flutter); the build is the compile check.

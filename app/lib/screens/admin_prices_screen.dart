@@ -291,6 +291,59 @@ Future<String?> _askCheckNote(
   return note.text.trim();
 }
 
+/// One choice out of a few as one bar of equal parts, 44 high, so
+/// every choice is on one line on a phone (Jonathan, 16 Nov 2026, on
+/// the Correct box: "Can this have better ui/ux on mobile for me.
+/// Month and year are too far away": the chips had wrapped, hour, day
+/// and week on one line and month and year on the next). A label too
+/// long for its part is drawn a little smaller, never cut.
+Widget _segments(
+    {required List<(String, String)> options,
+    required String? value,
+    required void Function(String) onTap}) {
+  const line = Color(0x33142032);
+  return Container(
+    height: 44,
+    clipBehavior: Clip.antiAlias,
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(8),
+      border: Border.all(color: line),
+    ),
+    child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      for (var i = 0; i < options.length; i++) ...[
+        if (i > 0) Container(width: 1, color: line),
+        Expanded(
+          child: Material(
+            color: value == options[i].$1 ? Brand.ink : Colors.white,
+            child: InkWell(
+              onTap: () => onTap(options[i].$1),
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(options[i].$2,
+                        maxLines: 1,
+                        style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: value == options[i].$1
+                                ? Colors.white
+                                : Brand.ink)),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    ]),
+  );
+}
+
+const _segCaption = TextStyle(
+    fontSize: 12, fontWeight: FontWeight.w700, color: Brand.inkSecondary);
+
 /// The box to correct a product, or to type a new one. Returns the
 /// fields to save, or null when it was closed without saving.
 Future<Map<String, dynamic>?> _askProduct(BuildContext context,
@@ -381,8 +434,26 @@ Future<Map<String, dynamic>?> _askProduct(BuildContext context,
           });
         }
 
+        // On a phone the box takes nearly the whole width, so the
+        // fields and the two bars have room.
+        final narrow = MediaQuery.sizeOf(ctx).width < 600;
         return AlertDialog(
-          title: Text(title),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          insetPadding: narrow
+              ? const EdgeInsets.symmetric(horizontal: 12, vertical: 20)
+              : const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
+          titlePadding: narrow
+              ? const EdgeInsets.fromLTRB(16, 16, 16, 0)
+              : const EdgeInsets.fromLTRB(24, 24, 24, 0),
+          contentPadding: narrow
+              ? const EdgeInsets.fromLTRB(16, 14, 16, 0)
+              : const EdgeInsets.fromLTRB(24, 16, 24, 0),
+          actionsPadding: narrow
+              ? const EdgeInsets.fromLTRB(16, 8, 16, 12)
+              : const EdgeInsets.fromLTRB(24, 8, 24, 16),
+          title: Text(title,
+              style: TextStyle(
+                  fontSize: narrow ? 18 : 22, fontWeight: FontWeight.w800)),
           content: SizedBox(
             width: 560,
             child: SingleChildScrollView(
@@ -400,23 +471,14 @@ Future<Map<String, dynamic>?> _askProduct(BuildContext context,
                           border: OutlineInputBorder(),
                           isDense: true),
                     ),
-                    const SizedBox(height: 4),
-                    Wrap(spacing: 6, runSpacing: 6, children: [
-                      for (final c in _categories)
-                        ChoiceChip(
-                          label: Text(c.$2),
-                          showCheckmark: false,
-                          selectedColor: Brand.ink,
-                          labelStyle: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              color: category == c.$1
-                                  ? Colors.white
-                                  : Brand.ink),
-                          selected: category == c.$1,
-                          onSelected: (_) => setInner(() => category = c.$1),
-                        ),
-                    ]),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 2),
+                    const Text('Group', style: _segCaption),
+                    const SizedBox(height: 6),
+                    _segments(
+                        options: [for (final c in _categories) (c.$1, c.$2)],
+                        value: category,
+                        onTap: (v) => setInner(() => category = v)),
+                    const SizedBox(height: 16),
                     Row(children: [
                       Expanded(
                         flex: 3,
@@ -452,28 +514,15 @@ Future<Map<String, dynamic>?> _askProduct(BuildContext context,
                     const SizedBox(height: 10),
                     // Per what (Jonathan, 9 Nov 2026): the first line
                     // of the details on the page, "Per month".
-                    Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          const Text('Per',
-                              style: TextStyle(
-                                  fontSize: 13, fontWeight: FontWeight.w700)),
-                          for (final p in pricePers)
-                            ChoiceChip(
-                              label: Text(p.$1),
-                              showCheckmark: false,
-                              selectedColor: Brand.ink,
-                              labelStyle: TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  color: per == p.$1 ? Colors.white : Brand.ink),
-                              selected: per == p.$1,
-                              onSelected: (on) =>
-                                  setInner(() => per = on ? p.$1 : null),
-                            ),
-                        ]),
-                    const SizedBox(height: 12),
+                    // One bar; pressing the chosen one again clears it.
+                    const Text('Per', style: _segCaption),
+                    const SizedBox(height: 6),
+                    _segments(
+                        options: [for (final p in pricePers) (p.$1, p.$1)],
+                        value: per,
+                        onTap: (v) =>
+                            setInner(() => per = per == v ? null : v)),
+                    const SizedBox(height: 16),
                     TextField(
                       controller: label,
                       maxLength: 40,
@@ -494,7 +543,7 @@ Future<Map<String, dynamic>?> _askProduct(BuildContext context,
                           helperText: 'Leave empty and it is written from the '
                               'price. Fill it in only for something like '
                               '"£40 + VAT".',
-                          helperMaxLines: 2,
+                          helperMaxLines: 4,
                           border: const OutlineInputBorder(),
                           isDense: true),
                     ),
