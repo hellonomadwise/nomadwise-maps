@@ -16,8 +16,10 @@
 --    writes them to the page (owner content or not) and empties it; the
 --    nightly read leaves them alone until then.
 -- 2. admin_listing_update_tags(id, apply): what a "Tags to add"
---    suggestion would change (added, already there, cannot be shown),
---    and with apply, does it and marks the suggestion done.
+--    suggestion would change (added, already recorded for the space,
+--    cannot be shown), and with apply, does it and marks the
+--    suggestion done. Tags already recorded go to the website run as
+--    well: the page does not always show what the space holds.
 -- 3. listing_has_owner(slug): whether a page has an owner. The page
 --    itself already says so ("Managed by its owner"), so nothing new is
 --    given away; "Add a tag" and "Something need updating?" use it to
@@ -77,6 +79,7 @@ declare
   had   text[] := '{}';
   cant  text[] := '{}';
   setc  text[] := '{}';
+  hadc  text[] := '{}';
   sets  text;
   pend  jsonb;
   v_note text;
@@ -115,6 +118,7 @@ begin
       cant := cant || t;
     elsif (v ->> col)::boolean is true then
       had := had || t;
+      if not (col = any (hadc)) then hadc := hadc || col; end if;
     elsif not (col = any (setc)) then
       added := added || t;
       setc := setc || col;
@@ -122,20 +126,27 @@ begin
   end loop;
 
   if p_apply then
-    if coalesce(array_length(setc, 1), 0) > 0 then
-      select string_agg(format('%I = true', c), ', ') into sets from unnest(setc) c;
+    -- What the space already holds is not always on its page (seen
+    -- 17 Nov 2026 with Neighbors and Nomads: aircon, office chairs,
+    -- monitors and more were known on the map and missing from the
+    -- page). So every tag that was suggested goes to the website run,
+    -- new or not; the run writes only those the page does not show.
+    if coalesce(array_length(setc || hadc, 1), 0) > 0 then
+      select coalesce(string_agg(format('%I = true', c), ', ') || ', ', '')
+        into sets from unnest(setc) c;
       pend := coalesce(nullif(v -> 'tags_pending', 'null'::jsonb), '{}'::jsonb)
-              || (select jsonb_object_agg(c, true) from unnest(setc) c);
+              || (select jsonb_object_agg(c, true) from unnest(setc || hadc) c);
       execute format(
-        'update public.venues set %s, tags_pending = $1, '
-        'listing_sync_requested_at = now(), listing_synced_at = null where id = $2', sets)
+        'update public.venues set %s tags_pending = $1, '
+        'listing_sync_requested_at = now(), listing_synced_at = null where id = $2',
+        coalesce(sets, ''))
         using pend, u.venue_id;
     end if;
     v_note := concat_ws(' ',
       case when coalesce(array_length(added, 1), 0) > 0
            then 'Added: ' || array_to_string(added, ', ') || '.' end,
       case when coalesce(array_length(had, 1), 0) > 0
-           then 'Already on the page: ' || array_to_string(had, ', ') || '.' end,
+           then 'Already recorded, put on the page where missing: ' || array_to_string(had, ', ') || '.' end,
       case when coalesce(array_length(cant, 1), 0) > 0
            then 'Not a tag the page can show: ' || array_to_string(cant, ', ') || '.' end);
     update public.listing_updates

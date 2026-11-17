@@ -111,7 +111,9 @@ class _ListingUpdatesScreenState extends State<ListingUpdatesScreen> {
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         title: Text(
-            added.isEmpty ? 'Nothing to add to $space' : 'Add to $space?',
+            added.isEmpty && had.isEmpty
+                ? 'Nothing to add to $space'
+                : 'Add to $space?',
             style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
         content: SizedBox(
           width: 440,
@@ -122,11 +124,15 @@ class _ListingUpdatesScreenState extends State<ListingUpdatesScreen> {
                 children: [
                   if (added.isNotEmpty)
                     part('Will be added', added, color: Brand.success),
-                  if (had.isNotEmpty) part('Already on the page', had),
+                  // (known for the space; its page does not always
+                  // show them, so the page gets any it is missing)
+                  if (had.isNotEmpty)
+                    part('Already recorded, added to the page where missing',
+                        had),
                   if (cannot.isNotEmpty)
                     part('Not a tag the page can show', cannot),
                   Text(
-                      added.isEmpty
+                      added.isEmpty && had.isEmpty
                           ? 'The suggestion will be marked done.'
                           : p['on_site'] == true
                               ? 'They go on the page within about ten '
@@ -146,9 +152,11 @@ class _ListingUpdatesScreenState extends State<ListingUpdatesScreen> {
           FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
               style: FilledButton.styleFrom(backgroundColor: Brand.red),
-              child: Text(added.isEmpty
+              child: Text(added.isEmpty && had.isEmpty
                   ? 'Mark done'
-                  : 'Add ${added.length} ${added.length == 1 ? 'tag' : 'tags'}')),
+                  : added.isEmpty
+                      ? 'Check the page'
+                      : 'Add ${added.length} ${added.length == 1 ? 'tag' : 'tags'}')),
         ],
       ),
     );
@@ -160,7 +168,9 @@ class _ListingUpdatesScreenState extends State<ListingUpdatesScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text(added.isEmpty
-                ? 'Marked done.'
+                ? (had.isEmpty
+                    ? 'Marked done.'
+                    : 'Marked done. The page gets any of these it was missing.')
                 : 'Added to $space: ${added.join(', ')}.')));
       }
     } catch (e) {
