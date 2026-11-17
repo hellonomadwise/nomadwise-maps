@@ -58,12 +58,41 @@ bool _has(String s, List<String> words) =>
 /// (Jonathan, 16 Nov 2026, on Avila Spaces: "10 day pass means 10 x
 /// day passes. So a bulk amount of passes"). Any number from 2 up; it
 /// used to stop at 99, so "100 Day Pass" was read as one dear day.
-final _packRe = RegExp(r'\b([2-9]|[1-9][0-9]+)[ -]?(day|days|visit|visits|entries)\b');
+///
+/// The same for a pack counted in hours, passes, credits or sessions
+/// ("10 Hour Pass", "20 passes"): Jonathan, 17 Nov 2026, "products that
+/// look like these 10 Day Passes are fine to not question, unless you
+/// suspect something else". "24 hour" is never a pack (24 hour access).
+final _packRe = RegExp(
+    r'\b([2-9]|[1-9][0-9]+)[ -]?(day|days|visit|visits|entries|entry|passes|credits|sessions|hour|hours|hrs)\b');
 
-/// How many passes a pack holds, from its name; null when not a pack.
+/// The pack a text names, if it names one. [hours]: also a pack of
+/// hours, which is only trusted in a product's own name (a list of
+/// what is included says "8 hours meeting room" about something else).
+RegExpMatch? _packIn(String s, {bool hours = true}) {
+  final t = s.toLowerCase();
+  // "Day Pass (8 hours)" and "Monthly, 20 hours" are a day and a month,
+  // not a pack of hours.
+  final other = _otherPeriodRe.hasMatch(t);
+  for (final m in _packRe.allMatches(t)) {
+    final hourly = m.group(2)!.startsWith('h');
+    if (hourly && (!hours || other || m.group(1) == '24')) continue;
+    return m;
+  }
+  return null;
+}
+
+final _otherPeriodRe =
+    RegExp(r'\b(day|daily|week|weekly|month|monthly|year|yearly|annual)\b');
+
+/// How many day passes a pack holds, from its name; null when it is
+/// not a pack, or is counted in something that is not a day each
+/// (hours, credits, sessions), so it is not held against a day pass.
 int? _packCount(String name) {
-  final m = _packRe.firstMatch(name.toLowerCase());
-  return m == null ? null : int.tryParse(m.group(1)!);
+  final m = _packIn(name);
+  if (m == null) return null;
+  const dayEach = {'day', 'days', 'visit', 'visits', 'entries', 'entry', 'passes'};
+  return dayEach.contains(m.group(2)) ? int.tryParse(m.group(1)!) : null;
 }
 
 /// For how long: what the owner chose ("Per month") first, then what
@@ -76,11 +105,11 @@ String? _periodOf(Map<String, dynamic> p) {
   ];
   return perOf(details) ??
       _periodIn(' ${p['name'] ?? ''} '.toLowerCase()) ??
-      _periodIn(_words(p));
+      _periodIn(_words(p), hourPacks: false);
 }
 
-String? _periodIn(String s) {
-  if (_packRe.hasMatch(s)) return 'pack';
+String? _periodIn(String s, {bool hourPacks = true}) {
+  if (_packIn(s, hours: hourPacks) != null) return 'pack';
   if (_has(s, ['year', 'yearly', 'annual', 'annually', 'per year', '/yr'])) return 'year';
   if (_has(s, ['month', 'monthly', 'months', '/mo', '/month', 'mes', 'mensal', 'mensual', 'monat', 'mois'])) {
     return 'month';

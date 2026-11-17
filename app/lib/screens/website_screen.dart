@@ -6010,6 +6010,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
             '  ·  ${verified ? 'Premium' : 'Claimed'}  ·  ${d['owner_email'] ?? ''}'
             '  ·  submitted ${_ago(d['submitted_at'])}',
             style: const TextStyle(fontSize: 12, color: Brand.inkSecondary)),
+        ..._editedSince(d),
         const SizedBox(height: 10),
         if (sentBack != null) ...[
           ResubmitChanges(sentBack: sentBack, current: draft),
@@ -9301,6 +9302,44 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         },
         '${v['name']} released. Its sitemap entry is under Sitemap.');
     if (mounted) setState(() => _groupKey = 'sitemap');
+  }
+
+  /// The owner went on editing after submitting (migration 334): the
+  /// listing stays in this list with those edits in it. Said here, with
+  /// when, in case they are still typing.
+  static List<Widget> _editedSince(Map<String, dynamic> d) {
+    final sub = DateTime.tryParse('${d['submitted_at'] ?? ''}');
+    final upd = DateTime.tryParse('${d['updated_at'] ?? ''}');
+    if (sub == null || upd == null || upd.difference(sub).inSeconds < 60) {
+      return const [];
+    }
+    final mins = DateTime.now().toUtc().difference(upd.toUtc()).inMinutes;
+    final when = mins < 1
+        ? 'just now'
+        : mins < 60
+            ? '$mins min ago'
+            : mins < 1440
+                ? '${mins ~/ 60} h ago'
+                : DateFormat('d MMM, HH:mm').format(upd.toLocal());
+    return [
+      Container(
+        margin: const EdgeInsets.only(top: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+        // (white: the card itself is gold)
+        decoration: BoxDecoration(
+            color: Colors.white, borderRadius: BorderRadius.circular(8)),
+        child: Text(
+            mins < 10
+                ? 'Edited since submitting, $when. They may still be at '
+                    'it, so give it a few minutes.'
+                : 'Edited since submitting, $when. What you see includes '
+                    'those edits.',
+            style: const TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: Brand.goldTextDark)),
+      ),
+    ];
   }
 
   static String _ago(String? ts) {
