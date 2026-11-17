@@ -74,6 +74,103 @@ class _ListingUpdatesScreenState extends State<ListingUpdatesScreen> {
     }
   }
 
+  /// "Add these tags" on a "Tags to add" card (migration 332): shows
+  /// what would change on the page, and on a yes puts the tags on and
+  /// marks the suggestion done. The website follows within minutes.
+  Future<void> _addTags(Map<String, dynamic> r) async {
+    Map<String, dynamic> p;
+    try {
+      p = await _supabase.listingUpdateTags('${r['id']}');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Could not read the tags: $e')));
+      }
+      return;
+    }
+    if (!mounted) return;
+    List<String> list(String k) =>
+        [for (final x in (p[k] as List? ?? const [])) '$x'];
+    final added = list('added'), had = list('had'), cannot = list('cannot');
+    final space = '${p['space'] ?? r['space_name'] ?? 'this space'}';
+    Widget part(String head, List<String> items, {Color? color}) => Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(head,
+                style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                    color: color ?? Brand.inkSecondary)),
+            const SizedBox(height: 3),
+            Text(items.join(', '),
+                style: const TextStyle(fontSize: 13.5, height: 1.45)),
+          ]),
+        );
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        title: Text(
+            added.isEmpty ? 'Nothing to add to $space' : 'Add to $space?',
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+        content: SizedBox(
+          width: 440,
+          child: SingleChildScrollView(
+            child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (added.isNotEmpty)
+                    part('Will be added', added, color: Brand.success),
+                  if (had.isNotEmpty) part('Already on the page', had),
+                  if (cannot.isNotEmpty)
+                    part('Not a tag the page can show', cannot),
+                  Text(
+                      added.isEmpty
+                          ? 'The suggestion will be marked done.'
+                          : p['on_site'] == true
+                              ? 'They go on the page within about ten '
+                                  'minutes, and the suggestion is marked done.'
+                              : 'This space has no page on the site yet, so '
+                                  'they are kept for when it does. The '
+                                  'suggestion is marked done.',
+                      style: const TextStyle(
+                          fontSize: 12.5, color: Brand.inkSecondary)),
+                ]),
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: FilledButton.styleFrom(backgroundColor: Brand.red),
+              child: Text(added.isEmpty
+                  ? 'Mark done'
+                  : 'Add ${added.length} ${added.length == 1 ? 'tag' : 'tags'}')),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    try {
+      await _supabase.listingUpdateTags('${r['id']}', apply: true);
+      await _load();
+      widget.onChanged?.call();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(added.isEmpty
+                ? 'Marked done.'
+                : 'Added to $space: ${added.join(', ')}.')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Not added: $e')));
+      }
+    }
+  }
+
   /// What they told us about, in the words of a reply.
   static String _aboutWords(List kinds) {
     const words = {
@@ -417,6 +514,13 @@ class _ListingUpdatesScreenState extends State<ListingUpdatesScreen> {
                 icon: const Icon(Icons.open_in_new, size: 16),
                 label: const Text('Open the page')),
           if (status == 'open') ...[
+            // One tap puts a visitor's tags on the page (migration 332).
+            if (r['venue_id'] != null &&
+                ((r['kinds'] as List?) ?? const []).contains('tags'))
+              TextButton.icon(
+                  onPressed: () => _addTags(r),
+                  icon: const Icon(Icons.add, size: 16),
+                  label: const Text('Add these tags')),
             TextButton.icon(
                 onPressed: () => _set(r, 'done'),
                 icon: const Icon(Icons.check, size: 16),

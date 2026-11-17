@@ -1790,6 +1790,27 @@ class SupabaseService {
   Future<void> setListingUpdateNote(String id, String note) =>
       _db.from('listing_updates').update({'note': note}).eq('id', id);
 
+  /// What a "Tags to add" suggestion would change on its page
+  /// (migration 332): {space, added, had, cannot, on_site}. With
+  /// [apply], the tags are put on and the suggestion is marked done.
+  Future<Map<String, dynamic>> listingUpdateTags(String id,
+      {bool apply = false}) async {
+    final r = await _db.rpc('admin_listing_update_tags',
+        params: {'p_id': id, 'p_apply': apply});
+    return r is Map ? Map<String, dynamic>.from(r) : {};
+  }
+
+  /// Whether a listing page already has an owner (migration 332). The
+  /// page says so itself; false when it cannot be read.
+  Future<bool> listingHasOwner(String slug) async {
+    try {
+      final r = await _db.rpc('listing_has_owner', params: {'p_slug': slug});
+      return r == true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Files a booking request; the database emails it on.
   Future<void> sendEnquiry(Map<String, dynamic> row) =>
       _db.from('enquiries').insert(row);

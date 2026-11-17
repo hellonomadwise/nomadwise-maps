@@ -65,9 +65,12 @@ class NomadwiseMapsApp extends StatelessWidget {
     //   ?claimed         where Stripe returns them after paying
     //   ?owner           the Owner account (manage my listing)
     //   ?update=<slug>   Something need updating? (anyone; owners are
-    //                    pointed to claiming)
+    //                    pointed to claiming, or to their Owner account
+    //                    when the page is already claimed)
     //   ?tag=<slug>      Add a tag: asks who you are first; owners go
-    //                    to claiming, visitors say what the place has
+    //                    to claiming (or their Owner account, tags
+    //                    open, when the page is already claimed),
+    //                    visitors say what the place has
     //   ?found=<key>     "Did you find a place?" after an enquiry
     //                    (migration 193): where they went
     //   ?suggest[&from=<page>]  Suggest a place (migration 210): a

@@ -50,26 +50,34 @@ class _UpdateScreenState extends State<UpdateScreen> {
   bool _visitor = false;
   final Set<String> _tags = {};
 
+  // The page already has an owner (migration 332): whoever runs it is
+  // sent to their Owner account, not to the claim page, which can only
+  // say "already claimed" (17 Nov 2026: an owner pressed "I run" twice
+  // on his own page and then sent his tags as a visitor).
+  bool _owned = false;
+
   /// The details the listing pages show as tags, in the site's words.
+  /// Only what a page can show (17 Nov 2026): "Day passes", "Meeting
+  /// rooms", "Good coffee", "Gluten-free options" and "Outdoor space"
+  /// were offered here and had nowhere to go on the page; "Quiet space"
+  /// and "Swimming pool" are on the page and were missing here. The
+  /// database knows each by these words (migration 332).
   static const _tagOptions = [
     'Fast WiFi',
     'Enough plug sockets',
     'Comfortable seating',
     'Office chairs',
     'Monitors available',
+    'Quiet space',
     'Quiet room or phone booth',
     'Good for video calls',
     'Aircon',
     'Low background music',
     'No traffic noise',
     'Cozy',
-    'Day passes',
-    'Meeting rooms',
     '24-hour access',
-    'Good coffee',
     'Vegan friendly',
-    'Gluten-free options',
-    'Outdoor space',
+    'Swimming pool',
     'Instagrammable',
   ];
 
@@ -101,9 +109,11 @@ class _UpdateScreenState extends State<UpdateScreen> {
 
   Future<void> _load() async {
     final v = await _supabase.venueBySlug(widget.slug);
+    final owned = v == null ? false : await _supabase.listingHasOwner(widget.slug);
     if (!mounted) return;
     setState(() {
       _venue = v;
+      _owned = owned;
       _loading = false;
     });
     if (v != null) {
@@ -282,13 +292,21 @@ class _UpdateScreenState extends State<UpdateScreen> {
           ]),
           const SizedBox(height: 6),
           Text(
-              'Claim your $_kind for free and change the page yourself: '
-              'photos, hours, prices and the details nomads look for.',
+              _owned
+                  ? 'Sign in to your Owner account and change the page '
+                      'yourself: photos, hours, prices and the details '
+                      'nomads look for.'
+                  : 'Claim your $_kind for free and change the page yourself: '
+                      'photos, hours, prices and the details nomads look for.',
               style: const TextStyle(
                   fontSize: 13.5, height: 1.45, color: Brand.inkSecondary)),
           const SizedBox(height: 10),
           FilledButton.icon(
               onPressed: () {
+                if (_owned) {
+                  _toOwner(v, 'update_to_owner');
+                  return;
+                }
                 Analytics.capture('update_to_claim', {'venue': v['name']});
                 launchUrl(
                     Uri.parse('https://nomadmaps.io/?claim='
@@ -297,8 +315,8 @@ class _UpdateScreenState extends State<UpdateScreen> {
                     webOnlyWindowName: '_self');
               },
               style: FilledButton.styleFrom(backgroundColor: Brand.red),
-              icon: const Icon(Icons.verified_outlined, size: 18),
-              label: Text('Claim my $_kind')),
+              icon: Icon(_owned ? Icons.login : Icons.verified_outlined, size: 18),
+              label: Text(_owned ? 'Open my Owner account' : 'Claim my $_kind')),
         ]),
       );
 
@@ -314,7 +332,21 @@ class _UpdateScreenState extends State<UpdateScreen> {
         onSelected: (_) => tap(),
       );
 
+  /// The page has an owner: their Owner account, which opens on My
+  /// listing (and, from "Add a tag", with the tags ready to edit).
+  void _toOwner(Map<String, dynamic> v, String event) {
+    Analytics.capture(event, {'venue': v['name']});
+    launchUrl(
+        Uri.parse('https://nomadmaps.io/owner?from='
+            '${widget.tags ? 'tag&edit=tags' : 'update'}'),
+        webOnlyWindowName: '_self');
+  }
+
   void _toClaim(Map<String, dynamic> v) {
+    if (_owned) {
+      _toOwner(v, 'tag_to_owner');
+      return;
+    }
     Analytics.capture('tag_to_claim', {'venue': v['name']});
     launchUrl(
         Uri.parse('https://nomadmaps.io/?claim='
@@ -384,8 +416,11 @@ class _UpdateScreenState extends State<UpdateScreen> {
       _door(
           icon: Icons.storefront_outlined,
           title: 'I run $name',
-          text: 'Claim your $_kind for free and add the tags yourself, '
-              'with your photos, hours and prices.',
+          text: _owned
+              ? 'Sign in to your Owner account and edit the tags yourself, '
+                  'with your photos, hours and prices.'
+              : 'Claim your $_kind for free and add the tags yourself, '
+                  'with your photos, hours and prices.',
           onTap: () => _toClaim(v)),
       const SizedBox(height: 10),
       _door(

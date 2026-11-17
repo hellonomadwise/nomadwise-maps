@@ -308,6 +308,23 @@ MORE_TAGS = (
 )
 
 
+# Every tag a listing page can show: (venues column, Webflow field, the
+# word the page shows).
+TAG_FIELDS = (
+    ('power_outlets', 'enough-plug-sockets', 'Enough Plug Sockets'),
+    ('aircon', 'sea-view', 'Aircon'),
+    ('comfortable_seating', 'comfortable-seating', 'Comfortable Seating'),
+    ('cozy', 'cozy', 'Cozy'),
+    ('quiet_space', 'gluten-friendly-option-gf', 'Quiet Space'),
+    ('good_for_calls', 'good-for-calls', 'Good for Calls'),
+    ('call_room', 'isolated-quiet-room', 'Skype Room'),
+    ('monitor', 'monitor-available', 'Monitor Available'),
+    ('office_chairs', 'office-chairs', 'Office Chairs'),
+    ('access_24h', '24hr-member-access', '24 Hour Access'),
+)
+MORE_TAG_COLS = {col for col, _, _ in MORE_TAGS}
+
+
 def editorial_fields(f, existing_type=None):
     """The columns Webflow owns. Only keys with a value are returned,
     so an empty Webflow field never blanks a venue."""
@@ -418,6 +435,18 @@ if not PUSH_ONLY:
     by_pid = {v['google_place_id']: v for v in venues if v.get('google_place_id')}
     by_cms = {v['webflow_cms_id']: v for v in venues if v.get('webflow_cms_id')}
 
+    # Tags one of us added from a visitor's suggestion (migration 332)
+    # that have not reached the page yet: the page's empty field must
+    # not take them off again before they are written.
+    pending_tags = {}
+    try:
+        for s_ in sb_all('venues?select=id,tags_pending'
+                         '&tags_pending=not.is.null'):
+            if isinstance(s_.get('tags_pending'), dict):
+                pending_tags[s_['id']] = s_['tags_pending']
+    except Exception as e:  # noqa: BLE001
+        report.setdefault('warnings', []).append(f'pending tags read: {e}')
+
     tested = set()
     try:
         for s in sb_all('submissions?select=venue_id&kind=eq.wifi_test'
@@ -480,6 +509,9 @@ if not PUSH_ONLY:
                         'website_synced_at': now,
                         'webflow_verified': bool(f.get('premium-member'))})
             row.update(editorial_fields(f, venue['type']))
+            for k_, on_ in (pending_tags.get(venue['id']) or {}).items():
+                if k_ in EDITORIAL_KEYS and on_ is True:
+                    row[k_] = True
             if HAS_LOCATION_COLUMNS:
                 # Where the site files it (migration 155): the map of
                 # nearby spaces and the Location verdict read these.
@@ -1269,6 +1301,8 @@ try:
                   'opening_hours,website_photos,power_outlets,aircon,'
                   'comfortable_seating,cozy,quiet_space,good_for_calls,'
                   'call_room,monitor,office_chairs,access_24h,'
+                  'swimming_pool,no_traffic_noise,low_background_music,'
+                  'instagramable,vegan_friendly,pass_required,tags_pending,'
                   'page_description,wifi_speed_mbps,wifi_owner_tested_at'
                   '&limit=30') or []
 except Exception as e:  # noqa: BLE001
@@ -1792,6 +1826,17 @@ def owner_fields(v, item=None):
     # whenever the hours change on a page that is live).
     if v.get('opening_hours'):
         wifi_out.update(day_fields(v))
+    # Tags one of us added from a visitor's suggestion (migration 332,
+    # "Add these tags" in Quality > Suggestions): written on any page,
+    # owner content or not, and only those tags.
+    pending = v.get('tags_pending') if isinstance(
+        v.get('tags_pending'), dict) else {}
+    on_page = (item or {}).get('fieldData') or {}
+    for col, slug_, label in (*TAG_FIELDS, *MORE_TAGS):
+        # (a field that already says yes keeps its own word)
+        if pending.get(col) is True and v.get(col) is True \
+                and yes(on_page.get(slug_)) is not True:
+            wifi_out[slug_] = label
     if not oc and not v.get('owner_content_at'):
         return wifi_out
     out = dict(wifi_out)
@@ -1840,19 +1885,17 @@ def owner_fields(v, item=None):
         if digits:
             out['whatsapp'] = f'https://wa.me/{digits}'
     out.update(day_fields(v))
-    for col, slug_, label in (
-            ('power_outlets', 'enough-plug-sockets', 'Enough Plug Sockets'),
-            ('aircon', 'sea-view', 'Aircon'),
-            ('comfortable_seating', 'comfortable-seating', 'Comfortable Seating'),
-            ('cozy', 'cozy', 'Cozy'),
-            ('quiet_space', 'gluten-friendly-option-gf', 'Quiet Space'),
-            ('good_for_calls', 'good-for-calls', 'Good for Calls'),
-            ('call_room', 'isolated-quiet-room', 'Skype Room'),
-            ('monitor', 'monitor-available', 'Monitor Available'),
-            ('office_chairs', 'office-chairs', 'Office Chairs'),
-            ('access_24h', '24hr-member-access', '24 Hour Access'),
-            *MORE_TAGS):
-        if v.get(col) is not None:
+    for col, slug_, label in (*TAG_FIELDS, *MORE_TAGS):
+        # The six tags of migration 218 were never read here, so an
+        # owner's tick for one of them did not reach the page. A tick
+        # goes on now where the page's field is empty or says no; a
+        # field that already says yes keeps its own word, and "No" is
+        # still left to the page for those six (not known how the
+        # template shows the word).
+        if col in MORE_TAG_COLS:
+            if v.get(col) is True and yes(on_page.get(slug_)) is not True:
+                out[slug_] = label
+        elif v.get(col) is not None:
             out[slug_] = word(v.get(col), label)
     m = oc.get('mention') or {}
     if v.get('listing_tier') == 'verified' and (m.get('title') or '').strip():
@@ -2074,9 +2117,11 @@ def sync_listing(v):
 for v in listing_:
     try:
         done = sync_listing(v)
-        sb(f"venues?id=eq.{v['id']}", method='PATCH',
-           body={'listing_synced_at': now, 'listing_sync_error': None,
-                 'webflow_verified': done['verified']},
+        body_ = {'listing_synced_at': now, 'listing_sync_error': None,
+                 'webflow_verified': done['verified']}
+        if v.get('tags_pending') is not None:
+            body_['tags_pending'] = None   # on the page now
+        sb(f"venues?id=eq.{v['id']}", method='PATCH', body=body_,
            prefer='return=minimal')
         report.setdefault('listings_synced', []).append(
             {'name': v.get('name'), **done})

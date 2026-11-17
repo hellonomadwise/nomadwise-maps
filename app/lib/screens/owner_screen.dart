@@ -2198,6 +2198,8 @@ class _OwnerScreenState extends State<OwnerScreen> {
         if (q.containsKey('utm_campaign')) '${q['utm_campaign']}',
         if (q.containsKey('billing')) 'billing link',
         if (q.containsKey('chat')) 'message link',
+        if (q['from'] == 'tag') 'Add a tag on their page',
+        if (q['from'] == 'update') 'Something need updating on their page',
       ].join(', ');
       _trk.start(
         device: w < 700 ? 'phone' : (w < 1100 ? 'tablet' : 'computer'),
@@ -2210,6 +2212,15 @@ class _OwnerScreenState extends State<OwnerScreen> {
       _trkTabSeen = _tab;
       _trkCur = _current;
       if (Uri.base.queryParameters.containsKey('ask')) _maybeAsk();
+      // From "Add a tag" on their own page (migration 332): the tags
+      // open ready to edit, once this frame is drawn.
+      if (q['edit'] == 'tags' && _tab == _Tab.listing) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && _editing == null && _tab == _Tab.listing) {
+            _startEdit('tags');
+          }
+        });
+      }
       return;
     }
     if (_tab != _trkTabSeen) {
