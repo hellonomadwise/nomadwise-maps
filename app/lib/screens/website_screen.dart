@@ -9308,10 +9308,30 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   /// listing stays in this list with those edits in it. Said here, with
   /// when, in case they are still typing.
   static List<Widget> _editedSince(Map<String, dynamic> d) {
+    // Sent by the clock, not by the owner (migration 335): they typed
+    // it, left without Save change, and it did not look unfinished.
+    final auto = d['auto_sent'] == true
+        ? <Widget>[
+            Container(
+              margin: const EdgeInsets.only(top: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+              decoration: BoxDecoration(
+                  color: Colors.white, borderRadius: BorderRadius.circular(8)),
+              child: const Text(
+                  'Sent automatically: the owner left without pressing '
+                  'Save change. Look a little closer, and send it back if '
+                  'it reads as unfinished.',
+                  style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      color: Brand.goldTextDark)),
+            ),
+          ]
+        : const <Widget>[];
     final sub = DateTime.tryParse('${d['submitted_at'] ?? ''}');
     final upd = DateTime.tryParse('${d['updated_at'] ?? ''}');
     if (sub == null || upd == null || upd.difference(sub).inSeconds < 60) {
-      return const [];
+      return auto;
     }
     final mins = DateTime.now().toUtc().difference(upd.toUtc()).inMinutes;
     final when = mins < 1
@@ -9322,6 +9342,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                 ? '${mins ~/ 60} h ago'
                 : DateFormat('d MMM, HH:mm').format(upd.toLocal());
     return [
+      ...auto,
       Container(
         margin: const EdgeInsets.only(top: 6),
         padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),

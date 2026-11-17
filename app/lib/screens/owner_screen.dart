@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert' show jsonEncode;
 import 'dart:ui' show ImageFilter;
 
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -243,6 +244,15 @@ class _OwnerScreenState extends State<OwnerScreen> {
   DateTime _lastEdit = DateTime(2000);
   DateTime? _autoSavedAt;
 
+  // The price list is kept as it is typed too (migration 335). Its
+  // rows are not part of the listing's draft, so leaving the price
+  // editor without Save change used to lose them.
+  String _priceSig = ''; // the rows as last kept, or as opened
+  String _priceSeen = ''; // the rows at the last tick
+  String _priceOpenSig = ''; // the rows when the editor opened
+  Map<String, dynamic>? _priceOpenDraft; // what was kept then
+  bool _priceSaving = false;
+
   static const _days = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
   static const _dayNames = {
     'mon': 'Monday',
@@ -280,6 +290,16 @@ class _OwnerScreenState extends State<OwnerScreen> {
   Map<String, dynamic>? get _draft => (_venue?['draft'] is Map)
       ? Map<String, dynamic>.from(_venue!['draft'] as Map)
       : null;
+
+  /// The price list as typed and not sent yet (migration 335).
+  Map<String, dynamic>? get _priceDraft => (_venue?['price_draft'] is Map)
+      ? Map<String, dynamic>.from(_venue!['price_draft'] as Map)
+      : null;
+
+  static List<Map<String, dynamic>> _keptRows(Map<String, dynamic> kept) => [
+        for (final p in (kept['rows'] as List? ?? const []))
+          if (p is Map) Map<String, dynamic>.from(p)
+      ];
 
   /// True while the hours in the form are still Google's, as loaded.
   bool get _hoursUntouched =>
@@ -344,6 +364,71 @@ class _OwnerScreenState extends State<OwnerScreen> {
           DateTime.now().difference(_lastEdit) > const Duration(seconds: 2)) {
         _autosave();
       }
+      _autosavePrices();
+    });
+  }
+
+  List<Map<String, dynamic>> _rowsJson() => [
+        for (final r in _priceRows)
+          if (!r.isBlank) r.toJson()
+      ];
+
+  String _rowsSig() {
+    try {
+      return jsonEncode({'c': _currency, 'r': _rowsJson()});
+    } catch (_) {
+      return _priceSig;
+    }
+  }
+
+  /// Keeps the price list as typed, once it has stopped changing for a
+  /// tick (three seconds). [now]: without waiting, when the editor is
+  /// left for another part.
+  Future<void> _autosavePrices({bool now = false}) async {
+    if (_isPreview || _editing != 'prices' || _priceSaving || _saving) return;
+    final v = _venue;
+    if (v == null || !_supabase.signedIn) return;
+    final sig = _rowsSig();
+    if (sig == _priceSig) return;
+    if (!now && sig != _priceSeen) {
+      _priceSeen = sig; // still being typed
+      return;
+    }
+    final rows = _rowsJson();
+    final cur = _currency;
+    _priceSaving = true;
+    try {
+      await _supabase.ownerSavePriceDraft('${v['id']}', rows, cur);
+      _priceSig = sig;
+      v['price_draft'] = <String, dynamic>{'rows': rows, 'currency': cur};
+      if (mounted) setState(() => _autoSavedAt = DateTime.now());
+    } catch (_) {
+      // tried again at the next tick
+    } finally {
+      _priceSaving = false;
+    }
+  }
+
+  /// Cancel in the price editor: the kept list goes back to what it
+  /// was when the editor opened (none, or the list left before).
+  void _revertPriceDraft() {
+    final v = _venue;
+    if (v == null || _isPreview) return;
+    if (_priceSig == _priceOpenSig && !_priceSaving) return;
+    final was = _priceOpenDraft;
+    _priceSig = _priceOpenSig;
+    _priceSeen = _priceOpenSig;
+    if (was == null) {
+      v.remove('price_draft');
+    } else {
+      v['price_draft'] = was;
+    }
+    final id = '${v['id']}';
+    final rows = was == null ? null : _keptRows(was);
+    final cur = '${was?['currency'] ?? _currency}';
+    // after a save that is still on its way, so this one is the last
+    Future.delayed(Duration(milliseconds: _priceSaving ? 1500 : 0), () {
+      _supabase.ownerSavePriceDraft(id, rows, cur).catchError((_) {});
     });
   }
 
@@ -1280,6 +1365,21 @@ class _OwnerScreenState extends State<OwnerScreen> {
       _savedNote = null;
     });
     try {
+      // A price list left unsent goes with it (migration 335). From
+      // the price editor itself it has just been sent (_saveEdit).
+      final kept = _priceDraft;
+      if (submit && kept != null && _editing != 'prices') {
+        final res = await _supabase.ownerProposeProducts(
+            '${v['id']}', _keptRows(kept), '${kept['currency'] ?? _currency}');
+        final problems = (res['problems'] as List? ?? const []);
+        if (problems.isNotEmpty) {
+          if (!mounted) return;
+          setState(() => _savedNote = 'Please check your prices: '
+              '${problems.map((p) => '${(p as Map)['name']}: ${p['why']}').join('; ')}. '
+              'Open Prices to put them right.');
+          return;
+        }
+      }
       await _supabase.ownerSaveDraft(v['id'], _collect(), submit: submit);
       _cap(submit ? 'owner_submitted' : 'owner_saved',
           {'space': v['name']});
@@ -3053,63 +3153,123 @@ class _OwnerScreenState extends State<OwnerScreen> {
 
   Widget _statusBanner() {
     final d = _draft;
-    if (d == null) return const SizedBox.shrink();
-    final status = d['status'];
-    final (Color color, IconData icon, String text) = switch (status) {
-      'submitted' => (
-          Brand.goldTextDark,
-          Icons.hourglass_top,
-          'Waiting for Nomadwise approval. Your page shows your changes '
-              'here; the live page stays as it is until we approve them. '
-              'You can keep editing: saving again replaces what we have.'
-        ),
-      'declined' => (
-          Brand.red,
-          Icons.undo,
-          'We sent your last changes back'
-              '${(d['review_note'] ?? '').toString().isNotEmpty ? ': ${d['review_note']}' : '.'}'
-              ' Edit the part and press Save change when ready.'
-        ),
-      'applied' => (
-          Brand.success,
-          Icons.check_circle_outline,
-          'Your last changes are on the page.'
-        ),
-      _ => (
-          Brand.inkSecondary,
-          Icons.edit_outlined,
-          'You have changes that are not sent yet. Your page shows them '
-              'here, but the live page stays as it is until they are sent '
-              'and approved.'
-        ),
-    };
-    final unsent = status != 'submitted' &&
+    // The price list as typed and not sent (migration 335).
+    final kept = _isPreview ? null : _priceDraft;
+    if (d == null && kept == null) return const SizedBox.shrink();
+    final status = d?['status'];
+    // Why what was left unsent was not sent for them: it looks
+    // unfinished (migration 335).
+    final held = <String>[
+      for (final x in (d?['held'] as List? ?? const [])) '$x',
+      for (final x in (kept?['held'] as List? ?? const [])) '$x',
+    ];
+    final unsentListing = d != null &&
+        status != 'submitted' &&
         status != 'declined' &&
         status != 'applied';
+    // (d?. below: a null check kept in a variable does not promote d)
+    // A draft that is the same as the page (an edit undone) is nothing
+    // to send. Only the database says so; just after a save it has not
+    // been asked yet.
+    final same = unsentListing &&
+        (d?.containsKey('unsent') ?? false) &&
+        d?['unsent'] == null &&
+        held.isEmpty;
+    final unsent = (unsentListing && !same) || kept != null;
+    if (!unsent && (d == null || same)) return const SizedBox.shrink();
+    final what = [
+      if (unsentListing && '${d?['unsent'] ?? ''}'.isNotEmpty)
+        '${d?['unsent']}',
+      if (kept != null) 'price list',
+    ].join(', ');
+    final (Color color, IconData icon, String text) = unsent
+        ? (held.isNotEmpty
+            ? (
+                Brand.goldTextDark,
+                Icons.pause_circle_outline,
+                'Not sent yet, because something looks unfinished: '
+                    '${held.join('; ')}. Finish it and press Save change, '
+                    'or send it as it is.'
+              )
+            : (
+                Brand.inkSecondary,
+                Icons.edit_outlined,
+                'You have changes that are not sent yet'
+                    '${what.isEmpty ? '' : ' ($what)'}. Send them when you '
+                    'are finished. If you leave them, we send them for '
+                    'review ourselves after about 15 minutes. The live page '
+                    'stays as it is until they are approved.'
+              ))
+        : switch (status) {
+            'declined' => (
+                Brand.red,
+                Icons.undo,
+                'We sent your last changes back'
+                    '${(d?['review_note'] ?? '').toString().isNotEmpty ? ': ${d?['review_note']}' : '.'}'
+                    ' Edit the part and press Save change when ready.'
+              ),
+            'applied' => (
+                Brand.success,
+                Icons.check_circle_outline,
+                'Your last changes are on the page.'
+              ),
+            _ => (
+                Brand.goldTextDark,
+                Icons.hourglass_top,
+                '${d?['auto_sent'] == true ? 'We sent your changes for review for you, as they were left unsent. ' : ''}'
+                    'Waiting for Nomadwise approval. Your page shows your '
+                    'changes here; the live page stays as it is until we '
+                    'approve them. You can keep editing: saving again '
+                    'replaces what we have.'
+              ),
+          };
     // My listing has no Submit button any more: a draft left without
-    // Save change can be sent from here. On a phone the button goes
-    // under the words, so they keep the full width.
-    final send = unsent && _tab == _Tab.listing && _editing == null
-        ? FilledButton(
-            onPressed: _saving ? null : () => _save(submit: true),
-            style: FilledButton.styleFrom(
-                backgroundColor: Brand.red, minimumSize: const Size(0, 40)),
-            child: Text(
-                _saving
-                    ? 'Sending'
-                    : widget.team
-                        ? 'Save to the page'
-                        : 'Send my changes',
-                softWrap: false))
+    // Save change can be sent from here, or dropped. On a phone the
+    // buttons go under the words, so they keep the full width.
+    final actions = unsent && _tab == _Tab.listing && _editing == null
+        ? Wrap(spacing: 8, runSpacing: 8, children: [
+            FilledButton(
+                onPressed: _saving ? null : () => _save(submit: true),
+                style: FilledButton.styleFrom(
+                    backgroundColor: Brand.red,
+                    minimumSize: const Size(0, 40)),
+                child: Text(
+                    _saving
+                        ? 'Sending'
+                        : widget.team
+                            ? 'Save to the page'
+                            : held.isNotEmpty
+                                ? 'Send as it is'
+                                : 'Send my changes',
+                    softWrap: false)),
+            if (!_isPreview)
+              OutlinedButton(
+                  onPressed: _saving ? null : _discard,
+                  style: OutlinedButton.styleFrom(
+                      foregroundColor: Brand.ink,
+                      minimumSize: const Size(0, 40)),
+                  child: const Text('Discard', softWrap: false)),
+          ])
         : null;
-    final narrow = MediaQuery.sizeOf(context).width < 600;
+    // Why a send from here did not go (the edit frame shows its own).
+    final note = _savedNote;
+    final problem = _editing == null &&
+            _tab == _Tab.listing &&
+            note != null &&
+            !note.startsWith('Sent') &&
+            !note.startsWith('Draft') &&
+            !note.startsWith('Saved') &&
+            !note.startsWith('Preview')
+        ? note
+        : null;
+    final narrow = MediaQuery.sizeOf(context).width < 700;
     final words = Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Icon(icon, size: 18, color: color),
       const SizedBox(width: 10),
       Expanded(
           child: Text(text,
               style: TextStyle(fontSize: 13, height: 1.45, color: color))),
-      if (send != null && !narrow) ...[const SizedBox(width: 10), send],
+      if (actions != null && !narrow) ...[const SizedBox(width: 10), actions],
     ]);
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
@@ -3117,14 +3277,69 @@ class _OwnerScreenState extends State<OwnerScreen> {
       decoration: BoxDecoration(
           color: color.withValues(alpha: .08),
           borderRadius: BorderRadius.circular(8)),
-      child: send != null && narrow
-          ? Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              words,
-              const SizedBox(height: 10),
-              Padding(padding: const EdgeInsets.only(left: 28), child: send),
-            ])
-          : words,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        words,
+        if (actions != null && narrow) ...[
+          const SizedBox(height: 10),
+          Padding(padding: const EdgeInsets.only(left: 28), child: actions),
+        ],
+        if (problem != null) ...[
+          const SizedBox(height: 8),
+          Padding(
+              padding: const EdgeInsets.only(left: 28),
+              child: Text(problem,
+                  style: const TextStyle(fontSize: 13, color: Brand.red))),
+        ],
+      ]),
     );
+  }
+
+  /// Discard: what was typed and never sent is dropped, the price list
+  /// too, and the listing shows as it is on the live page (migration
+  /// 335). Asked first: it cannot be brought back.
+  Future<void> _discard() async {
+    final v = _venue;
+    if (v == null || _isPreview) return;
+    final yes = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        title: const Text('Discard these changes?'),
+        content: const Text(
+            'What you changed and did not send is dropped, and your '
+            'listing here goes back to how it is on the live page. '
+            'Anything already sent to us stays with us.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Keep them')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: FilledButton.styleFrom(backgroundColor: Brand.red),
+              child: const Text('Discard')),
+        ],
+      ),
+    );
+    if (yes != true || !mounted) return;
+    setState(() {
+      _saving = true;
+      _savedNote = null;
+    });
+    try {
+      await _supabase.ownerDiscardChanges('${v['id']}');
+      _cap('owner_discarded', {'space': v['name']});
+      _dirty = false;
+      await _load();
+      if (!mounted) return;
+      setState(() {
+        _dirty = false;
+        _autoSavedAt = null;
+      });
+    } catch (e) {
+      if (mounted) setState(() => _savedNote = 'That did not work: $e');
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   /// Once, after signing in: signing in is not needed every time.
@@ -3172,16 +3387,15 @@ class _OwnerScreenState extends State<OwnerScreen> {
                 ? (Icons.edit_outlined, Brand.goldTextDark, 'Unsaved changes')
                 : _autoSavedAt != null
                     ? (Icons.cloud_done_outlined, Brand.success,
-                        'Draft saved. Nothing changes on your page until '
-                            'you submit for review.')
+                        'Saved, not sent yet. Press Submit for review when '
+                            'you are finished. If you leave it, we send it '
+                            'for review ourselves after about 15 minutes.')
                     : (Icons.info_outline, Brand.inkSecondary,
-                        'Edits are saved as a draft as you go. Submit for '
-                            'review when you are ready.');
+                        'What you type is kept as you go. Submit for '
+                            'review when you are finished.');
+    // (No Save draft button since 17 Nov 2026: typing saves, and what
+    // is left unsent sends itself unless it looks unfinished.)
     final buttons = Wrap(spacing: 8, runSpacing: 8, children: [
-      if (!widget.team)
-        OutlinedButton(
-            onPressed: _saving ? null : () => _save(submit: false),
-            child: const Text('Save draft')),
       FilledButton(
           onPressed: _saving ? null : () => _save(submit: true),
           style: FilledButton.styleFrom(backgroundColor: Brand.red),
@@ -3624,9 +3838,12 @@ class _OwnerScreenState extends State<OwnerScreen> {
       r.dispose();
     }
     _priceRows.clear();
-    final page = _pageProductRows;
+    // A list left unsent before comes back as it was left (migration
+    // 335); otherwise the prices on the page.
+    final kept = _isPreview ? null : _priceDraft;
+    final page = kept != null ? _keptRows(kept) : _pageProductRows;
     for (final p in page) {
-      final amt = p['amount'];
+      final amt = '${p['amount'] ?? ''}'.trim().isEmpty ? null : p['amount'];
       final details = [for (final x in (p['details'] as List? ?? const [])) '$x'];
       _priceRows.add(_PriceRow(
         id: (p['id'] ?? '').toString().isEmpty ? null : '${p['id']}',
@@ -3640,7 +3857,11 @@ class _OwnerScreenState extends State<OwnerScreen> {
       final cur = '${p['currency'] ?? ''}'.trim().toUpperCase();
       if (cur.length == 3) _currency = cur;
     }
-    if (page.isEmpty && _venue?['type'] != 'cafe') {
+    if (kept != null) {
+      final cur = '${kept['currency'] ?? ''}'.trim().toUpperCase();
+      if (cur.length == 3) _currency = cur;
+    }
+    if (kept == null && page.isEmpty && _venue?['type'] != 'cafe') {
       for (final (c, label) in [
         (_priceDay, 'Day pass'),
         (_priceWeek, 'Week pass'),
@@ -4681,7 +4902,20 @@ class _OwnerScreenState extends State<OwnerScreen> {
   void _startEdit(String part) {
     if (_editing != null && _editing != part) {
       _trk.editEnd('close', _venueId); // moved on, not given up
-      _cancelEdit();
+      // What was typed in the part being left stays: it is kept as a
+      // draft and goes with the next Save change, or by itself after
+      // fifteen quiet minutes (migration 335). Only Cancel puts a part
+      // back. Until 17 Nov 2026 moving on undid it without a word.
+      final left = _editing;
+      final s = _snap;
+      if (left == 'prices') {
+        _autosavePrices(now: true);
+        // the old day, week and month boxes the list emptied: put back,
+        // or they would be sent as "removed" with no list in their place
+        if (s != null) _restore('prices', s);
+      }
+      _editing = null;
+      _snap = null;
     }
     // The snapshot first: Cancel puts back the old boxes the list
     // empties.
@@ -4694,6 +4928,10 @@ class _OwnerScreenState extends State<OwnerScreen> {
       _pasteBusy = false;
       _pasteError = null;
       _pasteDone = null;
+      _priceSig = _rowsSig();
+      _priceSeen = _priceSig;
+      _priceOpenSig = _priceSig;
+      _priceOpenDraft = _isPreview ? null : _priceDraft;
     }
     setState(() {
       _snap = snap;
@@ -4724,6 +4962,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
     final s = _snap;
     _trk.editEnd('cancel', _venueId);
     _maybeAsk();
+    if (part == 'prices') _revertPriceDraft();
     if (part != null && s != null) _restore(part, s);
     setState(() {
       _editing = null;
@@ -5784,8 +6023,9 @@ class _OwnerScreenState extends State<OwnerScreen> {
               ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 360),
                 child: const Text(
-                    'Saving sends this to Nomadwise. It goes live once '
-                    'approved; until then your page stays as it is.',
+                    'What you type is kept as you go. Save change sends '
+                    'it to Nomadwise; it goes live once approved, and '
+                    'until then your page stays as it is.',
                     style: TextStyle(
                         fontSize: 12.5, height: 1.45, color: _edMuted)),
               ),

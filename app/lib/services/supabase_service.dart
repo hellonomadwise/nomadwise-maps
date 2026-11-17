@@ -265,6 +265,24 @@ class SupabaseService {
     }
   }
 
+  /// Owner: keeps the price list as typed and not sent yet (migration
+  /// 335); null [rows] forgets it. The clock sends it for review after
+  /// fifteen quiet minutes unless it looks unfinished.
+  Future<void> ownerSavePriceDraft(
+      String venueId, List<Map<String, dynamic>>? rows, String currency) async {
+    await _db.rpc('owner_save_price_draft', params: {
+      'p_venue': venueId,
+      'p_rows': rows,
+      'p_currency': currency,
+    });
+  }
+
+  /// Owner: drops what was typed and never sent, the price list too
+  /// (migration 335). What is with us for review stays.
+  Future<void> ownerDiscardChanges(String venueId) async {
+    await _db.rpc('owner_discard_changes', params: {'p_venue': venueId});
+  }
+
   /// Save the owner's draft; submit = true sends it for review.
   Future<Map<String, dynamic>> ownerSaveDraft(
       String venueId, Map<String, dynamic> draft,
