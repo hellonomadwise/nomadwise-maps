@@ -261,12 +261,12 @@
       '.nwp-sheet.in{background:rgba(20,32,50,.5);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}',
       '.nwp-dlg{position:relative;background:#fff;border-radius:8px;width:100%;max-width:480px;max-height:calc(100vh - 48px);display:flex;flex-direction:column;box-shadow:0 24px 64px rgba(20,32,50,.28),0 2px 8px rgba(20,32,50,.08);overflow:hidden;opacity:0;transform:translateY(10px) scale(.98);transition:opacity .2s ' + EASE + ',transform .24s ' + EASE + '}',
       '.nwp-sheet.in .nwp-dlg{opacity:1;transform:none}',
-      '.nwp-hd{display:flex;align-items:center;gap:12px;padding:14px 12px 14px 16px;border-bottom:1px solid var(--nwp-line)}',
-      '.nwp-hd img{width:52px;height:40px;border-radius:8px;object-fit:cover;flex:none;background:#E6E9ED}',
+      '.nwp-hd{display:flex;align-items:flex-start;gap:12px;padding:14px 10px 14px 16px;border-bottom:1px solid var(--nwp-line)}',
+      '.nwp-hd img{width:56px;height:56px;border-radius:8px;object-fit:cover;flex:none;background:#E6E9ED}',
       '.nwp-hd-t{flex:1 1 auto;min-width:0}',
       '.nwp-hd-t small{display:block;font-size:12px;color:var(--nwp-muted);line-height:1.3}',
-      '.nwp-hd-t h2{margin:0;font-size:16.5px;font-weight:700;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-      '.nwp-chipp{flex:none;font-size:13px;font-weight:700;padding:5px 9px;border-radius:8px;background:#FFF1F2;color:var(--nwp-red-ink);white-space:nowrap}',
+      '.nwp-hd-t h2{margin:1px 0 0;font-size:17px;font-weight:700;line-height:1.25;overflow-wrap:anywhere}',
+      '.nwp-chipp{display:inline-block;margin-top:7px;font-size:13px;font-weight:700;padding:4px 9px;border-radius:8px;background:#FFF1F2;color:var(--nwp-red-ink);white-space:nowrap}',
       '.nwp-x{flex:none;width:38px;height:38px;border:0;border-radius:8px;background:transparent;color:var(--nwp-ink);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s}',
       '.nwp-x:hover{background:var(--nwp-soft)}',
       '.nwp-bd{flex:1 1 auto;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:16px;overscroll-behavior:contain}',
@@ -465,8 +465,8 @@
     var gi = groupOf(it.id);
     var pic = photoFor(gi);
     var head = '<div class="nwp-hd">' + (pic ? '<img src="' + esc(pic) + '" alt="">' : '') +
-      '<div class="nwp-hd-t"><small>Send a request to ' + esc(data.space) + '</small><h2 id="nwp-dlg-h">' + esc(it.full) + '</h2></div>' +
-      '<span class="nwp-chipp">' + esc(it.priceText) + '</span>' +
+      '<div class="nwp-hd-t"><small>Send a request to ' + esc(data.space) + '</small><h2 id="nwp-dlg-h">' + esc(it.full) + '</h2>' +
+      '<span class="nwp-chipp">' + esc(it.priceText) + '</span></div>' +
       '<button type="button" class="nwp-x" data-a="close" data-k="x" aria-label="Close">' + ICON_X + '</button></div>';
     if (S.sent) {
       var rows = [['What', it.full + ' (' + it.priceText + ')'], ['People', S.people], ['When', S.sentWhen]];
