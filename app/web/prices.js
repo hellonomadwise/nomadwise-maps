@@ -113,15 +113,22 @@
       var details = (p.details || []).map(function (x) { return String(x || '').trim(); }).filter(Boolean);
       var period = periodOf(p.name, details, cat);
       var name = String(p.name || '').replace(/\s*\((hour|half day|day|week|month|year)\)\s*$/i, '').trim();
-      if (cat === 'meeting_room' && /^meeting room\s+\S/i.test(name)) name = name.replace(/^meeting room\s+/i, '');
+      // "Meeting room Tokyo" reads as "Tokyo" under Meeting rooms, but a
+      // room the space calls "Meeting Room 1" or "Meeting Room LG.02"
+      // keeps its name: the space has to recognise it in a request.
+      if (cat === 'meeting_room' && /^meeting room\s+[a-z]{3,}/i.test(name) && !/^meeting room\s+\S*[\d.&]/i.test(name)) name = name.replace(/^meeting room\s+/i, '');
       var label = money(p.amount, p.currency, p.label);
       // Webflow's "Starting from" marks the price shown on a phone, not
       // a "from" price: "from" comes only from the price's own words.
       var from = false;
+      // A label that already says "From £118" is a "from" price: keep
+      // the word out of the label so it is never written twice.
+      if (/^from\s+\S/i.test(label)) { from = true; label = label.replace(/^from\s+/i, ''); }
       var vat = null;
       var notes = details.filter(function (d) {
         var l = d.toLowerCase();
         if (/^(per|a|an) (hour|day|week|month|year)$|^monthly$|^daily$|^hourly$/.test(l)) return false;
+        if (/^price per room, per (hour|day)$|^per (person|desk), per (month|day)$|^per desk$/.test(l) && period) return false;
         if (/\bvat\b/.test(l) && d.length < 30) { vat = d; return false; }
         if (/^from\b/.test(l) && l.indexOf(label.toLowerCase()) >= 0) { from = true; return false; }
         return true;
@@ -229,6 +236,11 @@
       '.nwp-tab[aria-selected="true"]{background:#fff;box-shadow:inset 0 -3px 0 var(--nwp-red)}',
       '.nwp-tab b{display:block;font-size:14.5px;line-height:1.3}',
       '.nwp-tab span{display:block;font-size:12.5px;color:var(--nwp-muted);line-height:1.3}',
+      '.nwp-tabs-fit{overflow:hidden}',
+      '.nwp-tabs-fit .nwp-tab{flex:1 1 0;min-width:0;padding:8px 6px;text-align:center}',
+      '.nwp-tabs-fit .nwp-tab b{font-size:13.5px}',
+      '.nwp-tabs-fit .nwp-tab span{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+      '.nwp-tabs:not(.nwp-tabs-fit){-webkit-mask-image:linear-gradient(90deg,#000 86%,transparent);mask-image:linear-gradient(90deg,#000 86%,transparent)}',
       '.nwp-tp{animation:nwp-in .25s ' + EASE + ' both}',
       '.nwp-timg{display:block;width:100%;aspect-ratio:16/10;object-fit:cover;background:#E6E9ED}',
       '.nwp-tp .nwp-rows{padding:2px 14px 6px}',
@@ -236,6 +248,13 @@
       '.nwp-tp .nwp-rn{display:flex;flex-direction:column}',
       '.nwp-tp .nwp-enq{min-height:40px}',
       '.nwp-tp .nwp-r{gap:12px}',
+      // The phone row (Jonathan, 21 Nov 2026): the name has the row's
+      // width, its price sits under it, the button to the right of both.
+      '.nwp-tp .nwp-r{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:14px;row-gap:3px;align-items:center;padding:13px 0}',
+      '.nwp-tp .nwp-rn{grid-column:1;grid-row:1;line-height:1.3}',
+      '.nwp-tp .nwp-rn b{font-size:15px}',
+      '.nwp-tp .nwp-rp{grid-column:1;grid-row:2;font-size:15px;font-weight:400;white-space:normal}',
+      '.nwp-tp .nwp-enq{grid-column:2;grid-row:1 / span 2}',
       // the pop-up
       '.nwp-sheet{position:fixed;inset:0;z-index:2147483002;display:none;align-items:center;justify-content:center;padding:24px;font-family:Roboto,sans-serif;color:var(--nwp-ink);background:rgba(20,32,50,0);-webkit-backdrop-filter:blur(0);backdrop-filter:blur(0);transition:background .2s,backdrop-filter .2s,-webkit-backdrop-filter .2s}',
       '.nwp-sheet.open{display:flex}',
@@ -385,11 +404,13 @@
     var g = data.groups[gi];
     var h = '<div class="nwp-box">';
     if (data.groups.length > 1) {
-      h += '<div class="nwp-tabs" role="tablist" aria-label="Kinds of space">';
+      // Three or fewer share the width; more than that scroll sideways.
+      var fit = data.groups.length <= 3;
+      h += '<div class="nwp-tabs' + (fit ? ' nwp-tabs-fit' : '') + '" role="tablist" aria-label="Kinds of space">';
       data.groups.forEach(function (x, i) {
         var on = i === gi;
         h += '<button type="button" class="nwp-tab" role="tab" id="nwp-tab-' + i + '" aria-controls="nwp-tp" aria-selected="' + on + '" tabindex="' + (on ? 0 : -1) + '" data-a="tab" data-v="' + i + '" data-k="t' + i + '">' +
-          '<b>' + esc(x.title) + '</b><span>' + (x.fromWord ? 'from ' : '') + esc(x.price) + esc(x.per.replace('/month', '/mo').replace('/hour', '/hr')) + '</span></button>';
+          '<b>' + esc(fit && x.key === 'private_office' ? 'Offices' : x.title) + '</b><span>' + (x.fromWord ? 'from ' : '') + esc(x.price) + esc(x.per.replace('/month', '/mo').replace('/hour', '/hr')) + '</span></button>';
       });
       h += '</div>';
     }
