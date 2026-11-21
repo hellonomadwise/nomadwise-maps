@@ -1,0 +1,399 @@
+{
+  "started": "2026-11-21T12:50:46.700241+00:00",
+  "items_read": 1091,
+  "live_items": 1048,
+  "sitemap_source": "snapshot 2026-09-12",
+  "matched_by_place_id": 1038,
+  "matched_by_cms_id": 16,
+  "inserted": 0,
+  "updated": 1054,
+  "marked_removed": 0,
+  "status_counts": {
+    "released": 1039,
+    "retired": 13,
+    "removed": 2
+  },
+  "no_place_id": [],
+  "inserted_names": [],
+  "skipped_not_live_new": 28,
+  "queued_for_site": 38,
+  "created_on_site": [],
+  "needs_location": [],
+  "errors": [],
+  "sitemap_entries": 1040,
+  "sitemap_marked": 0,
+  "sitemap_unmarked": 0,
+  "sitemap_region_entries": 168,
+  "sitemap_region_marked": 0,
+  "sitemap_region_unmarked": 0,
+  "sitemap_locations_entries": 304,
+  "sitemap_locations_marked": 0,
+  "sitemap_locations_unmarked": 0,
+  "sitemap_country_entries": 66,
+  "sitemap_country_marked": 0,
+  "sitemap_country_unmarked": 0,
+  "prepared": [
+    {
+      "name": "Spaces Theobalds Road",
+      "slug": "england-london-spaces-theobalds-road",
+      "region": "London"
+    },
+    {
+      "name": "ARC Earlsfield",
+      "slug": "england-london-arc-earlsfield",
+      "region": "London"
+    },
+    {
+      "name": "WeWork Aldwych House",
+      "slug": "england-london-wework-aldwych-house",
+      "region": "London"
+    },
+    {
+      "name": "WeWork Aviation House",
+      "slug": "england-london-wework-aviation-house",
+      "region": "London"
+    },
+    {
+      "name": "Flex by Grosvenor - 22 Grosvenor Gardens",
+      "slug": "england-london-flex-by-grosvenor",
+      "region": "London"
+    },
+    {
+      "name": "MYO King's Cross",
+      "slug": "england-london-myo-kings-cross",
+      "region": "London"
+    },
+    {
+      "name": "Flex by Grosvenor - 25 Eccleston Place",
+      "slug": "england-london-flex-by-grosvenor-2",
+      "region": "London"
+    },
+    {
+      "name": "Clockwise Bromley",
+      "slug": "england-london-clockwise-bromley",
+      "region": "London"
+    },
+    {
+      "name": "De Beauvoir Block",
+      "slug": "england-london-de-beauvoir-block",
+      "region": "London"
+    },
+    {
+      "name": "Huckletree Liverpool Street",
+      "slug": "england-london-huckletree-liverpool-street",
+      "region": "London"
+    },
+    {
+      "name": "Runway East Shoreditch",
+      "slug": "england-london-runway-east-shoreditch",
+      "region": "London"
+    },
+    {
+      "name": "Spaces Victoria",
+      "slug": "england-london-spaces-victoria",
+      "region": "London"
+    },
+    {
+      "name": "Clockwise Wood Green",
+      "slug": "england-london-clockwise-wood-green",
+      "region": "London"
+    },
+    {
+      "name": "x+why Fivefields",
+      "slug": "england-london-x-why-fivefields",
+      "region": "London"
+    },
+    {
+      "name": "Techspace St Andrew Street",
+      "slug": "england-london-techspace-st-andrew-street",
+      "region": "London"
+    },
+    {
+      "name": "Runway East Bloomsbury",
+      "slug": "england-london-runway-east-bloomsbury",
+      "region": "London"
+    },
+    {
+      "name": "WeWork Kings Place",
+      "slug": "england-london-wework-kings-place",
+      "region": "London"
+    },
+    {
+      "name": "Makerversity",
+      "slug": "england-london-makerversity",
+      "region": "London"
+    },
+    {
+      "name": "Silver Building",
+      "slug": "england-london-silver-building",
+      "region": "London"
+    },
+    {
+      "name": "Spaces Highbury and Islington",
+      "slug": "england-london-spaces-highbury-and-islington",
+      "region": "London"
+    },
+    {
+      "name": "TownSq Kingston",
+      "slug": "england-london-townsq-kingston",
+      "region": "London"
+    },
+    {
+      "name": "The Engine Room",
+      "slug": "england-london-the-engine-room",
+      "region": "London"
+    },
+    {
+      "name": "Spaces Fitzrovia",
+      "slug": "england-london-spaces-fitzrovia",
+      "region": "London"
+    },
+    {
+      "name": "The Work Project - One Leadenhall",
+      "slug": "england-london-the-work-project",
+      "region": "London"
+    },
+    {
+      "name": "Spaces Euston Road",
+      "slug": "england-london-spaces-euston-road",
+      "region": "London"
+    },
+    {
+      "name": "Spaces Covent Garden",
+      "slug": "england-london-spaces-covent-garden",
+      "region": "London"
+    },
+    {
+      "name": "Huckletree Soho",
+      "slug": "england-london-huckletree-soho",
+      "region": "London"
+    },
+    {
+      "name": "Knotel Old Sessions House",
+      "slug": "england-london-knotel-old-sessions-house",
+      "region": "London"
+    },
+    {
+      "name": "RIVVIA Covent Garden",
+      "slug": "england-london-rivvia-covent-garden",
+      "region": "London"
+    },
+    {
+      "name": "Spaces Finsbury Park",
+      "slug": "england-london-spaces-finsbury-park",
+      "region": "London"
+    },
+    {
+      "name": "x+why One Great Cumberland Place",
+      "slug": "england-london-x-why-one-great-cumberland-place",
+      "region": "London"
+    },
+    {
+      "name": "Expressway by General People",
+      "slug": "england-london-expressway-by-general-people",
+      "region": "London"
+    },
+    {
+      "name": "Industrious 15 Fitzroy",
+      "slug": "england-london-industrious-15-fitzroy",
+      "region": "London"
+    },
+    {
+      "name": "Cubo Soho",
+      "slug": "england-london-cubo-soho",
+      "region": "London"
+    },
+    {
+      "name": "Huckletree Leadenhall",
+      "slug": "england-london-huckletree-leadenhall",
+      "region": "London"
+    },
+    {
+      "name": "x+why Bloomsbury House",
+      "slug": "england-london-x-why-bloomsbury-house",
+      "region": "London"
+    },
+    {
+      "name": "Oru Space Sutton",
+      "slug": "england-london-oru-space-sutton",
+      "region": "London"
+    },
+    {
+      "name": "x+why Arding & Hobbs",
+      "slug": "england-london-x-why-arding-hobbs",
+      "region": "London"
+    }
+  ],
+  "awaiting_approval": [
+    "Spaces Theobalds Road",
+    "ARC Earlsfield",
+    "WeWork Aldwych House",
+    "WeWork Aviation House",
+    "Flex by Grosvenor - 22 Grosvenor Gardens",
+    "MYO King's Cross",
+    "Flex by Grosvenor - 25 Eccleston Place",
+    "Clockwise Bromley",
+    "De Beauvoir Block",
+    "Huckletree Liverpool Street",
+    "Runway East Shoreditch",
+    "Spaces Victoria",
+    "Clockwise Wood Green",
+    "x+why Fivefields",
+    "Techspace St Andrew Street",
+    "Runway East Bloomsbury",
+    "WeWork Kings Place",
+    "Makerversity",
+    "Silver Building",
+    "Spaces Highbury and Islington",
+    "TownSq Kingston",
+    "The Engine Room",
+    "Spaces Fitzrovia",
+    "The Work Project - One Leadenhall",
+    "Spaces Euston Road",
+    "Spaces Covent Garden",
+    "Huckletree Soho",
+    "Knotel Old Sessions House",
+    "RIVVIA Covent Garden",
+    "Spaces Finsbury Park",
+    "x+why One Great Cumberland Place",
+    "Expressway by General People",
+    "Industrious 15 Fitzroy",
+    "Cubo Soho",
+    "Huckletree Leadenhall",
+    "x+why Bloomsbury House",
+    "Oru Space Sutton",
+    "x+why Arding & Hobbs"
+  ],
+  "taxonomy_requests": 0,
+  "retire_requests": 0,
+  "listing_requests": 9,
+  "upgrade_writes": 0,
+  "regions_copied": 178,
+  "listings_synced": [
+    {
+      "name": "Techspace Goswell Road",
+      "verified": false,
+      "email": "spaces@nomadwise.io",
+      "republished": true
+    },
+    {
+      "name": "Elementa - Wogan House",
+      "verified": false,
+      "email": "spaces@nomadwise.io",
+      "republished": true
+    },
+    {
+      "name": "Huckletree Westminster",
+      "verified": false,
+      "email": "spaces@nomadwise.io",
+      "republished": true
+    },
+    {
+      "name": "Halkin - 68 King William Street",
+      "verified": false,
+      "email": "spaces@nomadwise.io",
+      "republished": true
+    },
+    {
+      "name": "WeWork 123 Buckingham Palace Road",
+      "verified": false,
+      "email": "spaces@nomadwise.io",
+      "republished": true
+    },
+    {
+      "name": "Spaces Angel Islington",
+      "verified": false,
+      "email": "spaces@nomadwise.io",
+      "republished": true
+    },
+    {
+      "name": "Regus Euston - Woburn Place",
+      "verified": false,
+      "email": "spaces@nomadwise.io",
+      "republished": true
+    },
+    {
+      "name": "WeWork 10 York Road",
+      "verified": false,
+      "email": "spaces@nomadwise.io",
+      "republished": true
+    },
+    {
+      "name": "GO Bermondsey",
+      "verified": false,
+      "email": "spaces@nomadwise.io",
+      "republished": true
+    }
+  ],
+  "page_text_copied": 28,
+  "page_facts": 1041,
+  "upgrades": {
+    "queue": {
+      "title:applied": 2,
+      "photos:applied": 1,
+      "description:applied": 2,
+      "search_description:applied": 2,
+      "search_description:superseded": 1
+    },
+    "drafted_slugs": [
+      "indonesia-bali-flow-workspace",
+      "monday"
+    ],
+    "open_requests": [],
+    "page_requests": []
+  },
+  "google_fresh": [
+    "1SMART.SPACE",
+    "SwissOffices Astoria Kempinski",
+    "co.work",
+    "Madeira Friends Hub",
+    "SpecOps network",
+    "Zoku Vienna",
+    "Red Panda Hostel & Cafe",
+    "Hive Five Coworking Space Trogir",
+    "ShaPel Hostel x Cafes",
+    "Jiboia Studio",
+    "Techspace St Andrew Street",
+    "Oru Space Sutton",
+    "x+why Arding & Hobbs"
+  ],
+  "hours_backfilled": [],
+  "image_layout_fixed": [],
+  "page_photos": 1041,
+  "rotation": {
+    "day": "2026-11-21",
+    "ranked": 6,
+    "republished": 6,
+    "order": [
+      "Ofis Voyvoda Istanbul",
+      "Neighbors and Nomads Coworking",
+      "SOKKOOL Coliving & Coworking",
+      "Nomio Coworking Lounge",
+      "Monday",
+      "DEOS Coworking"
+    ]
+  },
+  "locations_copied": 367,
+  "location_suggested": [
+    "Spaces Theobalds Road: Holborn",
+    "WeWork Aviation House: Holborn",
+    "Flex by Grosvenor - 22 Grosvenor Gardens: Victoria",
+    "MYO King's Cross: King's Cross",
+    "Flex by Grosvenor - 25 Eccleston Place: Victoria",
+    "Huckletree Liverpool Street: Shoreditch",
+    "Runway East Shoreditch: Shoreditch",
+    "Spaces Victoria: Pimlico",
+    "x+why Fivefields: Victoria",
+    "Techspace St Andrew Street: Holborn",
+    "Runway East Bloomsbury: Holborn",
+    "WeWork Kings Place: King's Cross",
+    "Spaces Fitzrovia: Fitzrovia",
+    "The Work Project - One Leadenhall: City of London",
+    "Spaces Euston Road: Fitzrovia",
+    "Spaces Covent Garden: Covent Garden",
+    "RIVVIA Covent Garden: Covent Garden",
+    "x+why One Great Cumberland Place: Marylebone",
+    "Industrious 15 Fitzroy: Fitzrovia"
+  ],
+  "finished": "2026-11-21T12:52:27.331939+00:00"
+}
