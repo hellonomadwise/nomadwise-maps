@@ -1564,6 +1564,52 @@ class _PriceSpacePageState extends State<_PriceSpacePage> {
         return 'On its way to the website. It takes a few minutes.';
       });
 
+  /// Go on every change still waiting on this page, in one press.
+  /// Takings-off are left out: each of those keeps its own Go.
+  Future<void> _goAll(List<Map<String, dynamic>> changes) async {
+    if (changes.isEmpty) return;
+    final n = changes.length;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Go on all $n?'),
+        content: DialogBody(
+            child: Text('All $n changes waiting on this page go on the '
+                'website as they are shown here. Anything you want to '
+                'edit or skip first, do that before this. Each one can '
+                'still be undone afterwards.')),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Not yet')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text('Go on all $n')),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    await _run('all', () async {
+      var done = 0;
+      String? firstError;
+      for (final c in changes) {
+        try {
+          await _api.go('${c['id']}');
+          done++;
+        } catch (e) {
+          firstError ??= _plainError(e);
+        }
+      }
+      if (firstError != null) {
+        return done == 0
+            ? 'None of them went: $firstError'
+            : '$done of $n are on their way. The rest did not go: '
+                '$firstError';
+      }
+      return '$done on their way to the website. It takes a few minutes.';
+    });
+  }
+
   Future<void> _skip(Map<String, dynamic> c) => _run('${c['id']}', () async {
         await _api.skip('${c['id']}');
         return 'Skipped. The page stays as it is.';
@@ -2170,6 +2216,16 @@ class _PriceSpacePageState extends State<_PriceSpacePage> {
         for (final c in adds)
           if ('${c['status']}' == 'skipped') c
       ];
+      // What one "Go on all" would send: every change still waiting,
+      // except takings-off, which keep their own Go.
+      final goable = <Map<String, dynamic>>[
+        for (final p in waiting)
+          if ('${_asMap(p['open'])['status']}' == 'proposed' &&
+              '${_asMap(p['open'])['action']}' != 'remove')
+            _asMap(p['open']),
+        for (final c in openAdds)
+          if ('${c['status']}' == 'proposed') c,
+      ];
       final found = check == null ? null : _asMap(check['result']);
       final issues = priceIssues(_asPlanned(products, adds),
           toEur: (a, c) {
@@ -2326,6 +2382,19 @@ class _PriceSpacePageState extends State<_PriceSpacePage> {
                   if (issues.isNotEmpty) _worthChecking(v, issues),
                   if (waiting.isNotEmpty || openAdds.isNotEmpty) ...[
                     _section('To decide'),
+                    if (goable.length > 1)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: FilledButton.icon(
+                              onPressed: _busy.contains('all')
+                                  ? null
+                                  : () => _goAll(goable),
+                              icon: const Icon(Icons.done_all, size: 18),
+                              label: Text('Go on all ${goable.length}')),
+                        ),
+                      ),
                     for (final p in waiting) _productCard(p),
                     for (final c in openAdds) _addCard(c),
                   ],
