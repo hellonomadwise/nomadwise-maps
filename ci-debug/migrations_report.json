@@ -1,0 +1,13 @@
+{
+  "newly_applied": [],
+  "failed": [],
+  "error": null,
+  "share_pages": {
+    "venues": 1108,
+    "found": 5275,
+    "with_picture": 6337,
+    "skipped": 229,
+    "live_picture": true,
+    "seconds": 6.9
+  }
+}
