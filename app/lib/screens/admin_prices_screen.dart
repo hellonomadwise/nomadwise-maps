@@ -9,6 +9,7 @@ import '../theme.dart';
 import '../widgets/stat_grid.dart';
 import '../widgets/price.dart';
 import '../widgets/price_checks.dart';
+import 'prices_overview_screen.dart';
 
 /// The database's own words for a refused action.
 String _plainError(Object e) {
@@ -1128,6 +1129,19 @@ class _AdminPricesScreenState extends State<AdminPricesScreen> {
                                           label: const Text('How it works')),
                                   ]),
                             ]),
+                        const SizedBox(height: 12),
+                        // The overview: how far prices have got, over
+                        // time and by place (Jonathan, 22 Nov 2026).
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                              onPressed: () => Navigator.of(context).push(
+                                  MaterialPageRoute<void>(
+                                      builder: (_) =>
+                                          const PricesOverviewScreen())),
+                              icon: const Icon(Icons.bar_chart, size: 18),
+                              label: const Text('Prices overview')),
+                        ),
                         const SizedBox(height: 12),
                         if (overview != null) _numbers(overview),
                         const SizedBox(height: 12),
