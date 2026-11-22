@@ -7023,3 +7023,7 @@ Same day, after Jonathan's review:
 - The old dropdowns stay in the page, hidden by a class the script adds
   after it has drawn the new trail, so if it fails they simply show.
 - PostHog: breadcrumb_click, breadcrumb_switcher_open.
+- Same day: the area pages (/workspace/) use it too. Their breadcrumb is
+  generated text ("England / London / Shoreditch / Office space"), now with
+  the country flag first (sync_settings 'area_pages' pages[].flag); crumb.js
+  redraws it in the same style, without a switcher (the tabs switch).

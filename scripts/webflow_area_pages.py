@@ -417,9 +417,15 @@ def breadcrumb(page, label):
     crumbs = [(page['country'], L.get('country')), (page['city'], L.get('city')),
               (page['area'], L.get('coworking'))]
     out = []
+    # The country's flag (sync_settings 'area_pages' pages[].flag, the
+    # country item's Flag Icon) leads the trail; app/web/crumb.js redraws
+    # this breadcrumb like the rest of the site's.
+    flag = page.get('flag')
     for name, href in crumbs:
         if href:
-            out.append(f'<a href="{e(href)}">{e(name)}</a>')
+            pic = (f'<img src="{e(flag)}" alt="" width="20" height="15"> '
+                   if flag and not out else '')
+            out.append(f'<a href="{e(href)}">{pic}{e(name)}</a>')
     out.append(e(label))
     return '<p>' + ' / '.join(out) + '</p>'
 

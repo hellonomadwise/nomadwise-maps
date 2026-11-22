@@ -39,7 +39,8 @@
     '.nwbc-m li a:hover,.nwbc-m li a:focus{background:#F2F3F5;color:#1F2328;outline:none}',
     '.nwbc-m li a[aria-current]{font-weight:500;color:#1F2328}',
     '.nwbc-none{padding:8px;font-size:13px;color:#7A828C}',
-    'html.nwbc-on .product-pagination-wrap,html.nwbc-on .product-pagination-wrap-listings{display:none!important}',
+    'html.nwbc-on .product-pagination-wrap,html.nwbc-on .product-pagination-wrap-listings,html.nwbc-on [data-aw=crumb]{display:none!important}',
+    '[data-aw] .nwbc{margin:0 0 12px}',
     '@media (max-width:767px){',
     ' .nwbc{margin:16px 0}',
     ' .nwbc li.nwbc-far{display:none}',
@@ -63,15 +64,34 @@
   function track(ev, props) { try { if (window.posthog) window.posthog.capture(ev, props); } catch (e) {} }
 
   function run() {
-    var wrap = document.querySelector('.product-pagination-wrap,.product-pagination-wrap-listings');
-    if (!wrap || document.querySelector('.nwbc')) return;
+    if (document.querySelector('.nwbc')) return;
     var path = location.pathname.replace(/\/$/, '');
     var listing = /^\/coworking\//.test(path);
+    var area = /^\/workspace\//.test(path);
+    var wrap = area ? document.querySelector('[data-aw=crumb]')
+      : document.querySelector('.product-pagination-wrap,.product-pagination-wrap-listings');
+    if (!wrap) return;
+    var steps = [];
+
+    // Area pages (/workspace/, made by scripts/webflow_area_pages.py): the
+    // breadcrumb is links and the page's own name, "England / London /
+    // Shoreditch / Office space". No switcher: the tabs on the page switch.
+    if (area) {
+      [].slice.call(wrap.querySelectorAll('a[href]')).forEach(function (a) {
+        var h = a.getAttribute('href').replace(/^https?:\/\/[^/]+/, '').replace(/\/$/, '');
+        if (kind(h)) steps.push({ name: clean(a.textContent), href: h, opts: [], kind: kind(h) });
+      });
+      var label = clean(wrap.textContent).split('/').pop().trim();
+      var fi = wrap.querySelector('img');
+      if (steps.length && label) {
+        steps[0].flag = fi ? fi.getAttribute('src') : '';
+        steps.push({ name: label, href: path, opts: [], kind: 'area', current: true });
+      } else return;
+    }
 
     // The steps, from the old dropdowns: each toggle's name, and its list
     // of links (the names sit beside each link, in .checkbox_label).
-    var steps = [];
-    [].slice.call(wrap.children).forEach(function (dd) {
+    if (!area) [].slice.call(wrap.children).forEach(function (dd) {
       if (!dd.classList.contains('w-dropdown') || getComputedStyle(dd).display === 'none') return;
       var tog = dd.querySelector('.w-dropdown-toggle'), list = dd.querySelector('.w-dropdown-list');
       if (!tog || !list) return;
@@ -96,7 +116,9 @@
     });
     if (!steps.length) return;
 
-    if (listing) {
+    if (area) {
+      // the steps are complete
+    } else if (listing) {
       var h1 = document.querySelector('h1'), t = h1 ? clean(h1.textContent) : '';
       var k = t.lastIndexOf(' in ' + steps[steps.length - 1].name);
       var cur = k > 0 ? t.slice(0, k) : t;
