@@ -207,6 +207,8 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   List<Map<String, dynamic>> _passOn = [];
   // Enquiries held for Premium (migration 212) and the free limit.
   List<Map<String, dynamic>> _heldEnq = [];
+  // Spaces that have used free enquiries, the fullest first (migration 341).
+  List<Map<String, dynamic>> _freeUsed = [];
   int _freeLimit = 2;
   int _passed30 = 0;
   int _direct30 = 0;
@@ -345,6 +347,10 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         ];
         _heldEnq = [
           for (final r in (heldEnq['held'] as List? ?? const []))
+            if (r is Map) Map<String, dynamic>.from(r),
+        ];
+        _freeUsed = [
+          for (final r in (heldEnq['free_used'] as List? ?? const []))
             if (r is Map) Map<String, dynamic>.from(r),
         ];
         _freeLimit = (heldEnq['limit'] as num?)?.toInt() ?? 2;
@@ -5130,6 +5136,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                 chooseSpace: _chooseEnquirySpace,
               ),
           if (_heldEnq.isNotEmpty) _heldEnquiriesCard(),
+          if (_freeUsed.isNotEmpty) _freeUsedCard(),
           if (_answers.isNotEmpty) _answersCard(),
         ],
       'ready' => g.ready.map(_readyCard).toList(),
@@ -5573,6 +5580,79 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     } catch (e) {
       _nextUpSay('That did not save: $e', bad: true);
     }
+  }
+
+  /// Which spaces have used free enquiries and how many (migration 341),
+  /// the fullest first. A look only: nothing here sends or changes
+  /// anything. The arrow opens the space.
+  Widget _freeUsedCard() => Card(
+        margin: const EdgeInsets.only(bottom: 12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Free enquiries used (${_freeUsed.length})',
+                style:
+                    const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+            const SizedBox(height: 4),
+            Text(
+                'Each free page gets $_freeLimit free enquiries, sent '
+                'straight to the space. These spaces have used some, the '
+                'fullest first. After the last free one, the next enquiry '
+                'is held for Premium. Spaces on Premium are not listed.',
+                style: const TextStyle(
+                    fontSize: 12.5, height: 1.45, color: Brand.inkSecondary)),
+            const SizedBox(height: 10),
+            for (final f in _freeUsed)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                  '${f['venue_name'] ?? 'A space'}'
+                                  '${(f['city'] ?? '').toString().isEmpty ? '' : ', ${f['city']}'}',
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13.5)),
+                              Text(_freeUsedLine(f),
+                                  style: TextStyle(
+                                      fontSize: 12.5,
+                                      color: _freeUsedFull(f)
+                                          ? Brand.red
+                                          : Brand.inkSecondary)),
+                            ]),
+                      ),
+                      if (f['venue_id'] != null)
+                        IconButton(
+                            tooltip: 'Open the space',
+                            onPressed: () => _openVenue({'id': f['venue_id']}),
+                            icon: const Icon(Icons.chevron_right)),
+                    ]),
+              ),
+          ]),
+        ),
+      );
+
+  bool _freeUsedFull(Map<String, dynamic> f) =>
+      ((f['used'] as num?)?.toInt() ?? 0) >= _freeLimit;
+
+  /// "1 of 2 used  ·  last one yesterday, from Lucas", and how many wait.
+  String _freeUsedLine(Map<String, dynamic> f) {
+    final used = (f['used'] as num?)?.toInt() ?? 0;
+    final held = (f['held'] as num?)?.toInt() ?? 0;
+    final first = (f['last_name'] ?? '').toString().trim().split(' ').first;
+    final ago = f['last_at'] == null ? '' : _ago(f['last_at'].toString());
+    return [
+      '${used > _freeLimit ? _freeLimit : used} of $_freeLimit used',
+      if (ago.isNotEmpty)
+        'last one $ago${first.isEmpty ? '' : ', from $first'}',
+      if (held > 0) '$held held for Premium',
+    ].join('  ·  ');
   }
 
   /// Enquiries held for Premium (migration 212): the space used its free

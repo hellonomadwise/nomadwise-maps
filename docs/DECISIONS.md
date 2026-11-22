@@ -6925,3 +6925,12 @@ Jonathan: "an owner can save changes but they have to press send? really?", then
 - Nothing goes on a page without one of us approving it, as before.
 - Tried in the database on Ogre and undone again (nothing kept): a finished change was sent, then taken back when undone; a description ending "We also have a rooftop with" was held, shown to the owner with its reason, and the email written a day later, once; a finished price list was sent (6 changes) and an unfinished one held; Discard set the draft aside and the next edit started a new one. Thirty sample changes through the checks came out as meant.
 - Not seen on a screen from the session (no local Flutter); the build is the compile check.
+
+## 22 Nov 2026: the Enquiries tab lists which spaces have used free enquiries (migration 341)
+Jonathan, after Madeira Friends Hub had its first free one (Lucas, a day pass for 22 Nov, sent to Luís the minute it came in): "does that mean then that madeira friends has now used 1 or its 2 requests?" and "how can I easily see this within nomadmaps?", then "yes please, build it".
+- Before: the count was only in the phone notification ("Free enquiry 1 of 2 sent to ..."), in the owner's own account ("1 of 2 free requests left") and, once all were used and another came, under "Held for Premium". Nowhere listed the spaces part way there.
+- Now: Control centre, Enquiries, a card "Free enquiries used (N)" under "Held for Premium". One line per space that is not on Premium and has used at least one: name and city, "1 of 2 used", when the last one came and from whom (first name), and how many are held. The fullest first, then the most recent. A space that has used them all is in red. The arrow opens the space. A look only: nothing there sends or changes anything.
+- A free enquiry counts from the moment it is sent to the space (enquiries.free_slot), whatever comes of it. Enquiries from before the rule (migration 212) do not count. Spaces on Premium are left out, as the limit no longer applies to them.
+- admin_enquiries_held() returns the list as 'free_used' beside 'held'; no new call from the app. The card says "enquiries", as the rest of that tab does.
+- On 22 Nov the list held two spaces, each 1 of 2: Madeira Friends Hub (Funchal) and Sierra Cartel (Bengaluru).
+- Not seen on a screen from the session (no local Flutter); the list was read from the database, and the build is the compile check.
