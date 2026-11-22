@@ -62,6 +62,13 @@
   function track(ev, props) {
     try { if (window.posthog && window.posthog.capture) window.posthog.capture(ev, props || {}); } catch (e) {}
   }
+  // The price as a row shows it: the usual price struck through, then
+  // ours, then a small "Nomadwise discount" mark.
+  function priceHtml(it) {
+    if (!it.was) return esc(it.priceText);
+    return '<s class="nwp-was">' + esc(it.was) + '</s>' + esc(it.priceText) +
+      '<em class="nwp-deal">Nomadwise discount</em>';
+  }
   function today0() { var d = new Date(); d.setHours(0, 0, 0, 0); return d; }
   function addDays(d, n) { var x = new Date(d); x.setDate(x.getDate() + n); return x; }
   function nextMonday() { var t = today0(); return addDays(t, ((8 - t.getDay()) % 7) || 7); }
@@ -148,8 +155,12 @@
         amount: p.amount == null ? null : Number(p.amount), currency: p.currency,
         label: label, period: period, from: from,
         note: notes.slice(0, 2).join(' · '),
-        priceText: (from ? 'from ' : '') + label + (period && p.amount != null ? ' ' + PER[period] : '')
+        priceText: (from ? 'from ' : '') + label + (period && p.amount != null ? ' ' + PER[period] : ''),
+        // A price the space gives Nomadwise visitors: its usual price is
+        // shown struck through beside it (Jonathan, 22 Nov 2026).
+        was: p.was ? String(p.was) : ''
       };
+      item.askText = item.priceText + (item.was ? ', Nomadwise discount, usually ' + item.was : '');
       (groups[cat] = groups[cat] || []).push(item);
     });
     var out = [];
@@ -237,6 +248,10 @@
       '.nwp-rn b{font-weight:700}',
       '.nwp-rn span{color:var(--nwp-muted);font-size:13px}',
       '.nwp-rp{font-size:14.5px;font-weight:700;white-space:nowrap}',
+      '.nwp-rpw{white-space:normal;text-align:right}',
+      '.nwp-tp .nwp-rpw{text-align:left}',
+      '.nwp-was{font-weight:400;opacity:.6;margin-right:6px}',
+      '.nwp-deal{display:inline-block;font-style:normal;font-size:12px;font-weight:500;line-height:1.3;color:#D42F3A;border:1px solid #D42F3A;border-radius:8px;padding:1px 6px;margin-left:6px;white-space:nowrap}',
       // the phone: tabs
       '.nwp-tabs{display:flex;overflow-x:auto;scrollbar-width:none;background:var(--nwp-soft);border-bottom:1px solid var(--nwp-line)}',
       '.nwp-tabs::-webkit-scrollbar{display:none}',
@@ -399,7 +414,7 @@
         '<ul class="nwp-rows">';
       g.items.forEach(function (it) {
         h += '<li class="nwp-r"><span class="nwp-rn"><b>' + esc(it.name) + '</b>' + (it.note ? ' <span>· ' + esc(it.note) + '</span>' : '') + '</span>' +
-          '<span class="nwp-rp">' + esc(it.priceText) + '</span>' + enqBtn(it) + '</li>';
+          '<span class="nwp-rp' + (it.was ? ' nwp-rpw' : '') + '">' + priceHtml(it) + '</span>' + enqBtn(it) + '</li>';
       });
       h += '</ul></section>';
     });
@@ -427,7 +442,7 @@
       (pic ? '<img class="nwp-timg" src="' + esc(pic) + '" alt="">' : '') + '<ul class="nwp-rows">';
     g.items.forEach(function (it) {
       h += '<li class="nwp-r"><span class="nwp-rn"><b>' + esc(it.name) + '</b>' + (it.note ? '<span>' + esc(it.note) + '</span>' : '') + '</span>' +
-        '<span class="nwp-rp">' + esc(it.priceText) + '</span>' + enqBtn(it) + '</li>';
+        '<span class="nwp-rp' + (it.was ? ' nwp-rpw' : '') + '">' + priceHtml(it) + '</span>' + enqBtn(it) + '</li>';
     });
     return h + '</ul></div></div>';
   }
@@ -475,10 +490,10 @@
     var pic = photoFor(gi);
     var head = '<div class="nwp-hd">' + (pic ? '<img src="' + esc(pic) + '" alt="">' : '') +
       '<div class="nwp-hd-t"><small>Send a request to ' + esc(data.space) + '</small><h2 id="nwp-dlg-h">' + esc(it.full) + '</h2>' +
-      '<span class="nwp-chipp">' + esc(it.priceText) + '</span></div>' +
+      '<span class="nwp-chipp">' + esc(it.priceText) + (it.was ? ' · Nomadwise discount' : '') + '</span></div>' +
       '<button type="button" class="nwp-x" data-a="close" data-k="x" aria-label="Close">' + ICON_X + '</button></div>';
     if (S.sent) {
-      var rows = [['What', it.full + ' (' + it.priceText + ')'], ['People', S.people], ['When', S.sentWhen]];
+      var rows = [['What', it.full + ' (' + it.askText + ')'], ['People', S.people], ['When', S.sentWhen]];
       if (S.sentTime) rows.push(['Time', S.sentTime]);
       var sum = '<div class="nwp-sum">' + rows.map(function (r) { return '<div><span>' + esc(r[0]) + '</span><b>' + esc(r[1]) + '</b></div>'; }).join('') + '</div>';
       return head + '<div class="nwp-bd"><div class="nwp-ok" role="status">' + ICON_OK +
@@ -670,7 +685,7 @@
     var kind = kindOf(it);
     var when = S.flexible ? 'Flexible on dates' : (S.date ? fmtDate(S.date, true) : 'Not given');
     var lines = [
-      'Asking about: ' + it.full + ' (' + it.priceText + ')',
+      'Asking about: ' + it.full + ' (' + it.askText + ')',
       'People: ' + S.people,
       (kind === 'start' ? 'Starting: ' : 'Day: ') + when
     ];
