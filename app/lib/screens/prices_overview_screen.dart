@@ -45,7 +45,7 @@ class _Place {
 class _PricesOverviewScreenState extends State<PricesOverviewScreen> {
   Map<String, dynamic>? _data;
   String? _error;
-  String _chart = 'showing';
+  String _chart = 'views_shown';
   String _level = 'country';
   int? _picked;
   bool _allPlaces = false;
@@ -136,25 +136,30 @@ class _PricesOverviewScreenState extends State<PricesOverviewScreen> {
     final showing = _n(cw['showing']);
     final all = _n(p['all']);
     final shownProducts = _n(cw['showing_products']);
+    final m = _m(d['last30']);
+    final viewsShown = _n(m['views_shown']);
+    final viewsAll = viewsShown + _n(m['views_other']);
+    final viewsWaiting = _n(m['views_with_prices']) - viewsShown;
     final tiles = <Widget>[
-      _tile(_pct(showing, pages), 'Coworking pages showing prices',
-          '${_num.format(showing)} of ${_num.format(pages)} live pages show '
-              'their prices to visitors'),
+      _tile(_pct(viewsShown, viewsAll), 'Visitors who could see prices',
+          '${_num.format(viewsShown)} of ${_num.format(viewsAll)} views of '
+              'coworking pages in the last 30 days were of a page showing '
+              'its prices'),
+      _tile(_num.format(showing), 'Coworking pages showing prices',
+          'of ${_num.format(pages)} live pages (${_pct(showing, pages)}), '
+              'with ${_num.format(shownProducts)} products between them'),
       _tile(
           _num.format(withPrices - showing < 0 ? 0 : withPrices - showing),
           'Have prices, not showing yet',
-          'Waiting for a price check. The morning check works through '
-              'them and switches each page on.'),
+          'These pages had '
+              '${_num.format(viewsWaiting < 0 ? 0 : viewsWaiting)} views in '
+              'the last 30 days. The morning check switches them on, most '
+              'viewed first.'),
       _tile(
-          _num.format(shownProducts),
-          'Products visitors can see',
-          'of ${_num.format(all)} stored: ${_num.format(_n(p['priced']))} '
-              'with a price, ${_num.format(_n(p['on_request']))} price on '
-              'request'),
-      _tile(
-          showing <= 0 ? '0' : (shownProducts / showing).toStringAsFixed(1),
-          'Products per page',
-          'on average, on pages showing prices'),
+          _num.format(all),
+          'Products stored',
+          '${_num.format(_n(p['priced']))} with a price, '
+              '${_num.format(_n(p['on_request']))} price on request'),
     ];
     return LayoutBuilder(builder: (context, c) {
       final two = c.maxWidth >= 520;
@@ -180,6 +185,87 @@ class _PricesOverviewScreenState extends State<PricesOverviewScreen> {
           ),
       ]);
     });
+  }
+
+  String _per1000(int requests, int views) =>
+      views <= 0 ? 'no views yet' : (requests * 1000 / views).toStringAsFixed(1);
+
+  /// The question the screen is for: do pages that show prices get
+  /// more requests for the same number of views?
+  Widget _requests(Map<String, dynamic> d) {
+    final m = _m(d['last30']);
+    Widget row(String label, int views, int requests) => Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label,
+                    style: const TextStyle(
+                        fontSize: 14, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 2),
+                Text(
+                    views <= 0
+                        ? 'No views yet'
+                        : '${_per1000(requests, views)} requests per 1,000 views',
+                    style: const TextStyle(
+                        fontSize: 20, fontWeight: FontWeight.w800)),
+                _small('${_num.format(requests)} '
+                    '${requests == 1 ? 'request' : 'requests'} from '
+                    '${_num.format(views)} views'),
+              ]),
+        );
+    return _card(Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _title('Do prices bring requests?'),
+          _small('Coworking pages, last 30 days. The same number of views '
+              'should bring more requests where prices show. Compare the '
+              'two rates as more pages are switched on.'),
+          const SizedBox(height: 12),
+          row('Pages showing prices', _n(m['views_shown']),
+              _n(m['requests_shown'])),
+          row('Pages not showing prices', _n(m['views_other']),
+              _n(m['requests_other'])),
+          _small('A view is one visitor opening one page, counted once per '
+              'visit. Our own visits are included.'),
+        ]));
+  }
+
+  Widget _waiting(Map<String, dynamic> d) {
+    final rows = _l(d['waiting']);
+    return _card(Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _title('Most viewed pages not showing prices yet'),
+          _small('They have prices stored that have not been checked '
+              'against the space\'s own website. Switching these on reaches '
+              'the most visitors.'),
+          const SizedBox(height: 10),
+          if (rows.isEmpty) _small('None: every page with prices shows them.'),
+          for (final r in rows)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('${r['name'] ?? ''}',
+                                style: const TextStyle(
+                                    fontSize: 14, fontWeight: FontWeight.w700)),
+                            _small('${r['city'] ?? ''}, ${r['country'] ?? ''}'
+                                ' · ${_n(r['products'])} products'),
+                          ]),
+                    ),
+                    const SizedBox(width: 8),
+                    Text('${_num.format(_n(r['views']))} views',
+                        style: const TextStyle(
+                            fontSize: 13.5, fontWeight: FontWeight.w700)),
+                  ]),
+            ),
+        ]));
   }
 
   Widget _kinds(Map<String, dynamic> d) {
@@ -245,14 +331,21 @@ class _PricesOverviewScreenState extends State<PricesOverviewScreen> {
 
   Widget _overTime(Map<String, dynamic> d) {
     final days = _l(d['days']);
-    final key = _chart == 'products'
-        ? 'products'
-        : (_chart == 'listings' ? 'listings' : 'showing');
-    final word = _chart == 'products'
-        ? 'products stored'
-        : (_chart == 'listings'
-            ? 'pages with prices stored'
-            : 'pages showing prices to visitors');
+    final daily = _chart == 'views_shown' || _chart == 'requests';
+    final key = const {
+          'views_shown': 'views_shown',
+          'requests': 'requests',
+          'products': 'products',
+          'listings': 'listings',
+        }[_chart] ??
+        'showing';
+    final word = const {
+          'views_shown': 'views of pages showing prices',
+          'requests': 'requests from coworking pages',
+          'products': 'products stored',
+          'listings': 'pages with prices stored',
+        }[_chart] ??
+        'pages showing prices to visitors';
     var max = 1;
     for (final x in days) {
       final v = _n(x[key]);
@@ -271,10 +364,16 @@ class _PricesOverviewScreenState extends State<PricesOverviewScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _title('Over time'),
-          _small('Running total, day by day. Tap a bar for that day.'),
+          _small(daily
+              ? 'Each day on its own. Tap a bar for that day.'
+              : 'Running total, day by day. Tap a bar for that day.'),
           const SizedBox(height: 8),
           Wrap(runSpacing: 6, children: [
-            _choice('showing', 'Showing to visitors', _chart,
+            _choice('views_shown', 'Views with prices', _chart,
+                (v) => setState(() => _chart = v)),
+            _choice('requests', 'Requests', _chart,
+                (v) => setState(() => _chart = v)),
+            _choice('showing', 'Pages showing', _chart,
                 (v) => setState(() => _chart = v)),
             _choice('listings', 'Have prices', _chart,
                 (v) => setState(() => _chart = v)),
@@ -306,7 +405,7 @@ class _PricesOverviewScreenState extends State<PricesOverviewScreen> {
                               margin:
                                   const EdgeInsets.symmetric(horizontal: 0.75),
                               height: (h * _n(days[i][key]) / max)
-                                  .clamp(2.0, h)
+                                  .clamp(_n(days[i][key]) > 0 ? 3.0 : 1.0, h)
                                   .toDouble(),
                               decoration: BoxDecoration(
                                   color: (_picked ?? days.length - 1) == i
@@ -458,7 +557,11 @@ class _PricesOverviewScreenState extends State<PricesOverviewScreen> {
                 padding: const EdgeInsets.fromLTRB(14, 12, 14, 40),
                 children: [
                   _top(d),
+                  _requests(d),
+                  const SizedBox(height: 10),
                   _overTime(d),
+                  const SizedBox(height: 10),
+                  _waiting(d),
                   const SizedBox(height: 10),
                   _byPlace(d),
                   const SizedBox(height: 10),
