@@ -7005,3 +7005,21 @@ Same day, after Jonathan's review:
   on a map of the area (Leaflet with CARTO/OpenStreetMap tiles, in the side
   panel; above the list on a phone). With a size picked, only those spaces'
   pins show.
+
+## 22 Nov 2026: breadcrumb on country, region, location and listing pages
+
+- The old breadcrumb was a row of dropdowns with no visible arrow: clicking
+  "London" on the Shoreditch page opened a list of English cities instead of
+  going to London, the links inside had no text, and listing pages left out
+  the area.
+- app/web/crumb.js (served at nomadmaps.io/crumb.js, loaded by the
+  NomadwiseCrumb site script in Webflow on /country/, /region/, /locations/
+  and /coworking/ pages) rebuilds it from those dropdowns: every step is a
+  plain link up to its page; only the last step (the page you are on) opens
+  a switcher, with a search box over 12 options. Flag at 20x15 on the
+  country step. Listing pages get their area from venues.webflow_location_id
+  -> webflow_locations (public read; only when the area page is in the
+  sitemap) and end with the space's name. BreadcrumbList data is added.
+- The old dropdowns stay in the page, hidden by a class the script adds
+  after it has drawn the new trail, so if it fails they simply show.
+- PostHog: breadcrumb_click, breadcrumb_switcher_open.
