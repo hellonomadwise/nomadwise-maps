@@ -689,8 +689,8 @@ class _AdminPricesScreenState extends State<AdminPricesScreen> {
     setState(() => _busy.add(id));
     try {
       await _api.requestCheck(id, note: note.isEmpty ? null : note);
-      _snack('${r['name']}: requested. Use "Copy requests" to pass the '
-          'list on.');
+      _snack('${r['name']}: requested. It is checked automatically, '
+          'by tomorrow morning.');
       await _load();
     } catch (e) {
       _snack(_plainError(e), bad: true);
@@ -847,8 +847,11 @@ class _AdminPricesScreenState extends State<AdminPricesScreen> {
                       style: TextStyle(fontSize: 13.5, height: 1.45)),
                   const SizedBox(height: 14),
                   step('1', 'Request a check',
-                      'Press "Request a price check" on a space, then "Copy '
-                          'requests" and paste the list to Claude.'),
+                      'Press "Request a price check" on a space. Every '
+                          'morning Claude checks the requested spaces by '
+                          'itself, then the spaces never checked, oldest '
+                          'first, about 15 a day. "Copy requests" is only '
+                          'for a check you want straight away in a chat.'),
                   step('2', 'The check',
                       'Each product on our page is compared with the '
                           'space\'s own website. Never with another '
@@ -859,7 +862,15 @@ class _AdminPricesScreenState extends State<AdminPricesScreen> {
                           'differs is shown next to the one on their '
                           'website. A product they no longer offer, or a '
                           'new one, is proposed too.'),
-                  step('4', 'Your Go',
+                  step('4', 'What goes live by itself',
+                      'A price read twice on the space\'s own website goes '
+                          'live without waiting, and the page then shows '
+                          'its prices to visitors (Jonathan, 22 Nov 2026). '
+                          'A doubtful one waits for your Go: their page '
+                          'disagrees with itself, the price moved by more '
+                          'than about 30%, or a product would be taken '
+                          'off.'),
+                  step('5', 'Your Go',
                       'Go puts that one change on the public page within '
                           'minutes. Edit lets you change it first. Skip '
                           'leaves the page as it is. Undo puts the old one '
@@ -1100,8 +1111,10 @@ class _AdminPricesScreenState extends State<AdminPricesScreen> {
                                     'The passes, rooms and offices each '
                                     'coworking page shows, and whether their '
                                     'prices still match the space\'s own '
-                                    'website. One space at a time: request a '
-                                    'check, then decide each change yourself. '
+                                    'website. Checked automatically every '
+                                    'morning: requested spaces first, then '
+                                    'those never checked. Clear prices go '
+                                    'live by themselves; doubtful ones wait. '
                                     'Changes waiting for your Go come first, '
                                     'then the spaces not looked at yet. A '
                                     'space that has been looked at moves to '
@@ -1750,7 +1763,7 @@ class _PriceSpacePageState extends State<_PriceSpacePage> {
     await _run('request', () async {
       await _api.requestCheck(widget.venueId,
           note: note.isEmpty ? null : note);
-      return 'Requested. Use "Copy requests" on the list to pass it on.';
+      return 'Requested. It is checked automatically, by tomorrow morning.';
     });
   }
 
