@@ -38,13 +38,14 @@ class _Place {
   final String under;
   int pages = 0;
   int withPrices = 0;
+  int showing = 0;
   int products = 0;
 }
 
 class _PricesOverviewScreenState extends State<PricesOverviewScreen> {
   Map<String, dynamic>? _data;
   String? _error;
-  String _chart = 'listings';
+  String _chart = 'showing';
   String _level = 'country';
   int? _picked;
   bool _allPlaces = false;
@@ -134,21 +135,26 @@ class _PricesOverviewScreenState extends State<PricesOverviewScreen> {
     final withPrices = _n(cw['with_prices']);
     final showing = _n(cw['showing']);
     final all = _n(p['all']);
+    final shownProducts = _n(cw['showing_products']);
     final tiles = <Widget>[
-      _tile(_pct(withPrices, pages), 'Coworking pages with prices',
-          '${_num.format(withPrices)} of ${_num.format(pages)} live pages'),
-      _tile(_num.format(showing), 'Showing prices to visitors',
-          'of the ${_num.format(withPrices)} that have them. The rest are '
-              'waiting for price cards to be switched on.'),
+      _tile(_pct(showing, pages), 'Coworking pages showing prices',
+          '${_num.format(showing)} of ${_num.format(pages)} live pages show '
+              'their prices to visitors'),
       _tile(
-          _num.format(all),
-          'Products',
-          '${_num.format(_n(p['priced']))} with a price, '
-              '${_num.format(_n(p['on_request']))} price on request'),
+          _num.format(withPrices - showing < 0 ? 0 : withPrices - showing),
+          'Have prices, not showing yet',
+          'Waiting for a price check. The morning check works through '
+              'them and switches each page on.'),
       _tile(
-          withPrices <= 0 ? '0' : (all / withPrices).toStringAsFixed(1),
+          _num.format(shownProducts),
+          'Products visitors can see',
+          'of ${_num.format(all)} stored: ${_num.format(_n(p['priced']))} '
+              'with a price, ${_num.format(_n(p['on_request']))} price on '
+              'request'),
+      _tile(
+          showing <= 0 ? '0' : (shownProducts / showing).toStringAsFixed(1),
           'Products per page',
-          'on average, on pages that have any'),
+          'on average, on pages showing prices'),
     ];
     return LayoutBuilder(builder: (context, c) {
       final two = c.maxWidth >= 520;
@@ -190,7 +196,7 @@ class _PricesOverviewScreenState extends State<PricesOverviewScreen> {
     return _card(Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _title('Products by kind'),
+          _title('Products stored, by kind'),
           for (final r in rows)
             Padding(
               padding: const EdgeInsets.only(bottom: 10),
@@ -239,8 +245,14 @@ class _PricesOverviewScreenState extends State<PricesOverviewScreen> {
 
   Widget _overTime(Map<String, dynamic> d) {
     final days = _l(d['days']);
-    final key = _chart == 'products' ? 'products' : 'listings';
-    final word = _chart == 'products' ? 'products' : 'pages with prices';
+    final key = _chart == 'products'
+        ? 'products'
+        : (_chart == 'listings' ? 'listings' : 'showing');
+    final word = _chart == 'products'
+        ? 'products stored'
+        : (_chart == 'listings'
+            ? 'pages with prices stored'
+            : 'pages showing prices to visitors');
     var max = 1;
     for (final x in days) {
       final v = _n(x[key]);
@@ -261,8 +273,10 @@ class _PricesOverviewScreenState extends State<PricesOverviewScreen> {
           _title('Over time'),
           _small('Running total, day by day. Tap a bar for that day.'),
           const SizedBox(height: 8),
-          Row(children: [
-            _choice('listings', 'Pages with prices', _chart,
+          Wrap(runSpacing: 6, children: [
+            _choice('showing', 'Showing to visitors', _chart,
+                (v) => setState(() => _chart = v)),
+            _choice('listings', 'Have prices', _chart,
                 (v) => setState(() => _chart = v)),
             _choice('products', 'Products', _chart,
                 (v) => setState(() => _chart = v)),
@@ -337,10 +351,13 @@ class _PricesOverviewScreenState extends State<PricesOverviewScreen> {
       final p = by.putIfAbsent('$name|$under', () => _Place(name, under));
       p.pages += _n(r['pages']);
       p.withPrices += _n(r['with_prices']);
+      p.showing += _n(r['showing']);
       p.products += _n(r['products']);
     }
     final out = by.values.toList();
     out.sort((a, b) {
+      final s = b.showing.compareTo(a.showing);
+      if (s != 0) return s;
       final c = b.withPrices.compareTo(a.withPrices);
       if (c != 0) return c;
       final e = b.pages.compareTo(a.pages);
@@ -356,9 +373,9 @@ class _PricesOverviewScreenState extends State<PricesOverviewScreen> {
     return _card(Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _title('Coworking pages with prices, by place'),
-          _small('The share of live coworking pages in each place that have '
-              'at least one product. Most pages with prices first.'),
+          _title('Coworking pages showing prices, by place'),
+          _small('The share of live coworking pages in each place that show '
+              'their prices to visitors. Most first.'),
           const SizedBox(height: 8),
           Row(children: [
             _choice('country', 'Country', _level,
@@ -389,16 +406,17 @@ class _PricesOverviewScreenState extends State<PricesOverviewScreen> {
                                 ]),
                           ),
                           const SizedBox(width: 8),
-                          Text(_pct(p.withPrices, p.pages),
+                          Text(_pct(p.showing, p.pages),
                               style: const TextStyle(
                                   fontSize: 14, fontWeight: FontWeight.w800)),
                         ]),
                     const SizedBox(height: 4),
-                    _meter(p.withPrices, p.pages),
+                    _meter(p.showing, p.pages),
                     const SizedBox(height: 3),
-                    _small('${_num.format(p.withPrices)} of '
-                        '${_num.format(p.pages)} pages, '
-                        '${_num.format(p.products)} products'),
+                    _small('${_num.format(p.showing)} of '
+                        '${_num.format(p.pages)} pages showing prices. '
+                        '${_num.format(p.withPrices - p.showing < 0 ? 0 : p.withPrices - p.showing)} '
+                        'more have prices not shown yet.'),
                   ]),
             ),
           if (shown.length < all.length)
