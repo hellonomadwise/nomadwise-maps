@@ -65,6 +65,14 @@
   function today0() { var d = new Date(); d.setHours(0, 0, 0, 0); return d; }
   function addDays(d, n) { var x = new Date(d); x.setDate(x.getDate() + n); return x; }
   function nextMonday() { var t = today0(); return addDays(t, ((8 - t.getDay()) % 7) || 7); }
+  // The days of the week the space is closed (0 = Sunday), from its
+  // opening hours; the date a request starts on skips them (Jonathan,
+  // 22 Nov 2026). The visitor can still pick any date.
+  var SHUT = [];
+  function openDay(d) {
+    for (var i = 0; i < 7 && SHUT.indexOf(d.getDay()) >= 0; i++) d = addDays(d, 1);
+    return d;
+  }
   function sameDay(a, b) { return a && b && a.getTime() === b.getTime(); }
   function fmtDate(d, long) {
     return d.toLocaleDateString('en-GB', long
@@ -453,7 +461,8 @@
     var h = '<div class="nwp-seg nwp-seg-' + field + '" role="radiogroup" aria-label="' + esc(name) + '">';
     options.forEach(function (o, i) {
       var on = value === o;
-      h += '<button type="button" class="nwp-sg" role="radio" aria-checked="' + on + '" tabindex="' + (on ? 0 : -1) + '" data-a="seg" data-f="' + field + '" data-v="' + esc(o) + '" data-k="' + field + i + '">' + esc(labels ? labels[o] : o) + '</button>';
+      var tab = on || (i === 0 && options.indexOf(value) < 0);
+      h += '<button type="button" class="nwp-sg" role="radio" aria-checked="' + on + '" tabindex="' + (tab ? 0 : -1) + '" data-a="seg" data-f="' + field + '" data-v="' + esc(o) + '" data-k="' + field + i + '">' + esc(labels ? labels[o] : o) + '</button>';
     });
     return h + '</div>';
   }
@@ -537,8 +546,12 @@
     if (!it) return;
     var k = kindOf(it);
     if (S.kindFor !== k) {
-      S.date = k === 'start' ? nextMonday() : addDays(today0(), 1);
+      S.date = openDay(k === 'start' ? nextMonday() : addDays(today0(), 1));
       S.flexible = false; S.kindFor = k;
+      // A meeting room starts with no number picked, so the space is
+      // never told "just me" for a boardroom by mistake.
+      if (k === 'hour') S.people = '';
+      else if (!S.people) S.people = 'Just me';
       var t = today0();
       S.monthOffset = (S.date.getFullYear() - t.getFullYear()) * 12 + S.date.getMonth() - t.getMonth();
     }
@@ -577,7 +590,10 @@
     if (a === 'close') { closeSheet(); return; }
     if (a === 'send') { send(); return; }
     if (a === 'tab') { S.tab = +v; }
-    else if (a === 'seg') { S[b.getAttribute('data-f')] = v; }
+    else if (a === 'seg') {
+      S[b.getAttribute('data-f')] = v;
+      if (S.bad === 'people' && b.getAttribute('data-f') === 'people') { S.bad = null; S.error = ''; }
+    }
     else if (a === 'cal') { S.calOpen = !S.calOpen; }
     else if (a === 'prev') { S.monthOffset = Math.max(0, S.monthOffset - 1); }
     else if (a === 'next') { S.monthOffset = Math.min(11, S.monthOffset + 1); }
@@ -641,6 +657,7 @@
     var it = pickedItem();
     if (!it || S.sending) return;
     S.name = S.name.trim(); S.email = S.email.trim();
+    if (!S.people) { S.error = 'Please choose how many people.'; S.bad = 'people'; S.focusKey = 'people0'; render(); return; }
     if (!S.name) { S.error = 'Please add your name.'; S.bad = 'name'; S.focusKey = 'name'; render(); return; }
     if (!EMAIL_OK(S.email)) { S.error = "That email doesn't look quite right."; S.bad = 'email'; S.focusKey = 'email'; render(); return; }
     S.bad = null;
@@ -872,6 +889,7 @@
       .then(function (raw) {
         if (raw && raw.closed) showClosed(raw.closed);
         if (!raw || !raw.show) return;
+        SHUT = Array.isArray(raw.closed_days) ? raw.closed_days.map(Number) : [];
         data = shape(raw);
         if (!data.groups.length) return;
         mount();
