@@ -1726,11 +1726,17 @@ def retire_page(v):
     for coll, item_id in ((IMAGES_ID, img_id), (COLLECTION_ID, cms)):
         if not item_id:
             continue
-        try:
-            wf_write(f'/v2/collections/{coll}/items/{item_id}/live', 'DELETE', None)
-        except urllib.error.HTTPError as e:
-            if e.code not in (404, 409):
-                raise
+        # A listing someone already unpublished by hand has nothing live
+        # to take off, and Webflow answers that with a 500 (KoHub, 22 Nov
+        # 2026): go straight to archiving it.
+        if coll == COLLECTION_ID and item and not item.get('lastPublished'):
+            pass
+        else:
+            try:
+                wf_write(f'/v2/collections/{coll}/items/{item_id}/live', 'DELETE', None)
+            except urllib.error.HTTPError as e:
+                if e.code not in (404, 409):
+                    raise
         time.sleep(0.6)
         body = {'isArchived': True, 'isDraft': True}
         if coll == COLLECTION_ID and slug_:
