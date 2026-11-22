@@ -6956,3 +6956,11 @@ Jonathan, with a screenshot of the Views chart ("22 Nov: 3 of 21 views could see
 - A day with no views shows no share (nothing to take a share of).
 - Only that one line changed (app/lib/screens/prices_overview_screen.dart). No database change, nothing else on the screen moved.
 - Not seen on a screen from the session (no local Flutter); the build is the compile check.
+
+## 22 Nov 2026: Prices overview, the most viewed pages can be highlighted and opened (migration 344)
+Jonathan, on "Most viewed pages not showing prices yet": "i cant highlight these spaces, make this possible, and a link so I can easily click and open new tab, of space listing url".
+- The names and the line under each can now be highlighted and copied (that card is a selection area).
+- Each line has an "Open page" link under its views, in the site's red, which opens the space's page on nomadwise.io (nomadwise.io/coworking/<slug>) in a new tab. Hovering says where it goes.
+- For the link, admin_prices_dashboard() now sends each waiting page's slug as well (one more field on each row of 'waiting', nothing else changed). All 367 live coworking pages have a slug, so every line gets the link.
+- Tried in the database: the list came back with 15 pages, first SOKKOOL with slug indonesia-bali-sokkool-coliving-coworking.
+- Only that one card changed. Not seen on a screen from the session (no local Flutter); the build is the compile check.

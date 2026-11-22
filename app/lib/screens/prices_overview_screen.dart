@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../theme.dart';
 
@@ -245,9 +246,35 @@ class _PricesOverviewScreenState extends State<PricesOverviewScreen> {
         ]));
   }
 
+  // The space's page on nomadwise.io, in a new tab (Jonathan, 22 Nov
+  // 2026: "a link so I can easily click and open new tab").
+  Widget _pageLink(String slug) => Tooltip(
+        message: 'Opens nomadwise.io/coworking/$slug in a new tab',
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: () => launchUrl(
+              Uri.parse('https://www.nomadwise.io/coworking/$slug'),
+              webOnlyWindowName: '_blank'),
+          child: const Padding(
+            padding: EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Text('Open page',
+                  style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFFE8464E))),
+              SizedBox(width: 3),
+              Icon(Icons.open_in_new, size: 13, color: Color(0xFFE8464E)),
+            ]),
+          ),
+        ),
+      );
+
   Widget _waiting(Map<String, dynamic> d) {
     final rows = _l(d['waiting']);
-    return _card(Column(
+    // SelectionArea: the names can be highlighted and copied.
+    return _card(SelectionArea(
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _title('Most viewed pages not showing prices yet'),
@@ -278,12 +305,19 @@ class _PricesOverviewScreenState extends State<PricesOverviewScreen> {
                           ]),
                     ),
                     const SizedBox(width: 8),
-                    Text('${_num.format(_n(r['views']))} views',
-                        style: const TextStyle(
-                            fontSize: 13.5, fontWeight: FontWeight.w700)),
+                    Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text('${_num.format(_n(r['views']))} views',
+                              style: const TextStyle(
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w700)),
+                          if ('${r['slug'] ?? ''}'.trim().isNotEmpty)
+                            _pageLink('${r['slug']}'.trim()),
+                        ]),
                   ]),
             ),
-        ]));
+        ])));
   }
 
   Widget _kinds(Map<String, dynamic> d) {
