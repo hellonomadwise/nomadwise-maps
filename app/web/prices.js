@@ -563,6 +563,9 @@
     // next frame: fade and rise in
     requestAnimationFrame(function () { requestAnimationFrame(function () { sheet.classList.add('in'); }); });
     track('price_enquiry_opened', { space: data.space, price: it.full, slug: SLUG });
+    // Counted once per visit and page: the early sign that prices are
+    // being acted on (Prices overview).
+    hit('request');
   }
   function closeSheet() {
     if (!S.sheetOpen) return;
@@ -863,6 +866,9 @@
   // owner's Performance tab and monthly email (migration 251). Once per
   // visitor session per page, no cookies (sessionStorage only).
   function hit(kind) {
+    // A team device (nomadwise.io/?team) is not a visitor: its views
+    // and taps are left out of the counts (Jonathan, 22 Nov 2026).
+    try { if (localStorage.getItem('nw_team')) return; } catch (e) {}
     var key = 'nw_' + kind + '_' + SLUG;
     try { if (sessionStorage.getItem(key)) return; sessionStorage.setItem(key, '1'); } catch (e) {}
     try {

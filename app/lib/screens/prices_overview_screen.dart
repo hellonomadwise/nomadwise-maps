@@ -227,8 +227,21 @@ class _PricesOverviewScreenState extends State<PricesOverviewScreen> {
               _n(m['requests_shown'])),
           row('Pages not showing prices', _n(m['views_other']),
               _n(m['requests_other'])),
+          const Text('Early sign: taps on a Request button',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 2),
+          Text(
+              '${_num.format(_n(m['taps']))} '
+              '${_n(m['taps']) == 1 ? 'visit' : 'visits'} tapped Request',
+              style:
+                  const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+          _small('Out of ${_num.format(_n(m['views_shown']))} views of pages '
+              'showing prices. Counted from 22 Nov 2026. Taps come far more '
+              'often than sent requests, so this moves first.'),
+          const SizedBox(height: 12),
           _small('A view is one visitor opening one page, counted once per '
-              'visit. Our own visits are included.'),
+              'visit. Team devices (nomadwise.io/?team) are left out from '
+              '22 Nov 2026.'),
         ]));
   }
 
@@ -256,7 +269,11 @@ class _PricesOverviewScreenState extends State<PricesOverviewScreen> {
                             Text('${r['name'] ?? ''}',
                                 style: const TextStyle(
                                     fontSize: 14, fontWeight: FontWeight.w700)),
-                            _small('${r['city'] ?? ''}, ${r['country'] ?? ''}'
+                            _small([
+                              for (final k in const ['area', 'city', 'country'])
+                                if ('${r[k] ?? ''}'.trim().isNotEmpty)
+                                  '${r[k]}'.trim()
+                            ].toSet().join(', ') +
                                 ' · ${_n(r['products'])} products'),
                           ]),
                     ),
@@ -332,10 +349,13 @@ class _PricesOverviewScreenState extends State<PricesOverviewScreen> {
 
   Widget _overTime(Map<String, dynamic> d) {
     final days = _l(d['days']);
-    final daily = _chart == 'views_shown' || _chart == 'requests';
+    final daily = _chart == 'views_shown' ||
+        _chart == 'requests' ||
+        _chart == 'taps';
     final key = const {
           'views_shown': 'views_shown',
           'requests': 'requests',
+          'taps': 'taps',
           'products': 'products',
           'listings': 'listings',
         }[_chart] ??
@@ -343,6 +363,7 @@ class _PricesOverviewScreenState extends State<PricesOverviewScreen> {
     final word = const {
           'views_shown': 'views of pages showing prices',
           'requests': 'requests from coworking pages',
+          'taps': 'visits that tapped a Request button',
           'products': 'products stored',
           'listings': 'pages with prices stored',
         }[_chart] ??
@@ -383,6 +404,11 @@ class _PricesOverviewScreenState extends State<PricesOverviewScreen> {
                   _picked = null;
                 })),
             _choice('requests', 'Requests', _chart,
+                (v) => setState(() {
+                  _chart = v;
+                  _picked = null;
+                })),
+            _choice('taps', 'Request taps', _chart,
                 (v) => setState(() {
                   _chart = v;
                   _picked = null;
@@ -495,10 +521,11 @@ class _PricesOverviewScreenState extends State<PricesOverviewScreen> {
       if (t == null) continue;
       final day = DateTime.utc(t.year, t.month, t.day);
       final start = day.subtract(Duration(days: day.weekday - 1));
-      final w = by.putIfAbsent(start, () => [0, 0, 0]);
+      final w = by.putIfAbsent(start, () => [0, 0, 0, 0]);
       w[0] += _n(x['views_all']);
       w[1] += _n(x['views_shown']);
       w[2] += _n(x['requests']);
+      w[3] += _n(x['taps']);
     }
     final starts = by.keys.toList()..sort((a, b) => b.compareTo(a));
     final shown = starts.length > 8 ? starts.sublist(0, 8) : starts;
@@ -525,7 +552,8 @@ class _PricesOverviewScreenState extends State<PricesOverviewScreen> {
                                     fontSize: 14, fontWeight: FontWeight.w700)),
                             _small('${_num.format(by[wk]![0])} views, '
                                 '${_num.format(by[wk]![1])} could see prices '
-                                '(${_pct(by[wk]![1], by[wk]![0])})'),
+                                '(${_pct(by[wk]![1], by[wk]![0])}), '
+                                '${_num.format(by[wk]![3])} tapped Request'),
                           ]),
                     ),
                     const SizedBox(width: 8),
@@ -590,8 +618,10 @@ class _PricesOverviewScreenState extends State<PricesOverviewScreen> {
           Row(children: [
             _choice('country', 'Country', _level,
                 (v) => setState(() => _level = v)),
-            _choice('city', 'City', _level, (v) => setState(() => _level = v)),
-            _choice('area', 'Area', _level, (v) => setState(() => _level = v)),
+            _choice('city', 'Region', _level,
+                (v) => setState(() => _level = v)),
+            _choice('area', 'Location', _level,
+                (v) => setState(() => _level = v)),
           ]),
           const SizedBox(height: 12),
           if (shown.isEmpty) _small('Nothing to show yet.'),
