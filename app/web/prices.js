@@ -28,9 +28,19 @@
   if (URL_.indexOf('__') === 0 || KEY.indexOf('__') === 0) return;
   if (window.__nwPrices) return;
   var m = /^\/coworking\/([a-z0-9-]+)\/?$/i.exec(location.pathname || '');
-  if (!m) return;
+  // An area page ("Meeting rooms in Shoreditch", /workspace/<slug>):
+  // each Request button opens this same pop-up on the area page itself,
+  // for that space and price (Jonathan, 22 Nov 2026). Sending goes
+  // through that space's own page, loaded out of sight (see areaFrame).
+  var AREA = !m && /^\/workspace\/[a-z0-9-]+\/?$/i.test(location.pathname || '');
+  // A space's page loaded out of sight by an area page: no price list
+  // and no page count, only the form the area page sends through.
+  var FRAMED = false;
+  try { FRAMED = window.top !== window.self; } catch (e) { FRAMED = true; }
+  if (!m && !AREA) return;
   window.__nwPrices = true;
-  var SLUG = m[1].toLowerCase();
+  var SLUG = m ? m[1].toLowerCase() : '';
+  var AREA_PIC = '', AREA_BTN = null;
 
   var RED = '#FF444F', TEAL = '#05434F';
   var GROUPS = [
@@ -378,6 +388,7 @@
   var LENGTHS = ['1 hour', '2 hours', '3 hours', 'Half a day', 'All day'];
 
   function photos() {
+    if (AREA) return AREA_PIC ? [AREA_PIC] : [];
     var out = [];
     document.querySelectorAll('.gallery__image').forEach(function (img) {
       var src = img.currentSrc || img.src;
@@ -387,7 +398,7 @@
   }
   function photoFor(gi) {
     var pics = photos();
-    return pics.length ? pics[(gi + 1) % pics.length] : '';
+    return pics.length ? pics[AREA ? 0 : (gi + 1) % pics.length] : '';
   }
   function groupOf(id) {
     for (var i = 0; i < data.groups.length; i++) {
@@ -592,7 +603,7 @@
       sheet.classList.remove('open');
       if (S.sent) { S.sent = false; S.message = ''; }
       sheet.querySelector('.nwp-dlg').innerHTML = '';
-      var bt = back && root.querySelector('[data-k="' + back + '"]');
+      var bt = AREA ? AREA_BTN : (back && root.querySelector('[data-k="' + back + '"]'));
       if (bt) { try { bt.focus({ preventScroll: true }); } catch (e) { bt.focus(); } }
     };
     if (REDUCED) finish(); else setTimeout(finish, S.phone ? 300 : 200);
@@ -679,7 +690,22 @@
     if (!S.name) { S.error = 'Please add your name.'; S.bad = 'name'; S.focusKey = 'name'; render(); return; }
     if (!EMAIL_OK(S.email)) { S.error = "That email doesn't look quite right."; S.bad = 'email'; S.focusKey = 'email'; render(); return; }
     S.bad = null;
-    var form = document.getElementById('wf-form-Research-Form');
+    if (AREA && !frameForm()) {
+      // The space's page is still loading out of sight: wait for it.
+      if (!S.waitFrame) S.waitFrame = Date.now();
+      if (Date.now() - S.waitFrame < 20000) {
+        if (!S.frameWaitShown) { S.frameWaitShown = true; S.error = ''; render(); }
+        setTimeout(send, 300);
+        return;
+      }
+      S.waitFrame = 0; S.frameWaitShown = false;
+      S.error = 'Sorry, this could not be sent from here. Please try again, or email spaces@nomadwise.io.';
+      render();
+      return;
+    }
+    S.waitFrame = 0; S.frameWaitShown = false;
+    var form = AREA ? frameForm() : document.getElementById('wf-form-Research-Form');
+    var W = (form && form.ownerDocument && form.ownerDocument.defaultView) || window;
     var box = form && form.closest('.w-form');
     if (!form) { S.error = 'Sorry, this could not be sent from here. Please email spaces@nomadwise.io.'; render(); return; }
     var kind = kindOf(it);
@@ -696,8 +722,8 @@
       var el = form.querySelector('[name="' + name + '"]');
       if (!el) return;
       if (el.type === 'checkbox') el.checked = !!val; else el.value = val;
-      el.dispatchEvent(new Event('input', { bubbles: true }));
-      el.dispatchEvent(new Event('change', { bubbles: true }));
+      el.dispatchEvent(new W.Event('input', { bubbles: true }));
+      el.dispatchEvent(new W.Event('change', { bubbles: true }));
     }
     set('Text-area', lines.join('\n'));
     set('Name-Of-Customer-2', S.name);
@@ -721,13 +747,13 @@
     try { if (done) done.style.display = 'none'; if (fail) fail.style.display = 'none'; form.style.display = ''; } catch (e) {}
     S.sending = true; S.error = ''; S.focusKey = null; render();
     var started = Date.now(), gaveUp = false;
-    function shown(el) { return el && getComputedStyle(el).display !== 'none'; }
+    function shown(el) { return el && W.getComputedStyle(el).display !== 'none'; }
     try {
       // Webflow's own handler sends it (its AJAX post); never a plain
       // browser submit, which would put the details in the address.
       var btn = form.querySelector('[type="submit"]');
       if (form.requestSubmit) form.requestSubmit(btn || undefined);
-      else if (window.jQuery) window.jQuery(form).trigger('submit');
+      else if (W.jQuery) W.jQuery(form).trigger('submit');
       else if (btn) btn.click();
     } catch (e) {
       S.sending = false; S.error = 'Sorry, that did not send. Please try again.'; render(); return;
@@ -737,7 +763,7 @@
         S.sending = false; S.sent = true; S.error = ''; S.focusKey = 'done';
         S.sentWhen = S.flexible ? 'Flexible on dates' : (S.date ? (kind === 'start' ? 'Starting ' : '') + fmtDate(S.date, true) : 'Not given');
         S.sentTime = kind === 'hour' ? 'From ' + S.time + ', ' + S.length : '';
-        track('price_enquiry_sent', { space: data.space, price: it.full, slug: SLUG, newsletter: !!S.news });
+        track('price_enquiry_sent', { space: data.space, price: it.full, slug: SLUG, newsletter: !!S.news, from: AREA ? location.pathname : 'listing' });
         // the pop-up form is ready again for the next one
         setTimeout(function () {
           try {
@@ -774,16 +800,18 @@
 
   // ------------------------------------------------------------- start
   function mount() {
+    if (root) { render(); return true; }
     var desc = document.querySelector('.left-column .modal-more-div') ||
       document.querySelector('.modal-more-div');
     var host = desc && desc.parentElement;
-    if (!host) return false;
+    if (!host && !AREA) return false;
     addStyles();
     root = document.createElement('section');
     root.className = 'nwp';
     root.id = 'prices';
     root.setAttribute('aria-label', 'Passes and prices');
-    host.insertBefore(root, desc.nextSibling);
+    if (AREA) { root.hidden = true; document.body.appendChild(root); }
+    else host.insertBefore(root, desc.nextSibling);
     sheet = document.createElement('div');
     sheet.className = 'nwp-sheet';
     sheet.innerHTML = '<div class="nwp-dlg" role="dialog" aria-modal="true" aria-labelledby="nwp-dlg-h"></div>';
@@ -916,7 +944,71 @@
     track('area_page_request_opened', { slug: SLUG, from: document.referrer || '' });
   }
 
+  // ---------------------------------------------------- area pages
+  // The space's own page, loaded out of sight, so a request sent from
+  // the area page goes through that page's form exactly as one sent on
+  // the page itself (same form, same listing name, same import).
+  var frame = null, frameSlug = '', cache = {};
+  function areaFrame(slug) {
+    if (frame && frameSlug === slug) return;
+    if (frame) { try { frame.remove(); } catch (e) {} }
+    frameSlug = slug;
+    frame = document.createElement('iframe');
+    frame.setAttribute('aria-hidden', 'true');
+    frame.tabIndex = -1;
+    frame.title = '';
+    frame.style.cssText = 'position:absolute;left:-10000px;top:0;width:400px;height:600px;border:0;opacity:0;pointer-events:none';
+    frame.src = '/coworking/' + slug;
+    document.body.appendChild(frame);
+  }
+  function frameForm() {
+    try {
+      var d = frame && frame.contentDocument;
+      if (!d || d.readyState !== 'complete') return null;
+      var w = frame.contentWindow;
+      if (!w.Webflow && !w.jQuery) return null;
+      return d.getElementById('wf-form-Research-Form');
+    } catch (e) { return null; }
+  }
+  function areaOpen(slug, id, btn, href) {
+    AREA_BTN = btn;
+    var card = btn.closest && btn.closest('.aw-card');
+    var img = card && card.querySelector('img');
+    AREA_PIC = img ? (img.currentSrc || img.src) : '';
+    areaFrame(slug);
+    var got = cache[slug] ? Promise.resolve(cache[slug]) : fetch(URL_ + '/rest/v1/rpc/page_prices', {
+      method: 'POST',
+      headers: { apikey: KEY, Authorization: 'Bearer ' + KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ p_slug: slug })
+    }).then(function (r) { return r.ok ? r.json() : null; });
+    got.then(function (raw) {
+      if (!raw || !raw.prices) throw new Error('no prices');
+      cache[slug] = raw;
+      SLUG = slug;
+      SHUT = Array.isArray(raw.closed_days) ? raw.closed_days.map(Number) : [];
+      data = shape(raw);
+      S.picked = id;
+      if (!pickedItem() || !mount()) throw new Error('no price');
+      S.sent = false;
+      openSheet(id);
+    }).catch(function () { location.href = href; });
+  }
+  if (AREA) {
+    document.addEventListener('click', function (ev) {
+      var a = ev.target && ev.target.closest ? ev.target.closest('a.aw-req') : null;
+      if (!a || ev.metaKey || ev.ctrlKey || ev.shiftKey) return;
+      var u;
+      try { u = new URL(a.href, location.href); } catch (e) { return; }
+      var mm = /^\/coworking\/([a-z0-9-]+)\/?$/i.exec(u.pathname);
+      var id = u.searchParams.get('request') || '';
+      if (!mm || !/^[0-9a-f-]{36}$/i.test(id)) return;
+      ev.preventDefault();
+      areaOpen(mm[1].toLowerCase(), id, a, a.href);
+    }, true);
+  }
+
   function start() {
+    if (AREA || FRAMED) return;
     hit('view');
     fetch(URL_ + '/rest/v1/rpc/page_prices', {
       method: 'POST',

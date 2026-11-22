@@ -118,6 +118,89 @@ def also_line(space):
     return ('Also here: ' + ', '.join(bits)) if bits else ''
 
 
+DAYS = ('mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun')
+DAY_NAME = {'mon': 'Mon', 'tue': 'Tue', 'wed': 'Wed', 'thu': 'Thu', 'fri': 'Fri', 'sat': 'Sat', 'sun': 'Sun'}
+
+
+def clock(t):
+    """'8:30 AM' -> '8:30am', '6:00 PM' -> '6pm'."""
+    m = re.match(r'^\s*(\d{1,2})(?::(\d{2}))?\s*([AP])\.?M\.?\s*$', t or '', re.I)
+    if not m:
+        return (t or '').strip()
+    h, mi, ap = int(m.group(1)), m.group(2) or '00', m.group(3).lower()
+    return f'{h}{"" if mi == "00" else ":" + mi}{ap}m'
+
+
+def hours_line(hours):
+    """{'mon': '8:30 AM - 6:00 PM', ..., 'sat': 'Closed'} ->
+    'Open Mon to Fri 8:30am to 6pm, closed at weekends'. Empty when the
+    hours are missing or not in that shape."""
+    if not isinstance(hours, dict) or not all(d in hours for d in DAYS):
+        return ''
+    def one(v):
+        v = (v or '').strip()
+        if re.fullmatch(r'closed', v, re.I):
+            return 'closed'
+        if re.search(r'24 hours', v, re.I):
+            return 'open 24 hours'
+        m = re.match(r'^(.+?)\s*[-\u2013]\s*(.+)$', v)
+        return f'{clock(m.group(1))} to {clock(m.group(2))}' if m else ''
+    vals = [one(hours[d]) for d in DAYS]
+    if '' in vals:
+        return ''
+    if len(set(vals)) == 1:
+        return 'Open 24 hours, every day' if vals[0] == 'open 24 hours' else (
+            'Closed' if vals[0] == 'closed' else f'Open every day {vals[0]}')
+    runs, i = [], 0
+    while i < 7:
+        j = i
+        while j + 1 < 7 and vals[j + 1] == vals[i]:
+            j += 1
+        runs.append((i, j, vals[i]))
+        i = j + 1
+    parts = []
+    for a, b, v in runs:
+        days = DAY_NAME[DAYS[a]] if a == b else (
+            f'{DAY_NAME[DAYS[a]]} and {DAY_NAME[DAYS[b]]}' if b == a + 1 else f'{DAY_NAME[DAYS[a]]} to {DAY_NAME[DAYS[b]]}')
+        parts.append((days, v))
+    if len(parts) == 2 and parts[1] == ('Sat and Sun', 'closed') and parts[0][1] != 'closed':
+        return f'Open {parts[0][0]} {parts[0][1]}, closed at weekends'
+    return 'Open ' + ', '.join(f'{d} {v}' for d, v in parts)
+
+
+def facts_html(space, info, area):
+    """Opening hours, Google rating and a Directions link for a card."""
+    v = info.get(space['slug']) or {}
+    bits = []
+    hl = hours_line(v.get('hours'))
+    if hl:
+        bits.append(f'<span class="aw-hrs">{e(hl)}</span>')
+    if v.get('rating') and v.get('reviews'):
+        r = float(v['rating'])
+        bits.append(f'<span class="aw-rate"><span aria-hidden="true">\u2605</span> {r:.1f} '
+                    f'<span class="aw-rn2">({int(v["reviews"])} Google reviews)</span></span>')
+    if v.get('lat') is not None and v.get('lng') is not None:
+        q = urllib.parse.quote(f'{space["name"]}, {area}')
+        pid = f'&query_place_id={urllib.parse.quote(v["place_id"])}' if v.get('place_id') else ''
+        href = f'https://www.google.com/maps/search/?api=1&query={q}{pid}'
+        bits.append(f'<a class="aw-dir" href="{e(href)}" target="_blank" rel="noopener nofollow">Directions</a>')
+    return f'<div class="aw-facts">{"".join(bits)}</div>' if bits else ''
+
+
+def geo_attrs(space, info, n):
+    v = info.get(space['slug']) or {}
+    if v.get('lat') is None or v.get('lng') is None:
+        return ''
+    return f' data-n="{n}" data-lat="{float(v["lat"]):.6f}" data-lng="{float(v["lng"]):.6f}" data-name="{e(plain_space(space["name"]))}"'
+
+
+def num_badge(space, info, n):
+    v = info.get(space['slug']) or {}
+    if v.get('lat') is None or v.get('lng') is None:
+        return ''
+    return f'<span class="aw-num" aria-hidden="true">{n}</span>'
+
+
 def photo_html(space, photos, w, h):
     url = photos.get(space['cms'])
     if not url:
@@ -151,7 +234,8 @@ def tabs(page, current):
     return ''.join(out)
 
 
-def meeting_rooms(page, rows, photos):
+def meeting_rooms(page, rows, photos, info=None):
+    info = info or {}
     area, city = page['area'], page['city']
     spaces = spaces_of(rows, 'meeting_room')
     for s in spaces.values():
@@ -200,18 +284,19 @@ def meeting_rooms(page, rows, photos):
             'lowest price first</span><span>Hourly prices from each space\'s own website. '
             'Check VAT and any extras with the space when it replies.</span></div>']
     blocks = [embed(''.join(head))]
-    for s in order:
+    for n_card, s in enumerate(order, 1):
         caps = [capacity(i['name']) for i in s['items'] if capacity(i['name'])]
         span = (f', for {min(caps)} to {max(caps)} people' if caps and min(caps) != max(caps)
                 else (f', for {caps[0]} people' if caps else ''))
         nm = len(s['items'])
-        card = [f'<article class="aw-card" data-space="{e(s["slug"])}">',
+        card = [f'<article class="aw-card" data-space="{e(s["slug"])}"{geo_attrs(s, info, n_card)}>',
                 '<div class="aw-top">',
                 photo_html(s, photos, 112, 80).replace('{suffix}', '' if area.lower() in s['name'].lower() else e(', ' + area)),
                 '<div class="aw-tt">',
-                f'<h2 class="aw-h2"><a href="/coworking/{e(s["slug"])}">{e(plain_space(s["name"]))}</a></h2>',
+                f'<h2 class="aw-h2">{num_badge(s, info, n_card)}<a href="/coworking/{e(s["slug"])}">{e(plain_space(s["name"]))}</a></h2>',
                 f'<div class="aw-sub">{nm} meeting room{"s" if nm != 1 else ""}{span}</div></div>',
                 f'<div class="aw-from">From {money(s["items"][0]["amount"])} an hour</div></div>',
+                facts_html(s, info, area),
                 '<div class="aw-rows">']
         for k, i in enumerate(s['items']):
             cap = capacity(i['name'])
@@ -250,7 +335,8 @@ def meeting_rooms(page, rows, photos):
     }
 
 
-def office_space(page, rows, photos):
+def office_space(page, rows, photos, info=None):
+    info = info or {}
     area, city = page['area'], page['city']
     spaces = spaces_of(rows, 'private_office')
     for s in spaces.values():
@@ -283,7 +369,7 @@ def office_space(page, rows, photos):
             f'<div class="aw-meta"><span>{n} spaces, lowest price first</span>'
             '<span>Prices from each space\'s own website. A space quotes for your team size when it replies.</span></div>']
     blocks = [embed(''.join(head))]
-    for s in order:
+    for n_card, s in enumerate(order, 1):
         it = s['best']
         if it['amount'] is not None:
             price = f'From {money(it["amount"])}'
@@ -292,11 +378,12 @@ def office_space(page, rows, photos):
             price = 'Price on request'
             u = 'The space quotes for your team'
         also = also_line(s)
-        card = ['<article class="aw-card aw-office">',
+        card = [f'<article class="aw-card aw-office" data-space="{e(s["slug"])}"{geo_attrs(s, info, n_card)}>',
                 photo_html(s, photos, 176, 124).replace('{suffix}', '' if area.lower() in s['name'].lower() else e(', ' + area)),
                 '<div class="aw-tt">',
-                f'<h2 class="aw-h2"><a href="/coworking/{e(s["slug"])}">{e(plain_space(s["name"]))}</a></h2>',
+                f'<h2 class="aw-h2">{num_badge(s, info, n_card)}<a href="/coworking/{e(s["slug"])}">{e(plain_space(s["name"]))}</a></h2>',
                 (f'<div class="aw-also">{e(also)}</div>' if also else ''),
+                facts_html(s, info, area),
                 '</div>',
                 '<div class="aw-side"><div><div class="aw-per">Private office</div>',
                 f'<div class="aw-big">{e(price)}</div><div class="aw-per">{e(u)}</div></div>',
@@ -351,19 +438,21 @@ def aside(page, product):
         links.append(f'<a href="{e(L["coworking"])}">Coworking and cafes in {e(page["area"])}</a>')
     if L.get('city'):
         links.append(f'<a href="{e(L["city"])}">All of {e(page["city"])}</a>')
-    inner = ('<div class="aw-box"><h2 class="aw-bh">How a request works</h2><ol>' + how +
+    inner = ('<div class="aw-mapbox"><div class="aw-map" role="img" '
+             f'aria-label="Map of the spaces in {e(page["area"])}"></div></div>'
+             '<div class="aw-box"><h2 class="aw-bh">How a request works</h2><ol>' + how +
              '<li>We pass it on. The space replies to you directly.</li>'
              '<li>It is not a booking and it costs nothing.</li></ol></div>'
              f'<div class="aw-box"><h2 class="aw-bh">More in {e(page["area"])}</h2>' + ''.join(links) + '</div>')
     return embed(inner)
 
 
-def build(page, rows, photos):
+def build(page, rows, photos, info=None):
     if page['product'] == 'meeting_room':
-        f = meeting_rooms(page, rows, photos)
+        f = meeting_rooms(page, rows, photos, info)
         label = 'Meeting rooms'
     else:
-        f = office_space(page, rows, photos)
+        f = office_space(page, rows, photos, info)
         label = 'Office space'
     f['breadcrumb'] = breadcrumb(page, label)
     f['aside'] = aside(page, page['product'])
@@ -406,6 +495,15 @@ def sb(path, method='GET', body=None, prefer=None):
     if prefer:
         h['Prefer'] = prefer
     return _call(f'{SUPABASE_URL}/rest/v1/{path}', h, method, body)
+
+
+def info_for(location):
+    q = ('venues?select=webflow_slug,lat,lng,opening_hours,google_place_id,'
+         'google_rating_snapshot,google_reviews_snapshot'
+         f'&webflow_location_id=eq.{urllib.parse.quote(location)}&webflow_slug=not.is.null')
+    return {v['webflow_slug']: {'lat': v.get('lat'), 'lng': v.get('lng'), 'hours': v.get('opening_hours'),
+                                'place_id': v.get('google_place_id'), 'rating': v.get('google_rating_snapshot'),
+                                'reviews': v.get('google_reviews_snapshot')} for v in (sb(q) or [])}
 
 
 def rows_for(location):
@@ -464,7 +562,7 @@ def run():
         try:
             data = rows_for(page['location'])
             photos = photos_for({x[2] for x in data if x[5] == page['product']}, photos)
-            f = build(page, data, photos)
+            f = build(page, data, photos, info_for(page['location']))
             r['spaces'] = f['_spaces']
             cur = wf(f'/v2/collections/{AREA_PAGES_ID}/items/{page["item"]}') or {}
             fd = cur.get('fieldData') or {}
@@ -502,7 +600,8 @@ if __name__ == '__main__':
         rows = json.load(open(sys.argv[2]))
         photos = json.load(open(sys.argv[3]))
         pages = json.load(open(sys.argv[4]))
-        out = [build(p, rows, photos) for p in pages]
+        info = json.load(open(sys.argv[6])) if len(sys.argv) > 6 else {}
+        out = [build(p, rows, photos, info) for p in pages]
         json.dump(out, open(sys.argv[5], 'w'), ensure_ascii=False, indent=1)
         sys.exit(0)
     print(json.dumps(run(), indent=2, default=str))

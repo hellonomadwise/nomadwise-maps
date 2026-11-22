@@ -6991,3 +6991,17 @@ Emily, agreed 22 Nov) and the doorway rules in the Nomadwise project
   extras with the space when it replies" (VAT not stated on Fora's pages).
 - Office space lists only spaces with a private office product (6), not every
   coworking space in the area as the mockup did.
+
+Same day, after Jonathan's review:
+- Request opens on the area page itself (Jonathan: "agreed"). prices.js now
+  also runs on /workspace/ pages: a Request button opens the same request
+  pop-up there, for that space and price. Sending goes through the space's
+  own page, loaded out of sight in a hidden frame, so the request uses that
+  page's form, listing name and import exactly as before. A space's page
+  loaded that way shows no price list and is not counted as a page view.
+  If anything fails, the button falls back to the space's page.
+- Each card shows the opening hours ("Open Mon to Fri 8:30am to 6pm, closed
+  at weekends"), the Google rating and a Directions link, and a numbered pin
+  on a map of the area (Leaflet with CARTO/OpenStreetMap tiles, in the side
+  panel; above the list on a phone). With a size picked, only those spaces'
+  pins show.
