@@ -204,14 +204,15 @@ class _PricesOverviewScreenState extends State<PricesOverviewScreen> {
                         fontSize: 14, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 2),
                 Text(
-                    views <= 0
-                        ? 'No views yet'
+                    views < 200
+                        ? 'Too early to tell'
                         : '${_per1000(requests, views)} requests per 1,000 views',
                     style: const TextStyle(
                         fontSize: 20, fontWeight: FontWeight.w800)),
                 _small('${_num.format(requests)} '
                     '${requests == 1 ? 'request' : 'requests'} from '
-                    '${_num.format(views)} views'),
+                    '${_num.format(views)} views'
+                    '${views < 200 ? '. A rate shows here from 200 views.' : ''}'),
               ]),
         );
     return _card(Column(
@@ -346,9 +347,12 @@ class _PricesOverviewScreenState extends State<PricesOverviewScreen> {
           'listings': 'pages with prices stored',
         }[_chart] ??
         'pages showing prices to visitors';
+    // Views are drawn as all views of coworking pages (grey) with the
+    // part that was of a page showing prices in red.
+    final views = _chart == 'views_shown';
     var max = 1;
     for (final x in days) {
-      final v = _n(x[key]);
+      final v = _n(x[views ? 'views_all' : key]);
       if (v > max) max = v;
     }
     String dayLabel(Map<String, dynamic> x) {
@@ -364,25 +368,49 @@ class _PricesOverviewScreenState extends State<PricesOverviewScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _title('Over time'),
-          _small(daily
-              ? 'Each day on its own. Tap a bar for that day.'
-              : 'Running total, day by day. Tap a bar for that day.'),
+          _small(views
+              ? 'Each day on its own. Grey is every view of a coworking '
+                  'page; red is the part that could see prices. Tap a bar '
+                  'for that day.'
+              : (daily
+                  ? 'Each day on its own. Tap a bar for that day.'
+                  : 'Running total, day by day. Tap a bar for that day.')),
           const SizedBox(height: 8),
           Wrap(runSpacing: 6, children: [
-            _choice('views_shown', 'Views with prices', _chart,
-                (v) => setState(() => _chart = v)),
+            _choice('views_shown', 'Views', _chart,
+                (v) => setState(() {
+                  _chart = v;
+                  _picked = null;
+                })),
             _choice('requests', 'Requests', _chart,
-                (v) => setState(() => _chart = v)),
+                (v) => setState(() {
+                  _chart = v;
+                  _picked = null;
+                })),
             _choice('showing', 'Pages showing', _chart,
-                (v) => setState(() => _chart = v)),
+                (v) => setState(() {
+                  _chart = v;
+                  _picked = null;
+                })),
             _choice('listings', 'Have prices', _chart,
-                (v) => setState(() => _chart = v)),
+                (v) => setState(() {
+                  _chart = v;
+                  _picked = null;
+                })),
             _choice('products', 'Products', _chart,
-                (v) => setState(() => _chart = v)),
+                (v) => setState(() {
+                  _chart = v;
+                  _picked = null;
+                })),
           ]),
           const SizedBox(height: 10),
           if (at != null)
-            Text('${dayLabel(at)}: ${_num.format(_n(at[key]))} $word',
+            Text(
+                views
+                    ? '${dayLabel(at)}: ${_num.format(_n(at['views_shown']))} '
+                        'of ${_num.format(_n(at['views_all']))} views could '
+                        'see prices'
+                    : '${dayLabel(at)}: ${_num.format(_n(at[key]))} $word',
                 style: const TextStyle(
                     fontSize: 14, fontWeight: FontWeight.w700)),
           const SizedBox(height: 10),
@@ -401,19 +429,49 @@ class _PricesOverviewScreenState extends State<PricesOverviewScreen> {
                           onTap: () => setState(() => _picked = i),
                           child: Align(
                             alignment: Alignment.bottomCenter,
-                            child: Container(
-                              margin:
-                                  const EdgeInsets.symmetric(horizontal: 0.75),
-                              height: (h * _n(days[i][key]) / max)
-                                  .clamp(_n(days[i][key]) > 0 ? 3.0 : 1.0, h)
-                                  .toDouble(),
-                              decoration: BoxDecoration(
-                                  color: (_picked ?? days.length - 1) == i
-                                      ? Brand.ink
-                                      : Brand.accent,
-                                  borderRadius: const BorderRadius.vertical(
-                                      top: Radius.circular(2))),
-                            ),
+                            child: views
+                                ? Container(
+                                    margin: const EdgeInsets.symmetric(
+                                        horizontal: 0.75),
+                                    height: (h * _n(days[i]['views_all']) / max)
+                                        .clamp(1.0, h)
+                                        .toDouble(),
+                                    alignment: Alignment.bottomCenter,
+                                    decoration: BoxDecoration(
+                                        color:
+                                            (_picked ?? days.length - 1) == i
+                                                ? Brand.inkMuted
+                                                : Brand.inkFaint,
+                                        borderRadius:
+                                            const BorderRadius.vertical(
+                                                top: Radius.circular(2))),
+                                    child: Container(
+                                      height: _n(days[i]['views_shown']) <= 0
+                                          ? 0.0
+                                          : (h *
+                                                  _n(days[i]['views_shown']) /
+                                                  max)
+                                              .clamp(3.0, h)
+                                              .toDouble(),
+                                      color: Brand.accent,
+                                    ),
+                                  )
+                                : Container(
+                                    margin: const EdgeInsets.symmetric(
+                                        horizontal: 0.75),
+                                    height: (h * _n(days[i][key]) / max)
+                                        .clamp(
+                                            _n(days[i][key]) > 0 ? 3.0 : 1.0, h)
+                                        .toDouble(),
+                                    decoration: BoxDecoration(
+                                        color:
+                                            (_picked ?? days.length - 1) == i
+                                                ? Brand.ink
+                                                : Brand.accent,
+                                        borderRadius:
+                                            const BorderRadius.vertical(
+                                                top: Radius.circular(2))),
+                                  ),
                           ),
                         ),
                       ),
@@ -425,6 +483,59 @@ class _PricesOverviewScreenState extends State<PricesOverviewScreen> {
               _small(dayLabel(days.last)),
             ]),
           ],
+        ]));
+  }
+
+  /// The same numbers a week at a time, newest first: steadier than
+  /// single days when there are only a few requests a month.
+  Widget _weeks(Map<String, dynamic> d) {
+    final by = <DateTime, List<int>>{};
+    for (final x in _l(d['days'])) {
+      final t = DateTime.tryParse('${x['d'] ?? ''}');
+      if (t == null) continue;
+      final day = DateTime.utc(t.year, t.month, t.day);
+      final start = day.subtract(Duration(days: day.weekday - 1));
+      final w = by.putIfAbsent(start, () => [0, 0, 0]);
+      w[0] += _n(x['views_all']);
+      w[1] += _n(x['views_shown']);
+      w[2] += _n(x['requests']);
+    }
+    final starts = by.keys.toList()..sort((a, b) => b.compareTo(a));
+    final shown = starts.length > 8 ? starts.sublist(0, 8) : starts;
+    return _card(Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _title('Week by week'),
+          _small('Coworking pages, weeks starting Monday, newest first. '
+              'The first line is the week so far.'),
+          const SizedBox(height: 10),
+          if (shown.isEmpty) _small('Nothing to show yet.'),
+          for (final wk in shown)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Week of ${DateFormat('d MMM').format(wk)}',
+                                style: const TextStyle(
+                                    fontSize: 14, fontWeight: FontWeight.w700)),
+                            _small('${_num.format(by[wk]![0])} views, '
+                                '${_num.format(by[wk]![1])} could see prices '
+                                '(${_pct(by[wk]![1], by[wk]![0])})'),
+                          ]),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                        '${by[wk]![2]} '
+                        '${by[wk]![2] == 1 ? 'request' : 'requests'}',
+                        style: const TextStyle(
+                            fontSize: 13.5, fontWeight: FontWeight.w700)),
+                  ]),
+            ),
         ]));
   }
 
@@ -560,6 +671,8 @@ class _PricesOverviewScreenState extends State<PricesOverviewScreen> {
                   _requests(d),
                   const SizedBox(height: 10),
                   _overTime(d),
+                  const SizedBox(height: 10),
+                  _weeks(d),
                   const SizedBox(height: 10),
                   _waiting(d),
                   const SizedBox(height: 10),
