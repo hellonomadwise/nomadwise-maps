@@ -436,6 +436,7 @@ class _PricesOverviewScreenState extends State<PricesOverviewScreen> {
                     ? '${dayLabel(at)}: ${_num.format(_n(at['views_shown']))} '
                         'of ${_num.format(_n(at['views_all']))} views could '
                         'see prices'
+                        '${_n(at['views_all']) > 0 ? ' (${_pct(_n(at['views_shown']), _n(at['views_all']))})' : ''}'
                     : '${dayLabel(at)}: ${_num.format(_n(at[key]))} $word',
                 style: const TextStyle(
                     fontSize: 14, fontWeight: FontWeight.w700)),

@@ -6949,3 +6949,10 @@ Jonathan, after KoHub's retire sat with nothing happening until the run was star
 - Now a retire request passes that gate and the one-minute throttle, as an approval or Publish does. Nothing changes on a screen and nothing is sent to anyone.
 - Tried in the database and undone again: a retire request on a live page that was never approved in the app queued the call to GitHub and moved the last-nudge time; before the change it did neither. No page was retired by the test.
 - With the fix of the same morning (a listing already unpublished by hand is archived without the live call), a retire now runs through whether or not someone has touched the item in Webflow first.
+
+## 22 Nov 2026: Prices overview, the day line under "Over time" says the share too
+Jonathan, with a screenshot of the Views chart ("22 Nov: 3 of 21 views could see prices"): "can this part, include % as in % of page views could see prices".
+- The line for the picked day now ends with the share, as the week by week list already does: "22 Nov: 3 of 21 views could see prices (14%)". Rounded to a whole per cent.
+- A day with no views shows no share (nothing to take a share of).
+- Only that one line changed (app/lib/screens/prices_overview_screen.dart). No database change, nothing else on the screen moved.
+- Not seen on a screen from the session (no local Flutter); the build is the compile check.
