@@ -797,4 +797,17 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    finally:
+        # Area pages ("Meeting rooms in Shoreditch", /workspace/...,
+        # 22 Nov 2026) are kept in step with the products here, in the
+        # same workflow step, so no workflow file had to change. At most
+        # once an hour; never stops the products step.
+        try:
+            import subprocess
+            subprocess.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                                         'webflow_area_pages.py')],
+                           timeout=600, check=False)
+        except Exception:  # noqa: BLE001
+            pass

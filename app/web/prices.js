@@ -885,6 +885,22 @@
     if (a && MAPS.test(a.getAttribute('href') || '')) hit('directions');
   }, true);
 
+  // A Request button on an area page ("Meeting rooms in Shoreditch",
+  // /workspace/<slug>) links here as /coworking/<slug>?request=<price id>:
+  // the request pop-up opens with that price already chosen (Jonathan,
+  // 22 Nov 2026). An id that is not on this page opens nothing.
+  function fromLink() {
+    var id = '';
+    try { id = new URLSearchParams(location.search).get('request') || ''; } catch (e) { return; }
+    if (!/^[0-9a-f-]{36}$/i.test(id)) return;
+    S.picked = id;
+    if (!pickedItem()) { S.picked = null; return; }
+    S.picked = null;
+    try { root.scrollIntoView({ block: 'start' }); } catch (e) {}
+    openSheet(id);
+    track('area_page_request_opened', { slug: SLUG, from: document.referrer || '' });
+  }
+
   function start() {
     hit('view');
     fetch(URL_ + '/rest/v1/rpc/page_prices', {
@@ -898,7 +914,7 @@
         SHUT = Array.isArray(raw.closed_days) ? raw.closed_days.map(Number) : [];
         data = shape(raw);
         if (!data.groups.length) return;
-        mount();
+        if (mount()) fromLink();
       })
       .catch(function () {});
   }

@@ -6964,3 +6964,30 @@ Jonathan, on "Most viewed pages not showing prices yet": "i cant highlight these
 - For the link, admin_prices_dashboard() now sends each waiting page's slug as well (one more field on each row of 'waiting', nothing else changed). All 367 live coworking pages have a slug, so every line gets the link.
 - Tried in the database: the list came back with 15 pages, first SOKKOOL with slug indonesia-bali-sokkool-coliving-coworking.
 - Only that one card changed. Not seen on a screen from the session (no local Flutter); the build is the compile check.
+## 22 Nov 2026: area pages, "Meeting rooms in Shoreditch" and "Office space in Shoreditch"
+
+Jonathan: "lets go ahead and build. build, get live, and i can review and we
+can iterate". Built from the Design canvas "Office space area page" (copy by
+Emily, agreed 22 Nov) and the doorway rules in the Nomadwise project
+(growth-engine/2026-11-21-area-pages-doorway-rules.md).
+- Webflow: one new collection "Area Pages" (6b02e00ec85f721ebc7a0090, URL
+  /workspace/<slug>), template with the site's navbar and footer, breadcrumb,
+  H1, intro, the list (rich text) and a side panel (rich text). Styles and the
+  room-size filter are in the template's own custom code (head and footer).
+  Items: /workspace/meeting-rooms-shoreditch-london and
+  /workspace/office-space-shoreditch-london.
+- scripts/webflow_area_pages.py writes every number from Nomad Maps (spaces on
+  a live page in the area, their live products, each space's first photo).
+  It runs inside the products step of the website push (called from
+  webflow_products.py, so no workflow file changed), at most once an hour,
+  and writes and publishes an item only when its text changed. Below 3 spaces
+  a page is unpublished (doorway rule 7). Which pages exist:
+  sync_settings 'area_pages'.
+- Request: each Request button opens the space's own page with that price
+  already chosen in the request pop-up (/coworking/<slug>?request=<price id>,
+  prices.js fromLink). Requests arrive exactly as before.
+- Meeting rooms intro: the cheapest room with at least 4, 10 and 12 seats.
+  Fora prices are shown as "From £X an hour" with the line "Check VAT and any
+  extras with the space when it replies" (VAT not stated on Fora's pages).
+- Office space lists only spaces with a private office product (6), not every
+  coworking space in the area as the mockup did.
