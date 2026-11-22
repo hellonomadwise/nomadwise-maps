@@ -318,7 +318,7 @@
       '.nwp-send[disabled]{cursor:default;filter:none;opacity:.85}',
       '.nwp-spin{width:18px;height:18px;border-radius:50%;border:2.5px solid rgba(255,255,255,.4);border-top-color:#fff;animation:nwp-rot .7s linear infinite}',
       '@keyframes nwp-rot{to{transform:rotate(360deg)}}',
-      '.nwp-trust{margin:0;font-size:12px;color:var(--nwp-muted);text-align:center;line-height:1.45}',
+      '.nwp-trust{margin:0;font-size:12px;color:var(--nwp-muted);text-align:left;line-height:1.45}',
       '.nwp-trust a{color:var(--nwp-teal)}',
       // sent
       '.nwp-ok{padding:28px 20px 22px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px}',
