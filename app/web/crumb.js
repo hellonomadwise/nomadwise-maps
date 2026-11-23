@@ -43,12 +43,12 @@
     'html.nwbc-on .product-pagination-wrap,html.nwbc-on .product-pagination-wrap-listings,html.nwbc-on [data-aw=crumb]{display:none!important}',
     '[data-aw] .nwbc{margin:0 0 12px}',
     '@media (max-width:767px){',
-    ' .nwbc{margin:16px 0}',
+    ' .nwbc{margin:4px 0}',
     ' .nwbc li.nwbc-far{display:none}',
     ' .nwbc li.nwbc-par .nwbc-s,.nwbc li.nwbc-par img.nwbc-f{display:none}',
     ' .nwbc li.nwbc-par .nwbc-b{display:block}',
-    ' .nwbc .nwbc-c{min-height:44px;padding:9px 12px}',
-    ' .nwbc a.nwbc-l{min-height:44px}',
+    ' .nwbc .nwbc-c{min-height:40px;padding:8px 12px}',
+    ' .nwbc a.nwbc-l{min-height:40px}',
     '}'
   ].join('\n');
 
