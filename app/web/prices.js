@@ -91,6 +91,29 @@
     return d;
   }
   function sameDay(a, b) { return a && b && a.getTime() === b.getTime(); }
+  // A request by the hour never asks for a time that has gone
+  // (Jonathan, 23 Nov 2026, after a test asked for 10:00 on a day that
+  // was already 13:57). By the visitor's own clock: the page does not
+  // know the space's time zone.
+  var HOUR_FIRST = 7, HOUR_LAST = 20;
+  function firstHourOn(d) {
+    if (!d || !sameDay(d, today0())) return HOUR_FIRST;
+    return Math.max(HOUR_FIRST, new Date().getHours() + 1);
+  }
+  function hourText(h) { return (h < 10 ? '0' : '') + h + ':00'; }
+  // Moves the day and time on when they have passed; true when it did.
+  function keepAhead(kind) {
+    if (kind !== 'hour' || S.flexible || !S.date) return false;
+    var moved = false, t = today0();
+    if (S.date < t) { S.date = t; moved = true; }
+    if (firstHourOn(S.date) > HOUR_LAST) {
+      S.date = openDay(addDays(t, 1)); moved = true;
+    }
+    if (moved) S.monthOffset = (S.date.getFullYear() - t.getFullYear()) * 12 + S.date.getMonth() - t.getMonth();
+    var first = firstHourOn(S.date);
+    if (parseInt(S.time, 10) < first) { S.time = hourText(first); moved = true; }
+    return moved;
+  }
   function fmtDate(d, long) {
     return d.toLocaleDateString('en-GB', long
       ? { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }
@@ -499,7 +522,8 @@
       var n = i - lead + 1;
       if (n < 1 || n > inMonth) { h += '<span class="nwp-d blank" aria-hidden="true"></span>'; continue; }
       var d = new Date(first.getFullYear(), first.getMonth(), n);
-      var past = d < t, isT = sameDay(d, t), on = !S.flexible && sameDay(d, S.date);
+      var isT = sameDay(d, t), on = !S.flexible && sameDay(d, S.date);
+      var past = d < t || (kind === 'hour' && isT && firstHourOn(d) > HOUR_LAST);
       h += '<button type="button" class="nwp-d' + (isT ? ' today' : '') + (on ? ' on' : '') + '" data-a="day" data-v="' + d.getTime() + '" data-k="d' + d.getTime() + '"' +
         (past ? ' disabled' : '') + ' aria-pressed="' + on + '" aria-label="' + esc(fmtDate(d, true) + (isT ? ', today' : '')) + '">' + n + '</button>';
     }
@@ -535,6 +559,7 @@
         '<button type="button" class="nwp-done-btn" data-a="close" data-k="done">Done</button></div></div>';
     }
     var kind = kindOf(it);
+    keepAhead(kind);
     var whenLabel = kind === 'start' ? 'When would you like to start?' : 'Which day?';
     var whenText = S.flexible ? "I'm flexible on dates" : (S.date ? fmtDate(S.date, true) : 'Pick a date');
     var h = head + '<div class="nwp-bd">';
@@ -544,11 +569,13 @@
       '<span>' + esc(whenText) + '</span>' + ICON_CHEV + '</button>' + (S.calOpen ? calendarHtml(kind) : '') + '</div>';
     if (kind === 'hour') {
       h += '<div class="nwp-fl"><label class="nwp-lt" for="nwp-time">Starting at</label><select class="nwp-in" id="nwp-time" data-f="time" data-k="time">';
-      for (var hr = 7; hr <= 20; hr++) {
-        var tt = (hr < 10 ? '0' : '') + hr + ':00';
+      var hr0 = S.flexible ? HOUR_FIRST : firstHourOn(S.date);
+      for (var hr = hr0; hr <= HOUR_LAST; hr++) {
+        var tt = hourText(hr);
         h += '<option' + (S.time === tt ? ' selected' : '') + '>' + tt + '</option>';
       }
-      h += '</select></div><div class="nwp-fl"><span class="nwp-lt">For how long?</span>' + segHtml('length', LENGTHS, null, S.length, 'For how long') + '</div>';
+      h += '</select>' + (hr0 > HOUR_FIRST ? '<span style="font-size:12.5px;color:#5D5D5D">Earlier times today have already passed.</span>' : '') +
+        '</div><div class="nwp-fl"><span class="nwp-lt">For how long?</span>' + segHtml('length', LENGTHS, null, S.length, 'For how long') + '</div>';
     }
     h += '' +
       '<div class="nwp-fl"><label class="nwp-lt" for="nwp-name">Your name</label><input class="nwp-in' + (S.bad === 'name' ? ' bad' : '') + '" id="nwp-name" type="text" autocomplete="name" maxlength="120" data-f="name" data-k="name" value="' + esc(S.name) + '"' + (S.bad === 'name' ? ' aria-invalid="true"' : '') + '></div>' +
@@ -717,6 +744,10 @@
     if (!S.name) { S.error = 'Please add your name.'; S.bad = 'name'; S.focusKey = 'name'; render(); return; }
     if (!EMAIL_OK(S.email)) { S.error = "That email doesn't look quite right."; S.bad = 'email'; S.focusKey = 'email'; render(); return; }
     S.bad = null;
+    if (keepAhead(kindOf(it))) {
+      S.error = 'That time has already passed, so we moved it on. Please check the day and time, then send again.';
+      S.focusKey = 'time'; render(); return;
+    }
     if (AREA && !frameForm()) {
       // The space's page is still loading out of sight: wait for it.
       if (!S.waitFrame) S.waitFrame = Date.now();

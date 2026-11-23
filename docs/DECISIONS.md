@@ -7087,3 +7087,13 @@ Jonathan, looking at SwissOffices Astoria Kempinski's page (Private offices and 
 - The same in the Owner account's view of the page (My listing), which mirrors the live page.
 - app/web/prices.js and owner_screen.dart. The sticky "from" line on phones already left such a group without a price.
 - Not seen on a screen from the session; the page script was syntax-checked, and the build is the compile check for the app.
+
+## 23 Nov 2026: a request by the hour cannot ask for a time that has passed, and a test request closed
+Leonie sent a test request from the price list on Fora - Warnford Court at 13:57 on Monday 23 Nov, asking for Meeting Room 4 "from 10:00" that same day. Jonathan: "this was a request submission test we did. wanting to check that this makes sense", then "yes, please close this test request. and also stop the form accepting past times".
+- What the test showed: recorded against the right space within the minute, the customer's "We have your request" email went a minute later, nothing went to Fora (unclaimed, no requests address), and it waited in Enquiries. All as designed. The form had accepted a start time four hours gone.
+- The test request (9928b919) is closed through admin_enquiry_close as handled, with the note "Test request by Leonie, 23 Nov 2026. Closed at Jonathan's request. Never passed to Fora." No email went to anyone on closing.
+- The pop-up (app/web/prices.js), for prices by the hour only (meeting rooms): when the day picked is today, "Starting at" lists only the hours still ahead (at 13:57 the list starts at 14:00), with a line under it, "Earlier times today have already passed." A time already picked that has gone moves to the next one. After the last time (20:00) today cannot be picked and the day moves to the next day the space is open. Pressing Send checks once more, for a pop-up left open: "That time has already passed, so we moved it on. Please check the day and time, then send again."
+- Day passes, memberships and "I'm flexible on dates" are unchanged: a day pass for today is still a fair ask.
+- It goes by the clock on the visitor's own device. The page does not know the space's time zone, so someone in another time zone asking for today can still be offered slightly wrong hours. Rare for a room wanted the same day.
+- Not changed: the test still counts as one request in Prices overview ("Do prices bring requests?"), which counts every request on a coworking page. Offered to Jonathan to leave tests out.
+- Tried with a set of clock times (13:57, 06:10, 19:30, 20:05, a closed Sunday, a pop-up left open overnight): each gave the right day and first time. Not seen on a screen from the session.
