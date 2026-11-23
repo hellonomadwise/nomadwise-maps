@@ -59,6 +59,14 @@
   }
   function path(a) { try { return new URL(a.href, location.href).pathname; } catch (e) { return a.getAttribute('href') || ''; } }
 
+  // ---- each card's own address ----
+  // Webflow renders the card links as /region and /country; the card
+  // carries its item slug in data-slug, so set the full address here.
+  [].slice.call(page.querySelectorAll('a[data-cg=city][data-slug], a[data-cg=land][data-slug]')).forEach(function (a) {
+    var slug = (a.getAttribute('data-slug') || '').trim();
+    if (slug) a.setAttribute('href', (a.getAttribute('data-cg') === 'city' ? '/region/' : '/country/') + slug);
+  });
+
   // ---- read the lists Webflow rendered ----
   var cities = [].slice.call(page.querySelectorAll('a[data-cg=city]')).map(function (a, i) {
     return {
@@ -67,14 +75,14 @@
       lat: num(a.getAttribute('data-lat')), lng: num(a.getAttribute('data-lng')),
       cont: continent(a.getAttribute('data-cont')), href: path(a), flag: flagOf(a), pos: i + 1
     };
-  }).filter(function (c) { return c.name && c.href && c.href !== '#'; });
+  }).filter(function (c) { return c.name && /^\/(region|country)\/./.test(c.href); });
   var lands = [].slice.call(page.querySelectorAll('a[data-cg=land]')).map(function (a, i) {
     return {
       el: a, item: a.closest('[role=listitem]') || a, name: txt(a, '[data-cg=name]'),
       n: num(txt(a, '[data-cg=n]')) || 0, cont: continent(a.getAttribute('data-cont')),
       href: path(a), flag: flagOf(a), pos: i + 1
     };
-  }).filter(function (c) { return c.name && c.href && c.href !== '#'; });
+  }).filter(function (c) { return c.name && /^\/(region|country)\/./.test(c.href); });
   var flagByCountry = {};
   lands.forEach(function (l) { if (l.flag) flagByCountry[l.name] = l.flag; });
   cities.forEach(function (c) { if (!c.flag && flagByCountry[c.country]) c.flag = flagByCountry[c.country]; });
