@@ -195,10 +195,16 @@ def geo_attrs(space, info, n):
 
 
 def num_badge(space, info, n):
-    v = info.get(space['slug']) or {}
-    if v.get('lat') is None or v.get('lng') is None:
-        return ''
-    return f'<span class="aw-num" aria-hidden="true">{n}</span>'
+    # The numbered badges were dropped (Jonathan, 22 Nov 2026).
+    return ''
+
+
+def place(area, city):
+    """'Shoreditch, London', but plain 'City of London': no city
+    after an area whose name already has it."""
+    if not city or city.lower() in area.lower():
+        return area
+    return f'{place(area, city)}'
 
 
 def photo_html(space, photos, w, h):
@@ -325,11 +331,11 @@ def meeting_rooms(page, rows, photos, info=None):
         desc += f', for 10 from {money(c10[0])}.' if c10 else '.'
     desc += ' Send a free request.'
     return {
-        'name': f'Meeting rooms in {area}, {city}',
-        'h1': f'Meeting rooms in {area}, {city}',
+        'name': f'Meeting rooms in {place(area, city)}',
+        'h1': f'Meeting rooms in {place(area, city)}',
         'intro': intro,
         'body': ''.join(blocks),
-        'meta-title': f'Meeting Rooms in {area}, {city}: {n_rooms} Rooms by the Hour',
+        'meta-title': f'Meeting Rooms in {place(area, city)}: {n_rooms} Rooms by the Hour',
         'meta-description': desc,
         '_spaces': n_spaces,
     }
@@ -400,13 +406,13 @@ def office_space(page, rows, photos, info=None):
     if low:
         desc = (f'Private offices in {n} {area} workspaces, from {money(low["best"]["amount"])} '
                 f'{unit(low["best"])}. Prices from each space\'s own website. Send a free request.')
-        title = f'Office Space in {area}, {city}: Private Offices from {money(low["best"]["amount"])}'
+        title = f'Office Space in {place(area, city)}: Private Offices from {money(low["best"]["amount"])}'
     else:
         desc = f'Private offices in {n} {area} workspaces. Send a free request.'
-        title = f'Office Space in {area}, {city}: Private Offices'
+        title = f'Office Space in {place(area, city)}: Private Offices'
     return {
-        'name': f'Office space in {area}, {city}',
-        'h1': f'Office space in {area}, {city}',
+        'name': f'Office space in {place(area, city)}',
+        'h1': f'Office space in {place(area, city)}',
         'intro': intro,
         'body': ''.join(blocks),
         'meta-title': title,

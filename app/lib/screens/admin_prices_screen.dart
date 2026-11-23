@@ -865,11 +865,14 @@ class _AdminPricesScreenState extends State<AdminPricesScreen> {
                   step('4', 'What goes live by itself',
                       'A price read twice on the space\'s own website goes '
                           'live without waiting, and the page then shows '
-                          'its prices to visitors (Jonathan, 22 Nov 2026). '
-                          'A doubtful one waits for your Go: their page '
-                          'disagrees with itself, the price moved by more '
-                          'than about 30%, or a product would be taken '
-                          'off.'),
+                          'its prices to visitors, whatever the size of '
+                          'the change (Jonathan, 23 Nov 2026). A product no '
+                          'longer on their website is taken off. A price '
+                          'the owner entered themselves is never changed, '
+                          'only marked as different. What still waits for '
+                          'your Go: their page disagrees with itself, an '
+                          'amount ten times bigger or smaller, or a '
+                          'reading that would empty the page.'),
                   step('5', 'Your Go',
                       'Go puts that one change on the public page within '
                           'minutes. Edit lets you change it first. Skip '
