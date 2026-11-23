@@ -262,12 +262,16 @@ def meeting_rooms(page, rows, photos, info=None):
         if not c:
             continue
         word = 'a boardroom' if 'boardroom' in c[2]['name'].lower() else 'a room'
-        parts.append((size, word, money(c[0])))
+        # The same room can be the cheapest for 10 and for 12: say it
+        # once, for the larger size ("a boardroom for 12 at £60").
+        if parts and parts[-1][3] is c[2]:
+            parts.pop()
+        parts.append((size, word, money(c[0]), c[2]))
     price_sentence = ''
     if parts:
         p0 = parts[0]
         txt = f'{p0[1].capitalize()} for {p0[0]} starts at {p0[2]} an hour'
-        rest = [f'{w} for {n} at {m}' for n, w, m in parts[1:]]
+        rest = [f'{w} for {n} at {m}' for n, w, m, _ in parts[1:]]
         if len(rest) == 1:
             txt += f' and {rest[0]}'
         elif rest:
