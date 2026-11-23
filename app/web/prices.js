@@ -199,7 +199,23 @@
         per: low && low.period ? PER_LONG[low.period] : ''
       });
     });
-    return { space: raw.space || 'this space', groups: out, vat: vatSame && vatWords ? vatWords : '' };
+    return {
+      space: raw.space || 'this space', groups: out, vat: vatSame && vatWords ? vatWords : '',
+      checked: checkedWords(raw.checked_on),
+      site: /^https?:\/\//i.test(raw.website || '') ? String(raw.website) : ''
+    };
+  }
+
+  // "checked November 2026": the month the prices were last checked
+  // (Jonathan, 23 Nov 2026). Only the month, and only while the check
+  // is under six months old, so the page never shows a stale date.
+  function checkedWords(day) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(day || ''));
+    if (!m) return '';
+    var d = new Date(+m[1], +m[2] - 1, +m[3]);
+    var age = (Date.now() - d.getTime()) / 86400000;
+    if (isNaN(age) || age < -2 || age > 183) return '';
+    return 'checked ' + d.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
   }
 
   function pickedItem() {
@@ -234,6 +250,7 @@
       '@keyframes nwp-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}',
       '.nwp h2.nwp-h{margin:0 0 4px;font-size:21px;font-weight:700;line-height:1.25}',
       '.nwp-sub{margin:0 0 14px;font-size:14px;line-height:1.45;color:var(--nwp-muted)}',
+      '.nwp-site{color:var(--nwp-teal);font-weight:700;text-decoration:underline;white-space:nowrap}',
       // shared: the Request button
       '.nwp-enq{flex:none;min-height:34px;padding:0 14px;border-radius:8px;border:1.5px solid var(--nwp-red);background:#fff;color:var(--nwp-red-ink);font-family:inherit;font-weight:700;font-size:13.5px;line-height:1;cursor:pointer;transition:background .15s,color .15s,transform .1s}',
       '.nwp-enq:hover{background:var(--nwp-red);color:#fff}',
@@ -279,7 +296,8 @@
       '.nwp-tp .nwp-rows{padding:2px 14px 6px}',
       '.nwp-tp .nwp-r{padding:10px 0}',
       '.nwp-tp .nwp-rn{display:flex;flex-direction:column}',
-      '.nwp-tp .nwp-enq{min-height:40px}',
+      // 44px: the height a thumb needs (visitor audit, 23 Nov 2026).
+      '.nwp-tp .nwp-enq{min-height:44px}',
       '.nwp-tp .nwp-r{gap:12px}',
       // The phone row (Jonathan, 21 Nov 2026): the name has the row's
       // width, its price sits under it, the button to the right of both.
@@ -552,8 +570,12 @@
     S.phone = phone;
     root.innerHTML =
       '<h2 class="nwp-h">Passes and prices at ' + esc(data.space) + '</h2>' +
-      '<p class="nwp-sub">' + (data.vat ? 'All prices ' + esc(data.vat.replace(/^prices?\s+/i, '')) + ', set by ' + esc(data.space) + '. ' : 'Prices set by ' + esc(data.space) + '. ') +
-      'Sending a request is free and there\'s no obligation.</p>' +
+      '<p class="nwp-sub">' + (data.vat ? 'All prices ' + esc(data.vat.replace(/^prices?\s+/i, '')) + ', set by ' + esc(data.space) : 'Prices set by ' + esc(data.space)) +
+      (data.checked ? ', ' + esc(data.checked) : '') + '. ' +
+      'Sending a request is free and there\'s no obligation.' +
+      // A Premium page links to the space's own website; a free page
+      // does not, so the Request button stays the way to ask.
+      (data.site ? ' <a class="nwp-site" href="' + esc(data.site) + '" target="_blank" rel="noopener">Visit website</a>' : '') + '</p>' +
       (phone ? tabsHtml() : listHtml());
     if (sheet) sheet.querySelector('.nwp-dlg').innerHTML = S.sheetOpen ? modalHtml() : '';
     if (key) {
