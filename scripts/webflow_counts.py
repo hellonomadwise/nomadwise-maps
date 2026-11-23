@@ -10,7 +10,9 @@ field that this script keeps right: the spaces on a live page
 Country the sum of its Regions (by the Region's own Country reference
 on the site, so a country has one name, the site's: migration 347).
 
-Writes and publishes an item only when its number changed; draft items
+A Country with spaces also gets its Coworking Switch turned on (never
+off), since that switch hides the "none listed yet" block on its page.
+Writes and publishes an item only when something changed; draft items
 get the number but are not published. Runs inside the website push
 (called from webflow_products.py, after the area pages), at most once
 an hour. Needs SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY,
@@ -108,12 +110,21 @@ def counts(region_ids, regions):
     return per_region, per_country
 
 
-def write(collection, items, want):
+def write(collection, items, want, switch_on=False):
     changed, publish = [], []
     for it in items:
         n = want.get(it['id'], 0)
-        if (it.get('fieldData') or {}).get('spaces') != n:
-            changed.append({'id': it['id'], 'fieldData': {'spaces': n}})
+        fd = it.get('fieldData') or {}
+        upd = {}
+        if fd.get('spaces') != n:
+            upd['spaces'] = n
+        # A country with spaces must have its Coworking Switch on, or its
+        # page shows "none listed yet" under the listings (23 Nov 2026,
+        # /country/scotland). Only ever turned on here, never off.
+        if switch_on and n > 0 and not fd.get('coworking-switch'):
+            upd['coworking-switch'] = True
+        if upd:
+            changed.append({'id': it['id'], 'fieldData': upd})
             if not it.get('isDraft') and not it.get('isArchived'):
                 publish.append(it['id'])
     for i in range(0, len(changed), 100):
@@ -137,7 +148,7 @@ def run(force=False):
         countries = all_items(COUNTRIES_ID)
         per_region, per_country = counts(live_region_ids(), regions)
         report['regions'] = write(REGIONS_ID, regions, per_region)
-        report['countries'] = write(COUNTRIES_ID, countries, per_country)
+        report['countries'] = write(COUNTRIES_ID, countries, per_country, switch_on=True)
         report['countries_with_spaces'] = sum(1 for v in per_country.values() if v)
     except Exception as err:  # noqa: BLE001
         report['error'] = str(err)[:300]
