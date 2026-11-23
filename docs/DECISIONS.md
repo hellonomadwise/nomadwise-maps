@@ -7069,3 +7069,13 @@ Same day, after Jonathan's review:
   region, locations and coworking pages, which work for both versions.
 - The old header and lists stay on the page, hidden, so going back is
   one switch in Webflow.
+
+## 23 Nov 2026: messages through a Claude chat are logged in Outreach, and a space we are in touch with gets no sequence emails (migration 348)
+Jonathan, when "Your first request for Madeira Friends Hub" went to Luís at 09:47 UTC, the morning after the two of them had settled that request on WhatsApp: "this email should not have been sent, because I messaged Luis through whatsapp yesterday and he responded. for future, any comms that comes through claude, should be updated within nomadmaps, so it stops any sequence emails".
+- Why it went: the tip is sent one to seven days after a space's first request, and looked at nothing else. The WhatsApp exchange of 22 Nov had only been noted on the request itself (enquiries.handled_note), not on the space's Outreach line, so nothing knew of it.
+- The rule for every chat: a message to or from a space that is written, drafted or reported in a Claude chat (email, WhatsApp, Instagram, Facebook, a call) is logged on the space's Outreach line as soon as Jonathan says it was sent or shows the reply. One call: `select public.log_space_message('<venue id>', 'out' or 'in', 'whatsapp' | 'email' | 'instagram' | 'facebook' | 'phone' | 'form', '<what was said>', '<when>');` It writes outreach_messages and moves last_in_at / last_out_at, as the buttons in Outreach do. Only the database owner may call it.
+- In touch (space_in_touch): the space wrote to us, or a message of ours was logged through a Claude chat, in the last 14 days. Such a space gets no tips (first request, page complete, next thing, gone quiet) and no sign-in reminders. A reminder is held and goes when the 14 days are over; a first-request tip is let go, as its week will have passed.
+- Not held, on purpose: emails the owner caused or needs (sign-in links, claim and change confirmations, a request passed on), and the monthly update.
+- An Outreach hello of ours alone does not count as being in touch: only their answer, or a message logged from a chat, does. Otherwise every newly claimed space would lose its first reminders.
+- Logged the same day, from the chats of 20 to 22 Nov: Madeira Friends Hub (WhatsApp out, in, out), NODE Bali (reply to Angel), KoHub (James's two emails and the reply between them).
+- Checked: both Madeira Friends Hub and NODE Bali read as in touch, and neither is due a tip.
