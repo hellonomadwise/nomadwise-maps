@@ -95,7 +95,10 @@
       if (!dd.classList.contains('w-dropdown') || getComputedStyle(dd).display === 'none') return;
       var tog = dd.querySelector('.w-dropdown-toggle'), list = dd.querySelector('.w-dropdown-list');
       if (!tog || !list) return;
-      var pt = tog.querySelector('[class*=pagination-text]');
+      // The visible label; a hidden "Heading" placeholder sits beside it.
+      var pt = [].filter.call(tog.querySelectorAll('[class*=pagination-text]'), function (x) {
+        return getComputedStyle(x).display !== 'none' && clean(x.textContent);
+      })[0];
       var name = clean(pt ? pt.textContent : tog.textContent);
       if (!name) return;
       var seen = {}, opts = [];
