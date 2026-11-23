@@ -811,3 +811,12 @@ if __name__ == '__main__':
                            timeout=600, check=False)
         except Exception:  # noqa: BLE001
             pass
+        # Space counts on the Countries and Regions (23 Nov 2026), for
+        # the Coworking Global page. At most once an hour.
+        try:
+            import subprocess
+            subprocess.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                                         'webflow_counts.py')],
+                           timeout=600, check=False)
+        except Exception:  # noqa: BLE001
+            pass

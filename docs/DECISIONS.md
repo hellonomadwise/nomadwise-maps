@@ -7038,3 +7038,15 @@ Same day, after Jonathan's review:
 - A word that is a different country from its Region is left alone and
   listed by country_name_conflicts() (admins): on 23 Nov a Bratislava cafe
   marked Czech Republic, and a space marked United States in a Thai Region.
+
+## 23 Nov 2026: space counts on Countries and Regions (Coworking Global page)
+
+- New Number field "Spaces" on Webflow's Countries and Regions. 
+  scripts/webflow_counts.py (run from the website push after the area
+  pages, at most hourly) sets it: live spaces per Region, and per Country
+  the sum of its Regions by the Region's Country reference on the site.
+  Writes and publishes only items whose number changed; drafts are
+  updated, not published. Report: sync_settings 'webflow_counts'.
+- The redesigned /coworking-global lists cities and countries from these
+  numbers, so a country with no live spaces drops off by itself and each
+  country appears once.
