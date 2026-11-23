@@ -7050,3 +7050,22 @@ Same day, after Jonathan's review:
 - The redesigned /coworking-global lists cities and countries from these
   numbers, so a country with no live spaces drops off by itself and each
   country appears once.
+
+## 23 Nov 2026: Coworking Global page redesign (web/global.js)
+
+- Jonathan chose design A: search first, then the most popular cities,
+  then every country with spaces, then "List your space".
+- The lists are Webflow collection lists (Regions and Countries with
+  Spaces above 0, most first), so the page is complete without script.
+- web/global.js, loaded from an embed in the new section, adds the
+  totals line, quick city links, search over cities, countries and areas
+  (areas: webflow_locations with at least one live space), Near me (the
+  nearest city by its Latitude and Longitude), continent buttons and
+  Show all buttons.
+- PostHog events for the before/after comparison: cg_view, cg_search,
+  cg_search_pick, cg_near_me, cg_city_click, cg_country_click,
+  cg_quick_click, cg_continent_filter, cg_show_more, cg_list_space_click.
+  The "before" baseline is plain pageviews and onward clicks to country,
+  region, locations and coworking pages, which work for both versions.
+- The old header and lists stay on the page, hidden, so going back is
+  one switch in Webflow.

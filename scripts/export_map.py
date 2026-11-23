@@ -47,7 +47,8 @@ def fill_chat_box(web_dir, url, key):
     # And the short claim links (web/c.js, migration 287).
     # And the breadcrumb on nomadwise.io (web/crumb.js), which looks up a
     # listing's area.
-    for name in ('chat.js', 'prices.js', 'c.js', 'crumb.js', os.path.join('stop', 'stop.js')):
+    # And the Coworking Global page (web/global.js), whose search finds areas.
+    for name in ('chat.js', 'prices.js', 'c.js', 'crumb.js', 'global.js', os.path.join('stop', 'stop.js')):
         path = os.path.join(web_dir, name)
         try:
             if not url or not key or not os.path.exists(path):
