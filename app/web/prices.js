@@ -195,8 +195,8 @@
       out.push({
         key: g[0], title: g[1], items: items, spec: spec,
         fromWord: low && (items.length > 1 || low.from) ? 'From' : '',
-        // No priced option in the group: nothing is said at the top (it
-        // read "Ask" until 23 Nov 2026); each line says "Price on request".
+        // No priced option in the group: the top says "Price on request"
+        // where the price would stand (it read "Ask" until 23 Nov 2026).
         price: low ? low.label : '',
         per: low && low.period ? PER_LONG[low.period] : ''
       });
@@ -272,6 +272,7 @@
       '.nwp-from small{display:block;font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--nwp-muted);margin-bottom:2px}',
       '.nwp-from b{font-size:19px;font-weight:900}',
       '.nwp-from i{font-style:normal;font-size:13px;color:var(--nwp-muted)}',
+      '.nwp-req b{font-size:15px;font-weight:700}',
       '.nwp-rows{list-style:none;margin:0;padding:0 16px}',
       '.nwp-r{display:flex;align-items:center;gap:14px;padding:9px 0;border-bottom:1px solid rgba(0,0,0,.05);transition:background .15s}',
       '.nwp-r:last-child{border-bottom:0}',
@@ -443,7 +444,7 @@
       h += '<section class="nwp-grp" aria-label="' + esc(g.title) + '"><div class="nwp-gh">' +
         (pic ? '<img class="nwp-gimg" src="' + esc(pic) + '" alt="" loading="lazy">' : '') +
         '<div class="nwp-gt"><b>' + esc(g.title) + '</b><span>' + esc(g.spec) + '</span></div>' +
-        (g.price ? '<div class="nwp-from">' + (g.fromWord ? '<small>FROM</small>' : '') + '<b>' + esc(g.price) + '</b><i>' + esc(g.per) + '</i></div>' : '') + '</div>' +
+        (g.price ? '<div class="nwp-from">' + (g.fromWord ? '<small>FROM</small>' : '') + '<b>' + esc(g.price) + '</b><i>' + esc(g.per) + '</i></div>' : '<div class="nwp-from nwp-req"><b>Price on request</b></div>') + '</div>' +
         '<ul class="nwp-rows">';
       g.items.forEach(function (it) {
         h += '<li class="nwp-r"><span class="nwp-rn"><b>' + esc(it.name) + '</b>' + (it.note ? ' <span>· ' + esc(it.note) + '</span>' : '') + '</span>' +
@@ -466,7 +467,7 @@
       data.groups.forEach(function (x, i) {
         var on = i === gi;
         h += '<button type="button" class="nwp-tab" role="tab" id="nwp-tab-' + i + '" aria-controls="nwp-tp" aria-selected="' + on + '" tabindex="' + (on ? 0 : -1) + '" data-a="tab" data-v="' + i + '" data-k="t' + i + '">' +
-          '<b>' + esc(fit && x.key === 'private_office' ? 'Offices' : x.title) + '</b><span>' + (x.price ? (x.fromWord ? 'from ' : '') + esc(x.price) + esc(x.per.replace('/month', '/mo').replace('/hour', '/hr')) : 'On request') + '</span></button>';
+          '<b>' + esc(fit && x.key === 'private_office' ? 'Offices' : x.title) + '</b><span>' + (x.price ? (x.fromWord ? 'from ' : '') + esc(x.price) + esc(x.per.replace('/month', '/mo').replace('/hour', '/hr')) : 'Price on request') + '</span></button>';
       });
       h += '</div>';
     }

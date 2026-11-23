@@ -7083,7 +7083,7 @@ Jonathan, when "Your first request for Madeira Friends Hub" went to Luís at 09:
 ## 23 Nov 2026: price cards no longer say "Ask" on a group with no prices
 Jonathan, looking at SwissOffices Astoria Kempinski's page (Private offices and Meeting rooms, both "Price on request"): "I don't like that it says "Ask"".
 - Where a "From" price normally stands at the top right of a group, a group with no priced option said "Ask" in large type, above a line that already said "Price on request".
-- Now nothing stands there on a computer: the line below says "Price on request" with its Request button. On a phone, where each group is a tab with a short line under its name, that line reads "On request".
+- First sent with nothing there on a computer and "On request" on a phone. Jonathan, asked what he would like in its place: "it should be friendly and professional, I think Price on request is fine". So it now reads "Price on request" in both places, the words the lines below already use, a little smaller than a price (15 px, not 19).
 - The same in the Owner account's view of the page (My listing), which mirrors the live page.
 - app/web/prices.js and owner_screen.dart. The sticky "from" line on phones already left such a group without a price.
 - Not seen on a screen from the session; the page script was syntax-checked, and the build is the compile check for the app.
