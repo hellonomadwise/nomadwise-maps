@@ -273,6 +273,16 @@
       '.nwp label,.nwp-sheet label{margin:0;font-weight:400}',
       '.nwp{margin:28px 0 36px;font-family:inherit;color:var(--nwp-ink);scroll-margin-top:84px;animation:nwp-in .35s ' + EASE + ' both}',
       '.nwp-jump{display:none}',
+      '.nwp-hrs,.nwp-bar{display:none}',
+      '@media (max-width: 767px){' +
+        '.nwp-hrs{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:44px;margin:0;padding:0;border:0;background:transparent;font-family:Roboto,sans-serif;text-align:left;color:#2C2C2C;cursor:pointer}' +
+        '.nwp-hrs b{font-size:15px;font-weight:500;line-height:1.3}' +
+        '.nwp-hrs span{flex:none;font-size:14px;font-weight:700;color:#05434F;text-decoration:underline}' +
+        '.nwp-week.nwp-shut{display:none !important}' +
+        '.nwp-bar.on{display:flex;align-items:center;justify-content:center;gap:8px;position:fixed;left:12px;right:88px;bottom:18px;min-height:52px;padding:6px 14px;border:0;border-radius:8px;background:#D7303A;color:#fff;font-family:Roboto,sans-serif;box-shadow:0 6px 20px rgba(20,32,50,.25);z-index:2147482990;cursor:pointer}' +
+        '.nwp-bar b{font-size:15px;font-weight:700;white-space:nowrap}' +
+        '.nwp-bar span{font-size:13.5px;font-weight:400;opacity:.95;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
+      '}',
       '@media (max-width: 767px){.nwp-jump{display:flex;align-items:center;justify-content:center;min-height:44px;margin:4px 0 0;font-family:Roboto,sans-serif;font-size:14.5px;line-height:1.3;font-weight:700;color:#05434F;text-decoration:underline;text-align:center}}',
       '@keyframes nwp-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}',
       '.nwp h2.nwp-h{margin:0 0 4px;font-size:21px;font-weight:700;line-height:1.25}',
@@ -1102,6 +1112,93 @@
     } catch (e) {}
   }
 
+  // On a phone the full week of opening hours sits above the prices
+  // and takes a third of a screen (benchmark, 23 Nov 2026). It becomes
+  // one line, "Open Mon to Fri, 8:30 AM - 6:00 PM", and the week folds
+  // out on a tap. The line is built only from the hours on the page and
+  // never says "open now": the visitor may be in another time zone.
+  function hoursLine(rows) {
+    var D = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    var say = function (v) { return /24\s*hours/i.test(v) ? '24 hours' : v; };
+    var open = [], vals = [];
+    rows.forEach(function (r, k) {
+      if (/^closed$/i.test(r)) return;
+      open.push(k);
+      if (vals.indexOf(r) < 0) vals.push(r);
+    });
+    if (!open.length) return '';
+    var first = open[0], last = open[open.length - 1];
+    var run = last - first + 1 === open.length;
+    // Which days: every day, one unbroken run, or a count.
+    var days = open.length === 7 ? 'every day'
+      : run ? (last > first ? D[first] + ' to ' + D[last] : D[first])
+      : open.length + ' days a week';
+    // One set of hours is said; several are left to the full week.
+    return 'Open ' + days + ', ' + (vals.length === 1 ? say(vals[0]) : 'hours vary');
+  }
+  function foldHours() {
+    try {
+      var grid = document.querySelector('.left-column .div-block-77 .wifi-openinghours-quickstack');
+      if (!grid || document.querySelector('.nwp-hrs')) return;
+      var cells = grid.querySelectorAll('.w-layout-cell');
+      if (cells.length !== 14) return;
+      var names = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+      var rows = [];
+      for (var i = 0; i < 7; i++) {
+        var day = (cells[i * 2].textContent || '').trim().toLowerCase();
+        var val = (cells[i * 2 + 1].textContent || '').replace(/\s+/g, ' ').trim();
+        if (day !== names[i] || !val) return;
+        rows.push(val);
+      }
+      var line = hoursLine(rows);
+      if (!line) return;
+      if (!grid.id) grid.id = 'nwp-week';
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'nwp-hrs';
+      b.setAttribute('aria-expanded', 'false');
+      b.setAttribute('aria-controls', grid.id);
+      b.innerHTML = '<b>' + esc(line) + '</b><span>See all hours</span>';
+      grid.classList.add('nwp-week', 'nwp-shut');
+      b.addEventListener('click', function () {
+        var open = grid.classList.toggle('nwp-shut') === false;
+        b.setAttribute('aria-expanded', open ? 'true' : 'false');
+        b.lastChild.textContent = open ? 'Hide hours' : 'See all hours';
+        if (open) track('hours_opened', { slug: SLUG });
+      });
+      grid.parentElement.insertBefore(b, grid);
+    } catch (e) {}
+  }
+
+  // On a phone the top "Send a request" button scrolls away (benchmark,
+  // 23 Nov 2026: the best pages keep the action in view). A bar at the
+  // bottom of the screen takes its place until the price list, with
+  // its own buttons, is on screen. It leaves room for the chat bubble.
+  function requestBar() {
+    try {
+      if (!data || !data.groups.length || document.querySelector('.nwp-bar')) return;
+      if (!window.IntersectionObserver) return;
+      var top = document.querySelector('.left-column .buttons-wrapper .research-button');
+      if (!top) return;
+      var g = data.groups[0];
+      var from = g.price && g.price !== 'Ask'
+        ? 'from ' + g.price + g.per.replace('/month', '/mo').replace('/hour', '/hr') : '';
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'nwp-bar';
+      b.innerHTML = '<b>Send a request</b>' + (from ? '<span>' + esc(from) + '</span>' : '');
+      document.body.appendChild(b);
+      var topIn = true, listIn = false;
+      var upd = function () { b.classList.toggle('on', !topIn && !listIn); };
+      new IntersectionObserver(function (es) { topIn = es[es.length - 1].isIntersecting; upd(); }).observe(top);
+      new IntersectionObserver(function (es) { listIn = es[es.length - 1].isIntersecting; upd(); }).observe(root);
+      b.addEventListener('click', function () {
+        track('request_bar_tap', { slug: SLUG });
+        (top.querySelector('#research-button-wrapper') || top).click();
+      });
+    } catch (e) {}
+  }
+
   function start() {
     if (AREA || FRAMED) return;
     ratingLabel();
@@ -1117,7 +1214,7 @@
         SHUT = Array.isArray(raw.closed_days) ? raw.closed_days.map(Number) : [];
         data = shape(raw);
         if (!data.groups.length) return;
-        if (mount()) { jumpLink(); fromLink(); }
+        if (mount()) { jumpLink(); foldHours(); requestBar(); fromLink(); }
       })
       .catch(function () {});
   }
