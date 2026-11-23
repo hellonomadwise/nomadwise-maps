@@ -246,7 +246,9 @@
       '.nwp,.nwp-sheet{--nwp-red:' + RED + ';--nwp-red-ink:#D7303A;--nwp-teal:' + TEAL + ';--nwp-ink:#2C2C2C;--nwp-muted:#5E6670;--nwp-line:rgba(0,0,0,.08);--nwp-soft:#F8F8FA}',
       '.nwp *,.nwp-sheet *{box-sizing:border-box}',
       '.nwp label,.nwp-sheet label{margin:0;font-weight:400}',
-      '.nwp{margin:28px 0 36px;font-family:inherit;color:var(--nwp-ink);animation:nwp-in .35s ' + EASE + ' both}',
+      '.nwp{margin:28px 0 36px;font-family:inherit;color:var(--nwp-ink);scroll-margin-top:84px;animation:nwp-in .35s ' + EASE + ' both}',
+      '.nwp-jump{display:none}',
+      '@media (max-width: 767px){.nwp-jump{display:flex;align-items:center;justify-content:center;min-height:44px;margin:4px 0 0;font-family:Roboto,sans-serif;font-size:14.5px;line-height:1.3;font-weight:700;color:#05434F;text-decoration:underline;text-align:center}}',
       '@keyframes nwp-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}',
       '.nwp h2.nwp-h{margin:0 0 4px;font-size:21px;font-weight:700;line-height:1.25}',
       '.nwp-sub{margin:0 0 14px;font-size:14px;line-height:1.45;color:var(--nwp-muted)}',
@@ -1029,8 +1031,46 @@
     }, true);
   }
 
+  // "Google rating" beside the stars, so a visitor knows whose rating
+  // it is (visitor audit, 23 Nov 2026). Plain words, no link.
+  function ratingLabel() {
+    try {
+      var w = document.querySelectorAll('.google-rating-wrapper');
+      for (var i = 0; i < w.length; i++) {
+        if (w[i].querySelector('.nwp-gr') || !/\d/.test(w[i].textContent || '')) continue;
+        var sp = document.createElement('span');
+        sp.className = 'nwp-gr';
+        sp.textContent = 'Google rating';
+        sp.style.cssText = 'font-size:13px;font-weight:400;color:#5E6670;margin-left:4px;white-space:nowrap';
+        w[i].appendChild(sp);
+      }
+    } catch (e) {}
+  }
+
+  // On a phone the price list sits two to four screens down, below the
+  // hours, map, tags and description (visitor audit, 23 Nov 2026). A
+  // link under the top "Send a request" button says the prices are
+  // there and jumps to them. Phones only (see .nwp-jump).
+  function jumpLink() {
+    try {
+      if (!data || !data.groups.length || document.querySelector('.nwp-jump')) return;
+      var bw = document.querySelector('.left-column .buttons-wrapper');
+      if (!bw || !bw.parentElement) return;
+      var g = data.groups[0];
+      var from = g.price && g.price !== 'Ask'
+        ? ', from ' + g.price + g.per.replace('/month', '/mo').replace('/hour', '/hr') : '';
+      var a = document.createElement('a');
+      a.className = 'nwp-jump';
+      a.href = '#prices';
+      a.textContent = 'See passes and prices' + from;
+      a.addEventListener('click', function () { track('prices_jump_link', { slug: SLUG }); });
+      bw.parentElement.insertBefore(a, bw.nextSibling);
+    } catch (e) {}
+  }
+
   function start() {
     if (AREA || FRAMED) return;
+    ratingLabel();
     hit('view');
     fetch(URL_ + '/rest/v1/rpc/page_prices', {
       method: 'POST',
@@ -1043,7 +1083,7 @@
         SHUT = Array.isArray(raw.closed_days) ? raw.closed_days.map(Number) : [];
         data = shape(raw);
         if (!data.groups.length) return;
-        if (mount()) fromLink();
+        if (mount()) { jumpLink(); fromLink(); }
       })
       .catch(function () {});
   }
