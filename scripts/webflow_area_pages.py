@@ -204,7 +204,7 @@ def place(area, city):
     after an area whose name already has it."""
     if not city or city.lower() in area.lower():
         return area
-    return f'{place(area, city)}'
+    return f'{area}, {city}'
 
 
 def photo_html(space, photos, w, h):
