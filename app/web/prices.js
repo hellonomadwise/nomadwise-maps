@@ -1141,7 +1141,9 @@
       var grid = document.querySelector('.left-column .div-block-77 .wifi-openinghours-quickstack');
       if (!grid || document.querySelector('.nwp-hrs')) return;
       var cells = grid.querySelectorAll('.w-layout-cell');
-      if (cells.length !== 14) return;
+      // Seven rows of day and hours; the page's grid carries two spare
+      // cells after Sunday.
+      if (cells.length < 14) return;
       var names = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
       var rows = [];
       for (var i = 0; i < 7; i++) {
