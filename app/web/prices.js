@@ -57,7 +57,7 @@
   var root = null;      // our section
   var sheet = null;     // the phone enquiry sheet
   var S = {
-    tab: 0, bad: null, picked: null, sent: false, sending: false, error: '',
+    tab: 0, more: {}, bad: null, picked: null, sent: false, sending: false, error: '',
     calOpen: false, monthOffset: 0, date: null, flexible: false,
     people: 'Just me', time: '10:00', length: '1 hour',
     name: '', email: '', message: '', news: false, sheetOpen: false, focusKey: null
@@ -134,6 +134,10 @@
     var n = String(name || '').toLowerCase().replace(/-/g, ' ');
     var b = /\((hour|half day|day|week|month|year)\)\s*$/.exec(n);
     if (b) return b[1];
+    // "1 Month (Hot Desk)", "Meeting Room 1 Hour": one of a unit is that
+    // unit (benchmark, 23 Nov 2026: every price shows its unit).
+    var one = /(^|[^\d.,])(1|one)\s*(hour|day|week|month|year)\b(?!s)/.exec(n);
+    if (one && !/\b(?!1\b)\d+\s*(hour|day|week|month|year)s?\b/.test(n.replace(one[0], ' '))) return one[3];
     // A bundle ("10 Day Passes", "Hourly Pass - 100 Hours") is one price
     // for the lot: no period.
     if (/\b\d+\s*(hour|day|week|month)s?\b/.test(n)) return null;
@@ -203,7 +207,12 @@
       var priced = items.filter(function (i) { return i.amount != null; });
       var cur0 = priced.length ? priced[0].currency : null;
       var oneCur = priced.every(function (i) { return i.currency === cur0; });
-      var low = oneCur ? priced.slice().sort(function (a, b) { return a.amount - b.amount; })[0] : priced[0];
+      // The "from" price is the lowest one that says per what, so the
+      // first number a visitor sees always has its unit; a group with no
+      // such price falls back to its lowest price.
+      var withUnit = priced.filter(function (i) { return i.period; });
+      var pool = withUnit.length ? withUnit : priced;
+      var low = oneCur ? pool.slice().sort(function (a, b) { return a.amount - b.amount; })[0] : pool[0];
       var periods = [];
       items.forEach(function (i) { if (i.period && periods.indexOf(i.period) < 0) periods.push(i.period); });
       var caps = [];
@@ -272,6 +281,10 @@
       '.nwp *,.nwp-sheet *{box-sizing:border-box}',
       '.nwp label,.nwp-sheet label{margin:0;font-weight:400}',
       '.nwp{margin:28px 0 36px;font-family:inherit;color:var(--nwp-ink);scroll-margin-top:84px;animation:nwp-in .35s ' + EASE + ' both}',
+      '.nwp-mr{list-style:none;margin:0;padding:0;border-top:1px solid rgba(0,0,0,.05)}',
+      '.nwp-more{display:block;width:100%;min-height:44px;margin:0;padding:0;border:0;background:transparent;font-family:inherit;font-size:14.5px;font-weight:700;color:var(--nwp-teal);text-decoration:underline;text-align:center;cursor:pointer}',
+      '.nwp-addr{margin:2px 0 8px;font-family:Roboto,sans-serif;font-size:14px;line-height:1.4;color:#5E6670}',
+      '.nwp-addr a{margin-left:8px;color:#05434F;font-weight:700;text-decoration:underline;white-space:nowrap}',
       '.nwp-jump{display:none}',
       '.nwp-hrs,.nwp-bar{display:none}',
       '@media (max-width: 767px){' +
@@ -470,6 +483,18 @@
   }
 
   // The computer: every group, every price, a Request on each.
+  // A long group shows its first five lines and a "Show all" button
+  // (benchmark, 23 Nov 2026). Seven or more only, so the button never
+  // hides a single line.
+  function shownItems(g) {
+    return S.more[g.key] || g.items.length <= 6 ? g.items : g.items.slice(0, 5);
+  }
+  function moreBtn(g) {
+    if (S.more[g.key] || g.items.length <= 6) return '';
+    return '<li class="nwp-mr"><button type="button" class="nwp-more" data-a="more" data-v="' + esc(g.key) +
+      '" data-k="more-' + esc(g.key) + '">Show all ' + g.items.length + '</button></li>';
+  }
+
   function listHtml() {
     var h = '<div class="nwp-box">';
     data.groups.forEach(function (g, gi) {
@@ -479,11 +504,11 @@
         '<div class="nwp-gt"><b>' + esc(g.title) + '</b><span>' + esc(g.spec) + '</span></div>' +
         (g.price ? '<div class="nwp-from">' + (g.fromWord ? '<small>FROM</small>' : '') + '<b>' + esc(g.price) + '</b><i>' + esc(g.per) + '</i></div>' : '<div class="nwp-from nwp-req"><b>Price on request</b></div>') + '</div>' +
         '<ul class="nwp-rows">';
-      g.items.forEach(function (it) {
+      shownItems(g).forEach(function (it) {
         h += '<li class="nwp-r"><span class="nwp-rn"><b>' + esc(it.name) + '</b>' + (it.note ? ' <span>· ' + esc(it.note) + '</span>' : '') + '</span>' +
           '<span class="nwp-rp' + (it.was ? ' nwp-rpw' : '') + '">' + priceHtml(it) + '</span>' + enqBtn(it) + '</li>';
       });
-      h += '</ul></section>';
+      h += moreBtn(g) + '</ul></section>';
     });
     return h + '</div>';
   }
@@ -507,11 +532,11 @@
     var pic = photoFor(gi);
     h += '<div class="nwp-tp" id="nwp-tp" role="tabpanel" aria-labelledby="nwp-tab-' + gi + '" data-gi="' + gi + '">' +
       (pic ? '<img class="nwp-timg" src="' + esc(pic) + '" alt="">' : '') + '<ul class="nwp-rows">';
-    g.items.forEach(function (it) {
+    shownItems(g).forEach(function (it) {
       h += '<li class="nwp-r"><span class="nwp-rn"><b>' + esc(it.name) + '</b>' + (it.note ? '<span>' + esc(it.note) + '</span>' : '') + '</span>' +
         '<span class="nwp-rp' + (it.was ? ' nwp-rpw' : '') + '">' + priceHtml(it) + '</span>' + enqBtn(it) + '</li>';
     });
-    return h + '</ul></div></div>';
+    return h + moreBtn(g) + '</ul></div></div>';
   }
 
   function calendarHtml(kind) {
@@ -683,6 +708,7 @@
     if (a === 'close') { closeSheet(); return; }
     if (a === 'send') { send(); return; }
     if (a === 'tab') { S.tab = +v; }
+    else if (a === 'more') { S.more[v] = true; track('prices_show_all', { slug: SLUG, group: v }); }
     else if (a === 'seg') {
       S[b.getAttribute('data-f')] = v;
       if (S.bad === 'people' && b.getAttribute('data-f') === 'people') { S.bad = null; S.error = ''; }
@@ -1203,6 +1229,32 @@
     } catch (e) {}
   }
 
+  // The street address in words under the name, with "Get directions"
+  // (benchmark, 23 Nov 2026). The address is the short one from the
+  // space's Google listing, as it is; directions open at its own pin.
+  function addressLine(raw) {
+    try {
+      var addr = String(raw.address || '').replace(/\s+/g, ' ').trim();
+      if (!addr || document.querySelector('.nwp-addr')) return;
+      var lat = Number(raw.lat), lng = Number(raw.lng);
+      var href = raw.lat != null && raw.lng != null && isFinite(lat) && isFinite(lng)
+        ? 'https://www.google.com/maps/dir/?api=1&destination=' + lat + ',' + lng +
+          (raw.place ? '&destination_place_id=' + encodeURIComponent(raw.place) : '')
+        : '';
+      var w = document.querySelectorAll('.google-rating-wrapper');
+      for (var i = 0; i < w.length; i++) {
+        var row = w[i].closest('.div-block-header-3') || w[i].parentElement;
+        if (!row || !row.parentElement) continue;
+        var el = document.createElement('div');
+        el.className = 'nwp-addr';
+        el.innerHTML = esc(addr) + (href ? ' <a href="' + esc(href) + '" target="_blank" rel="noopener">Get directions</a>' : '');
+        var a = el.querySelector('a');
+        if (a) a.addEventListener('click', function () { track('directions_tap', { slug: SLUG }); });
+        row.parentElement.insertBefore(el, row);
+      }
+    } catch (e) {}
+  }
+
   function start() {
     if (AREA || FRAMED) return;
     ratingLabel();
@@ -1218,7 +1270,7 @@
         SHUT = Array.isArray(raw.closed_days) ? raw.closed_days.map(Number) : [];
         data = shape(raw);
         if (!data.groups.length) return;
-        if (mount()) { jumpLink(); foldHours(); requestBar(); fromLink(); }
+        if (mount()) { jumpLink(); foldHours(); requestBar(); addressLine(raw); fromLink(); }
       })
       .catch(function () {});
   }
