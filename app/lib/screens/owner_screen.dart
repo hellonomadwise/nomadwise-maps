@@ -3570,7 +3570,9 @@ class _OwnerScreenState extends State<OwnerScreen> {
         title,
         spec,
         low != null && (items.length > 1 || low['from'] == true),
-        low != null ? '${low['label']}' : 'Ask',
+        // No priced option: nothing at the top, as on the live page
+        // (it read "Ask" until 23 Nov 2026).
+        low != null ? '${low['label']}' : '',
         low != null && low['period'] != null ? _lpPerLong[low['period']]! : '',
         [for (final i in items) ('${i['name']}', '${i['note']}', '${i['text']}')],
       ));
@@ -3725,8 +3727,10 @@ class _OwnerScreenState extends State<OwnerScreen> {
                                   style: const TextStyle(
                                       fontSize: 14.5, fontWeight: FontWeight.w700, color: _pageInk)),
                               Text(
-                                  '${groups[i].$3 ? 'from ' : ''}${groups[i].$4}'
-                                  '${groups[i].$5.replaceAll('/month', '/mo').replaceAll('/hour', '/hr')}',
+                                  groups[i].$4.isEmpty
+                                      ? 'On request'
+                                      : '${groups[i].$3 ? 'from ' : ''}${groups[i].$4}'
+                                          '${groups[i].$5.replaceAll('/month', '/mo').replaceAll('/hour', '/hr')}',
                                   style: const TextStyle(fontSize: 12.5, color: muted)),
                             ]),
                       ),

@@ -195,7 +195,9 @@
       out.push({
         key: g[0], title: g[1], items: items, spec: spec,
         fromWord: low && (items.length > 1 || low.from) ? 'From' : '',
-        price: low ? low.label : 'Ask',
+        // No priced option in the group: nothing is said at the top (it
+        // read "Ask" until 23 Nov 2026); each line says "Price on request".
+        price: low ? low.label : '',
         per: low && low.period ? PER_LONG[low.period] : ''
       });
     });
@@ -441,7 +443,7 @@
       h += '<section class="nwp-grp" aria-label="' + esc(g.title) + '"><div class="nwp-gh">' +
         (pic ? '<img class="nwp-gimg" src="' + esc(pic) + '" alt="" loading="lazy">' : '') +
         '<div class="nwp-gt"><b>' + esc(g.title) + '</b><span>' + esc(g.spec) + '</span></div>' +
-        '<div class="nwp-from">' + (g.fromWord ? '<small>FROM</small>' : '') + '<b>' + esc(g.price) + '</b><i>' + esc(g.per) + '</i></div></div>' +
+        (g.price ? '<div class="nwp-from">' + (g.fromWord ? '<small>FROM</small>' : '') + '<b>' + esc(g.price) + '</b><i>' + esc(g.per) + '</i></div>' : '') + '</div>' +
         '<ul class="nwp-rows">';
       g.items.forEach(function (it) {
         h += '<li class="nwp-r"><span class="nwp-rn"><b>' + esc(it.name) + '</b>' + (it.note ? ' <span>· ' + esc(it.note) + '</span>' : '') + '</span>' +
@@ -464,7 +466,7 @@
       data.groups.forEach(function (x, i) {
         var on = i === gi;
         h += '<button type="button" class="nwp-tab" role="tab" id="nwp-tab-' + i + '" aria-controls="nwp-tp" aria-selected="' + on + '" tabindex="' + (on ? 0 : -1) + '" data-a="tab" data-v="' + i + '" data-k="t' + i + '">' +
-          '<b>' + esc(fit && x.key === 'private_office' ? 'Offices' : x.title) + '</b><span>' + (x.fromWord ? 'from ' : '') + esc(x.price) + esc(x.per.replace('/month', '/mo').replace('/hour', '/hr')) + '</span></button>';
+          '<b>' + esc(fit && x.key === 'private_office' ? 'Offices' : x.title) + '</b><span>' + (x.price ? (x.fromWord ? 'from ' : '') + esc(x.price) + esc(x.per.replace('/month', '/mo').replace('/hour', '/hr')) : 'On request') + '</span></button>';
       });
       h += '</div>';
     }
@@ -1057,7 +1059,7 @@
       var bw = document.querySelector('.left-column .buttons-wrapper');
       if (!bw || !bw.parentElement) return;
       var g = data.groups[0];
-      var from = g.price && g.price !== 'Ask'
+      var from = g.price
         ? ', from ' + g.price + g.per.replace('/month', '/mo').replace('/hour', '/hr') : '';
       var a = document.createElement('a');
       a.className = 'nwp-jump';
