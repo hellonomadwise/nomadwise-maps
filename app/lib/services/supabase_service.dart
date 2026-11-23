@@ -1368,7 +1368,8 @@ class SupabaseService {
       _db.rpc('admin_enquiry_asked', params: {'p_id': id, 'p_undo': undo});
 
   /// Admin: closes a waiting enquiry: 'handled', 'unreachable' (the
-  /// nomad can be sent the space's website) or 'spam'.
+  /// nomad can be sent the space's website), 'spam' or 'test' (ours,
+  /// left out of the request counts, migration 350).
   Future<void> closeEnquiry(String id, String reason,
           {bool tellNomad = false}) =>
       _db.rpc('admin_enquiry_close',

@@ -7097,3 +7097,13 @@ Leonie sent a test request from the price list on Fora - Warnford Court at 13:57
 - It goes by the clock on the visitor's own device. The page does not know the space's time zone, so someone in another time zone asking for today can still be offered slightly wrong hours. Rare for a room wanted the same day.
 - Not changed: the test still counts as one request in Prices overview ("Do prices bring requests?"), which counts every request on a coworking page. Offered to Jonathan to leave tests out.
 - Tried with a set of clock times (13:57, 06:10, 19:30, 20:05, a closed Sunday, a pop-up left open overnight): each gave the right day and first time. Not seen on a screen from the session.
+
+## 23 Nov 2026: test requests are marked and left out of the request counts (migration 350)
+Jonathan, told that Leonie's test on Fora still counted as a request in Prices overview: "yes, leave test requests out of the count".
+- enquiries has a new yes/no, is_test. A request is a test when it came from an @nomadwise.io address (those were already closed by themselves; now they are marked too), or when one of us closes it in Enquiries with More, "It was a test by us". That closes it, sends nothing to anyone, and marks it.
+- Marked so far: three, all in the last 30 days: the two from a nomadwise.io address and Leonie's of 23 Nov from her own address.
+- Prices overview (admin_prices_dashboard) counts requests without tests, in the rates, the daily bars and the week by week list. On 23 Nov the last 30 days read 4 requests on coworking pages where it had read 7.
+- Nothing else that counts requests was changed (the Enquiries tab, the free requests used list, the Money line). Spam closed by hand is still counted as before.
+- Tried in the database and undone again: closing a waiting request as a test gave status closed, is_test true and the note "A test by us, not a real request."
+- A test from one of our personal addresses is not caught by itself: close it as a test by hand.
+- Not seen on a screen from the session (no local Flutter); the build is the compile check.

@@ -440,6 +440,8 @@ class PassOnCard extends StatelessWidget {
           switch (reason) {
             'handled' => 'Marked as handled.',
             'spam' => 'Marked as spam.',
+            'test' => 'Marked as a test. Nothing was sent, and it is left '
+                'out of the request counts.',
             _ => tell ? 'Closed, and $_first has their details.' : 'Closed.',
           });
       await onDone();
@@ -731,6 +733,11 @@ class PassOnCard extends StatelessWidget {
                           value: 'unreachable',
                           child: Text('Can\'t reach the space')),
                     const PopupMenuItem(value: 'spam', child: Text('Spam')),
+                    // Ours, not a customer's: closed, never sent to the
+                    // space, and left out of the request counts
+                    // (migration 350).
+                    const PopupMenuItem(
+                        value: 'test', child: Text('It was a test by us')),
                   ],
                   child: const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
