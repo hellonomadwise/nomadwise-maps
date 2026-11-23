@@ -279,7 +279,7 @@
         '.nwp-hrs b{font-size:15px;font-weight:500;line-height:1.3}' +
         '.nwp-hrs span{flex:none;font-size:14px;font-weight:700;color:#05434F;text-decoration:underline}' +
         '.nwp-week.nwp-shut{display:none !important}' +
-        '.nwp-bar.on{display:flex;align-items:center;justify-content:center;gap:8px;position:fixed;left:12px;right:88px;bottom:18px;min-height:52px;padding:6px 14px;border:0;border-radius:8px;background:#D7303A;color:#fff;font-family:Roboto,sans-serif;box-shadow:0 6px 20px rgba(20,32,50,.25);z-index:2147482990;cursor:pointer}' +
+        '.nwp-bar.on{display:flex;align-items:center;justify-content:center;gap:8px;position:fixed;left:12px;right:88px;bottom:18px;min-height:52px;padding:6px 14px;border:0;border-radius:8px;background:' + RED + ';color:#fff;font-family:Roboto,sans-serif;box-shadow:0 6px 20px rgba(20,32,50,.25);z-index:2147482990;cursor:pointer}' +
         '.nwp-bar b{font-size:15px;font-weight:700;white-space:nowrap}' +
         '.nwp-bar span{font-size:13.5px;font-weight:400;opacity:.95;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
       '}',
@@ -1174,8 +1174,8 @@
 
   // On a phone the top "Send a request" button scrolls away (benchmark,
   // 23 Nov 2026: the best pages keep the action in view). A bar at the
-  // bottom of the screen takes its place until the price list, with
-  // its own buttons, is on screen. It leaves room for the chat bubble.
+  // bottom of the screen takes its place for the rest of the page.
+  // Nomadwise red, always. It leaves room for the chat bubble.
   function requestBar() {
     try {
       if (!data || !data.groups.length || document.querySelector('.nwp-bar')) return;
@@ -1190,10 +1190,12 @@
       b.className = 'nwp-bar';
       b.innerHTML = '<b>Send a request</b>' + (from ? '<span>' + esc(from) + '</span>' : '');
       document.body.appendChild(b);
-      var topIn = true, listIn = false;
-      var upd = function () { b.classList.toggle('on', !topIn && !listIn); };
-      new IntersectionObserver(function (es) { topIn = es[es.length - 1].isIntersecting; upd(); }).observe(top);
-      new IntersectionObserver(function (es) { listIn = es[es.length - 1].isIntersecting; upd(); }).observe(root);
+      // Shown whenever the top button is off screen (Jonathan, 23 Nov
+      // 2026: it only appeared near the footer, because on most pages the
+      // price list comes on screen as the top button leaves).
+      new IntersectionObserver(function (es) {
+        b.classList.toggle('on', !es[es.length - 1].isIntersecting);
+      }).observe(top);
       b.addEventListener('click', function () {
         track('request_bar_tap', { slug: SLUG });
         (top.querySelector('#research-button-wrapper') || top).click();
