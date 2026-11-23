@@ -7027,3 +7027,14 @@ Same day, after Jonathan's review:
   generated text ("England / London / Shoreditch / Office space"), now with
   the country flag first (sync_settings 'area_pages' pages[].flag); crumb.js
   redraws it in the same style, without a switcher (the tabs switch).
+
+## 23 Nov 2026: one name per country, the website's (migration 347)
+
+- Spaces carried Google's country word, so counts split Czechia / Czech
+  Republic, Cabo Verde / Cape Verde, United Kingdom / England. Jonathan:
+  show the name most users understand, which is the website's Country name.
+- A space whose word is the same country as its Region's Country (same ISO
+  code) takes the site's name, now and from a trigger on every change.
+- A word that is a different country from its Region is left alone and
+  listed by country_name_conflicts() (admins): on 23 Nov a Bratislava cafe
+  marked Czech Republic, and a space marked United States in a Thai Region.
