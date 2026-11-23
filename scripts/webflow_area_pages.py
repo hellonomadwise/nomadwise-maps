@@ -330,12 +330,16 @@ def meeting_rooms(page, rows, photos, info=None):
         desc += f' Rooms for 4 from {money(c4[0])} an hour'
         desc += f', for 10 from {money(c10[0])}.' if c10 else '.'
     desc += ' Send a free request.'
+    # A page can carry its own heading (settings: title), as Jonathan
+    # asked for the City of London pages on 23 Nov 2026.
+    heading = (page.get('title') or '').strip()
     return {
-        'name': f'Meeting rooms in {place(area, city)}',
-        'h1': f'Meeting rooms in {place(area, city)}',
+        'name': heading or f'Meeting rooms in {place(area, city)}',
+        'h1': heading or f'Meeting rooms in {place(area, city)}',
         'intro': intro,
         'body': ''.join(blocks),
-        'meta-title': f'Meeting Rooms in {place(area, city)}: {n_rooms} Rooms by the Hour',
+        'meta-title': (f'{heading}: {n_rooms} Rooms by the Hour' if heading else
+                       f'Meeting Rooms in {place(area, city)}: {n_rooms} Rooms by the Hour'),
         'meta-description': desc,
         '_spaces': n_spaces,
     }
@@ -410,9 +414,12 @@ def office_space(page, rows, photos, info=None):
     else:
         desc = f'Private offices in {n} {area} workspaces. Send a free request.'
         title = f'Office Space in {place(area, city)}: Private Offices'
+    heading = (page.get('title') or '').strip()
+    if heading:
+        title = heading + title[title.index(':'):]
     return {
-        'name': f'Office space in {place(area, city)}',
-        'h1': f'Office space in {place(area, city)}',
+        'name': heading or f'Office space in {place(area, city)}',
+        'h1': heading or f'Office space in {place(area, city)}',
         'intro': intro,
         'body': ''.join(blocks),
         'meta-title': title,
