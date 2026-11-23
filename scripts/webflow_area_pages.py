@@ -356,14 +356,17 @@ def office_space(page, rows, photos, info=None):
 
     low = priced[0] if priced else None
     near = f', near {page["near"]} stations' if page.get('near') else ''
+    # The opening sentence is about the area and is written by hand in
+    # the page's settings ("lead"). No internal counts in the intro:
+    # Jonathan, 22 Nov 2026, "sounds like internal info for me".
+    lead = (page.get('lead') or f'Find a private office in {area}{near}.').strip()
     if low:
-        shown = (f'{n_priced} show a price on their own website' if n_priced < n
-                 else 'Each shows a price on its own website')
-        price_bit = (f'{shown}, from {money(low["best"]["amount"])} {unit(low["best"])}. ')
+        price_bit = (f'Private offices here start at {money(low["best"]["amount"])} '
+                     f'{unit(low["best"])}. ')
     else:
         price_bit = ''
-    intro = (f'Compare private offices in {n} {area} workspaces{near}. {price_bit}'
-             'Send a free request to any that fit. The space replies to you directly.')
+    intro = (f'{lead} {price_bit}Compare {n} spaces below and send a free request '
+             'to any that fit. The space replies to you directly.')
 
     head = [tabs(page, 'private_office'),
             f'<div class="aw-meta"><span>{n} spaces, lowest price first</span>'
