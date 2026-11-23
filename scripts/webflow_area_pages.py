@@ -262,9 +262,10 @@ def meeting_rooms(page, rows, photos, info=None):
         if not c:
             continue
         word = 'a boardroom' if 'boardroom' in c[2]['name'].lower() else 'a room'
-        # The same room can be the cheapest for 10 and for 12: say it
-        # once, for the larger size ("a boardroom for 12 at £60").
-        if parts and parts[-1][3] is c[2]:
+        # When 10 and 12 people cost the same (the same room, or two
+        # rooms at one price), say it once, for the larger size
+        # ("a boardroom for 12 at £60").
+        if parts and (parts[-1][3] is c[2] or (parts[-1][1], parts[-1][2]) == (word, money(c[0]))):
             parts.pop()
         parts.append((size, word, money(c[0]), c[2]))
     price_sentence = ''
