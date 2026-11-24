@@ -7166,3 +7166,11 @@ Jonathan asked for an analyst on how owners use their account (Owen, see the pro
 - No email was added or changed (his decision of 12 Nov stands).
 - The count of 24 owners includes Jonathan's own test claim (Instant Crunch Saldanha).
 - Tried in the database and undone: owner_track as an owner who has saved changes (no offer), as lookers (offer), as an owner who has never been in (offer, not been before), and after closing it (no offer). Not seen on a screen from the session (no local Flutter); the build is the compile check.
+
+## 24 Nov 2026: our own test claim is not counted as claimed in the Claim plan (migration 356)
+Jonathan, asked whether Instant Crunch Saldanha (a cafe in Portugal owned by his own address, its Outreach line marked as a test) should be left out of the Claimed numbers, and on how the new shares are shown: "ok fine, lay any stats out how you think is best".
+- admin_claim_plan() sends "test" with each claimed page: true when the space has Outreach lines and every one of them is marked as a test. On 24 Nov that is one page, Instant Crunch Saldanha.
+- In the Claim plan such a page still counts as a space, but not as claimed: cafes read 5 claimed where they read 6 (0.8% of 641), Portugal 2 where it read 3, and the top line 28 where it read 29. A muted line under "How far we are" says how many are left out and why.
+- A claim is only treated as a test when its Outreach line is marked as one. To leave another out, mark its line as a test in Outreach.
+- Not changed: the Owners numbers and the claims list still count test claims (the wider offer of 24 Nov stands), and the page itself and its owner are untouched.
+- Tried in the database: 23 coworking claimed with none a test, 6 cafes with one. Not seen on a screen from the session.

@@ -310,8 +310,11 @@ class _AdminClaimPlanScreenState extends State<AdminClaimPlanScreen> {
         child: child,
       );
 
-  Widget _overview(List<Map<String, dynamic>> rows, List<Map<String, dynamic>> claimed) {
-    final total = rows.length + claimed.length;
+  Widget _overview(List<Map<String, dynamic>> rows, List<Map<String, dynamic>> claimedAll) {
+    // A page we claimed ourselves as a test is a space, not a claim.
+    final claimed = claimedAll.where((r) => r['test'] != true).toList();
+    final tests = claimedAll.length - claimed.length;
+    final total = rows.length + claimedAll.length;
     final reached = rows.where((r) => r['reached'] == true).length;
     final todo = rows
         .where((r) => !_quiet.contains(_step(r)) && r['reached'] != true)
@@ -358,6 +361,14 @@ class _AdminClaimPlanScreenState extends State<AdminClaimPlanScreen> {
             'They are for Quality to check, not to write to.',
             style: const TextStyle(fontSize: 12.5, color: Brand.inkMuted, height: 1.4)),
       ],
+      if (tests > 0) ...[
+        const SizedBox(height: 8),
+        Text(
+            tests == 1
+                ? 'Not counted as claimed: 1 page we claimed ourselves as a test.'
+                : 'Not counted as claimed: $tests pages we claimed ourselves as tests.',
+            style: const TextStyle(fontSize: 12.5, color: Brand.inkMuted, height: 1.4)),
+      ],
     ]));
   }
 
@@ -390,6 +401,8 @@ class _AdminClaimPlanScreenState extends State<AdminClaimPlanScreen> {
       for (final r in claimed) {
         final g = m.putIfAbsent(key(r), () => [0, 0, 0, 0, 0]);
         g[0]++;
+        // Our own test claim: a space, not a claim.
+        if (r['test'] == true) continue;
         g[1]++;
         if (r['wrote_first'] == true) g[4]++;
       }
