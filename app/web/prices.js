@@ -293,16 +293,16 @@
       // 3'; tried on Alt_ChiangMai at phone width first).
       '@media (max-width: 767px){' +
         'h1.nwp-h1{font-size:20px !important;line-height:1.3 !important}' +
-        '.nwp-hd{display:flex !important;flex-wrap:wrap;align-items:center;gap:4px 14px !important}' +
-        '.nwp-hd>.div-block-138{flex:0 0 100%}' +
-        '.nwp-hd>.div-block-156,.nwp-hd>.div-block-header-3{display:contents !important}' +
-        '.nwp-hd .google-rating-wrapper{order:1}' +
-        '.nwp-hd .location-div{order:2}' +
-        '.nwp-hd .div-block-137{order:3}' +
-        '.nwp-hd .cafe-coworking-wrapper{order:4}' +
-        '.nwp-hd .wifi-wrapper{order:5}' +
-        '.nwp-hd>.nwp-addr{order:6;margin:0}' +
-        '.nwbc li.nwp-bc-cur{display:none !important}' +
+        '.nwp-top{display:flex !important;flex-wrap:wrap;align-items:center;gap:4px 14px !important}' +
+        '.nwp-top>.div-block-138{flex:0 0 100%}' +
+        '.nwp-top>.div-block-156,.nwp-top>.div-block-header-3{display:contents !important}' +
+        '.nwp-top .google-rating-wrapper{order:1}' +
+        '.nwp-top .location-div{order:2}' +
+        '.nwp-top .div-block-137{order:3}' +
+        '.nwp-top .cafe-coworking-wrapper{order:4}' +
+        '.nwp-top .wifi-wrapper{order:5}' +
+        '.nwp-top>.nwp-addr{order:6;margin:0}' +
+        '.nwbc li.nwp-bc-cur,.nwbc li:has(>span.nwbc-c){display:none !important}' +
       '}',
       '.nwp-hrs,.nwp-bar{display:none}',
       '@media (max-width: 767px){' +
@@ -1257,7 +1257,7 @@
       if (!h) return;
       h.classList.add('nwp-h1');
       var box = h.closest('.div-block-136');
-      if (box && box.querySelector('.div-block-header-3')) box.classList.add('nwp-hd');
+      if (box && box.querySelector('.div-block-header-3')) box.classList.add('nwp-top');
     } catch (e) {}
     trimCrumb(0);
   }
