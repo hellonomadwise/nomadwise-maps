@@ -283,8 +283,8 @@
       '.nwp{margin:28px 0 36px;font-family:inherit;color:var(--nwp-ink);scroll-margin-top:84px;animation:nwp-in .35s ' + EASE + ' both}',
       '.nwp-mr{list-style:none;margin:0;padding:0;border-top:1px solid rgba(0,0,0,.05)}',
       '.nwp-more{display:block;width:100%;min-height:44px;margin:0;padding:0;border:0;background:transparent;font-family:inherit;font-size:14.5px;font-weight:700;color:var(--nwp-teal);text-decoration:underline;text-align:center;cursor:pointer}',
-      '.nwp-addr{display:flex;align-items:baseline;gap:8px;min-width:0;margin:2px 0 8px;font-family:Roboto,sans-serif;font-size:14px;line-height:1.4;color:#5E6670}',
-      '.nwp-addr span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+      '.nwp-addr{display:flex;flex-wrap:wrap;align-items:baseline;gap:0 8px;margin:2px 0 8px;font-family:Roboto,sans-serif;font-size:14px;line-height:1.4;color:#5E6670}',
+      '.nwp-addr span{white-space:nowrap}',
       '.nwp-addr a{flex:none;color:#05434F;font-weight:700;text-decoration:underline;white-space:nowrap}',
       '.nwp-jump{display:none}',
       '.nwp-hrs,.nwp-bar{display:none}',
@@ -1236,7 +1236,12 @@
   function addressLine(raw) {
     try {
       var addr = String(raw.address || '').replace(/\s+/g, ' ').trim();
-      if (!addr || document.querySelector('.nwp-addr')) return;
+      if (document.querySelector('.nwp-addr')) return;
+      // A short, clean address is shown whole. A long one, or a map
+      // code such as "9533+M38", is left out and only the link shows:
+      // never cut, never an ellipsis (Jonathan, 24 Nov 2026: the long
+      // one was "too long", and "I don't really like the ...").
+      if (addr.length > 34 || /^[A-Z0-9]{4}\+[A-Z0-9]{2,}/i.test(addr)) addr = '';
       var lat = Number(raw.lat), lng = Number(raw.lng);
       var href = raw.lat != null && raw.lng != null && isFinite(lat) && isFinite(lng)
         ? 'https://www.google.com/maps/dir/?api=1&destination=' + lat + ',' + lng +
@@ -1248,9 +1253,8 @@
         if (!row || !row.parentElement) continue;
         var el = document.createElement('div');
         el.className = 'nwp-addr';
-        // One line always: a long address is cut with an ellipsis and
-        // the link stays beside it (Jonathan, 24 Nov 2026: "too long").
-        el.innerHTML = '<span title="' + esc(addr) + '">' + esc(addr) + '</span>' + (href ? '<a href="' + esc(href) + '" target="_blank" rel="noopener">Get directions</a>' : '');
+        if (!addr && !href) return;
+        el.innerHTML = (addr ? '<span>' + esc(addr) + '</span>' : '') + (href ? '<a href="' + esc(href) + '" target="_blank" rel="noopener">Get directions</a>' : '');
         var a = el.querySelector('a');
         if (a) a.addEventListener('click', function () { track('directions_tap', { slug: SLUG }); });
         row.parentElement.insertBefore(el, row);
