@@ -7174,3 +7174,10 @@ Jonathan, asked whether Instant Crunch Saldanha (a cafe in Portugal owned by his
 - A claim is only treated as a test when its Outreach line is marked as one. To leave another out, mark its line as a test in Outreach.
 - Not changed: the Owners numbers and the claims list still count test claims (the wider offer of 24 Nov stands), and the page itself and its owner are untouched.
 - Tried in the database: 23 coworking claimed with none a test, 6 cafes with one. Not seen on a screen from the session.
+
+## 24 Nov 2026: a phone notice opens the screen it is about (migration 356)
+Jonathan: "What would be good is if there's a way how I can then click into that notification and it takes me to the owner account for that change to approve, because sometimes I then need to go to Nomad Maps, find it."
+- Tapping "Owner changes to review" opens the control centre on Owner changes with that space's card first. If the change is no longer waiting, a line says so.
+- Also linked: Update suggested (Owner changes), Owner price list to check (Price check), a claim to approve (Owners), Enquiry to pass on or held (Enquiries), Waiting on us (Home). Chat notices already opened the chats. Every other notice is as it was.
+- How: notify_click(title, message) works the link out from the notice's own words, and notify_phone adds it, so none of the functions that send notices changed. The control centre reads &show (paid, enquiries or owner) and &space; both survive signing in. Link shape: nomadmaps.io/?admin=centre&show=owner&space=<id>.
+- Tried in the database: each kind of notice gave the right link and an ordinary one gave none. No notice was sent to try it (it would ring the phones). Not seen on a screen from the session; the build is the compile check.

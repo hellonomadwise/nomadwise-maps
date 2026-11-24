@@ -64,7 +64,17 @@ class _AdminGateState extends State<AdminGate> {
 
   String get _returnTo {
     final s = widget.section;
-    return '${Uri.base.origin}/?admin${s == null ? '' : '=$s'}';
+    // A phone notice's link (&show, &space: migration 356) survives
+    // signing in.
+    var more = '';
+    try {
+      final q = Uri.base.queryParameters;
+      for (final k in const ['show', 'space']) {
+        final v = (q[k] ?? '').trim();
+        if (RegExp(r'^[0-9a-z-]{1,40}$').hasMatch(v)) more += '&$k=$v';
+      }
+    } catch (_) {}
+    return '${Uri.base.origin}/?admin${s == null ? '' : '=$s'}$more';
   }
 
   Future<void> _google() async {

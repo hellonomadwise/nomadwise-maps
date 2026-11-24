@@ -275,6 +275,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     _homeOpen = widget.openTool != 'centre';
     _loadToday();
     final tool = widget.openTool == 'centre' ? null : widget.openTool;
+    if (widget.openTool == 'centre') _readLink();
     _markAddress(tool);
     if (tool != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -3112,6 +3113,32 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   /// Which inbox group is showing. null = the first one with work in it.
   String? _groupKey;
 
+  /// From a phone notice (migration 356): &show=<list> opens that list
+  /// and &space=<id> puts that space's card first in Owner changes.
+  String? _linkSpace;
+
+  void _readLink() {
+    try {
+      final q = Uri.base.queryParameters;
+      final show = (q['show'] ?? '').trim();
+      const lists = {'paid', 'enquiries', 'owner'};
+      if (!lists.contains(show)) return;
+      _groupKey = show;
+      final space = (q['space'] ?? '').trim();
+      if (RegExp(r'^[0-9a-f-]{36}$').hasMatch(space)) _linkSpace = space;
+    } catch (_) {}
+  }
+
+  /// Owner changes, with the one a notice was about first.
+  List<Map<String, dynamic>> get _ownerDraftsInOrder {
+    final want = _linkSpace;
+    if (want == null) return _ownerDrafts;
+    return [
+      ..._ownerDrafts.where((d) => '${d['venue_id']}' == want),
+      ..._ownerDrafts.where((d) => '${d['venue_id']}' != want),
+    ];
+  }
+
   // Three sections instead of eleven tabs in a row (30 Sep 2026):
   // the people, the pages, and the tidying up. Since 20 Oct 2026 the
   // tidying up (Clean-up) lives in Page upgrades, so the control
@@ -5165,7 +5192,20 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
               child: Text('No owner changes waiting.',
                   style: TextStyle(fontSize: 12.5, color: Brand.inkMuted)),
             ),
-          ..._ownerDrafts.map(_ownerDraftCard),
+          // Opened from a notice about a change that is no longer
+          // waiting (already on the page, or taken back by the owner).
+          if (_linkSpace != null &&
+              _inbox != null &&
+              !_ownerDrafts.any((d) => '${d['venue_id']}' == _linkSpace))
+            const Padding(
+              padding: EdgeInsets.fromLTRB(4, 0, 4, 12),
+              child: Text(
+                  'The change you opened from the notice is no longer '
+                  'waiting: it is already on the page, or the owner took '
+                  'it back.',
+                  style: TextStyle(fontSize: 12.5, color: Brand.inkMuted)),
+            ),
+          ..._ownerDraftsInOrder.map(_ownerDraftCard),
         ],
       'paid' => [
           MoneyCard(verified: _paid),
