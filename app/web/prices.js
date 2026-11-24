@@ -653,6 +653,11 @@
     var key = S.focusKey || (active && active.getAttribute && active.getAttribute('data-k'));
     var phone = root.clientWidth < 560;
     S.phone = phone;
+    // The strip of tabs keeps its place when the list is redrawn, so
+    // choosing "Other" does not jump the strip back to the start
+    // (Jonathan, 24 Nov 2026).
+    var strip = root.querySelector('.nwp-tabs');
+    var stripAt = strip ? strip.scrollLeft : 0;
     root.innerHTML =
       '<h2 class="nwp-h">Passes and prices at ' + esc(data.space) + '</h2>' +
       '<p class="nwp-sub">' + (data.vat ? 'All prices ' + esc(data.vat.replace(/^prices?\s+/i, '')) + ', set by ' + esc(data.space) : 'Prices set by ' + esc(data.space)) +
@@ -662,6 +667,19 @@
       // does not, so the Request button stays the way to ask.
       (data.site ? ' <a class="nwp-site" href="' + esc(data.site) + '" target="_blank" rel="noopener">Visit website</a>' : '') + '</p>' +
       (phone ? tabsHtml() : listHtml());
+    try {
+      strip = root.querySelector('.nwp-tabs');
+      if (strip && strip.scrollWidth > strip.clientWidth) {
+        strip.scrollLeft = stripAt;
+        // And the chosen tab is brought fully into view.
+        var sel = strip.querySelector('.nwp-tab[aria-selected="true"]');
+        if (sel) {
+          var l = sel.offsetLeft - strip.offsetLeft, r = l + sel.offsetWidth;
+          if (l < strip.scrollLeft) strip.scrollLeft = Math.max(0, l - 12);
+          else if (r > strip.scrollLeft + strip.clientWidth) strip.scrollLeft = r - strip.clientWidth + 12;
+        }
+      }
+    } catch (e) {}
     if (sheet) sheet.querySelector('.nwp-dlg').innerHTML = S.sheetOpen ? modalHtml() : '';
     if (key) {
       var scope = S.sheetOpen && sheet ? sheet : root;
