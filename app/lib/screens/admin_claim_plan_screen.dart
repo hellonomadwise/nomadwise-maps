@@ -361,14 +361,25 @@ class _AdminClaimPlanScreenState extends State<AdminClaimPlanScreen> {
     ]));
   }
 
-  /// Spaces, claimed, written to and left, by type and by country.
+  /// Below this many, a share is not shown: one claim would move it too far.
+  static const _enoughToTell = 20;
+
+  /// 6.4% under ten, 13% from ten up.
+  static String _share(int part, int whole) {
+    final p = part * 100 / whole;
+    return p == 0 ? '0%' : (p < 10 ? '${p.toStringAsFixed(1)}%' : '${p.round()}%');
+  }
+
+  /// Spaces, claimed, written to and left, by type and by country, with
+  /// the share claimed and how many claimed after we wrote.
   Widget _splits(List<Map<String, dynamic>> rows, List<Map<String, dynamic>> claimed) {
     Map<String, List<int>> group(String Function(Map<String, dynamic>) key) {
-      // [spaces, claimed, written to, left with something to do]
+      // [spaces, claimed, written to and not claimed, left with something
+      //  to do, claimed after we wrote]
       final m = <String, List<int>>{};
       for (final r in rows) {
         final k = key(r);
-        final g = m.putIfAbsent(k, () => [0, 0, 0, 0]);
+        final g = m.putIfAbsent(k, () => [0, 0, 0, 0, 0]);
         g[0]++;
         if (r['reached'] == true) {
           g[2]++;
@@ -377,15 +388,22 @@ class _AdminClaimPlanScreenState extends State<AdminClaimPlanScreen> {
         }
       }
       for (final r in claimed) {
-        final g = m.putIfAbsent(key(r), () => [0, 0, 0, 0]);
+        final g = m.putIfAbsent(key(r), () => [0, 0, 0, 0, 0]);
         g[0]++;
         g[1]++;
+        if (r['wrote_first'] == true) g[4]++;
       }
       return m;
     }
 
-    final narrow = MediaQuery.sizeOf(context).width < 600;
+    final width = MediaQuery.sizeOf(context).width;
+    final narrow = width < 600;
     final cw = narrow ? 50.0 : 72.0;
+    // Room for "Claimed after we wrote" as a column of its own; on a
+    // smaller screen it is a line under the numbers.
+    final wide = width >= 780;
+    const aw = 156.0;
+    const small = TextStyle(fontSize: 11.5, color: Brand.inkSecondary, height: 1.3);
     String kindName(String k) =>
         k == 'coworking' ? 'Coworking' : k == 'cafe' ? 'Cafes' : (k.isEmpty ? 'Other' : k);
     final byKind = group((r) => '${r['kind'] ?? ''}');
@@ -413,11 +431,22 @@ class _AdminClaimPlanScreenState extends State<AdminClaimPlanScreen> {
                       textAlign: TextAlign.right,
                       style: const TextStyle(
                           fontSize: 12, fontWeight: FontWeight.w700, color: Brand.inkMuted))),
+            if (wide)
+              const SizedBox(
+                  width: aw,
+                  child: Text('Claimed after we wrote',
+                      textAlign: TextAlign.right,
+                      style: TextStyle(
+                          fontSize: 12, fontWeight: FontWeight.w700, color: Brand.inkMuted))),
           ]),
         );
 
     Widget line(String name, List<int> g, {VoidCallback? onTap, bool on = false}) {
       final done = g[0] == 0 ? 0.0 : (g[1] + g[2]) / g[0];
+      // Everyone we wrote to: those still unclaimed and those who then
+      // claimed.
+      final wrote = g[2] + g[4];
+      final afterRate = wrote >= _enoughToTell ? _share(g[4], wrote) : 'too few to tell';
       return InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(8),
@@ -428,7 +457,7 @@ class _AdminClaimPlanScreenState extends State<AdminClaimPlanScreen> {
             borderRadius: BorderRadius.circular(8),
           ),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Row(children: [
+            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Expanded(
                   child: Text(name,
                       maxLines: 1,
@@ -437,13 +466,37 @@ class _AdminClaimPlanScreenState extends State<AdminClaimPlanScreen> {
               for (final (i, n) in [(0, g[0]), (1, g[1]), (2, g[2]), (3, g[3])])
                 SizedBox(
                     width: cw,
-                    child: Text('$n',
-                        textAlign: TextAlign.right,
-                        style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: i == 0 ? FontWeight.w700 : FontWeight.w500,
-                            color: i == 1 && n > 0 ? Brand.success : Brand.ink))),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                      Text('$n',
+                          textAlign: TextAlign.right,
+                          style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: i == 0 ? FontWeight.w700 : FontWeight.w500,
+                              color: i == 1 && n > 0 ? Brand.success : Brand.ink)),
+                      // Claimed, as a share of all the spaces in the row.
+                      if (i == 1 && g[0] >= _enoughToTell)
+                        Text(_share(g[1], g[0]), textAlign: TextAlign.right, style: small),
+                    ])),
+              if (wide)
+                SizedBox(
+                    width: aw,
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                      Text(wrote == 0 ? 'none written to' : '${g[4]} of $wrote',
+                          textAlign: TextAlign.right,
+                          style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: wrote == 0 ? Brand.inkMuted : Brand.ink)),
+                      if (wrote > 0) Text(afterRate, textAlign: TextAlign.right, style: small),
+                    ])),
             ]),
+            if (!wide && wrote > 0) ...[
+              const SizedBox(height: 2),
+              Text(
+                  'Claimed after we wrote: ${g[4]} of $wrote'
+                  '${wrote >= _enoughToTell ? ' ($afterRate)' : ''}',
+                  style: small),
+            ],
             const SizedBox(height: 5),
             ClipRRect(
               borderRadius: BorderRadius.circular(3),
@@ -465,8 +518,10 @@ class _AdminClaimPlanScreenState extends State<AdminClaimPlanScreen> {
           style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
       const SizedBox(height: 4),
       const Text(
-          'The green line is how much is claimed or written to. Tap a country to '
-          'see only its spaces below.',
+          'Under Claimed is its share of all the spaces in the row. Claimed after we '
+          'wrote counts every space we have written to and how many of them then '
+          'claimed. A share shows once there are 20 to judge from. The green line is '
+          'how much is claimed or written to. Tap a country to see only its spaces below.',
           style: TextStyle(fontSize: 13, color: Brand.inkSecondary, height: 1.4)),
       const SizedBox(height: 14),
       head('Type'),
