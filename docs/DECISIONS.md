@@ -7191,3 +7191,11 @@ Giulia's request for TLoft Coworking Space (Bangkok, unclaimed) was passed on to
 - The 8 requests passed on before today stay uncounted (his choice). TLoft's was counted by hand: 1 of 2.
 - Not changed: the email to an unclaimed space still does not mention the free count. A space that later claims its page finds its count already started.
 - Checked in a rolled-back test: a second passed-on request for TLoft counts (2 of 2), a third does not.
+
+## 24 Nov 2026: "Pick a Region" opens the help with Ask Claude, on the Blocked card too
+Jonathan, with Living On Air Kertasari waiting in Blocked for a Region: "we do have an ask claude for locations, but not for regions".
+- There was one (migration 189: the nearest Regions with their distance, a first verdict, Ask Claude, and the full list one tap away), but it opened only from the REGION box on a New spaces card or a Queued space. The Blocked card, where a space with no Region waits, had only "Pick a Region", which went straight to the plain list. It had been asked twice in all, last on 20 Oct.
+- Now "Pick a Region" on the Blocked card and "Change region" on a Queued space both open that help. Nothing is lost: "See the full list" there is the old picker, and a new Region can be asked for from it as before.
+- Tried for real on Living On Air Kertasari (Labuan Kertasari, Taliwang, West Sumbawa): the first verdict read "The nearest Region, Lombok, is 50.5 km away, so this probably needs a new Region", and Ask Claude answered with one option, a new Region named Sumbawa, high confidence. That question is the third row in region_asks, asked from the session, not by Jonathan.
+- Not changed: the Region of the space itself. Jonathan picks it.
+- Not seen on a screen from the session; the build is the compile check.

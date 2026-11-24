@@ -5981,7 +5981,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                   icon: const Icon(Icons.edit_outlined, size: 16),
                   label: const Text('Edit')),
               TextButton.icon(
-                  onPressed: () => _pickRegion(v),
+                  onPressed: () => _openRegionHelp(v),
                   icon: const Icon(Icons.place_outlined, size: 16),
                   label: const Text('Change region')),
               TextButton(
@@ -8940,8 +8940,13 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                 icon: const Icon(Icons.add_photo_alternate_outlined, size: 18),
                 label: const Text('Add photos'))
           else
+            // The same help as the REGION box on a queued space: the
+            // nearest Regions, a first verdict and Ask Claude, with
+            // the full list one tap away (Jonathan, 24 Nov 2026: "we
+            // do have an ask claude for locations, but not for
+            // regions". There was one, but not on this card).
             ElevatedButton.icon(
-                onPressed: () => _pickRegion(v),
+                onPressed: () => _openRegionHelp(v),
                 icon: const Icon(Icons.place_outlined, size: 18),
                 label: const Text('Pick a Region')),
         ]),
