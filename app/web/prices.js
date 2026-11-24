@@ -302,6 +302,8 @@
         '.nwp-top .cafe-coworking-wrapper{order:4}' +
         '.nwp-top .wifi-wrapper{order:5}' +
         '.nwp-top>.nwp-addr{order:6;margin:0}' +
+        // The star lines up with the heading and the row under it.
+        '.nwp-top .google-rating-wrapper,.nwp-top .cafe-coworking-wrapper{padding-left:0 !important}' +
         '.nwbc li.nwp-bc-cur,.nwbc li:has(>span.nwbc-c){display:none !important}' +
       '}',
       '.nwp-hrs,.nwp-bar{display:none}',
