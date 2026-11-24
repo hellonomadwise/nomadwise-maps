@@ -283,8 +283,9 @@
       '.nwp{margin:28px 0 36px;font-family:inherit;color:var(--nwp-ink);scroll-margin-top:84px;animation:nwp-in .35s ' + EASE + ' both}',
       '.nwp-mr{list-style:none;margin:0;padding:0;border-top:1px solid rgba(0,0,0,.05)}',
       '.nwp-more{display:block;width:100%;min-height:44px;margin:0;padding:0;border:0;background:transparent;font-family:inherit;font-size:14.5px;font-weight:700;color:var(--nwp-teal);text-decoration:underline;text-align:center;cursor:pointer}',
-      '.nwp-addr{margin:2px 0 8px;font-family:Roboto,sans-serif;font-size:14px;line-height:1.4;color:#5E6670}',
-      '.nwp-addr a{margin-left:8px;color:#05434F;font-weight:700;text-decoration:underline;white-space:nowrap}',
+      '.nwp-addr{display:flex;align-items:baseline;gap:8px;min-width:0;margin:2px 0 8px;font-family:Roboto,sans-serif;font-size:14px;line-height:1.4;color:#5E6670}',
+      '.nwp-addr span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+      '.nwp-addr a{flex:none;color:#05434F;font-weight:700;text-decoration:underline;white-space:nowrap}',
       '.nwp-jump{display:none}',
       '.nwp-hrs,.nwp-bar{display:none}',
       '@media (max-width: 767px){' +
@@ -1247,7 +1248,9 @@
         if (!row || !row.parentElement) continue;
         var el = document.createElement('div');
         el.className = 'nwp-addr';
-        el.innerHTML = esc(addr) + (href ? ' <a href="' + esc(href) + '" target="_blank" rel="noopener">Get directions</a>' : '');
+        // One line always: a long address is cut with an ellipsis and
+        // the link stays beside it (Jonathan, 24 Nov 2026: "too long").
+        el.innerHTML = '<span title="' + esc(addr) + '">' + esc(addr) + '</span>' + (href ? '<a href="' + esc(href) + '" target="_blank" rel="noopener">Get directions</a>' : '');
         var a = el.querySelector('a');
         if (a) a.addEventListener('click', function () { track('directions_tap', { slug: SLUG }); });
         row.parentElement.insertBefore(el, row);
