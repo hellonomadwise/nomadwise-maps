@@ -7181,3 +7181,13 @@ Jonathan: "What would be good is if there's a way how I can then click into that
 - Also linked: Update suggested (Owner changes), Owner price list to check (Price check), a claim to approve (Owners), Enquiry to pass on or held (Enquiries), Waiting on us (Home). Chat notices already opened the chats. Every other notice is as it was.
 - How: notify_click(title, message) works the link out from the notice's own words, and notify_phone adds it, so none of the functions that send notices changed. The control centre reads &show (paid, enquiries or owner) and &space; both survive signing in. Link shape: nomadmaps.io/?admin=centre&show=owner&space=<id>.
 - Tried in the database: each kind of notice gave the right link and an ordinary one gave none. No notice was sent to try it (it would ring the phones). Not seen on a screen from the session; the build is the compile check.
+
+## 24 Nov 2026: a request passed on by hand counts as a free request (migration 357)
+
+Giulia's request for TLoft Coworking Space (Bangkok, unclaimed) was passed on to info@tloftbkk.com from the Mary chat. Jonathan: "this should count as 1 free request", then, asked whether that is the rule from now on, "Yes, from now on".
+
+- Before: only a request that went out by itself to a claimed space was counted (`enquiries.free_slot`). One a founder passed on to an unclaimed space was never counted.
+- Now: "Pass on" by email and "Passed on WhatsApp" count the request, while the space is under the limit (2) and not on Premium (`enquiry_pass_counts_free`). Above the limit a founder can still pass one on; it is not counted, so the count never reads "3 of 2".
+- The 8 requests passed on before today stay uncounted (his choice). TLoft's was counted by hand: 1 of 2.
+- Not changed: the email to an unclaimed space still does not mention the free count. A space that later claims its page finds its count already started.
+- Checked in a rolled-back test: a second passed-on request for TLoft counts (2 of 2), a third does not.
