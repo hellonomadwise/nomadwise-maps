@@ -7220,3 +7220,11 @@ Jonathan, on the Owner flow step "Auto-approve safe fields. Wifi, hours and pric
 - Jonathan, asked whether to leave our own test claims out of the Owners numbers as in the Claim plan: "yes". On checking, most Owners numbers already did: the Owner flow and Home's claims leave out a claim whose email is in owner_flow_team_emails or holds "nomadwise", or whose owner name holds "test". That rule catches all 20 test claims of the 50 on record. What had been said on 24 Nov ("the Owners numbers still count them") was too broad.
 - Two counts had no rule: "claimed after we wrote, last 30 days" in the Owner flow signals, and "paid" in Analytics. Neither was wrong on the day (5 and 5; the three paid claims, all ours, are from September and outside the period), but each would have counted the next test. Both now use the same rule, kept in one place: claim_is_test(email, name).
 - Not changed: the Owners list itself still shows Instant Crunch Saldanha, because its owner on record really is Jonathan's own address; and the card "Claims approved by themselves" lists every such claim (three, all real).
+
+## 24 Nov 2026: what a customer is sent about their request is copied to spaces@ (migration 360)
+Jonathan: "yes i think request confirmations to customers should be copied to spaces@".
+- Before: the email to a space about a request was copied to spaces@, the emails to the customer were not. "We have your request", "we passed it on" and "we could not reach the space" went to the customer alone, so nobody on the team saw what the customer had been told.
+- Now each of those carries a blind copy to spaces@nomadwise.io (every kind ending _nomad in send_enquiry_mail). Blind, so the customer sees one sender and no second address. A reply from the customer goes where it went before.
+- Not changed: emails to a space, their wording, who they come from. Nothing is copied when the email already goes to spaces@.
+- Tried in a rolled-back test: the "passed on" email to a customer carried the blind copy; the email to a space was unchanged. No real email was sent to try it.
+- Separate, not done here: the forms on nomadwise.io (Webflow) send their notices to hello@. Jonathan wants those at spaces@ too. That address is a Webflow site setting (Site settings, Forms) and cannot be changed through the Webflow tools the session has.
