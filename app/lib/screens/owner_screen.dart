@@ -136,6 +136,12 @@ class _OwnerScreenState extends State<OwnerScreen> {
   _Tab? _trkTabSeen;
   int _trkCur = -1;
   bool _askOpen = false;
+  // "Short on time?" and the Performance number on My listing
+  // (migration 355).
+  bool _helpClosed = false;
+  bool _helpShownLogged = false;
+  bool _perfShownLogged = false;
+  Timer? _helpTimer;
   // Things they asked for that we have done: "It's here now".
   List<Map<String, dynamic>> _wishNews = const [];
   // Our newest unread message, shown in a small card in the corner
@@ -331,6 +337,9 @@ class _OwnerScreenState extends State<OwnerScreen> {
       onHide: () => _trk.hidden(_venueId),
       onShow: _trk.shown,
     );
+    _trk.onOffer = () {
+      if (mounted) setState(() {});
+    };
     _load();
     _prefillEmail();
     SharedPreferences.getInstance().then((p) {
@@ -642,6 +651,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
     _hereTimer?.cancel();
     _autoTimer?.cancel();
     _trkTimer?.cancel();
+    _helpTimer?.cancel();
     _life?.dispose();
     _trk.hidden(_venueId);
     for (final (h, b) in _sections) {
@@ -720,7 +730,9 @@ class _OwnerScreenState extends State<OwnerScreen> {
         }
       });
       _fillEditor(closeEditing: false);
-      if (rows.length > 1) _loadLocStats();
+      // Also for one space: My listing shows one of these numbers
+      // (migration 355).
+      if (rows.isNotEmpty) _loadLocStats();
       if (rows.isNotEmpty) {
         _loadChatUnread();
         _chatTimer ??= Timer.periodic(
@@ -730,6 +742,11 @@ class _OwnerScreenState extends State<OwnerScreen> {
             Timer.periodic(const Duration(seconds: 60), (_) => _beat());
         _trkTimer ??= Timer.periodic(
             const Duration(seconds: 15), (_) => _trk.flush());
+        // "Short on time?" waits 45 seconds on a first visit: draw
+        // again once that has passed.
+        _helpTimer ??= Timer(const Duration(seconds: 46), () {
+          if (mounted) setState(() {});
+        });
       }
     } catch (e) {
       if (mounted) {
@@ -2191,6 +2208,10 @@ class _OwnerScreenState extends State<OwnerScreen> {
           // for Promotions and events.
           if (_tab == _Tab.message && _verified) _actionBar(wide),
           if (_tab != _Tab.locations) _statusBanner(),
+          if (_tab == _Tab.listing && _editing == null) _perfLine(wide),
+          if ((_tab == _Tab.listing || _tab == _Tab.locations) &&
+              _editing == null)
+            _helpLine(),
           // Build next is a board of its own, full width; so is the
           // inbox.
           if (fullWidth)
@@ -2363,19 +2384,28 @@ class _OwnerScreenState extends State<OwnerScreen> {
     final id = _venueId;
     if (id == null || _askOpen) return;
     _askOpen = true;
-    final asked = trigger != 'menu';
+    // "Short on time?": they tell us what has changed and we put it on
+    // their page (migration 355). They opened it themselves.
+    final help = trigger == 'do_it_for_me';
+    final asked = trigger != 'menu' && !help;
     _trk.step(asked ? 'ask_shown' : 'ask_open', {'trigger': trigger}, id);
     if (asked) _trk.flush();
     final text = TextEditingController();
     var stage = 'ask'; // ask, sending, thanks
     String? error;
-    final title = trigger == 'gave_up'
-        ? 'Anything getting in the way?'
-        : 'Looking for something?';
-    final lead = trigger == 'gave_up'
-        ? "If something didn't work the way you expected, tell us in a "
-            'few words.'
-        : "Tell us what you'd like to do, in your own words.";
+    final title = help
+        ? 'Tell us what to change'
+        : trigger == 'gave_up'
+            ? 'Anything getting in the way?'
+            : 'Looking for something?';
+    final lead = help
+        ? 'Write what has changed, such as your prices, opening hours, '
+            'description or contact details, and we will put it on your '
+            'page for you. For new photos, reply to any email from us.'
+        : trigger == 'gave_up'
+            ? "If something didn't work the way you expected, tell us in a "
+                'few words.'
+            : "Tell us what you'd like to do, in your own words.";
     var sent = false;
     await _ownerDialog<void>(
       context: context,
@@ -2447,8 +2477,9 @@ class _OwnerScreenState extends State<OwnerScreen> {
                         enabled: stage == 'ask',
                         textCapitalization: TextCapitalization.sentences,
                         decoration: InputDecoration(
-                          hintText:
-                              'For example: I want to show our holiday opening hours',
+                          hintText: help
+                              ? 'For example: our day pass is now 15 euros and we open at 8 on weekdays'
+                              : 'For example: I want to show our holiday opening hours',
                           hintStyle: const TextStyle(color: Brand.inkMuted, fontSize: 14),
                           counterText: '',
                           filled: true,
@@ -2503,6 +2534,148 @@ class _OwnerScreenState extends State<OwnerScreen> {
     _askOpen = false;
     if (!sent) _trk.step('ask_dismissed', {'trigger': trigger}, id);
     text.dispose();
+    if (help && mounted) setState(() => _helpClosed = sent || _helpClosed);
+  }
+
+  /// "Short on time?" (Jonathan, 24 Nov 2026): half the owners who came
+  /// in changed nothing, so an owner who has never saved a change is
+  /// offered to tell us what has changed and have us do it (the
+  /// done-for-you service). At once for somebody who has been in
+  /// before; after 45 seconds on a first visit, and not once they have
+  /// started changing something. Closing it puts it away for 30 days
+  /// (the database decides). ?help in the link shows it, to try.
+  bool get _helpDue {
+    if (_isPreview || _helpClosed) return false;
+    if (Uri.base.queryParameters.containsKey('help')) return true;
+    if (!_trk.helpOffer || _trk.editsStarted > 0) return false;
+    return _trk.beenBefore || _trk.visitSecs >= 45;
+  }
+
+  Widget _helpLine() {
+    if (!_helpDue) return const SizedBox.shrink();
+    if (!_helpShownLogged) {
+      _helpShownLogged = true;
+      _trk.step('help_shown', null, _venueId);
+    }
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.fromLTRB(14, 12, 4, 10),
+      decoration: BoxDecoration(
+        color: Brand.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Brand.hairline),
+      ),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Padding(
+          padding: EdgeInsets.only(top: 2),
+          child: Icon(Icons.schedule, size: 20, color: Brand.inkSecondary),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('Short on time?',
+                style: TextStyle(
+                    fontSize: 14.5, fontWeight: FontWeight.w800, color: Brand.ink)),
+            const SizedBox(height: 2),
+            const Text(
+                'Tell us what has changed and we will update your page for you.',
+                style: TextStyle(
+                    fontSize: 14, height: 1.45, color: Brand.inkSecondary)),
+            InkWell(
+              onTap: () => _askWish('do_it_for_me'),
+              borderRadius: BorderRadius.circular(8),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: Text('Tell us what to change',
+                    style: TextStyle(
+                        fontSize: 14, fontWeight: FontWeight.w700, color: _perfRed)),
+              ),
+            ),
+          ]),
+        ),
+        IconButton(
+          tooltip: 'Close',
+          icon: const Icon(Icons.close, size: 18, color: Brand.inkMuted),
+          onPressed: () {
+            _trk.step('help_dismissed', null, _venueId);
+            _trk.flush();
+            setState(() => _helpClosed = true);
+          },
+        ),
+      ]),
+    );
+  }
+
+  /// One Performance number on My listing, where most owners land, with
+  /// a way to the Performance tab (Jonathan, 24 Nov 2026: 2 of 12
+  /// owners had opened Performance). The last 30 days, as on All
+  /// locations. Same floor as the monthly email: Google from 20,
+  /// otherwise page views from 10, otherwise nothing is shown.
+  Widget _perfLine(bool wide) {
+    if (_isPreview) return const SizedBox.shrink();
+    final st = _locStats['${_venue?['id']}'];
+    if (st == null) return const SizedBox.shrink();
+    final google = _perfInt(st['google']);
+    final views = _perfInt(st['views']);
+    if (google < 20 && views < 10) return const SizedBox.shrink();
+    final what = google >= 20 ? 'google' : 'views';
+    final text = google >= 20
+        ? 'Your page was in Google results ${_perfNum(google)} times in '
+            'the last 30 days.'
+        : 'People opened your page ${_perfNum(views)} times in the last '
+            '30 days.';
+    if (!_perfShownLogged) {
+      _perfShownLogged = true;
+      _trk.step('perf_shown', {'what': what}, _venueId);
+    }
+    const words = TextStyle(fontSize: 14, height: 1.45, color: Brand.ink);
+    final link = Row(mainAxisSize: MainAxisSize.min, children: const [
+      Text('See your performance',
+          style: TextStyle(
+              fontSize: 14, fontWeight: FontWeight.w700, color: _perfRed)),
+      Icon(Icons.chevron_right, size: 18, color: _perfRed),
+    ]);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Material(
+        color: Brand.surface,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+            side: const BorderSide(color: Brand.hairline)),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () {
+            _trk.step('perf_open', {'what': what}, _venueId);
+            _goTab(_Tab.performance);
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.only(top: 1),
+                    child: Icon(Icons.insights, size: 20, color: _perfRed),
+                  ),
+                  const SizedBox(width: 10),
+                  // On a phone the way in goes under the words.
+                  Expanded(
+                    child: wide
+                        ? Text(text, style: words)
+                        : Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                                Text(text, style: words),
+                                const SizedBox(height: 6),
+                                link,
+                              ]),
+                  ),
+                  if (wide) ...[const SizedBox(width: 12), link],
+                ]),
+          ),
+        ),
+      ),
+    );
   }
 
   /// A quiet way in for everyone: under the menu on a computer, at the

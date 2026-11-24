@@ -18,6 +18,8 @@ import 'supabase_service.dart';
 ///                   listing (part, secs)
 ///   ask_shown / ask_open / ask_dismissed / wish_sent    "Looking for
 ///                   something?"
+///   help_shown / help_dismissed     "Short on time?" (migration 355)
+///   perf_shown / perf_open          the Performance number on My listing
 ///   anything else   a button they pressed (see_page, period, ...)
 class OwnerTracker {
   OwnerTracker() : session = _uuid();
@@ -35,11 +37,25 @@ class OwnerTracker {
   bool askOk = false;
   bool askedThisVisit = false;
 
+  /// "Short on time?" (migration 355): the database says yes for an
+  /// owner who has never saved a change and has not closed or used the
+  /// offer in the last 30 days.
+  bool helpOffer = false;
+
+  /// They have been in their account before this visit.
+  bool beenBefore = false;
+
+  /// Called when the database's answer changes what the screen shows.
+  void Function()? onOffer;
+
   String? tab;
   DateTime _tabSince = DateTime.now();
   String? editing;
   DateTime _editSince = DateTime.now();
   final DateTime _visitStart = DateTime.now();
+
+  /// Seconds since this visit began.
+  int get visitSecs => _secs(_visitStart);
   final List<(DateTime, String)> _tabOpens = [];
   int editsStarted = 0;
   int editsLeft = 0;
@@ -175,6 +191,13 @@ class OwnerTracker {
       ]);
       _queue.removeRange(0, min(batch.length, _queue.length));
       askOk = res['ask_ok'] == true;
+      final offer = res['help_offer'] == true;
+      final before = res['been_before'] == true;
+      if (offer != helpOffer || before != beenBefore) {
+        helpOffer = offer;
+        beenBefore = before;
+        onOffer?.call();
+      }
     } catch (_) {
       // Kept; the next batch tries again.
     } finally {

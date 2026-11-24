@@ -71,10 +71,27 @@ const _actionNames = {
   'ask_dismissed': 'Closed it without sending',
   'wish_sent': 'Told us what they need',
   'wish_news_seen': 'Saw a request we had done',
+  'help_shown': 'Was offered: Short on time? We update your page for you',
+  'help_dismissed': 'Closed Short on time?',
+  'perf_shown': 'Saw a Performance number on My listing',
+  'perf_open': 'Opened Performance from My listing',
+};
+
+/// What kind of owner, from everything recorded (migration 355).
+const _kindNames = {
+  'hands_on': 'Hands-on',
+  'looker': 'Looker',
+  'not_in': 'Not yet in',
+};
+const _kindHelp = {
+  'hands_on': 'has changed their page themselves',
+  'looker': 'has been in, changed nothing',
+  'not_in': 'has never opened the account',
 };
 
 const _triggerNames = {
   'menu': 'they opened Tell us what you need',
+  'do_it_for_me': 'Short on time? They want us to make this change',
   'lost': 'asked: they opened 4+ tabs without changing anything',
   'gave_up': 'asked: they left two parts without saving',
   'test': 'test',
@@ -503,13 +520,41 @@ class _AdminOwnerActivityScreenState extends State<AdminOwnerActivityScreen> {
 
   // ------------------------------------------------------------ people
 
+  /// Hands-on, Looker or Not yet in, beside the owner's spaces.
+  Widget _kindTag(String kind) {
+    final (Color bg, Color fg) = switch (kind) {
+      'hands_on' => (Brand.successTint, Brand.success),
+      'looker' => (Brand.goldTint, Brand.goldTextDark),
+      _ => (Brand.field, Brand.inkSecondary),
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration:
+          BoxDecoration(color: bg, borderRadius: BorderRadius.circular(8)),
+      child: Text(_kindNames[kind] ?? kind,
+          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: fg)),
+    );
+  }
+
   Widget _people() {
     final list = _list('people');
+    int count(String k) => list.where((p) => p['kind'] == k).length;
+    final kinds = [
+      for (final k in _kindNames.keys)
+        if (count(k) > 0) '${count(k)} ${_kindNames[k]!.toLowerCase()} (${_kindHelp[k]})'
+    ];
     return _card(
       'Owners',
       'Everyone with a space, most recent first. Tap one to see each visit '
           'step by step.',
-      Column(children: [
+      Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        if (kinds.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+            child: Text('${kinds.join(' · ')}.',
+                style: const TextStyle(
+                    fontSize: 12.5, height: 1.45, color: Brand.inkSecondary)),
+          ),
         for (final p in list)
           Builder(builder: (_) {
             final spaces = [
@@ -533,8 +578,16 @@ class _AdminOwnerActivityScreenState extends State<AdminOwnerActivityScreen> {
                     child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(spaces.join(', '),
-                              style: const TextStyle(fontWeight: FontWeight.w700)),
+                          Wrap(
+                              spacing: 8,
+                              runSpacing: 4,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                Text(spaces.join(', '),
+                                    style: const TextStyle(fontWeight: FontWeight.w700)),
+                                if (_kindNames['${p['kind']}'] != null)
+                                  _kindTag('${p['kind']}'),
+                              ]),
                           Text('${p['email']}',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
