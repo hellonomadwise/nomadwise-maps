@@ -1501,6 +1501,14 @@ class SupabaseService {
     return r is Map ? Map<String, dynamic>.from(r) : <String, dynamic>{};
   }
 
+  /// What was waiting in Clean-up at the end of each day (migration
+  /// 354): {days: [{day, closed_temp, closed_perm, no_location,
+  /// estimated}], now, counted_from}, the last day being today.
+  Future<Map<String, dynamic>> adminQualityHistory({int days = 90}) async {
+    final r = await _db.rpc('admin_quality_history', params: {'p_days': days});
+    return r is Map ? Map<String, dynamic>.from(r) : <String, dynamic>{};
+  }
+
   /// A decision on a live page's Location: [kind] 'location' (an
   /// existing one, [locationId]), 'new' ([name], once asked for),
   /// 'none' (no Location, on purpose) or 'undo'.

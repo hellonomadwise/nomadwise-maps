@@ -18,6 +18,7 @@ import '../services/places_service.dart';
 import '../services/supabase_service.dart';
 import '../theme.dart';
 import '../widgets/candidates_tab.dart';
+import '../widgets/cleanup_chart.dart';
 import '../widgets/email_html_stub.dart'
     if (dart.library.html) '../widgets/email_html_web.dart';
 import '../widgets/no_location_tab.dart';
@@ -245,6 +246,10 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   /// Live pages with no Location still to decide (migration 173).
   int _noLocationCount = 0;
 
+  /// Clean-up, day by day (migration 354): one row a day for the chart
+  /// above the Closed and No Location lists.
+  List<Map<String, dynamic>> _qualityDays = const [];
+
   Future<void> _loadCandidateCount() async {
     try {
       final r = await _supabase.adminCandidates(limit: 1);
@@ -442,6 +447,14 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         if (mounted && n != _noLocationCount) {
           setState(() => _noLocationCount = n);
         }
+      }).catchError((_) {});
+      // The days behind the Clean-up chart: their own reading too.
+      _supabase.adminQualityHistory().then((r) {
+        final days = [
+          for (final x in (r['days'] as List? ?? const []))
+            if (x is Map) Map<String, dynamic>.from(x),
+        ];
+        if (mounted) setState(() => _qualityDays = days);
       }).catchError((_) {});
     } catch (e) {
       if (mounted) setState(() => _error = '$e');
@@ -5320,8 +5333,21 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
           ),
         ),
         _sectionSwitch(g, section),
-      ] else
+      ] else ...[
         const SizedBox(height: 4),
+        // The chart of the list on show. On a phone it leaves with the
+        // rest of the top once the list is scrolled.
+        if (!away &&
+            (key == 'closed' || key == 'nolocation') &&
+            _qualityDays.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 4, 14, 4),
+            child: CleanupChart(
+                days: _qualityDays,
+                group: key == 'closed' ? 'closed' : 'nolocation',
+                now: key == 'closed' ? _closed.length : _noLocationCount),
+          ),
+      ],
       // The groups of the chosen section, side by side: a swipe on a
       // phone, arrows at either end on a laptop (a mouse cannot swipe),
       // which only show when there is more to see in that direction.
