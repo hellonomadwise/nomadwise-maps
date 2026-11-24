@@ -15,7 +15,7 @@
   var URL_ = '__NW_SUPABASE_URL__';
   var KEY = '__NW_SUPABASE_KEY__';
   var CSS = [
-    '.nwbc{font:400 13px/1.4 Roboto,system-ui,sans-serif;color:#5B6470;margin:20px 0;position:relative;z-index:20}',
+    '.nwbc{font:400 13px/1.4 Roboto,system-ui,sans-serif;color:#5B6470;margin:8px 0;position:relative;z-index:20}',
     '.nwbc ol{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;align-items:center;gap:2px}',
     '.nwbc li{display:flex;align-items:center;margin:0}',
     '.nwbc li[hidden],.nwbc-none[hidden]{display:none!important}',
