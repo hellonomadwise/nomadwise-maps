@@ -287,7 +287,23 @@
       '.nwp-addr span{white-space:nowrap}',
       '.nwp-addr a{flex:none;color:#05434F;font-weight:700;text-decoration:underline;white-space:nowrap}',
       '.nwp-jump{display:none}',
-      '@media (max-width: 767px){h1.nwp-h1{font-size:18px !important;line-height:1.3 !important}}',
+      // Phones: the heading at 20px (24px took three lines), and the
+      // facts under it flow as one wrapped line: rating, area, country,
+      // kind of space, directions (Jonathan, 24 Nov 2026: 'do 1, 2 and
+      // 3'; tried on Alt_ChiangMai at phone width first).
+      '@media (max-width: 767px){' +
+        'h1.nwp-h1{font-size:20px !important;line-height:1.3 !important}' +
+        '.nwp-hd{display:flex !important;flex-wrap:wrap;align-items:center;gap:4px 14px !important}' +
+        '.nwp-hd>.div-block-138{flex:0 0 100%}' +
+        '.nwp-hd>.div-block-156,.nwp-hd>.div-block-header-3{display:contents !important}' +
+        '.nwp-hd .google-rating-wrapper{order:1}' +
+        '.nwp-hd .location-div{order:2}' +
+        '.nwp-hd .div-block-137{order:3}' +
+        '.nwp-hd .cafe-coworking-wrapper{order:4}' +
+        '.nwp-hd .wifi-wrapper{order:5}' +
+        '.nwp-hd>.nwp-addr{order:6;margin:0}' +
+        '.nwbc li.nwp-bc-cur{display:none !important}' +
+      '}',
       '.nwp-hrs,.nwp-bar{display:none}',
       '@media (max-width: 767px){' +
         '.nwp-hrs{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:44px;margin:0;padding:0;border:0;background:transparent;font-family:Roboto,sans-serif;text-align:left;color:#2C2C2C;cursor:pointer}' +
@@ -298,7 +314,7 @@
         '.nwp-bar b{font-size:15px;font-weight:700;white-space:nowrap}' +
         '.nwp-bar span{font-size:13.5px;font-weight:400;opacity:.95;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
       '}',
-      '@media (max-width: 767px){.nwp-jump{display:flex;align-items:center;justify-content:center;min-height:44px;margin:4px 0 0;font-family:Roboto,sans-serif;font-size:14.5px;line-height:1.3;font-weight:700;color:#05434F;text-decoration:underline;text-align:center}}',
+      '@media (max-width: 767px){.nwp-jump{display:flex;align-items:center;justify-content:flex-start;min-height:44px;margin:4px 0 0;font-family:Roboto,sans-serif;font-size:14.5px;line-height:1.3;font-weight:700;color:#05434F;text-decoration:underline;text-align:left}}',
       '@keyframes nwp-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}',
       '.nwp h2.nwp-h{margin:0 0 4px;font-size:21px;font-weight:700;line-height:1.25}',
       '.nwp-sub{margin:0 0 14px;font-size:14px;line-height:1.45;color:var(--nwp-muted)}',
@@ -1134,7 +1150,7 @@
       var a = document.createElement('a');
       a.className = 'nwp-jump';
       a.href = '#prices';
-      a.textContent = 'See passes and prices' + from;
+      a.textContent = from ? 'See prices' + from : 'See passes and options';
       a.addEventListener('click', function () { track('prices_jump_link', { slug: SLUG }); });
       bw.parentElement.insertBefore(a, bw.nextSibling);
     } catch (e) {}
@@ -1238,8 +1254,25 @@
   function smallHeading() {
     try {
       var h = document.querySelector('h1');
-      if (h) h.classList.add('nwp-h1');
+      if (!h) return;
+      h.classList.add('nwp-h1');
+      var box = h.closest('.div-block-136');
+      if (box && box.querySelector('.div-block-header-3')) box.classList.add('nwp-hd');
     } catch (e) {}
+    trimCrumb(0);
+  }
+  // On a phone the breadcrumb ends at the area ("< Old City"): the
+  // space's own name is the heading right under it. Only the plain
+  // name is hidden, never the button that switches between places.
+  // The breadcrumb is drawn by its own script, so this looks a few
+  // times.
+  function trimCrumb(n) {
+    try {
+      var cur = document.querySelector('.nwbc span.nwbc-c');
+      var li = cur && cur.closest('li');
+      if (li) { li.classList.add('nwp-bc-cur'); return; }
+    } catch (e) { return; }
+    if (n < 10) setTimeout(function () { trimCrumb(n + 1); }, 400);
   }
 
   // The street address in words under the name, with "Get directions"
