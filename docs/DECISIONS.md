@@ -7124,3 +7124,13 @@ Jonathan, retiring Xom Space (Ho Chi Minh City) with the card telling him to red
 - /coworking is a real page (it shows the same as /coworking-global), so a redirect added to it by hand works; it is only less useful than the region page.
 - The website run cannot add the redirect itself (Webflow answers 403: redirects by app are for Enterprise plans), so adding it stays a step by hand, with the two paths to copy on the card.
 - Tried the run's rule on a set of cases (region as text, as a list, from our record, through a location, country only, nothing): each gave the right page. Not seen on a screen from the session.
+
+## 24 Nov 2026: the Owner account names a place as nomadwise.io does, not as Google files it (migration 352)
+Jonathan, on Working on Air's Owner account, where the line under the name read "Gili Air, Kabupaten Lombok Utara": "this is located on the island of Gili Air. within the location here, where it says Lombok, this I think is misleading, as I know the area. this should say 'Gili Air, Gili Islands' if anything. or just Gili Air".
+- "Kabupaten Lombok Utara" is Google's city for the address: the regency Gili Air belongs to on paper. nomadwise.io files the space under its own region, Gili Islands, and location, Gili Air.
+- Now the Owner account uses the site's own location and region names where the space has them, and Google's neighbourhood and city only where it does not. Working on Air reads "Gili Air, Gili Islands". Two equal parts are shown once.
+- Where: the line under the name on My listing and in the page preview, the list of an owner's spaces, and the Location row in Settings (which keeps the country at the end). owner_screen.dart, _placeParts.
+- owner_venues() and admin_owner_view() each send two more fields with a space, site_location and site_region. Nothing else they return changed.
+- It is one screen for every owner, so other spaces change too, all in the same direction. Of the 28 claimed spaces on 24 Nov, eleven read differently: for example "Ubud, Bali" where it said "Ubud, Kabupaten Gianyar", "Thong Sala, Koh Phangan" where the second part was in Thai script, "Funchal, Madeira" where it said "Funchal, Funchal", "Stari Grad, Belgrade" where it said Beograd, "Exarcheia, Athens" where it said Athina, and Istanbul for the three SwissOffices.
+- Not changed: the control centre's own cards and lists still show Google's words (offered to Jonathan), and nothing on nomadwise.io changed.
+- Tried in the database as the owner and as one of us opening their account: both came back with Gili Air and Gili Islands. Not seen on a screen from the session.

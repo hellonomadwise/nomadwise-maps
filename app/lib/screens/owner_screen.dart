@@ -2647,10 +2647,24 @@ class _OwnerScreenState extends State<OwnerScreen> {
         ]),
       );
 
-  String _area(Map<String, dynamic> v) => [
-        for (final k in ['neighbourhood', 'city'])
-          if ('${v[k] ?? ''}'.trim().isNotEmpty) '${v[k]}'.trim()
-      ].join(', ');
+  /// A space's place as nomadwise.io names it: its location and region
+  /// there ("Gili Air, Gili Islands"), not Google's filing of it ("Gili
+  /// Air, Kabupaten Lombok Utara", the regency), which Jonathan called
+  /// misleading (24 Nov 2026, migration 352). Google's words are used
+  /// only where the site has none.
+  static List<String> _placeParts(Map<String, dynamic>? v) {
+    String s(String k) => '${v?[k] ?? ''}'.trim();
+    final first =
+        s('site_location').isNotEmpty ? s('site_location') : s('neighbourhood');
+    final second = s('site_region').isNotEmpty ? s('site_region') : s('city');
+    return [
+      if (first.isNotEmpty) first,
+      if (second.isNotEmpty && second.toLowerCase() != first.toLowerCase())
+        second,
+    ];
+  }
+
+  String _area(Map<String, dynamic> v) => _placeParts(v).join(', ');
 
   /// The space's name as a menu, for every owner (Jonathan, 6 Nov
   /// 2026, option E): their location or locations, a tick on the one
@@ -6652,9 +6666,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
 
   Widget _listingTab(bool wide) {
     final v = _venue!;
-    final area = [v['neighbourhood'], v['city']]
-        .where((x) => (x ?? '').toString().isNotEmpty)
-        .join(', ');
+    final area = _placeParts(v).join(', ');
     final country = (v['country'] ?? '').toString();
     final title = [
       '${v['name']}${country.isNotEmpty ? ' in $country' : ''}',
@@ -7401,9 +7413,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
   /// column, then the sidebar (hours, links, enquiry button, advert).
   Widget _preview() {
     final v = _venue!;
-    final area = [v['neighbourhood'], v['city']]
-        .where((x) => (x ?? '').toString().isNotEmpty)
-        .join(', ');
+    final area = _placeParts(v).join(', ');
     final country = (v['country'] ?? '').toString();
     final title = [
       '${v['name']}${country.isNotEmpty ? ' in $country' : ''}',
@@ -9463,9 +9473,9 @@ class _OwnerScreenState extends State<OwnerScreen> {
             _spaceRow(
                 'Location',
                 [
-                  for (final k in ['neighbourhood', 'city', 'country'])
-                    if ('${_venue?[k] ?? ''}'.trim().isNotEmpty)
-                      '${_venue?[k]}'.trim()
+                  ..._placeParts(_venue),
+                  if ('${_venue?['country'] ?? ''}'.trim().isNotEmpty)
+                    '${_venue?['country']}'.trim()
                 ].join(', '),
                 'location'),
           ]),
