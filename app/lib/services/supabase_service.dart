@@ -2832,6 +2832,9 @@ class SupabaseService {
       'website_prepared, website_prepared_at, website_approved_at, '
       'website_dismissed_at, website_dismiss_reason, website_dismiss_note, '
       'website_region_override, website_location_override, '
+      // The page's own region on nomadwise.io: a closed page's redirect
+      // goes to that region's page (24 Nov 2026).
+      'webflow_region_id, webflow_location_id, '
       'website_new_region, website_new_location, '
       'website_slug_override, website_photos, sitemap_added_at, created_at, '
       'google_rating_snapshot, google_reviews_snapshot, wifi_speed_mbps, '

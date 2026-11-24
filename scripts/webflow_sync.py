@@ -1280,7 +1280,7 @@ try:
     retire_ = sb('venues?website_retire_requested_at=not.is.null'
                  '&website_retired_at=is.null&webflow_cms_id=not.is.null'
                  '&select=id,name,webflow_cms_id,webflow_slug,google_place_id,'
-                 'website_retire_note'
+                 'website_retire_note,webflow_region_id,webflow_location_id'
                  '&order=website_retire_requested_at.asc&limit=20') or []
 except Exception as e:  # noqa: BLE001
     # A warning, not an error: the first run after the upload can land
@@ -1707,6 +1707,31 @@ for v in liveloc_:
 SITE_ID = '64b6780f84d27e4bfd91f236'
 
 
+def retire_target(v, fd):
+    """Where a retired page's address sends people: the page of its
+    region (Jonathan, 24 Nov 2026: "the new redirect should be the
+    region page ideally ... for all instances where it simply results in
+    /coworking"). The region comes from the listing itself, then from
+    our own record of it, then from its location; with none, the
+    country page; only with nothing at all, the coworking page."""
+    def slug_of(items, item_id):
+        it = next((x for x in items if item_id and x['id'] == item_id), None)
+        return ((it or {}).get('fieldData') or {}).get('slug')
+    region_id = _one_ref(fd.get('region-2')) or v.get('webflow_region_id')
+    if not slug_of(regions, region_id):
+        loc = next((x for x in locations
+                    if x['id'] == v.get('webflow_location_id')), None)
+        lf = (loc or {}).get('fieldData') or {}
+        region_id = lf.get('region-3') or _one_ref(lf.get('region-2'))
+    slug_ = slug_of(regions, region_id)
+    if slug_:
+        return f'/region/{slug_}'
+    slug_ = slug_of(countries, _one_ref(fd.get('country')))
+    if slug_:
+        return f'/country/{slug_}'
+    return '/coworking'
+
+
 def retire_page(v):
     cms = v['webflow_cms_id']
     item = wf(f'/v2/collections/{COLLECTION_ID}/items/{cms}') or {}
@@ -1715,11 +1740,7 @@ def retire_page(v):
     note = {'from': f'/coworking/{slug_}' if slug_ else None,
             'to': None, 'redirect': None, 'images': None,
             'retired_at': datetime.datetime.now(datetime.timezone.utc).isoformat()}
-    region = next((r for r in regions if r['id'] == fd.get('region-2')), None)
-    if region and (region.get('fieldData') or {}).get('slug'):
-        note['to'] = f"/region/{region['fieldData']['slug']}"
-    else:
-        note['to'] = '/coworking'
+    note['to'] = retire_target(v, fd)
     # Off the live site, then archived, then the slug released. Images
     # entry first so nothing live ever points at an archived one.
     img_id = fd.get('image-reference')

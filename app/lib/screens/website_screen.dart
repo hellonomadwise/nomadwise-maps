@@ -6873,16 +6873,34 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     );
   }
 
-  /// Where a retired page's address will send people: its city page,
-  /// as the sync works it out, else the coworking page.
+  /// Where a retired page's address will send people, as the sync
+  /// works it out: the page of its region (Jonathan, 24 Nov 2026: "the
+  /// new redirect should be the region page ideally"). The region is
+  /// the page's own, then its location's, then a match on the name;
+  /// with none, the country page; only with nothing, the coworking page.
   String _retireTo(Map<String, dynamic> v) {
-    Map<String, dynamic>? r;
-    for (final x in _regions) {
-      if (v['webflow_region_id'] != null && x['id'] == v['webflow_region_id']) r = x;
+    Map<String, dynamic>? byId(List<Map<String, dynamic>> rows, dynamic id) {
+      if (id == null) return null;
+      for (final x in rows) {
+        if (x['id'] == id) return x;
+      }
+      return null;
     }
+
+    var r = byId(_regions, v['webflow_region_id']);
+    r ??= byId(_regions,
+        byId(_locations, v['webflow_location_id'])?['region_id']);
     r ??= _regionFor(v);
     final slug = '${r?['slug'] ?? ''}'.trim();
-    return slug.isEmpty ? '/coworking' : '/region/$slug';
+    if (slug.isNotEmpty) return '/region/$slug';
+    final country = _norm(_countryOf(v));
+    if (country.isNotEmpty) {
+      for (final c in _countries) {
+        final cs = '${c['slug'] ?? ''}'.trim();
+        if (cs.isNotEmpty && _norm(c['name']) == country) return '/country/$cs';
+      }
+    }
+    return '/coworking';
   }
 
   /// The founder's two steps for a page being retired: the redirect,
