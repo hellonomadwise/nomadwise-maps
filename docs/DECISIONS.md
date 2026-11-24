@@ -7107,3 +7107,10 @@ Jonathan, told that Leonie's test on Fora still counted as a request in Prices o
 - Tried in the database and undone again: closing a waiting request as a test gave status closed, is_test true and the note "A test by us, not a real request."
 - A test from one of our personal addresses is not caught by itself: close it as a test by hand.
 - Not seen on a screen from the session (no local Flutter); the build is the compile check.
+
+## 24 Nov 2026: Yellow Coworking Space was claimed by our own test, not by the space
+Jonathan, on the space's card ("Claimed, never logged in", owner "Test Test", hello@nomadwise.io): "this looks like they claimed but never logged in. but this claim was a test by us."
+- The owner was taken off with admin_remove_owner, as the card's own Remove owner does. The space is unclaimed again and its card reads "not reached": it has never been written to. Its page stays; the website push was asked for so the page no longer says it is managed by its owner. Nothing was sent to anyone, and no outreach goes out by itself.
+- It was the only space still carrying one of our tests as its owner. The Outreach line for it was already marked as a test.
+- Found while looking: 19 of the 46 claims on record are tests by us, and all 11 claims that picked the paid plan were ours. No real owner has picked the paid plan when claiming. Figures given to Jonathan on 20 Nov ("11 picked the paid plan, 8 dropped out before paying") were wrong for that reason; corrected in the project page listings/2026-11-20-pricing-philosophy-and-coworking.md.
+- Not changed: nothing marks a test claim in listing_claims, and the Owners numbers still count them. Offered to Jonathan.
