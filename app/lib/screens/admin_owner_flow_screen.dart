@@ -261,9 +261,10 @@ const Map<String, _Lever> _kLevers = {
       [('SYSTEM · SIGNAL CAPTURE', true), ('MANUAL · SEND', false)]),
   'review': _Lever(
       'Your review',
-      'Fast today. The risk is the week you are travelling. Auto-approve the '
-          'low-risk fields (wifi, hours, prices) so only text and photos wait.',
-      [('MANUAL · YOU APPROVE', false), ('SYSTEM · AUTO-APPROVE SAFE FIELDS', true)]),
+      'Fast today. Opening hours and prices an owner saves go on the page '
+          'by themselves, as a Wi-Fi test done at the space already did. '
+          'Text, photos, tags and links wait for you.',
+      [('MANUAL · YOU APPROVE TEXT AND PHOTOS', false), ('SYSTEM · HOURS AND PRICES GO LIVE', true)]),
   'lost': _Lever(
       'Gone, for now',
       'Lost at the claim page, or claimed and never logged in after the '
@@ -1094,7 +1095,7 @@ class _AdminOwnerFlowScreenState extends State<AdminOwnerFlowScreen>
         ];
       case 'review':
         return [
-          _Step('Auto-approve safe fields', _StepKind.build, 'Wifi, hours and prices go live at once; only text and photos wait for you.', () => _ask('review', 'Auto-approve safe fields (wifi, hours, prices)')),
+          _Step('Hours and prices go on by themselves', _StepKind.system, 'Since 24 Nov 2026, and Wi-Fi tests as before. Text, photos, tags and links still wait for you. Your phone is told each time.', null),
         ];
       case 'return':
       case 'quiet':

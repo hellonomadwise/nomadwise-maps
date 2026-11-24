@@ -1396,8 +1396,22 @@ class _OwnerScreenState extends State<OwnerScreen> {
               'Open Prices to put them right.');
           return;
         }
+        _priceSent = res;
       }
-      await _supabase.ownerSaveDraft(v['id'], _collect(), submit: submit);
+      final saved =
+          await _supabase.ownerSaveDraft(v['id'], _collect(), submit: submit);
+      // What went on the page by itself, and what waits for us.
+      final live = <String>[
+        if (submit)
+          for (final x in (saved['live'] as List? ?? const [])) '$x',
+      ];
+      final priceLive = (_priceSent?['live'] as num?)?.toInt() ?? 0;
+      if (submit && priceLive > 0 && !live.contains('prices')) {
+        live.add('prices');
+      }
+      final waiting = submit ? '${saved['waiting'] ?? ''}'.trim() : '';
+      _lastLive = live;
+      _lastWaiting = live.isEmpty ? 'everything' : waiting;
       _cap(submit ? 'owner_submitted' : 'owner_saved',
           {'space': v['name']});
       await _load();
@@ -1405,14 +1419,22 @@ class _OwnerScreenState extends State<OwnerScreen> {
       setState(() {
         _dirty = false;
         _autoSavedAt = DateTime.now();
-        _savedNote = submit
-            ? 'Sent for review. We read every change before it goes on '
-                'the page, usually within a day or two.'
-            : 'Draft saved. Nothing changes on the page until you submit.';
+        _savedNote = !submit
+            ? 'Draft saved. Nothing changes on the page until you submit.'
+            : live.isEmpty
+                ? 'Sent for review. We read every change before it goes on '
+                    'the page, usually within a day or two.'
+                : waiting.isEmpty
+                    ? 'Saved to the page. Your ${live.join(' and ')} show '
+                        'on nomadwise.io within about 10 minutes.'
+                    : 'Sent. Your ${live.join(' and ')} go on the page now, '
+                        'within about 10 minutes. The rest waits for us to '
+                        'read, usually within a day or two: $waiting.';
       });
     } catch (e) {
       if (mounted) setState(() => _savedNote = 'That did not save: $e');
     } finally {
+      _priceSent = null;
       if (mounted) setState(() => _saving = false);
     }
   }
@@ -3404,7 +3426,8 @@ class _OwnerScreenState extends State<OwnerScreen> {
                 Brand.goldTextDark,
                 Icons.hourglass_top,
                 '${d?['auto_sent'] == true ? 'We sent your changes for review for you, as they were left unsent. ' : ''}'
-                    'Waiting for Nomadwise approval. Your page shows your '
+                    '${_autoLive(d).isEmpty ? 'Waiting for Nomadwise approval.' : 'Your ${_autoLive(d).join(' and ')} are on the page already. The rest is waiting for Nomadwise approval.'}'
+                    ' Your page shows your '
                     'changes here; the live page stays as it is until we '
                     'approve them. You can keep editing: saving again '
                     'replaces what we have.'
@@ -5038,6 +5061,15 @@ class _OwnerScreenState extends State<OwnerScreen> {
   /// Nomadwise approval" until the page reloads with the change.
   final Set<String> _sentParts = {}; // '<space id>:<part>'
 
+  // What the last Save change did (migration 358): opening hours and
+  // prices can go on the page by themselves, the rest waits for us.
+  // [_lastLive] names what went on ('opening hours', 'prices'),
+  // [_lastWaiting] says what still waits ('' when nothing does), and
+  // [_priceSent] is what the price list answered ({live, waiting}).
+  List<String> _lastLive = const [];
+  String _lastWaiting = '';
+  Map<String, dynamic>? _priceSent;
+
   bool _sent(String part) => _sentParts.contains('${_venue?['id']}:$part');
 
   Map<String, dynamic> _snapshot(String part) => switch (part) {
@@ -5226,6 +5258,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
           });
           return;
         }
+        _priceSent = res;
       } catch (e) {
         if (!mounted) return;
         setState(() {
@@ -5237,15 +5270,31 @@ class _OwnerScreenState extends State<OwnerScreen> {
       if (!mounted) return;
       setState(() => _saving = false);
     }
+    final priceAnswer = _priceSent;
+    // (a save that ends early, as in a preview, leaves these as they are)
+    _lastLive = const [];
+    _lastWaiting = 'everything';
     await _save(submit: true);
+    _priceSent = null;
     if (!mounted) return;
     final sent = (_savedNote ?? '').startsWith('Sent') ||
         (_savedNote ?? '').startsWith('Saved to the page') ||
         (_savedNote ?? '').startsWith('Preview');
     if (sent) {
       _trk.editEnd('save', _venueId);
+      // "Waiting for Nomadwise approval" only on a part that waits:
+      // opening hours and prices can be on the page already.
+      final onPage = switch (part) {
+        'hours' => _lastLive.contains('opening hours'),
+        'coffee' => _lastLive.contains('prices'),
+        'prices' => ((priceAnswer?['live'] as num?)?.toInt() ?? 0) > 0 &&
+            ((priceAnswer?['waiting'] as num?)?.toInt() ?? 0) == 0,
+        _ => false,
+      };
+      final isLive = !(_savedNote ?? '').startsWith('Preview') &&
+          (_lastWaiting.isEmpty || onPage);
       setState(() {
-        _sentParts.add('${_venue?['id']}:$part');
+        if (!isLive) _sentParts.add('${_venue?['id']}:$part');
         _editing = null;
         _snap = null;
       });
@@ -6146,6 +6195,26 @@ class _OwnerScreenState extends State<OwnerScreen> {
         ? msg
         : 'Something went wrong. Please try again.';
   }
+
+  /// The parts of a waiting draft that went on the page by themselves
+  /// (opening hours, prices: migration 358).
+  static List<String> _autoLive(Map? d) =>
+      [for (final x in (d?['auto_live'] as List? ?? const [])) '$x'];
+
+  /// Prices saved and on their way: no one has to approve them.
+  Widget _comingChip() => Container(
+        margin: const EdgeInsets.only(top: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+            color: const Color(0xFFE8F4EC),
+            borderRadius: BorderRadius.circular(8)),
+        child: const Text(
+            'Saved. Your new prices show on your page within about 10 minutes',
+            style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF1F6B36))),
+      );
 
   Widget _waitingChip() => Container(
         margin: const EdgeInsets.only(top: 8),
@@ -7072,10 +7141,15 @@ class _OwnerScreenState extends State<OwnerScreen> {
             const SizedBox(height: 10),
             if (((_venue?['price_changes_waiting'] as num?) ?? 0) > 0 &&
                 !_sent('prices'))
-              _waitingChip(),
+              _waitingChip()
+            // Saved and approved by itself (migration 358): the page
+            // is written within about ten minutes.
+            else if (((_venue?['price_changes_coming'] as num?) ?? 0) > 0)
+              _comingChip(),
             if (prices.isEmpty &&
                 _descriptionHasPrices &&
                 !_sent('prices') &&
+                ((_venue?['price_changes_coming'] as num?) ?? 0) == 0 &&
                 ((_venue?['price_changes_waiting'] as num?) ?? 0) == 0)
               // Spaces that typed their price list into the
               // description (OUR HQ, 3 Nov 2026): one tap to turn it

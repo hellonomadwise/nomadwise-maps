@@ -55,6 +55,20 @@ the draft to `venues.owner_content` and the ordinary columns (hours,
 facts, website, Instagram, enquiry email, `website_photos`), and
 asks the sync to write the page. A phone ping arrives on submission.
 
+**What goes on by itself (migration 358, 24 Nov 2026).** When the owner
+presses Save change, opening hours and prices do not wait for a
+founder: they are put on the page at once, and the founders' phones are
+told. This covers the hours (when every day reads like hours), the old
+day, week, month and cappuccino prices (when each reads like a price)
+and the price list (a removed price, a changed number within ten times
+the old one, and a new price or new wording when the name and lines are
+ordinary: no link, email address or phone number, not long). The Wi-Fi
+speed already worked this way (a test done at the space, migration
+262). Everything else in the same save, and anything that fails a check
+above, waits in **Owner changes** or **Prices** as before. Changes the
+owner left unsent, which are sent for them after 15 minutes, always
+wait. Off switch: `sync_settings` key `owner_auto_live`.
+
 ## How it reaches the page
 
 `webflow_sync.py`, `owner_fields()`, run by the listing sync within

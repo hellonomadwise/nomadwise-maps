@@ -4986,11 +4986,14 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         label: 'Owner changes',
         count: _ownerDrafts.length,
         color: Brand.goldTextDark,
-        hint: 'Changes owners submitted from their Owner account: '
-            'description, prices, hours, amenities, photos, contact, and on '
-            'Premium pages the promotion or event for the advert slot. Nothing is on '
-            'the page until you put it there. Send back anything that '
-            'oversells; the note reaches the owner.',
+        hint: 'Changes owners submitted from their Owner account that wait '
+            'for you: description, amenities, photos, contact, and on '
+            'Premium pages the promotion or event for the advert slot. None '
+            'of that is on the page until you put it there. Send back '
+            'anything that oversells; the note reaches the owner. Opening '
+            'hours and prices an owner saves go on the page by themselves '
+            '(your phone is told), unless something about them looks '
+            'unusual: then they wait here too.',
         empty: 'No owner changes waiting.'
       ),
       // Before New spaces: places the nightly job found, not spaces yet.
