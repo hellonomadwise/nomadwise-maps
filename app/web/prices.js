@@ -1155,6 +1155,28 @@
     } catch (e) {}
   }
 
+  // The grey tags under the photos: a tag shown twice shows once, and a
+  // tag that only says "No" (or nothing) is not shown (visitor audit,
+  // 23 Nov 2026: "Skype Room" twice on five of six pages; Jonathan, 24
+  // Nov 2026: "remove the doubled skype room", "and the stray no tag").
+  // The page's own tags are untouched; the repeats are only hidden.
+  function tidyTags() {
+    try {
+      var boxes = document.querySelectorAll('.modal-filtertag-div');
+      for (var b = 0; b < boxes.length; b++) {
+        var seen = {}, tags = boxes[b].querySelectorAll('.modal-filtertag-tag');
+        for (var i = 0; i < tags.length; i++) {
+          var tx = tags[i].querySelector('.modal-filtertag-tagtext');
+          if (!tx) continue;
+          if (tags[i].classList.contains('w-condition-invisible')) continue;
+          var k = String(tx.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
+          if (!k || k === 'no' || k === 'none' || k === 'n/a' || seen[k]) tags[i].style.display = 'none';
+          else seen[k] = 1;
+        }
+      }
+    } catch (e) {}
+  }
+
   // On a phone the price list sits two to four screens down, below the
   // hours, map, tags and description (visitor audit, 23 Nov 2026). A
   // link under the top "Send a request" button says the prices are
@@ -1330,6 +1352,7 @@
   function start() {
     if (AREA || FRAMED) return;
     ratingLabel();
+    tidyTags();
     hit('view');
     fetch(URL_ + '/rest/v1/rpc/page_prices', {
       method: 'POST',
