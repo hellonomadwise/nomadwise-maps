@@ -390,7 +390,18 @@
   });
 
   state.msgs.forEach(function (m) { if (m.id > 0) shown[m.id] = true; });
+  // On a listing page the bubble waits 30 seconds (Jonathan, 24 Nov
+  // 2026: "the chat bubble shouldn't be there straight away, maybe it
+  // should appear after a certain amount of time"). The page's one job
+  // is the request, and on a phone the bubble covered the price link.
+  // A visitor who already has a chat sees it at once.
+  var waited = false;
   function mount() {
+    if (!waited && !state.token && /^\/coworking\/[a-z0-9-]+\/?$/i.test(location.pathname || '')) {
+      waited = true;
+      setTimeout(mount, 30000);
+      return;
+    }
     document.body.appendChild(host);
     // A chat from the last day: one quiet look for anything new.
     var s = null;

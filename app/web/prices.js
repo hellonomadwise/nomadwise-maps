@@ -287,6 +287,7 @@
       '.nwp-addr span{white-space:nowrap}',
       '.nwp-addr a{flex:none;color:#05434F;font-weight:700;text-decoration:underline;white-space:nowrap}',
       '.nwp-jump{display:none}',
+      '@media (max-width: 767px){h1.nwp-h1{font-size:18px !important;line-height:1.3 !important}}',
       '.nwp-hrs,.nwp-bar{display:none}',
       '@media (max-width: 767px){' +
         '.nwp-hrs{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:44px;margin:0;padding:0;border:0;background:transparent;font-family:Roboto,sans-serif;text-align:left;color:#2C2C2C;cursor:pointer}' +
@@ -1230,6 +1231,17 @@
     } catch (e) {}
   }
 
+  // The heading keeps its words (it carries the city and area for
+  // search) and is a little smaller on phones, so it takes two lines
+  // where it took three (Jonathan, 24 Nov 2026: "make it slightly
+  // smaller on mobile"). Size only: see h1.nwp-h1.
+  function smallHeading() {
+    try {
+      var h = document.querySelector('h1');
+      if (h) h.classList.add('nwp-h1');
+    } catch (e) {}
+  }
+
   // The street address in words under the name, with "Get directions"
   // (benchmark, 23 Nov 2026). The address is the short one from the
   // space's Google listing, as it is; directions open at its own pin.
@@ -1277,7 +1289,7 @@
         SHUT = Array.isArray(raw.closed_days) ? raw.closed_days.map(Number) : [];
         data = shape(raw);
         if (!data.groups.length) return;
-        if (mount()) { jumpLink(); foldHours(); requestBar(); addressLine(raw); fromLink(); }
+        if (mount()) { smallHeading(); jumpLink(); foldHours(); requestBar(); addressLine(raw); fromLink(); }
       })
       .catch(function () {});
   }
