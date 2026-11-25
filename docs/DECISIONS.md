@@ -7228,3 +7228,12 @@ Jonathan: "yes i think request confirmations to customers should be copied to sp
 - Not changed: emails to a space, their wording, who they come from. Nothing is copied when the email already goes to spaces@.
 - Tried in a rolled-back test: the "passed on" email to a customer carried the blind copy; the email to a space was unchanged. No real email was sent to try it.
 - Separate, not done here: the forms on nomadwise.io (Webflow) send their notices to hello@. Jonathan wants those at spaces@ too. That address is a Webflow site setting (Site settings, Forms) and cannot be changed through the Webflow tools the session has.
+
+## 25 Nov 2026: Claude is asked about the Location of every page in Ready to approve by itself (migration 362)
+Jonathan, on the Ready to approve cards: "I am not initially trusting the use Nimman [suggestion] ... I'm always clicking on nearby spaces on a map and then clicking on Ask Claude, and then tend to be approving those and relying on those ... it's making it take a little bit longer than it should do".
+- Why Claude: of the 50 times he chose after asking Claude, he took Claude's first option 49 times. The yellow "Suggested Location" box is worked out from distance to the nearest listed places only.
+- Now, every two minutes (cron `location-ask-auto`, `location_ask_auto(8)`), the database collects answers that have come back and asks Claude about up to eight more pages in Ready to approve that have a Region, no Location chosen by him, and no question yet (or one that failed over a day ago). Same question as the Ask Claude button, with his earlier choices and reasons. An automatic question has no asked_by.
+- On the card, Claude's answer replaces the yellow box: "Claude: Nimman · high confidence", its reason, "Use Nimman" (or "Create X" for a new Location, "Use the Region page only" when nothing fits), the other options as "Or X", and the map as before. When the nearby places agree, a line says so. When the page already has the same Location, it reads "Claude agrees". Until the answer is in: "Asking Claude about the Location".
+- Taking an option from the card is recorded like a choice after Ask Claude, so later questions keep learning.
+- Daily question limit 50 to 150 (about one cent each, at most about 1.50 dollars a day). Off switch: sync_settings 'location_ask_auto' {"on": false}.
+- Tried live: two questions asked by the job (Spaces Theobalds Road: Holborn, high; Silver Building: Canary Wharf, high) and answered within 40 seconds.

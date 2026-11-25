@@ -3476,6 +3476,15 @@ class SupabaseService {
     return (r as num).toInt();
   }
 
+  /// The newest Claude answer about the Location of each space in
+  /// Ready to approve, asked by itself every two minutes (migration
+  /// 362): {answers: {venue id: {ask, region_id, options, note, auto,
+  /// chosen, at}}, waiting: [venue ids still waiting for an answer]}.
+  Future<Map<String, dynamic>> locationAsksLatest() async {
+    final r = await _db.rpc('admin_location_asks_latest');
+    return Map<String, dynamic>.from(r as Map);
+  }
+
   /// {status: 'waiting'}, {status: 'done', options, note} or
   /// {status: 'error', error}.
   Future<Map<String, dynamic>> locationAnswer(int askId) async {

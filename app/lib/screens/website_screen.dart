@@ -250,6 +250,33 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   /// above the Closed and No Location lists.
   List<Map<String, dynamic>> _qualityDays = const [];
 
+  /// Claude's newest answer on the Location of each space in Ready to
+  /// approve, asked by itself (migration 362), by venue id; and the
+  /// spaces whose question is still out.
+  Map<String, Map<String, dynamic>> _claudeLoc = const {};
+  Set<String> _claudeWaiting = const {};
+
+  Future<void> _loadClaudeLoc() async {
+    try {
+      final r = await _supabase.locationAsksLatest();
+      if (!mounted) return;
+      final answers = r['answers'];
+      setState(() {
+        _claudeLoc = {
+          if (answers is Map)
+            for (final e in answers.entries)
+              if (e.value is Map)
+                '${e.key}': Map<String, dynamic>.from(e.value as Map),
+        };
+        _claudeWaiting = {
+          for (final id in (r['waiting'] as List? ?? const [])) '$id',
+        };
+      });
+    } catch (_) {
+      // Not there yet: the cards keep the nearby-places suggestion.
+    }
+  }
+
   Future<void> _loadCandidateCount() async {
     try {
       final r = await _supabase.adminCandidates(limit: 1);
@@ -313,6 +340,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
 
   Future<void> _load() async {
     final firstLoad = _inbox == null;
+    _loadClaudeLoc();
     try {
       final passOnF = _supabase.enquiriesToPassOn();
       final heldEnqF = _supabase.enquiriesHeld();
@@ -1249,33 +1277,160 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       return;
     }
     if (choice.id == 'new') {
-      // A new Location from Claude's answer: the usual "new Location"
-      // page, filled in, and the space waits for it like one asked for
-      // from the editor.
-      final made = await Navigator.push<String>(
-          context,
-          MaterialPageRoute(
-              builder: (_) => _NewLocationPage(
-                  supabase: _supabase,
-                  regions: _regions,
-                  locations: _locations,
-                  initialRegionId: (_prepared(v)['region_id'] ??
-                      _regionFor(v)?['id']) as String?,
-                  initialName: choice.name,
-                  venueId: '${v['id']}')));
-      if (made == null || !mounted) return;
-      await _update(
-          v,
-          {
-            'website_new_location': made,
-            'website_location_override': null,
-            'website_prepared': null,
-          },
-          '$made is being created on nomadwise.io; ${v['name']} is linked '
-              'to it once it exists.');
+      await _createLocationFor(v, choice.name);
       return;
     }
     await _applyLocation(v, {'id': choice.id, 'name': choice.name});
+  }
+
+  /// A new Location from Claude's answer: the usual "new Location"
+  /// page, filled in, and the space waits for it like one asked for
+  /// from the editor. True when it was made.
+  Future<bool> _createLocationFor(Map<String, dynamic> v, String? name) async {
+    final made = await Navigator.push<String>(
+        context,
+        MaterialPageRoute(
+            builder: (_) => _NewLocationPage(
+                supabase: _supabase,
+                regions: _regions,
+                locations: _locations,
+                initialRegionId: (_prepared(v)['region_id'] ??
+                    _regionFor(v)?['id']) as String?,
+                initialName: name,
+                venueId: '${v['id']}')));
+    if (made == null || !mounted) return false;
+    await _update(
+        v,
+        {
+          'website_new_location': made,
+          'website_location_override': null,
+          'website_prepared': null,
+        },
+        '$made is being created on nomadwise.io; ${v['name']} is linked '
+            'to it once it exists.');
+    return true;
+  }
+
+  /// Claude's answer for this space, when it is about the Region the
+  /// space has now.
+  Map<String, dynamic>? _claudeFor(
+      Map<String, dynamic> v, Map<String, dynamic> p) {
+    final a = _claudeLoc['${v['id']}'];
+    if (a == null) return null;
+    final rid = '${p['region_id'] ?? ''}';
+    if (rid.isNotEmpty && '${a['region_id'] ?? ''}' != rid) return null;
+    return a;
+  }
+
+  /// One of Claude's options taken from the card: kept like a choice
+  /// made after Ask Claude, so later questions learn from it.
+  Future<void> _useClaude(Map<String, dynamic> v, Map<String, dynamic> a,
+      Map<String, dynamic>? o) async {
+    final ask = (a['ask'] as num?)?.toInt();
+    final kind = o == null ? 'none' : (o['kind'] == 'new' ? 'new' : 'existing');
+    final name = o == null ? null : '${o['name'] ?? ''}';
+    final lid = o == null ? null : '${o['location_id'] ?? ''}';
+    if (kind == 'new') {
+      final made = await _createLocationFor(v, name!);
+      if (!made) return;
+    } else {
+      await _applyLocation(
+          v, kind == 'none' ? {'id': 'none'} : {'id': lid, 'name': name});
+    }
+    if (ask != null) {
+      try {
+        await _supabase.locationAskChosen(ask,
+            kind: kind, name: name, locationId: kind == 'existing' ? lid : null);
+      } catch (_) {
+        // The Location is set either way; only the learning is missed.
+      }
+    }
+  }
+
+  /// Claude's answer on the card: its first option with its reason, a
+  /// button to use it, the other options, and the map.
+  List<Widget> _claudeHint(Map<String, dynamic> v, Map<String, dynamic> p,
+      Map<String, dynamic> a, Widget mapButton, String nearbyName) {
+    final options = [
+      for (final o in (a['options'] as List? ?? const []))
+        if (o is Map) Map<String, dynamic>.from(o),
+    ];
+    final note = '${a['note'] ?? ''}'.trim();
+    final current = '${p['location'] ?? ''}'.trim().toLowerCase();
+    final first = options.isEmpty ? null : options.first;
+    final firstName = '${first?['name'] ?? ''}'.trim();
+    final agreesWithPage =
+        first != null && current.isNotEmpty && firstName.toLowerCase() == current;
+    final nearbyAgrees = first != null &&
+        nearbyName.isNotEmpty &&
+        nearbyName.toLowerCase() == firstName.toLowerCase();
+    const body = TextStyle(fontSize: 12.5, height: 1.4, color: Brand.logoNavy);
+    String title;
+    if (first == null) {
+      title = 'Claude: no Location fits, the Region page alone';
+    } else {
+      final conf = '${first['confidence'] ?? ''}';
+      title = [
+        agreesWithPage ? 'Claude agrees: $firstName' : 'Claude: $firstName',
+        if (first['kind'] == 'new') '(new Location)',
+        if (conf.isNotEmpty) '· $conf confidence',
+      ].join(' ');
+    }
+    final why = first == null ? note : '${first['reason'] ?? ''}'.trim();
+    return [
+      Container(
+        width: double.infinity,
+        margin: const EdgeInsets.only(top: 2, bottom: 6),
+        padding: const EdgeInsets.fromLTRB(10, 8, 6, 2),
+        decoration: BoxDecoration(
+            color: Brand.logoTealTint, borderRadius: BorderRadius.circular(8)),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Padding(
+              padding: EdgeInsets.only(top: 1, right: 6),
+              child: Icon(Icons.auto_awesome_outlined,
+                  size: 15, color: Brand.logoNavy),
+            ),
+            Expanded(
+              child: Text(title,
+                  style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: Brand.logoNavy)),
+            ),
+          ]),
+          if (why.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(why, style: body),
+            ),
+          if (nearbyAgrees && !agreesWithPage)
+            const Padding(
+              padding: EdgeInsets.only(top: 2),
+              child: Text('The nearby listed places point the same way.',
+                  style: body),
+            ),
+          Wrap(spacing: 2, children: [
+            if (first == null)
+              TextButton(
+                  onPressed: () => _useClaude(v, a, null),
+                  child: const Text('Use the Region page only'))
+            else if (!agreesWithPage)
+              TextButton(
+                  onPressed: () => _useClaude(v, a, first),
+                  child: Text(first['kind'] == 'new'
+                      ? 'Create $firstName'
+                      : 'Use $firstName')),
+            for (final o in options.skip(1))
+              TextButton(
+                  onPressed: () => _useClaude(v, a, o),
+                  child: Text('Or ${o['name']}'
+                      '${o['kind'] == 'new' ? ' (new)' : ''}')),
+            mapButton,
+          ]),
+        ]),
+      ),
+    ];
   }
 
   /// Under the Location line of a space in review: which Location is
@@ -1297,8 +1452,21 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         onPressed: () => _openNearby(v),
         icon: const Icon(Icons.map_outlined, size: 16),
         label: const Text('Nearby spaces on a map'));
+    // Claude's answer, asked by itself (migration 362), stands in for
+    // the nearby-places suggestion: it is the one Jonathan trusts.
+    final claude = chosen ? null : _claudeFor(v, p);
+    if (claude != null) return _claudeHint(v, p, claude, mapButton, name);
+    final asking = !chosen && _claudeWaiting.contains('${v['id']}');
+    final askingLine = Padding(
+      padding: const EdgeInsets.only(left: 26, bottom: 2),
+      child: Text('Asking Claude about the Location. Its answer shows here '
+          'in a minute or two.',
+          style: const TextStyle(
+              fontSize: 12, height: 1.4, color: Brand.inkMuted)),
+    );
     if (!suggested) {
       return [
+        if (asking) askingLine,
         if (!chosen && why.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(left: 26, bottom: 2),
@@ -1313,6 +1481,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       ];
     }
     return [
+      if (asking) askingLine,
       Container(
         width: double.infinity,
         margin: const EdgeInsets.only(top: 2, bottom: 6),
