@@ -759,6 +759,10 @@ SWEEP_RADIUS_M = 6000     # covers a city centre + inner neighbourhoods
 CAFE_CELL_M = 1100        # cafe search every ~1.1 km (800 m circles)
 COWORK_CELL_M = 2600      # coworking is sparser, coarser grid is fine
 MAX_SWEEP_CALLS = 260     # hard cap per run, bounds API spend
+# A coworking-only sweep (sweep_queue.kind = 'coworking', migration
+# 361) skips the cafe grid: about 22 searches a city instead of about
+# 115, so several cities fit in one night.
+COWORK_SWEEPS_PER_RUN = 5
 
 SEARCH_MASK = ('places.id,places.displayName,places.location,'
                'places.primaryType,places.rating,'
@@ -875,7 +879,7 @@ def _row_from_place(pl, cowork=False):
     }
 
 
-def _sweep_city(city):
+def _sweep_city(city, cowork_only=False):
     center = None
     hit = text_search(city)
     for pl in (hit or {}).get('places') or []:
@@ -888,7 +892,9 @@ def _sweep_city(city):
         return
     calls = 0
     places = {}
-    for (la, ln) in _grid(center[0], center[1], CAFE_CELL_M):
+    cafe_points = ([] if cowork_only
+                   else _grid(center[0], center[1], CAFE_CELL_M))
+    for (la, ln) in cafe_points:
         if calls >= MAX_SWEEP_CALLS:
             break
         calls += 1
@@ -937,30 +943,54 @@ def _sweep_city(city):
             'center_lat': center[0],
             'center_lng': center[1],
             'places_found': len(rows),
+            **({'kind': 'coworking'} if cowork_only else {}),
         })
-    print(f'Sweep: {city} done. {len(rows)} places from {calls} searches.')
+    print(f'Sweep: {city} done ({"coworking only" if cowork_only else "full"}). '
+          f'{len(rows)} places from {calls} searches.')
 
 
 try:
-    queued_rows = req(
-        f'{SUPABASE_URL}/rest/v1/sweep_queue'
-        '?select=city&order=requested_at.asc',
-        headers=sb_headers())
+    # Its calls are a job of their own on the Google calls page.
+    google_meter.switch('city sweep')
+    try:
+        queued_rows = req(
+            f'{SUPABASE_URL}/rest/v1/sweep_queue'
+            '?select=city,kind&order=requested_at.asc',
+            headers=sb_headers())
+    except Exception:  # noqa: BLE001  (before migration 361)
+        queued_rows = req(
+            f'{SUPABASE_URL}/rest/v1/sweep_queue'
+            '?select=city&order=requested_at.asc',
+            headers=sb_headers())
     done_rows = req(
         f'{SUPABASE_URL}/rest/v1/city_sweeps?select=city',
         headers=sb_headers())
     done = {r['city'].lower() for r in done_rows}
-    pending = [r['city'] for r in queued_rows
-               if r['city'].lower() not in done]
-    if pending and ON_PUSH:
+    waiting = [r for r in queued_rows if r['city'].lower() not in done]
+    # A full sweep finds the coworking spaces too, so a swept city is
+    # done whichever kind was asked for.
+    pending = [r['city'] for r in waiting
+               if (r.get('kind') or 'full') != 'coworking']
+    pending_cowork = [r['city'] for r in waiting
+                      if (r.get('kind') or 'full') == 'coworking']
+    if (pending or pending_cowork) and ON_PUSH:
         # a city is swept whole or not at all: left for the night
-        print(f'Sweep: {pending[0]} waits for the nightly run.')
-    elif pending:
-        _sweep_city(pending[0])  # one city per run, bounds cost
+        print(f'Sweep: {(pending + pending_cowork)[0]} waits for the '
+              'nightly run.')
+    elif pending or pending_cowork:
+        if pending:
+            _sweep_city(pending[0])  # one city per run, bounds cost
+        for c in pending_cowork[:COWORK_SWEEPS_PER_RUN]:
+            _sweep_city(c, cowork_only=True)
     else:
         print('Sweep: queue fully swept.')
 except Exception as e:  # noqa: BLE001
     print(f'Sweep phase skipped (migration 34 not run yet?): {e}')
+finally:
+    try:
+        google_meter.switch('nightly refresh')
+    except Exception:  # noqa: BLE001
+        pass
 
 
 # ============================================================
