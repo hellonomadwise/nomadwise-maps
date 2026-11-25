@@ -256,6 +256,32 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   Map<String, Map<String, dynamic>> _claudeLoc = const {};
   Set<String> _claudeWaiting = const {};
 
+  /// Claude's check of each space's own website (migration 363), by
+  /// venue id; and the spaces whose check is still out.
+  Map<String, Map<String, dynamic>> _siteCheck = const {};
+  Set<String> _siteCheckWaiting = const {};
+
+  Future<void> _loadSiteChecks() async {
+    try {
+      final r = await _supabase.listingChecksLatest();
+      if (!mounted) return;
+      final checks = r['checks'];
+      setState(() {
+        _siteCheck = {
+          if (checks is Map)
+            for (final e in checks.entries)
+              if (e.value is Map)
+                '${e.key}': Map<String, dynamic>.from(e.value as Map),
+        };
+        _siteCheckWaiting = {
+          for (final id in (r['waiting'] as List? ?? const [])) '$id',
+        };
+      });
+    } catch (_) {
+      // Not there yet: the cards show no check.
+    }
+  }
+
   Future<void> _loadClaudeLoc() async {
     try {
       final r = await _supabase.locationAsksLatest();
@@ -341,6 +367,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   Future<void> _load() async {
     final firstLoad = _inbox == null;
     _loadClaudeLoc();
+    _loadSiteChecks();
     try {
       final passOnF = _supabase.enquiriesToPassOn();
       final heldEnqF = _supabase.enquiriesHeld();
@@ -786,8 +813,9 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
 
   /// Not for the site: leaves the inbox (status unchanged), with the
   /// reason kept so the decision makes sense later.
-  Future<void> _dismiss(Map<String, dynamic> v) async {
-    String? reason = v['website_dismiss_reason'];
+  Future<void> _dismiss(Map<String, dynamic> v,
+      {String? suggested, Map<String, dynamic> extra = const {}}) async {
+    String? reason = v['website_dismiss_reason'] ?? suggested;
     final note = TextEditingController(text: v['website_dismiss_note'] ?? '');
     final ok = await showDialog<bool>(
         context: context,
@@ -850,6 +878,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
           'website_dismiss_reason': reason,
           'website_dismiss_note':
               note.text.trim().isEmpty ? null : note.text.trim(),
+          ...extra,
         },
         '${v['name']} marked as not for the site.');
   }
@@ -9126,6 +9155,204 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     );
   }
 
+  /// Claude's reading of the space's own website (migration 363), so
+  /// Jonathan need not open it himself (25 Nov 2026: "is there a way to
+  /// not have to look at their website, if you can do this for me").
+  List<Widget> _siteCheckBox(Map<String, dynamic> v) {
+    final id = '${v['id']}';
+    final c = _siteCheck[id];
+    if (c == null) {
+      if (!_siteCheckWaiting.contains(id)) return const [];
+      return const [
+        Padding(
+          padding: EdgeInsets.only(top: 8),
+          child: Text('Claude is reading their website...',
+              style: TextStyle(fontSize: 12, color: Brand.inkMuted)),
+        ),
+      ];
+    }
+    final verdict = '${c['verdict'] ?? ''}';
+    final conf = '${c['confidence'] ?? ''}';
+    final good = verdict == 'list';
+    final bad = verdict == 'not_coworking' || verdict == 'closed';
+    final tint = good
+        ? Brand.successTint
+        : bad
+            ? Brand.accentTint
+            : Brand.goldTint;
+    final ink = good
+        ? const Color(0xFF1E6B35)
+        : bad
+            ? const Color(0xFFD42F3A)
+            : Brand.goldTextDark;
+    final title = switch (verdict) {
+      'list' => 'Website check: coworking you can list',
+      'not_coworking' => 'Website check: not coworking for our visitors',
+      'closed' => 'Website check: looks closed',
+      _ => 'Website check: worth a look yourself',
+    };
+    final buy = [
+      for (final b in (c['can_buy'] as List? ?? const []))
+        if ('$b'.trim().isNotEmpty) '$b'.trim(),
+    ];
+    final site = '${c['website'] ?? ''}'.trim();
+    final hasSite = site.startsWith('http');
+    String line(String k) => '${c[k] ?? ''}'.trim();
+    const body = TextStyle(fontSize: 12.5, height: 1.4, color: Brand.ink);
+    final feedback = line('feedback');
+    return [
+      Container(
+        width: double.infinity,
+        margin: const EdgeInsets.only(top: 8),
+        padding: const EdgeInsets.fromLTRB(10, 8, 6, 2),
+        decoration: BoxDecoration(
+            color: tint, borderRadius: BorderRadius.circular(8)),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Padding(
+              padding: const EdgeInsets.only(top: 1, right: 6),
+              child: Icon(
+                  good
+                      ? Icons.verified_outlined
+                      : bad
+                          ? Icons.block
+                          : Icons.help_outline,
+                  size: 15,
+                  color: ink),
+            ),
+            Expanded(
+              child: Text(
+                  '$title${conf.isNotEmpty ? ' · $conf confidence' : ''}',
+                  style: TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w800, color: ink)),
+            ),
+          ]),
+          if (line('what_it_is').isNotEmpty)
+            Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(line('what_it_is'), style: body)),
+          if (buy.isNotEmpty)
+            Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text('Can buy: ${buy.join(', ')}', style: body)),
+          if (line('prices').isNotEmpty)
+            Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text('Prices on their site: ${line('prices')}',
+                    style: body)),
+          if (line('reason').isNotEmpty && !good)
+            Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(line('reason'), style: body)),
+          if (line('same_place') == 'no' || line('same_place') == 'unclear')
+            Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                    line('same_place') == 'no'
+                        ? 'The address on the website is not this place.'
+                        : 'Not sure the website is for this exact place.',
+                    style: body.copyWith(fontWeight: FontWeight.w700))),
+          if (line('watch_out').isNotEmpty)
+            Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text('Watch out: ${line('watch_out')}',
+                    style: body.copyWith(fontWeight: FontWeight.w700))),
+          if (feedback.isNotEmpty)
+            Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text('Your correction: $feedback',
+                    style: const TextStyle(
+                        fontSize: 12,
+                        fontStyle: FontStyle.italic,
+                        color: Brand.inkSecondary))),
+          Wrap(spacing: 2, children: [
+            if (hasSite)
+              TextButton.icon(
+                  onPressed: () => launchUrl(Uri.parse(site),
+                      mode: LaunchMode.externalApplication),
+                  icon: const Icon(Icons.open_in_new, size: 14),
+                  label: Text(Uri.tryParse(site)?.host.replaceFirst('www.', '') ??
+                      'Their website')),
+            if (bad)
+              TextButton(
+                  onPressed: () => _dismiss(v,
+                      suggested: verdict == 'closed'
+                          ? 'Closed, closing or unreliable'
+                          : dismissReasons.first,
+                      extra: const {
+                        'website_status': 'not_on_site',
+                        'website_prepared': null,
+                        'website_approved_at': null,
+                      }),
+                  child: const Text('Not for the site')),
+            if (feedback.isEmpty && c['check'] is num)
+              TextButton(
+                  onPressed: () => _siteCheckWrong(v, c),
+                  style: TextButton.styleFrom(
+                      foregroundColor: Brand.inkSecondary),
+                  child: const Text('Claude got this wrong')),
+          ]),
+        ]),
+      ),
+    ];
+  }
+
+  Future<void> _siteCheckWrong(
+      Map<String, dynamic> v, Map<String, dynamic> c) async {
+    final note = TextEditingController();
+    final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => StatefulBuilder(
+              builder: (ctx, setLocal) => AlertDialog(
+                title: Text('What did Claude get wrong about ${v['name']}?'),
+                content: DialogBody(
+                    child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                      const Text(
+                          'In a few words. Every check from now on reads '
+                          'your corrections first, so it learns your '
+                          'judgement.',
+                          style: TextStyle(fontSize: 12.5, height: 1.4)),
+                      const SizedBox(height: 8),
+                      TextField(
+                          controller: note,
+                          autofocus: true,
+                          minLines: 2,
+                          maxLines: 4,
+                          onChanged: (_) => setLocal(() {}),
+                          decoration: const InputDecoration(
+                              hintText:
+                                  'e.g. Members only, no day passes: not for us')),
+                    ])),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text('Cancel')),
+                  ElevatedButton(
+                      onPressed: note.text.trim().isEmpty
+                          ? null
+                          : () => Navigator.pop(ctx, true),
+                      child: const Text('Save the lesson')),
+                ],
+              ),
+            ));
+    if (ok != true) return;
+    try {
+      await _supabase.listingCheckWrong(
+          (c['check'] as num).toInt(), note.text.trim());
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Kept. The next checks will follow it.')));
+      _loadSiteChecks();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Not saved: $e')));
+    }
+  }
+
   Widget _readyCard(Map<String, dynamic> v) {
     final p = _prepared(v);
     final facts = Map<String, dynamic>.from(p['facts'] as Map? ?? {});
@@ -9136,6 +9363,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         _title(v, badge: 'REVIEW'),
         _ownerNote(v),
+        ..._siteCheckBox(v),
         const SizedBox(height: 10),
 
         // The address it will get. Editable until approval.

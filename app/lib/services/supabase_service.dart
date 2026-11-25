@@ -3485,6 +3485,20 @@ class SupabaseService {
     return Map<String, dynamic>.from(r as Map);
   }
 
+  /// Claude's check of each space's own website, for Ready to approve
+  /// (migration 363): {checks: {venue id: {verdict, confidence,
+  /// what_it_is, can_buy, prices, website, same_place, reason,
+  /// watch_out, check, at, feedback}}, waiting: [venue ids]}.
+  Future<Map<String, dynamic>> listingChecksLatest() async {
+    final r = await _db.rpc('admin_listing_checks_latest');
+    return Map<String, dynamic>.from(r as Map);
+  }
+
+  /// "Claude got this wrong": kept as a lesson for the next checks.
+  Future<void> listingCheckWrong(int checkId, String note) =>
+      _db.rpc('admin_listing_check_wrong',
+          params: {'p_check': checkId, 'p_note': note});
+
   /// {status: 'waiting'}, {status: 'done', options, note} or
   /// {status: 'error', error}.
   Future<Map<String, dynamic>> locationAnswer(int askId) async {
