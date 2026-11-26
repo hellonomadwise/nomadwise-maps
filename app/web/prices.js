@@ -1537,6 +1537,9 @@
       '.nwv2-mapfoot{display:flex;flex-direction:column;gap:10px;padding:14px 16px 16px;font-size:14.5px;line-height:1.4;color:#2C2C2C}' +
       '.nwv2-mapfoot .nwv2-btn2{margin:0;text-decoration:none;width:100%}' +
       '.nwv2-wide .listings-5th-col .nwv2-hrs-card{max-width:none;width:100%;margin:0 0 16px}' +
+      '.nwv2-wide .left-column .nwv2-ads{width:100%;max-width:none;margin:8px 0 28px;align-self:auto}' +
+      '.nwv2-wide .left-column .nwv2-ads .w-dyn-items{display:flex;flex-direction:row;flex-wrap:wrap;gap:16px;align-items:flex-start}' +
+      '.nwv2-wide .left-column .nwv2-ads .w-dyn-item{flex:0 0 260px;width:260px;margin:0}' +
       '.nwv2-wide .listings-5th-col .nwv2-hrs-card .place_wrapper{width:100%;max-width:none}' +
       // The name sits on the page itself across the full width; the
         // photos fill the left column and the box starts level with them
@@ -2119,6 +2122,19 @@
       head = document.createElement('div');
       head.className = 'nwv2-head';
     }
+    // With the box, map and hours in the side column, the three banners
+    // would run far below the end of the page's own content and leave a
+    // long blank beside them. On a computer they sit in a row under
+    // "How a request works" instead.
+    var ads = null, adsHome = null;
+    [].slice.call(side.children).forEach(function (c) {
+      if (!ads && c.classList && c.classList.contains('w-dyn-list') && !c.classList.contains('is-hidden')) ads = c;
+    });
+    if (ads) {
+      adsHome = document.createComment('banners');
+      side.insertBefore(adsHome, ads);
+      ads.classList.add('nwv2-ads');
+    }
     document.body.classList.add('nwv2-wide');
     var mq = window.matchMedia('(min-width:992px)');
     var place = function () {
@@ -2139,7 +2155,12 @@
           after = mapCard;
         }
         if (card.children.length && card.parentNode !== side) side.insertBefore(card, after.nextSibling);
+        if (ads && ads.parentNode !== host) {
+          var hw = host.querySelector('.nwv2-how');
+          if (hw) host.insertBefore(ads, hw.nextSibling); else host.appendChild(ads);
+        }
       } else {
+        if (ads && ads.parentNode !== side) side.insertBefore(ads, adsHome);
         if (mapCard && map.parentNode !== host) {
           host.insertBefore(map, mapHome);
           if (mapCard.parentNode) mapCard.parentNode.removeChild(mapCard);
