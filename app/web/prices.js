@@ -1450,6 +1450,10 @@
       '.nwv2-ln .dot{margin:0 6px}',
       '.nwv2-ln.wrap a[data-nwv2="hours"]{display:block;margin-left:22px}',
       '.nwv2-ln.wrap .dot:has(+ a[data-nwv2="hours"]){display:none}',
+      // The Ubigi banner is off listing pages for now, until Ubigi send a
+      // shorter one (Jonathan, 26 Nov 2026). It stays on country, region
+      // and location pages. To put it back, delete the next line.
+      'body.nwv2 .listings-5th-col .w-dyn-item:has(a[href*="ubigi"]){display:none !important}',
       // The "Where to stay" banner is off the new page for now (Jonathan,
       // 26 Nov 2026). Ubigi and SafetyWing stay.
       'body.nwv2 .listings-5th-col .w-dyn-item:has(img[src*="stay-nearby-banner"]),body.nwv2 .listings-5th-col .w-dyn-item:has(img[alt^="Where to stay"]){display:none !important}',
@@ -1721,6 +1725,16 @@
         '.nwv2-wide .row-4.is-gallery>.col:last-child>*:nth-child(n+3){display:none}' +
         '.nwv2-wide .row-4.is-gallery>.col>*,.nwv2-wide .gallery-popup__image-wrapper{border-radius:8px;overflow:hidden}' +
       '}',
+      // Cafes with no prices: no box; the map card leads the right-hand
+      // column with a red "Get directions", the claim line under it.
+      '.nwv2-pick.nwv2-cafehold{display:none !important}',
+      '@media (min-width:992px){' +
+        '.nwv2-cafe.nwv2-wide .listings-5th-col.directory>.nwv2-mapcard{order:-2}' +
+        '.nwv2-cafe.nwv2-wide .listings-5th-col.directory>.nwv2-stick{order:-1;padding:0 0 16px}' +
+        '.nwv2-cafe.nwv2-wide .nwv2-stick .nwv2-claim{margin:0}' +
+      '}',
+      '.nwv2-cafe .nwv2-mapfoot .nwv2-btn2{background:#FF444F;border-color:#FF444F;color:#fff}',
+      '.nwv2-cafe .nwv2-mapfoot .nwv2-btn2:hover{background:#E63B45;border-color:#E63B45}',
       // Laptops: the listing page, its breadcrumb and the menu open up
       // to 1320px so the photos have room. Larger screens already go to
       // 1440px. Listing pages only; article pages are untouched.
@@ -1781,8 +1795,10 @@
     var IC = {
       r: '<svg class="nwv2-star" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.6l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5-5.8-3.1-5.8 3.1 1.1-6.5L2.6 9.4l6.5-.9z"/></svg>',
       a: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>',
-      h: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>'
+      h: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+      t: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9h13v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5z"/><path d="M17 10h1.5a2.5 2.5 0 0 1 0 5H17"/><path d="M8 3v3M12 3v3"/></svg>'
     };
+    if (CAFE) l1.push({ k: 'type', g: 't', h: 'Cafe' });
     if (rating) l1.push({ k: 'rating', g: 'r', h: rating });
     if (addr) l1.push({ k: 'addr', g: 'a', h: esc(addr) });
     if (dir) l1.push({ k: 'dir', g: 'a', h: '<a href="' + esc(dir) + '" target="_blank" rel="noopener" data-nwv2="dir">Get directions</a>' });
@@ -1808,7 +1824,7 @@
     var h1box = top.querySelector('.div-block-138');
     if (h1box && h1box.nextSibling) top.insertBefore(box, h1box.nextSibling); else top.appendChild(box);
     var fit = function () {
-      [[ln1, l1, ['addr']], [ln2, l2, ['members']]].forEach(function (x) {
+      [[ln1, l1, ['addr', 'type']], [ln2, l2, ['members']]].forEach(function (x) {
         var el = x[0], parts = x[1].slice(), drop = x[2].slice();
         el.classList.remove('wrap');
         el.innerHTML = draw(parts);
@@ -1898,6 +1914,7 @@
     return '';
   }
 
+  var CAFE = false;
   var V2 = { map: null, sel: null, need: null, people: 1, go: null, near: null, place: null, fit: null, addr: '', dir: '' };
   function nearbyList() {
     if (!V2.near) {
@@ -2446,7 +2463,7 @@
     V2.place = function () { place(); if (V2.fit) V2.fit(); };
     V2.place();
     if (mq.addEventListener) mq.addEventListener('change', V2.place); else if (mq.addListener) mq.addListener(V2.place);
-    v2TopBar(pick, wrapper);
+    if (!pick.classList.contains('nwv2-cafehold')) v2TopBar(pick, wrapper);
   }
 
   // The request follows the visitor down the page on a computer: when
@@ -2521,12 +2538,26 @@
       if (page) page.classList.add('nwv2');
       document.body.classList.add('nwv2');
       var name = data && data.space !== 'this space' ? data.space : (raw.space || '');
+      // A cafe is somewhere to go and work, not somewhere to send a
+      // request (Jonathan, 26 Nov 2026: "there are no prices for these").
+      // So a cafe with no prices gets no request box, no "How a request
+      // works" and no request bar: the map with a red "Get directions"
+      // leads the right-hand column instead. The page says which it is.
+      CAFE = !!document.querySelector('.cafe-coworking-wrapper .cafe-type:not(.w-condition-invisible)');
       v2Facts(raw);
       v2Photos(name);
       v2Picker();
-      if (!document.querySelector('.nwv2-pick')) v2Ask(name);
+      var plainCafe = CAFE && !document.querySelector('.nwv2-pick');
+      if (plainCafe) {
+        document.body.classList.add('nwv2-cafe');
+        var hold = document.createElement('section');
+        hold.className = 'nwv2-pick nwv2-cafehold';
+        hold.setAttribute('aria-hidden', 'true');
+        var chost = document.querySelector('.left-column .div-block-80');
+        if (chost) chost.insertBefore(hold, chost.firstChild);
+      } else if (!document.querySelector('.nwv2-pick')) v2Ask(name);
       v2Amen();
-      v2Steps(name);
+      if (!plainCafe) v2Steps(name);
       v2Nearby();
       v2Claim();
       v2MapSoon();
