@@ -1469,8 +1469,12 @@
       '.nwv2-amen .modal-filtertag-tag .modal-filtertag-tagtext{font:400 15px/1.35 Roboto,sans-serif !important;color:#2C2C2C;white-space:normal}',
       '.nwv2-amen .modal-filtertag-tag .nw-amen-ico{width:22px !important;height:22px !important;flex:0 0 22px;color:#2C2C2C !important;stroke-width:1.6}',
       '.nwv2-amen:not(.all) .nwv2-x{display:none !important}',
-      '.nwv2-amen .modal-filtertag-tag-empty{grid-column:1/-1;border:0;background:none;padding:0;margin:0;justify-self:start;font-size:13px;color:#5E6670;text-decoration:underline}',
-      '.nwv2-amen:not(.all) .modal-filtertag-tag-empty{display:none}',
+      '.nwv2-amen-row{display:flex;flex-wrap:wrap;align-items:center;gap:12px 24px;margin:16px 0 0}',
+      '.nwv2-amen-row:empty{display:none}',
+      '.nwv2-amen-row .nwv2-btn2{margin:0}',
+      '.nwv2-amen-row .modal-filtertag-tag-empty{border:0;background:none;box-shadow:none;padding:0;margin:0;height:auto;font-size:14px;color:#5E6670}',
+      '.nwv2-amen-row:not(.all) .modal-filtertag-tag-empty{display:none}',
+      '@media (min-width:768px){.nwv2-amen-row.m .modal-filtertag-tag-empty{display:inline-flex}}',
       '.nwv2-btn2{display:inline-flex;align-items:center;justify-content:center;min-height:44px;margin:8px 0 0;padding:8px 18px;border:1px solid #2C2C2C;border-radius:8px;background:#fff;font:500 15px/1.2 Roboto,sans-serif;color:#2C2C2C;cursor:pointer}',
       '.nwv2-btn2:hover{background:#F6F7F8}',
       '@media (min-width:768px){.nwv2-amen-btn.nwv2-m{display:none}}',
@@ -1492,7 +1496,7 @@
         '.nwv2-amen .modal-filtertag-tag .modal-filtertag-tagtext{font-size:16px !important}' +
         '.nwv2-amen .modal-filtertag-tag .nw-amen-ico{width:24px !important;height:24px !important;flex-basis:24px}' +
         '.nwv2-amen:not(.all) .nwv2-x5{display:none !important}' +
-        '.nwv2-amen-btn{display:flex;width:100%;min-height:48px;margin-top:16px;font-size:16px}' +
+        '.nwv2-amen-btn{display:flex;width:100%;min-height:48px;font-size:16px}' +
       '.nwv2-hasph .image-div-mobile .div-block-209{display:none !important}' +
         // The photo block keeps a 3:2 shape of its own, which left a gap
         // under the grid that grew on wider phones (Jonathan, 26 Nov 2026).
@@ -1955,9 +1959,19 @@
     h.className = 'nwv2-h';
     h.textContent = 'What’s here';
     box.parentNode.insertBefore(h, box);
+    // "Add a tag" is something a visitor can do, not something the space
+    // has, so it leaves the list and sits as a quiet link in a row of
+    // its own under it, beside the button (Jonathan, 26 Nov 2026: "a
+    // bit close and out of place").
+    var row = document.createElement('div');
+    row.className = 'nwv2-amen-row';
+    box.parentNode.insertBefore(row, box.nextSibling);
+    var add = box.querySelector('.modal-filtertag-tag-empty');
+    if (add) row.appendChild(add);
     // Six show on a computer (two columns), five on a phone (one
     // column, as Airbnb lists what a place offers), then "Show all N".
-    if (tags.length <= 5) { box.classList.add('all'); return; }
+    if (tags.length <= 5) { box.classList.add('all'); row.classList.add('all'); return; }
+    if (tags.length <= 6) row.classList.add('m');
     tags.slice(6).forEach(function (t) { t.classList.add('nwv2-x'); });
     tags[5].classList.add('nwv2-x5');
     var b = document.createElement('button');
@@ -1967,11 +1981,12 @@
     b.textContent = 'Show all ' + tags.length;
     b.addEventListener('click', function () {
       var open = box.classList.toggle('all');
+      row.classList.toggle('all', open);
       b.setAttribute('aria-expanded', String(open));
       b.textContent = open ? 'Show fewer' : 'Show all ' + tags.length;
       if (open) track('amenities_all', { slug: SLUG });
     });
-    box.parentNode.insertBefore(b, box.nextSibling);
+    row.insertBefore(b, row.firstChild);
   }
 
   function v2Photos(space) {
