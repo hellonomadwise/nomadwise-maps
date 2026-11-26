@@ -1349,6 +1349,275 @@
     } catch (e) {}
   }
 
+  // ------------------------------------------- new page, step 1 (preview)
+  // The listing page redesign Jonathan chose on 26 Nov 2026 (design
+  // canvas "Coworking listing page: three directions", Combined). Built
+  // behind a preview switch so the 8 Dec read of batches 1 to 3 stays
+  // clean: nomadwise.io/...?preview=1 turns it on for that browser,
+  // ?preview=0 turns it off. Visitors see today's page.
+  // Step 1: two fact lines under the name, "How a request works", other
+  // spaces nearby, and one small claim line.
+  var PREVIEW = false;
+  try {
+    var pq = new URLSearchParams(location.search).get('preview');
+    if (pq === '1') localStorage.setItem('nw_preview', '1');
+    if (pq === '0') localStorage.removeItem('nw_preview');
+    PREVIEW = localStorage.getItem('nw_preview') === '1';
+  } catch (e) {}
+
+  function v2Styles() {
+    if (document.getElementById('nwv2-css')) return;
+    var st = document.createElement('style');
+    st.id = 'nwv2-css';
+    st.textContent = [
+      // The old fact rows and the two claim boxes give way to the new ones.
+      '.nwv2 .div-block-156,.nwv2 .nwp-addr,.nwv2 .div-block-header-3{display:none !important}',
+      '.nwv2 .claim-banner,.nwv2 .claim-line-sidebar{display:none !important}',
+      '.nwv2-facts{display:flex;flex-direction:column;gap:2px;margin:6px 0 10px;font-family:Roboto,sans-serif;font-size:14px;line-height:1.5;color:#5E6670;min-width:0;flex:0 0 100%}',
+      '.nwv2-ln{white-space:nowrap;overflow:hidden;min-width:0}',
+      '.nwv2-ln.wrap{white-space:normal}',
+      '.nwv2-ln a{color:#05434F;font-weight:700;text-decoration:underline}',
+      '.nwv2-ln .dot{margin:0 6px}',
+      '.nwv2-sec{margin:32px 0;font-family:Roboto,sans-serif;color:#2C2C2C}',
+      '.nwv2-sec h2{margin:0 0 14px;font-size:20px;line-height:1.3;font-weight:700}',
+      '.nwv2-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:0;padding:0;list-style:none}',
+      '.nwv2-steps li{display:flex;gap:10px;align-items:flex-start;font-size:15px;line-height:1.45;margin:0}',
+      '.nwv2-steps b{flex:0 0 28px;height:28px;border-radius:8px;background:#FFF1F2;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px}',
+      '.nwv2-near{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:14px}',
+      '.nwv2-card{display:block;border:1px solid rgba(0,0,0,.1);border-radius:8px;overflow:hidden;color:#2C2C2C;text-decoration:none;background:#fff}',
+      '.nwv2-card:hover{box-shadow:0 4px 14px rgba(0,0,0,.08)}',
+      '.nwv2-pic{height:110px;background:#E9ECEF center/cover no-repeat}',
+      '.nwv2-tx{padding:10px 12px;font-size:14px;line-height:1.4}',
+      '.nwv2-tx b{display:block;font-weight:700}',
+      '.nwv2-tx span{display:block;color:#5E6670}',
+      '.nwv2-claim{margin:8px 0 24px;font-family:Roboto,sans-serif;font-size:13px;color:#5E6670}',
+      '.nwv2-claim a{color:#5E6670;text-decoration:underline}',
+      '@media (max-width:767px){' +
+        '.nwv2-steps{grid-template-columns:1fr;gap:12px}' +
+        '.nwv2-sec{margin:26px 0}.nwv2-sec h2{font-size:17px}' +
+        '.nwv2-near{display:flex;overflow-x:auto;gap:10px;margin-right:-20px;padding-right:20px;scroll-snap-type:x mandatory}' +
+        '.nwv2-card{flex:0 0 160px;scroll-snap-align:start}' +
+      '}'
+    ].join('\n');
+    document.head.appendChild(st);
+  }
+
+  // Line 1: rating, Get directions, street address. Line 2: the opening
+  // hours line, plus "members 24/7" when the space's own prices say so.
+  // Each line must fit on one line of the visitor's screen; if it does
+  // not, the least useful piece is left out whole, never cut with "..."
+  // (Jonathan, 26 Nov 2026: "simply putting ... won't work"). The full
+  // address and the full week stay further down the page.
+  function v2Facts(raw) {
+    var top = document.querySelector('.div-block-136');
+    if (!top || top.querySelector('.nwv2-facts')) return;
+    var rw = top.querySelector('.google-rating-wrapper');
+    var rt = rw ? String(rw.textContent || '').replace(/\s+/g, ' ') : '';
+    var rm = /(\d(?:[.,]\d)?)\s*\/?\s*\((\d[\d,]*)\)/.exec(rt);
+    var rating = rm ? rm[1] + ' (' + rm[2] + ') Google rating' : '';
+    var addr = String(raw.address || '').replace(/\s+/g, ' ').trim();
+    if (/^[A-Z0-9]{4}\+[A-Z0-9]{2,}/i.test(addr)) addr = '';
+    var lat = Number(raw.lat), lng = Number(raw.lng), dir = '';
+    if (raw.lat != null && raw.lng != null && isFinite(lat) && isFinite(lng)) {
+      dir = 'https://www.google.com/maps/dir/?api=1&destination=' + lat + ',' + lng +
+        (raw.place ? '&destination_place_id=' + encodeURIComponent(raw.place) : '');
+    } else {
+      var ll = top.querySelector('a.location-link');
+      if (ll && MAPS.test(ll.getAttribute('href') || '')) dir = ll.getAttribute('href');
+    }
+    // Hours from the page's own week, as in foldHours.
+    var hours = '';
+    try {
+      var grid = document.querySelector('.left-column .div-block-77 .wifi-openinghours-quickstack');
+      var cells = grid ? grid.querySelectorAll('.w-layout-cell') : [];
+      var names = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'], rows = [];
+      if (cells.length >= 14) {
+        for (var i = 0; i < 7; i++) {
+          var dy = (cells[i * 2].textContent || '').trim().toLowerCase();
+          var vl = (cells[i * 2 + 1].textContent || '').replace(/\s+/g, ' ').trim();
+          if (dy !== names[i] || !vl) { rows = []; break; }
+          rows.push(vl);
+        }
+      }
+      if (rows.length === 7) hours = hoursLine(rows);
+    } catch (e) {}
+    var allDay = false;
+    (raw.prices || []).forEach(function (p) {
+      var t = (p.name || '') + ' ' + (p.details || []).join(' ');
+      if (/24\s*\/\s*7|24 hour access|24h access/i.test(t)) allDay = true;
+    });
+    if (/24 hours/.test(hours)) allDay = false;
+
+    var box = document.createElement('div');
+    box.className = 'nwv2-facts';
+    var l1 = [], l2 = [];
+    if (rating) l1.push({ k: 'rating', h: esc(rating) });
+    if (addr) l1.push({ k: 'addr', h: esc(addr) });
+    if (dir) l1.push({ k: 'dir', h: '<a href="' + esc(dir) + '" target="_blank" rel="noopener" data-nwv2="dir">Get directions</a>' });
+    if (hours) l2.push({ k: 'hours', h: esc(hours) });
+    if (hours && allDay) l2.push({ k: 'members', h: 'members 24/7' });
+    if (hours) l2.push({ k: 'all', h: '<a href="#nwp-week" data-nwv2="hours">See all hours</a>' });
+    var draw = function (parts) {
+      return parts.map(function (p) { return p.h; }).join('<span class="dot" aria-hidden="true">·</span>');
+    };
+    var ln1 = document.createElement('div'), ln2 = document.createElement('div');
+    ln1.className = ln2.className = 'nwv2-ln';
+    if (l1.length) box.appendChild(ln1);
+    if (l2.length) box.appendChild(ln2);
+    if (!box.children.length) return;
+    var h1box = top.querySelector('.div-block-138');
+    if (h1box && h1box.nextSibling) top.insertBefore(box, h1box.nextSibling); else top.appendChild(box);
+    var fit = function () {
+      [[ln1, l1, ['addr']], [ln2, l2, ['members']]].forEach(function (x) {
+        var el = x[0], parts = x[1].slice(), drop = x[2].slice();
+        el.classList.remove('wrap');
+        el.innerHTML = draw(parts);
+        while (el.scrollWidth > el.clientWidth + 1 && drop.length) {
+          var k = drop.shift();
+          parts = parts.filter(function (p) { return p.k !== k; });
+          el.innerHTML = draw(parts);
+        }
+        // Still too long with only what must stay: let it wrap rather
+        // than cut anything off.
+        if (el.scrollWidth > el.clientWidth + 1) el.classList.add('wrap');
+      });
+    };
+    fit();
+    var t = null;
+    window.addEventListener('resize', function () { clearTimeout(t); t = setTimeout(fit, 150); });
+    box.addEventListener('click', function (e) {
+      var a = e.target.closest && e.target.closest('a[data-nwv2]');
+      if (!a) return;
+      var what = a.getAttribute('data-nwv2');
+      if (what === 'dir') { track('directions_tap', { slug: SLUG, from: 'facts' }); return; }
+      if (what === 'hours') {
+        e.preventDefault();
+        var b = document.querySelector('.nwp-hrs');
+        var g = document.querySelector('.left-column .div-block-77 .wifi-openinghours-quickstack');
+        if (b && b.getAttribute('aria-expanded') !== 'true') b.click();
+        var at = b || g;
+        if (at) { try { at.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (er) { at.scrollIntoView(); } }
+        track('hours_opened', { slug: SLUG, from: 'facts' });
+      }
+    });
+  }
+
+  function v2Steps(space) {
+    if (document.querySelector('.nwv2-how')) return;
+    var host = document.querySelector('.left-column .div-block-80');
+    if (!host) return;
+    var who = space || 'the space';
+    var sec = document.createElement('section');
+    sec.className = 'nwv2-sec nwv2-how';
+    sec.setAttribute('aria-label', 'How a request works');
+    sec.innerHTML = '<h2>How a request works</h2><ol class="nwv2-steps">' +
+      '<li><b>1</b><span>Tell us what you need and when. It takes about a minute.</span></li>' +
+      '<li><b>2</b><span>We pass it on to ' + esc(who) + '.</span></li>' +
+      '<li><b>3</b><span>They reply to you by email. You decide, with no obligation.</span></li></ol>';
+    var after = document.getElementById('prices') || host.querySelector('.modal-more-div');
+    if (after && after.parentElement === host) host.insertBefore(sec, after.nextSibling);
+    else host.appendChild(sec);
+  }
+
+  // The lowest price that says per what: a day pass first, then a month,
+  // then an hour. Words a visitor reads, from the space's own prices.
+  function nearPrice(prices) {
+    var best = {};
+    (prices || []).forEach(function (p) {
+      var details = (p.details || []).map(function (x) { return String(x || '').trim(); }).filter(Boolean);
+      var per = periodOf(p.name, details, p.category);
+      if (!per || p.amount == null) return;
+      var key = per === 'month' ? (p.category === 'private_office' ? 'office' : 'month') : per;
+      if (!best[key] || Number(p.amount) < Number(best[key].amount)) best[key] = p;
+    });
+    var say = function (p) { return money(p.amount, p.currency, p.label).replace(/^from\s+/i, ''); };
+    if (best.day) return 'Day pass from ' + say(best.day);
+    if (best.month) return 'Desk from ' + say(best.month) + ' a month';
+    if (best.office) return 'Office from ' + say(best.office) + ' a month';
+    if (best.hour) return 'Meeting room from ' + say(best.hour) + ' an hour';
+    return '';
+  }
+
+  function v2Nearby() {
+    if (document.querySelector('.nwv2-nearby')) return;
+    var host = document.querySelector('.left-column .div-block-80');
+    if (!host) return;
+    fetch(URL_ + '/rest/v1/rpc/page_nearby', {
+      method: 'POST',
+      headers: { apikey: KEY, Authorization: 'Bearer ' + KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ p_slug: SLUG })
+    }).then(function (r) { return r.ok ? r.json() : null; }).then(function (list) {
+      if (!Array.isArray(list) || !list.length || document.querySelector('.nwv2-nearby')) return;
+      var loc = document.querySelector('.location-div');
+      var area = loc ? String(loc.textContent || '').split(',')[0].replace(/\s+/g, ' ').trim() : '';
+      var sec = document.createElement('section');
+      sec.className = 'nwv2-sec nwv2-nearby';
+      sec.setAttribute('aria-label', 'Other spaces nearby');
+      var h = '<h2>' + esc(area && area.length < 40 ? 'Also in ' + area : 'Also nearby') + '</h2><div class="nwv2-near">';
+      list.forEach(function (s) {
+        var m = Number(s.metres);
+        var away = isFinite(m) ? (m < 1000 ? Math.max(50, Math.round(m / 10) * 10) + ' m away' : (m / 1000).toFixed(1).replace(/\.0$/, '') + ' km away') : '';
+        var rate = s.rating ? s.rating + (s.reviews ? ' (' + s.reviews + ')' : '') : '';
+        var meta = [rate, away].filter(Boolean).join(' · ');
+        var price = nearPrice(s.prices);
+        h += '<a class="nwv2-card" href="/coworking/' + esc(s.slug) + '" data-slug="' + esc(s.slug) + '">' +
+          '<div class="nwv2-pic" aria-hidden="true"></div><div class="nwv2-tx"><b>' + esc(s.name) + '</b>' +
+          (meta ? '<span>' + esc(meta) + '</span>' : '') + (price ? '<span>' + esc(price) + '</span>' : '') + '</div></a>';
+      });
+      sec.innerHTML = h + '</div>';
+      var how = host.querySelector('.nwv2-how');
+      if (how) host.insertBefore(sec, how.nextSibling); else host.appendChild(sec);
+      sec.addEventListener('click', function (e) {
+        var a = e.target.closest && e.target.closest('a.nwv2-card');
+        if (a) track('nearby_click', { slug: SLUG, to: a.getAttribute('data-slug') });
+      });
+      // Each card's photo is that page's own share picture, fetched only
+      // when the section comes near the screen.
+      var load = function () {
+        [].slice.call(sec.querySelectorAll('a.nwv2-card')).forEach(function (a) {
+          fetch('/coworking/' + a.getAttribute('data-slug')).then(function (r) { return r.ok ? r.text() : ''; }).then(function (t) {
+            var mm = /<meta[^>]+property="og:image"[^>]+content="([^"]+)"/i.exec(t || '') ||
+              /<meta[^>]+content="([^"]+)"[^>]+property="og:image"/i.exec(t || '');
+            if (mm && /^https:\/\//i.test(mm[1])) a.querySelector('.nwv2-pic').style.backgroundImage = 'url("' + mm[1].replace(/"/g, '%22') + '")';
+          }).catch(function () {});
+        });
+      };
+      if (window.IntersectionObserver) {
+        var io = new IntersectionObserver(function (es) {
+          if (es.some(function (x) { return x.isIntersecting; })) { io.disconnect(); load(); }
+        }, { rootMargin: '600px 0px' });
+        io.observe(sec);
+      } else load();
+    }).catch(function () {});
+  }
+
+  function v2Claim() {
+    if (document.querySelector('.nwv2-claim')) return;
+    var host = document.querySelector('.left-column .div-block-80');
+    var link = document.querySelector('.claim-banner a[href], .claim-line a[href], .claim-line-sidebar a[href]');
+    if (!host || !link) return;
+    var p = document.createElement('p');
+    p.className = 'nwv2-claim';
+    p.innerHTML = 'Run this space? <a href="' + esc(link.getAttribute('href')) + '">Claim it for free</a>';
+    host.appendChild(p);
+  }
+
+  function v2(raw) {
+    try {
+      v2Styles();
+      var top = document.querySelector('.div-block-136');
+      if (top) top.classList.add('nwv2');
+      var page = document.querySelector('.left-column');
+      if (page) page.classList.add('nwv2');
+      document.body.classList.add('nwv2');
+      v2Facts(raw);
+      v2Steps(data && data.space !== 'this space' ? data.space : (raw.space || ''));
+      v2Nearby();
+      v2Claim();
+      track('listing_v2_preview', { slug: SLUG });
+    } catch (e) {}
+  }
+
   function start() {
     if (AREA || FRAMED) return;
     ratingLabel();
@@ -1361,11 +1630,12 @@
     }).then(function (r) { return r.ok ? r.json() : null; })
       .then(function (raw) {
         if (raw && raw.closed) showClosed(raw.closed);
-        if (!raw || !raw.show) return;
-        SHUT = Array.isArray(raw.closed_days) ? raw.closed_days.map(Number) : [];
-        data = shape(raw);
-        if (!data.groups.length) return;
-        if (mount()) { smallHeading(); jumpLink(); foldHours(); requestBar(); addressLine(raw); fromLink(); }
+        if (raw && raw.show) {
+          SHUT = Array.isArray(raw.closed_days) ? raw.closed_days.map(Number) : [];
+          data = shape(raw);
+          if (data.groups.length && mount()) { smallHeading(); jumpLink(); foldHours(); requestBar(); addressLine(raw); fromLink(); }
+        }
+        if (PREVIEW) v2(raw || {});
       })
       .catch(function () {});
   }
