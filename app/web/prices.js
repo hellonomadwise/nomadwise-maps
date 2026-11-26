@@ -1403,7 +1403,11 @@
   if (PREVIEW && SLUG && !AREA && !FRAMED) {
     try {
       var pst = document.createElement('style');
-      pst.textContent = '.card_template_padding{transition:opacity .15s ease}html.nwv2-pre .card_template_padding{opacity:0;transition:none}';
+      // The menu bar takes its listing-page width at once too, so it does
+      // not jump from the old width to the new (Jonathan, 26 Nov 2026).
+      pst.textContent = '.card_template_padding{transition:opacity .15s ease}html.nwv2-pre .card_template_padding{opacity:0;transition:none}' +
+        '@media (min-width:1200px) and (max-width:1919px){html.nwv2-w .navbar-2 .container-10{max-width:min(1320px,calc(100vw - 96px)) !important;width:100%}}';
+      document.documentElement.classList.add('nwv2-w');
       (document.head || document.documentElement).appendChild(pst);
       document.documentElement.classList.add('nwv2-pre');
       PRE = setTimeout(preShow, 2500);
