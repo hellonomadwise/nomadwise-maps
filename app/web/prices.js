@@ -1488,6 +1488,7 @@
         '.nwv2-steps{grid-template-columns:1fr;gap:12px}' +
         // The hours are in the fact line; the week below stays out of
         // the way until "See all hours" is tapped.
+        '.nwv2 .map-div-mobile{background:#E9ECEF;border-radius:8px;overflow:hidden}' +
         'body:not(.nwv2-hrs-seen) .nwv2 .div-block-77:has(.nwp-week.nwp-shut){display:none}' +
         '.nwv2-sec{margin:26px 0}.nwv2-sec h2{font-size:17px}' +
         '.nwv2-near{display:flex;overflow-x:auto;gap:10px;margin-right:-20px;padding-right:20px;scroll-snap-type:x mandatory;scrollbar-width:none}' +
@@ -1734,6 +1735,7 @@
         // them back to one line and no longer makes the block vanish
         // (Jonathan, 26 Nov 2026).
         document.body.classList.add('nwv2-hrs-seen');
+        if (V2.map) V2.map();
         if (b && b.getAttribute('aria-expanded') !== 'true') b.click();
         var seen = function (el) { return el && el.getClientRects().length ? el : null; };
         var at = seen(b) || seen(g) || seen(document.getElementById('nwv2-hours')) || seen(document.querySelector('.nwv2-hrs'));
@@ -1779,7 +1781,7 @@
     return '';
   }
 
-  var V2 = { sel: null, need: null, people: 1, go: null, near: null, place: null, fit: null, addr: '', dir: '' };
+  var V2 = { map: null, sel: null, need: null, people: 1, go: null, near: null, place: null, fit: null, addr: '', dir: '' };
   function nearbyList() {
     if (!V2.near) {
       V2.near = fetch(URL_ + '/rest/v1/rpc/page_nearby', {
@@ -2158,6 +2160,28 @@
   // Computer: the box moves to the right-hand column and stays in view
   // while the page scrolls; the week of hours it replaces there moves
   // into the page, and "Also in <area>" runs the full width underneath.
+  // The phone map is loaded lazily by the browser, so jumping to the hours
+  // with "See all hours" landed on an empty white block where the map was
+  // still to come (Jonathan, 26 Nov 2026). It now starts loading well
+  // before it scrolls into view, and shows as a grey block until it has.
+  function v2MapSoon() {
+    var f = document.querySelector('.map-div-mobile iframe');
+    if (!f || f.getAttribute('data-nwv2')) return;
+    f.setAttribute('data-nwv2', '1');
+    var go = function () {
+      if (f.getAttribute('loading') !== 'lazy') return;
+      f.setAttribute('loading', 'eager');
+      var src = f.getAttribute('src');
+      if (src) f.setAttribute('src', src);
+    };
+    V2.map = go;
+    if (!window.IntersectionObserver) { go(); return; }
+    var io = new IntersectionObserver(function (es) {
+      if (es[es.length - 1].isIntersecting) { io.disconnect(); go(); }
+    }, { rootMargin: '1200px 0px' });
+    io.observe(f.parentNode);
+  }
+
   function v2Wide() {
     var side = document.querySelector('.listings-5th-col.directory');
     var wrapper = document.querySelector('.listing-wrapper');
@@ -2382,6 +2406,7 @@
       v2Steps(name);
       v2Nearby();
       v2Claim();
+      v2MapSoon();
       v2Wide();
       setTimeout(function () { document.body.classList.add('nwv2-chat'); }, 30000);
       track('listing_v2_preview', { slug: SLUG });
