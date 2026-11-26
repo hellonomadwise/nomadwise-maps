@@ -1449,6 +1449,22 @@
       '.nwv2-pr{font:400 13.5px/1.35 Roboto,sans-serif;color:#5E6670;white-space:nowrap}',
       '.nwv2-pr b{font-size:15px;font-weight:700;color:#2C2C2C}',
       '.nwv2-all{padding-top:4px;font-size:14px;font-weight:500;color:#2C2C2C;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px}',
+      // The request form on a computer: wider and shorter, two fields to a
+      // row, the button beside the small print, so it fits a laptop screen
+      // without scrolling (Jonathan, 26 Nov 2026: it was cut off on
+      // Leonie's laptop). Phones keep the full-screen form.
+      '@media (min-width:768px){' +
+      'body.nwv2 .nwp-dlg{max-width:740px}' +
+      'body.nwv2 .nwp-hd{padding:14px 14px 14px 20px}' +
+      'body.nwv2 .nwp-bd{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 16px;align-items:start;padding:16px 20px}' +
+      'body.nwv2 .nwp-bd>.nwp-ok,body.nwv2 .nwp-bd>.nwp-ck,body.nwv2 .nwp-bd>.nwp-fl:has(textarea){grid-column:1/-1}' +
+      'body.nwv2 .nwp-bd .nwp-seg:not(.nwp-seg-people){display:flex;flex-wrap:nowrap}' +
+      'body.nwv2 .nwp-bd .nwp-seg:not(.nwp-seg-people) .nwp-sg{flex:1 1 auto;padding:0 6px;white-space:nowrap}' +
+      'body.nwv2 .nwp-ft{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px 20px;padding:12px 20px 14px}' +
+      'body.nwv2 .nwp-ft>.nwp-err{grid-column:1/-1;grid-row:1}' +
+      'body.nwv2 .nwp-ft>.nwp-send{grid-column:2;grid-row:2;width:auto;min-width:230px;padding:0 24px}' +
+      'body.nwv2 .nwp-ft>.nwp-trust{grid-column:1;grid-row:2}' +
+      '}',
       // Options a visitor can pick: the request then names that one.
       '.nwv2-pick button.nwv2-opt{display:grid;grid-template-columns:16px minmax(0,1fr);column-gap:10px;align-items:start;width:100%;margin:0;padding:12px 0;border:0;border-top:1px solid rgba(0,0,0,.08);border-radius:0;background:none;text-align:left;font:inherit;color:inherit;cursor:pointer}',
       '.nwv2-pick .nwv2-res>button.nwv2-opt:first-child{border-top:0;padding-top:0}',
