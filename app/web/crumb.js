@@ -40,6 +40,9 @@
     '.nwbc-m li a:hover,.nwbc-m li a:focus{background:#F2F3F5;color:#1F2328;outline:none}',
     '.nwbc-m li a[aria-current]{font-weight:500;color:#1F2328}',
     '.nwbc-none{padding:8px;font-size:13px;color:#7A828C}',
+    '.nwbc a.nwbc-l .nwbc-car{width:12px;height:12px;margin-left:-3px;color:#A3AAB3}',
+    '.nwbc li.nwbc-open a.nwbc-l{background:#F2F3F5;color:#1F2328}',
+    '.nwbc li.nwbc-open a.nwbc-l .nwbc-car{transform:rotate(180deg)}',
     'html.nwbc-on .product-pagination-wrap,html.nwbc-on .product-pagination-wrap-listings,html.nwbc-on [data-aw=crumb]{display:none!important}',
     '[data-aw] .nwbc{margin:0 0 12px}',
     '@media (max-width:767px){',
@@ -63,6 +66,15 @@
   function kind(h) { var m = (h || '').match(/^\/(country|region|locations)\//); return m ? m[1] : ''; }
   function good(src) { return !!src && src.indexOf('placeholder') < 0; }
   function track(ev, props) { try { if (window.posthog) window.posthog.capture(ev, props); } catch (e) {} }
+  // Hovering a step shows the places beside it (other areas, cities or
+  // countries) while a click still goes up to that step's page (Jonathan,
+  // 26 Nov 2026). Computers only, and for now only with the preview
+  // switch on, like the new listing page.
+  var HOVER = false;
+  try {
+    HOVER = localStorage.getItem('nw_preview') === '1' && window.innerWidth >= 768 &&
+      window.matchMedia('(hover:hover) and (pointer:fine)').matches;
+  } catch (e) {}
 
   function run() {
     if (document.querySelector('.nwbc')) return;
@@ -146,6 +158,19 @@
     nav.setAttribute('aria-label', 'Breadcrumb');
     wrap.parentNode.insertBefore(nav, wrap);
 
+    function menuHtml(s, i) {
+      var lab = s.kind === 'country' ? 'Other countries'
+        : s.kind === 'region' ? 'Other places in ' + steps[0].name
+        : 'Other areas in ' + (steps[i - 1] ? steps[i - 1].name : '');
+      return '<div class="nwbc-m" hidden><div class="nwbc-mh">' + esc(lab) + '</div>' +
+        (s.opts.length > 12 ? '<input type="search" placeholder="Search ' + s.opts.length + (s.kind === 'country' ? ' countries' : ' places') + '" aria-label="Search">' : '') +
+        '<ul>' + s.opts.map(function (o) {
+          return '<li><a href="' + esc(o.href) + '"' + (o.href === s.href ? ' aria-current="page"' : '') + '>' +
+            (s.kind === 'country' && good(o.flag) ? '<img class="nwbc-f" src="' + esc(o.flag) + '" alt="" width="20" height="15">' : '') +
+            esc(o.name) + '</a></li>';
+        }).join('') + '</ul><div class="nwbc-none" hidden>No matches</div></div>';
+    }
+
     function render() {
       var n = steps.length, ci = n - 1, par = ci - 1, html = '<ol>';
       steps.forEach(function (s, i) {
@@ -154,21 +179,13 @@
         var fl = i === 0 && good(flag) ? '<img class="nwbc-f" src="' + esc(flag) + '" alt="" width="20" height="15">' : '';
         var inner;
         if (s.current && s.opts.length > 1) {
-          var lab = s.kind === 'country' ? 'Other countries'
-            : s.kind === 'region' ? 'Other places in ' + steps[0].name
-            : 'Other areas in ' + (steps[i - 1] ? steps[i - 1].name : '');
-          inner = '<button type="button" class="nwbc-c" aria-expanded="false" aria-haspopup="true" aria-current="page">' + fl + esc(s.name) + CARET + '</button>' +
-            '<div class="nwbc-m" hidden><div class="nwbc-mh">' + esc(lab) + '</div>' +
-            (s.opts.length > 12 ? '<input type="search" placeholder="Search ' + s.opts.length + (s.kind === 'country' ? ' countries' : ' places') + '" aria-label="Search">' : '') +
-            '<ul>' + s.opts.map(function (o) {
-              return '<li><a href="' + esc(o.href) + '"' + (o.href === path ? ' aria-current="page"' : '') + '>' +
-                (s.kind === 'country' && good(o.flag) ? '<img class="nwbc-f" src="' + esc(o.flag) + '" alt="" width="20" height="15">' : '') +
-                esc(o.name) + '</a></li>';
-            }).join('') + '</ul><div class="nwbc-none" hidden>No matches</div></div>';
+          inner = '<button type="button" class="nwbc-c" aria-expanded="false" aria-haspopup="true" aria-current="page">' + fl + esc(s.name) + CARET + '</button>' + menuHtml(s, i);
         } else if (s.current) {
           inner = '<span class="nwbc-c" aria-current="page">' + fl + esc(s.name) + '</span>';
         } else {
-          inner = '<a class="nwbc-l" href="' + esc(s.href) + '">' + BACK + fl + esc(s.name) + '</a>';
+          var hov = HOVER && s.opts.length > 1;
+          inner = '<a class="nwbc-l" href="' + esc(s.href) + '">' + BACK + fl + esc(s.name) + (hov ? CARET : '') + '</a>' + (hov ? menuHtml(s, i) : '');
+          if (hov) cls += (cls ? ' ' : '') + 'nwbc-h';
         }
         html += '<li' + (cls ? ' class="' + cls + '"' : '') + '>' + sep + inner + '</li>';
       });
@@ -177,38 +194,77 @@
       schema();
     }
 
+    function place(menu, el) {
+      menu.style.left = Math.max(0, Math.min(el.offsetLeft, nav.clientWidth - menu.offsetWidth)) + 'px';
+    }
+    function shut(menu) {
+      if (menu.hidden) return;
+      var li = menu.parentNode;
+      if (li.classList.contains('nwbc-h')) { menu.hidden = true; li.classList.remove('nwbc-open'); }
+      else if (nav._open) nav._open(false);
+    }
     function wire() {
-      var btn = nav.querySelector('button.nwbc-c'), menu = nav.querySelector('.nwbc-m');
+      nav._open = null;
+      [].forEach.call(nav.querySelectorAll('.nwbc-m'), function (menu) {
+        var q = menu.querySelector('input'), none = menu.querySelector('.nwbc-none');
+        if (q) q.addEventListener('input', function () {
+          var v = q.value.toLowerCase().trim(), shown = 0;
+          [].forEach.call(menu.querySelectorAll('li'), function (x) {
+            var ok = !v || x.textContent.toLowerCase().indexOf(v) > -1;
+            x.hidden = !ok;
+            if (ok) shown++;
+          });
+          none.hidden = shown > 0;
+        });
+      });
+      // Steps above the page you are on: the list opens on hover.
+      [].forEach.call(nav.querySelectorAll('li.nwbc-h'), function (li) {
+        var menu = li.querySelector('.nwbc-m'), t = 0;
+        li.addEventListener('mouseenter', function () {
+          clearTimeout(t);
+          t = setTimeout(function () {
+            if (!menu.hidden) return;
+            [].forEach.call(nav.querySelectorAll('.nwbc-m'), function (m) { if (m !== menu) shut(m); });
+            menu.hidden = false;
+            li.classList.add('nwbc-open');
+            place(menu, li);
+            track('breadcrumb_switcher_open', { page: path, hover: true });
+          }, 150);
+        });
+        li.addEventListener('mouseleave', function () {
+          clearTimeout(t);
+          t = setTimeout(function () {
+            // Someone typing in the search box keeps it open.
+            if (menu.contains(document.activeElement)) return;
+            shut(menu);
+          }, 300);
+        });
+      });
+      var btn = nav.querySelector('button.nwbc-c'), menu = btn ? btn.parentNode.querySelector('.nwbc-m') : null;
       if (!btn || !menu) return;
       function open(v) {
         btn.setAttribute('aria-expanded', v ? 'true' : 'false');
         menu.hidden = !v;
         if (!v) return;
-        menu.style.left = Math.max(0, Math.min(btn.offsetLeft, nav.clientWidth - menu.offsetWidth)) + 'px';
+        place(menu, btn);
         var q = menu.querySelector('input');
         (q || menu.querySelector('a')).focus();
         track('breadcrumb_switcher_open', { page: path });
       }
       btn.addEventListener('click', function (e) { e.stopPropagation(); open(menu.hidden); });
-      var q = menu.querySelector('input'), none = menu.querySelector('.nwbc-none');
-      if (q) q.addEventListener('input', function () {
-        var v = q.value.toLowerCase().trim(), shown = 0;
-        [].forEach.call(menu.querySelectorAll('li'), function (x) {
-          var ok = !v || x.textContent.toLowerCase().indexOf(v) > -1;
-          x.hidden = !ok;
-          if (ok) shown++;
-        });
-        none.hidden = shown > 0;
-      });
       nav._open = open;
     }
     document.addEventListener('click', function (e) {
-      var menu = nav.querySelector('.nwbc-m');
-      if (menu && !menu.hidden && !menu.contains(e.target) && nav._open) nav._open(false);
+      [].forEach.call(nav.querySelectorAll('.nwbc-m'), function (m) { if (!m.contains(e.target)) shut(m); });
     });
     document.addEventListener('keydown', function (e) {
-      var menu = nav.querySelector('.nwbc-m');
-      if (e.key === 'Escape' && menu && !menu.hidden && nav._open) { nav._open(false); nav.querySelector('button.nwbc-c').focus(); }
+      if (e.key !== 'Escape') return;
+      [].forEach.call(nav.querySelectorAll('.nwbc-m'), function (m) {
+        if (m.hidden) return;
+        var b = m.parentNode.querySelector('button.nwbc-c');
+        shut(m);
+        if (b) b.focus();
+      });
     });
     nav.addEventListener('click', function (e) {
       var a = e.target.closest('a');
@@ -242,7 +298,7 @@
         .then(function (v) {
           var id = v && v[0] && v[0].webflow_location_id;
           if (!id) return [];
-          return fetch(URL_ + '/rest/v1/webflow_locations?select=name,slug&sitemap_added_at=not.is.null&id=eq.' + encodeURIComponent(id) + '&limit=1', { headers: hdr })
+          return fetch(URL_ + '/rest/v1/webflow_locations?select=name,slug,region_id&sitemap_added_at=not.is.null&id=eq.' + encodeURIComponent(id) + '&limit=1', { headers: hdr })
             .then(function (r) { return r.ok ? r.json() : []; });
         })
         .then(function (l) {
@@ -250,8 +306,20 @@
           if (!loc || !loc.slug || !loc.name) return;
           var href = '/locations/' + loc.slug;
           if (steps.some(function (s) { return s.href === href; })) return;
-          steps.splice(steps.length - 1, 0, { name: loc.name, href: href, opts: [], kind: 'locations' });
+          var step = { name: loc.name, href: href, opts: [], kind: 'locations' };
+          steps.splice(steps.length - 1, 0, step);
           render();
+          // The other areas of the same city, for the hover list.
+          if (!HOVER || !loc.region_id) return;
+          return fetch(URL_ + '/rest/v1/webflow_locations?select=name,slug&sitemap_added_at=not.is.null&region_id=eq.' + encodeURIComponent(loc.region_id) + '&order=name&limit=300', { headers: hdr })
+            .then(function (r) { return r.ok ? r.json() : []; })
+            .then(function (all) {
+              if (!Array.isArray(all) || all.length < 2) return;
+              step.opts = all.filter(function (o) { return o.slug && o.name; }).map(function (o) {
+                return { name: String(o.name).split(',')[0].trim(), href: '/locations/' + o.slug };
+              });
+              render();
+            });
         })
         .catch(function () {});
     }
