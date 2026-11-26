@@ -195,7 +195,10 @@
         priceText: (from ? 'from ' : '') + label + (period && p.amount != null ? ' ' + PER[period] : ''),
         // A price the space gives Nomadwise visitors: its usual price is
         // shown struck through beside it (Jonathan, 22 Nov 2026).
-        was: p.was ? String(p.was) : ''
+        was: p.was ? String(p.was) : '',
+        // The space's own words say the price is for each person, so a
+        // team total may be worked out from it (listing redesign, step 2).
+        perPerson: /\bper (person|desk|member|seat)\b|\bp\.?p\.?\b|\/\s*(person|desk)/i.test(String(p.name || '') + ' | ' + details.join(' | '))
       };
       item.askText = item.priceText + (item.was ? ', Nomadwise discount, usually ' + item.was : '');
       (groups[cat] = groups[cat] || []).push(item);
@@ -1280,10 +1283,12 @@
       // 2026: it only appeared near the footer, because on most pages the
       // price list comes on screen as the top button leaves).
       new IntersectionObserver(function (es) {
+        if (V2.go) return;
         b.classList.toggle('on', !es[es.length - 1].isIntersecting);
       }).observe(top);
       b.addEventListener('click', function () {
         track('request_bar_tap', { slug: SLUG });
+        if (V2.go) { V2.go('bar'); return; }
         (top.querySelector('#research-button-wrapper') || top).click();
       });
     } catch (e) {}
@@ -1396,6 +1401,35 @@
       '.nwv2-tx span{display:block;color:#5E6670}',
       '.nwv2-claim{margin:8px 0 24px;font-family:Roboto,sans-serif;font-size:13px;color:#5E6670}',
       '.nwv2-claim a{color:#5E6670;text-decoration:underline}',
+      // Step 2: the "What do you need?" box. With it on the page the old
+      // top button and the "See prices" link step aside.
+      '.nwv2-haspick .left-column .div-block-80>.buttons-wrapper,.nwv2-haspick .nwp-jump{display:none !important}',
+      '.nwv2-pick{margin:4px 0 24px;padding:18px;border:1px solid rgba(0,0,0,.1);border-radius:8px;background:#fff;font-family:Roboto,sans-serif;color:#2C2C2C;display:flex;flex-direction:column;gap:14px;max-width:560px;contain:inline-size;scroll-margin-top:84px}',
+      '.nwv2-pick *{box-sizing:border-box}',
+      '.nwv2-pick h2{margin:0;font-size:18px;line-height:1.3;font-weight:700}',
+      '.nwv2-needs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}',
+      '.nwv2-needs button{min-height:48px;margin:0;padding:8px 10px;border:1px solid #C9CED4;border-radius:8px;background:#fff;font:500 14px/1.25 Roboto,sans-serif;color:#2C2C2C;cursor:pointer}',
+      '.nwv2-needs button[aria-pressed="true"]{border:2px solid #FF444F;background:#FFF1F2;padding:7px 9px}',
+      '.nwv2-ppl{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:15px}',
+      '.nwv2-ppl>div{display:flex;align-items:center;gap:12px}',
+      '.nwv2-ppl button{width:44px;height:44px;margin:0;padding:0;border:1px solid #C9CED4;border-radius:8px;background:#fff;font:400 20px/1 Roboto,sans-serif;color:#2C2C2C;cursor:pointer}',
+      '.nwv2-ppl button[disabled]{opacity:.4;cursor:default}',
+      '.nwv2-ppl b{min-width:24px;text-align:center;font-weight:700}',
+      '.nwv2-res{display:flex;flex-direction:column;gap:12px;padding-top:14px;border-top:1px solid rgba(0,0,0,.08)}',
+      '.nwv2-it{display:flex;justify-content:space-between;gap:12px;font-size:13.5px;line-height:1.4}',
+      '.nwv2-it b{display:block;font-size:15px;font-weight:700}',
+      '.nwv2-it span{display:block;color:#5E6670}',
+      '.nwv2-pr{text-align:right;white-space:nowrap;flex:none}',
+      '.nwv2-all{font-size:14px;font-weight:700;color:#05434F;text-decoration:underline}',
+      '.nwv2-tot{margin:0;padding:10px 12px;border-radius:8px;background:#F6F7F8;font-size:14px;line-height:1.45}',
+      '.nwv2-none{margin:0;font-size:14px;line-height:1.45;color:#5E6670}',
+      '.nwv2-alt{display:flex;justify-content:space-between;gap:12px;font-size:14.5px;color:#2C2C2C;text-decoration:none}',
+      '.nwv2-alt span{text-decoration:underline;color:#05434F;font-weight:700}',
+      '.nwv2-alt b{font-weight:400;white-space:nowrap}',
+      '.nwv2-go{min-height:48px;margin:0;padding:10px 16px;border:0;border-radius:8px;background:#FF444F;color:#fff;font:500 16px/1.2 Roboto,sans-serif;cursor:pointer}',
+      '.nwv2-go:hover{background:#E63B45}',
+      '.nwv2-pick button:focus-visible,.nwv2-pick a:focus-visible{outline:2px solid #05434F;outline-offset:2px}',
+      '.nwv2-sure{margin:0;font-size:12.5px;line-height:1.5;color:#5E6670;text-align:center}',
       '@media (max-width:767px){' +
         '.nwv2-steps{grid-template-columns:1fr;gap:12px}' +
         // The hours are in the fact line; the week below stays out of
@@ -1546,15 +1580,182 @@
     return '';
   }
 
+  var V2 = { need: null, people: 1, go: null, near: null };
+  function nearbyList() {
+    if (!V2.near) {
+      V2.near = fetch(URL_ + '/rest/v1/rpc/page_nearby', {
+        method: 'POST',
+        headers: { apikey: KEY, Authorization: 'Bearer ' + KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ p_slug: SLUG })
+      }).then(function (r) { return r.ok ? r.json() : []; }).catch(function () { return []; });
+    }
+    return V2.near;
+  }
+
+  // ------------------------------------------- new page, step 2 (preview)
+  // "What do you need?": a day pass, a desk for the month, an office, a
+  // meeting room, and for how many people. Only the prices that match
+  // are shown; the button says what is being asked ("Request an office
+  // for 4") and opens the request with that price and team size filled
+  // in. A team total is shown only when the space's own words say the
+  // price is per person. When the space does not list what was picked,
+  // spaces close by that do are offered instead.
+  var NEEDS = [
+    ['day', 'A day pass', 'a day pass', 'day passes'],
+    ['desk', 'A desk for the month', 'a desk', 'monthly desks'],
+    ['office', 'An office for my team', 'an office', 'private offices'],
+    ['room', 'A meeting room', 'a meeting room', 'meeting rooms']
+  ];
+  function needOfKind(cat, period) {
+    if (cat === 'meeting_room') return 'room';
+    if (cat === 'private_office') return 'office';
+    if (cat !== 'coworking') return null;
+    return period === 'month' || period === 'year' ? 'desk' : 'day';
+  }
+  function needItems(need) {
+    var out = [];
+    if (!data) return out;
+    data.groups.forEach(function (g) {
+      g.items.forEach(function (it) { if (needOfKind(it.cat, it.period) === need) out.push(it); });
+    });
+    // Priced first, lowest first; "Price on request" after.
+    return out.sort(function (a, b) {
+      if ((a.amount == null) !== (b.amount == null)) return a.amount == null ? 1 : -1;
+      return (a.amount || 0) - (b.amount || 0);
+    });
+  }
+  function bucket(n) { return n <= 1 ? 'Just me' : n === 2 ? '2' : n <= 5 ? '3 to 5' : n <= 10 ? '6 to 10' : 'More than 10'; }
+
+  function v2Picker() {
+    if (!data || !data.groups.length || document.querySelector('.nwv2-pick')) return;
+    var host = document.querySelector('.left-column .div-block-80');
+    if (!host) return;
+    var first = null;
+    NEEDS.forEach(function (n) { if (!first && needItems(n[0]).length) first = n[0]; });
+    if (!first) return;
+    V2.need = first;
+    var box = document.createElement('section');
+    box.className = 'nwv2-pick';
+    box.id = 'nwv2-pick';
+    box.setAttribute('aria-label', 'What do you need?');
+    host.insertBefore(box, host.firstChild);
+    document.body.classList.add('nwv2-haspick');
+    var nearby = [];
+    var bar = document.querySelector('.nwp-bar');
+
+    var state = function () {
+      var def = NEEDS.filter(function (n) { return n[0] === V2.need; })[0];
+      var items = needItems(V2.need);
+      var many = V2.people > 1;
+      var cta = 'Send a request';
+      if (items.length) {
+        cta = V2.need === 'desk' && many ? 'Request desks for ' + V2.people
+          : 'Request ' + def[2] + (many ? ' for ' + V2.people : '');
+      }
+      return { def: def, items: items, many: many, cta: cta };
+    };
+    var draw = function (focusKey) {
+      var st = state(), h = '<h2>What do you need?</h2><div class="nwv2-needs" role="group" aria-label="What do you need?">';
+      NEEDS.forEach(function (n) {
+        h += '<button type="button" data-need="' + n[0] + '" data-k="need-' + n[0] + '" aria-pressed="' + (n[0] === V2.need) + '">' + esc(n[1]) + '</button>';
+      });
+      h += '</div><div class="nwv2-ppl"><span id="nwv2-ppl-l">How many people?</span><div role="group" aria-labelledby="nwv2-ppl-l">' +
+        '<button type="button" data-step="-1" data-k="less" aria-label="Fewer people"' + (V2.people <= 1 ? ' disabled' : '') + '>&minus;</button>' +
+        '<b aria-live="polite">' + V2.people + '</b>' +
+        '<button type="button" data-step="1" data-k="more" aria-label="More people"' + (V2.people >= 50 ? ' disabled' : '') + '>+</button></div></div>';
+      h += '<div class="nwv2-res">';
+      if (st.items.length) {
+        st.items.slice(0, 3).forEach(function (it) {
+          h += '<div class="nwv2-it"><div><b>' + esc(it.name) + '</b>' + (it.note ? '<span>' + esc(it.note) + '</span>' : '') + '</div>' +
+            '<div class="nwv2-pr"><b>' + esc(it.priceText) + '</b>' + (it.perPerson && it.amount != null ? '<span>per person</span>' : '') + '</div></div>';
+        });
+        if (st.items.length > 3) h += '<a class="nwv2-all" href="#prices">See all ' + st.items.length + ' options</a>';
+        // The total: only from a price the space gives per person (a
+        // desk is for one person by its nature).
+        var low = st.items[0];
+        if (st.many && low.amount != null && (low.perPerson || V2.need === 'desk') && (low.period === 'month' || low.period === 'day')) {
+          var tot = money(low.amount * V2.people, low.currency, '') + (/\+\s*vat/i.test(low.label) ? ' + VAT' : '');
+          h += '<p class="nwv2-tot">For ' + V2.people + ' people: from ' + esc(tot) + (low.period === 'month' ? ' a month' : ' a day') +
+            ', based on the price per person. ' + esc(data.space) + ' confirms the exact offer.</p>';
+        }
+      } else {
+        var alt = [];
+        nearby.forEach(function (sp) {
+          var best = null;
+          (sp.prices || []).forEach(function (p) {
+            var det = (p.details || []).map(function (x) { return String(x || '').trim(); }).filter(Boolean);
+            var per = periodOf(p.name, det, p.category);
+            if (needOfKind(p.category, per) !== V2.need || p.amount == null) return;
+            if (V2.need === 'day' && per !== 'day') return;
+            if (!best || Number(p.amount) < Number(best.p.amount)) best = { p: p, per: per };
+          });
+          if (best && alt.length < 3) alt.push({ sp: sp, p: best.p, per: best.per });
+        });
+        h += '<p class="nwv2-none">' + esc(data.space) + ' does not list ' + st.def[3] + '.' + (alt.length ? ' Close by:' : ' Send a request and ask what they can offer.') + '</p>';
+        alt.forEach(function (a) {
+          h += '<a class="nwv2-alt" href="/coworking/' + esc(a.sp.slug) + '" data-slug="' + esc(a.sp.slug) + '"><span>' + esc(a.sp.name) + '</span>' +
+            '<b>from ' + esc(money(a.p.amount, a.p.currency, a.p.label).replace(/^from\s+/i, '')) + (a.per ? ' ' + PER[a.per] : '') + '</b></a>';
+        });
+      }
+      h += '</div><button type="button" class="nwv2-go" data-k="go">' + esc(st.cta) + '</button>' +
+        '<p class="nwv2-sure">Free, with no obligation. ' + esc(data.space) + ' replies to you by email.' +
+        (data.checked ? '<br>Prices from their own website, ' + esc(data.checked) + '.' : '') + '</p>';
+      box.innerHTML = h;
+      if (bar) bar.innerHTML = '<b>' + esc(st.cta) + '</b>';
+      if (focusKey) {
+        var el = box.querySelector('[data-k="' + focusKey + '"]');
+        if (el && !el.disabled) { try { el.focus({ preventScroll: true }); } catch (e) { el.focus(); } }
+      }
+    };
+    V2.go = function (from) {
+      var st = state();
+      track('picker_request', { slug: SLUG, need: V2.need, people: V2.people, from: from || 'box', matched: st.items.length > 0 });
+      if (!st.items.length) {
+        var top = document.querySelector('.left-column .buttons-wrapper .research-button');
+        if (top) (top.querySelector('#research-button-wrapper') || top).click();
+        return;
+      }
+      openSheet(st.items[0].id, 'go');
+      // The team size chosen here is carried into the request.
+      S.people = bucket(V2.people);
+      render();
+    };
+    box.addEventListener('click', function (e) {
+      var t = e.target.closest ? e.target.closest('button,a') : null;
+      if (!t) return;
+      if (t.hasAttribute('data-need')) {
+        V2.need = t.getAttribute('data-need');
+        track('picker_need', { slug: SLUG, need: V2.need });
+        draw('need-' + V2.need);
+      } else if (t.hasAttribute('data-step')) {
+        var up = t.getAttribute('data-step') === '1';
+        V2.people = Math.max(1, Math.min(50, V2.people + (up ? 1 : -1)));
+        draw(up ? (V2.people >= 50 ? 'less' : 'more') : (V2.people <= 1 ? 'more' : 'less'));
+      } else if (t.classList.contains('nwv2-go')) {
+        V2.go('box');
+      } else if (t.classList.contains('nwv2-alt')) {
+        track('picker_nearby_click', { slug: SLUG, need: V2.need, to: t.getAttribute('data-slug') });
+      }
+    });
+    draw();
+    nearbyList().then(function (list) { nearby = Array.isArray(list) ? list : []; if (!state().items.length) draw(); });
+    // On a phone the bar at the bottom shows whenever the box's own
+    // button is off screen, and says the same thing.
+    if (bar && window.IntersectionObserver) {
+      new IntersectionObserver(function (es) {
+        var e = es[es.length - 1];
+        var go = box.querySelector('.nwv2-go');
+        bar.classList.toggle('on', !e.isIntersecting);
+        if (!go) return;
+      }, { threshold: 0 }).observe(box);
+    }
+  }
+
   function v2Nearby() {
     if (document.querySelector('.nwv2-nearby')) return;
     var host = document.querySelector('.left-column .div-block-80');
     if (!host) return;
-    fetch(URL_ + '/rest/v1/rpc/page_nearby', {
-      method: 'POST',
-      headers: { apikey: KEY, Authorization: 'Bearer ' + KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ p_slug: SLUG })
-    }).then(function (r) { return r.ok ? r.json() : null; }).then(function (list) {
+    nearbyList().then(function (list) {
       if (!Array.isArray(list) || !list.length || document.querySelector('.nwv2-nearby')) return;
       var loc = document.querySelector('.location-div');
       var area = loc ? String(loc.textContent || '').split(',')[0].replace(/\s+/g, ' ').trim() : '';
@@ -1619,6 +1820,7 @@
       if (page) page.classList.add('nwv2');
       document.body.classList.add('nwv2');
       v2Facts(raw);
+      v2Picker();
       v2Steps(data && data.space !== 'this space' ? data.space : (raw.space || ''));
       v2Nearby();
       v2Claim();
