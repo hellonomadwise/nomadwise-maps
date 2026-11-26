@@ -1397,7 +1397,10 @@
       '.nwv2-facts{display:flex;flex-direction:column;gap:2px;margin:6px 0 10px;font-family:Roboto,sans-serif;font-size:14px;line-height:1.5;color:#5E6670;flex:0 0 100%;width:100%;max-width:100%;contain:inline-size}',
       '.nwv2-ln{white-space:nowrap;overflow:hidden;width:0;min-width:100%}',
       '.nwv2-ln.wrap{white-space:normal}',
-      '.nwv2-ln a{color:#05434F;font-weight:700;text-decoration:underline}',
+      // Links in the fact lines: the page's own dark text, medium weight, a
+      // thin underline (Jonathan, 26 Nov 2026: bold teal "feels off").
+      '.nwv2-ln a{color:#2C2C2C;font-weight:500;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px}',
+      '.nwv2-ln a:hover{text-decoration-thickness:2px}',
       '.nwv2-ln .dot{margin:0 6px}',
       '.nwv2-sec{margin:32px 0;font-family:Roboto,sans-serif;color:#2C2C2C;contain:inline-size}',
       '.nwv2-sec h2{margin:0 0 14px;font-size:20px;line-height:1.3;font-weight:700}',
@@ -1445,7 +1448,15 @@
       '.nwv2-note{display:block;margin-top:3px;font:400 13.5px/1.45 Roboto,sans-serif;color:#5E6670}',
       '.nwv2-pr{font:400 13.5px/1.35 Roboto,sans-serif;color:#5E6670;white-space:nowrap}',
       '.nwv2-pr b{font-size:15px;font-weight:700;color:#2C2C2C}',
-      '.nwv2-all{padding-top:4px;font-size:14px;font-weight:700;color:#05434F;text-decoration:underline}',
+      '.nwv2-all{padding-top:4px;font-size:14px;font-weight:500;color:#2C2C2C;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px}',
+      // Options a visitor can pick: the request then names that one.
+      '.nwv2-pick button.nwv2-opt{display:grid;grid-template-columns:16px minmax(0,1fr);column-gap:10px;align-items:start;width:100%;margin:0;padding:12px 0;border:0;border-top:1px solid rgba(0,0,0,.08);border-radius:0;background:none;text-align:left;font:inherit;color:inherit;cursor:pointer}',
+      '.nwv2-pick .nwv2-res>button.nwv2-opt:first-child{border-top:0;padding-top:0}',
+      '.nwv2-opt>span:last-child{display:block;min-width:0}',
+      '.nwv2-opt .nwv2-it-top{display:flex}',
+      '.nwv2-rad{box-sizing:border-box;width:16px;height:16px;margin-top:2px;border:1.5px solid #9AA1A9;border-radius:8px;background:#fff}',
+      '.nwv2-opt:hover .nwv2-rad{border-color:#2C2C2C}',
+      '.nwv2-opt[aria-pressed="true"] .nwv2-rad{border-color:#FF444F;background:#FF444F;box-shadow:inset 0 0 0 3px #fff}',
       '.nwv2-tot{margin:4px 0 0;padding:10px 12px;border-radius:8px;background:#F6F7F8;font-size:14px;line-height:1.45}',
       '.nwv2-none{margin:0;font-size:14px;line-height:1.45;color:#5E6670}',
       '.nwv2-alt{display:flex;justify-content:space-between;gap:12px;font-size:14.5px;color:#2C2C2C;text-decoration:none}',
@@ -1752,7 +1763,7 @@
     return '';
   }
 
-  var V2 = { need: null, people: 1, go: null, near: null, place: null, fit: null, addr: '', dir: '' };
+  var V2 = { sel: null, need: null, people: 1, go: null, near: null, place: null, fit: null, addr: '', dir: '' };
   function nearbyList() {
     if (!V2.near) {
       V2.near = fetch(URL_ + '/rest/v1/rpc/page_nearby', {
@@ -1824,7 +1835,8 @@
         cta = V2.need === 'desk' && many ? 'Request desks for ' + V2.people
           : 'Request ' + def[2] + (many ? ' for ' + V2.people : '');
       }
-      return { def: def, items: items, many: many, cta: cta };
+      var sel = items.filter(function (it) { return String(it.id) === String(V2.sel); })[0] || items[0] || null;
+      return { def: def, items: items, many: many, cta: cta, sel: sel };
     };
     var draw = function (focusKey) {
       var st = state(), h = '<h2>What do you need?</h2><div class="nwv2-needs" role="group" aria-label="What do you need?">';
@@ -1848,8 +1860,17 @@
           var pm = /^(from\s+)?([^\s\d]*\d[\d,.]*)(.*)$/i.exec(it.priceText || '');
           var ph = pm ? esc(pm[1] || '') + '<b>' + esc(pm[2]) + '</b>' + esc(pm[3]) : esc(it.priceText || '');
           if (it.perPerson && it.amount != null) ph += ' per person';
-          h += '<div class="nwv2-it"><div class="nwv2-it-top"><b>' + esc(it.name) + '</b><span class="nwv2-pr">' + ph + '</span></div>' +
-            (it.note ? '<span class="nwv2-note">' + esc(it.note) + '</span>' : '') + '</div>';
+          var body = '<span class="nwv2-it-top"><b>' + esc(it.name) + '</b><span class="nwv2-pr">' + ph + '</span></span>' +
+            (it.note ? '<span class="nwv2-note">' + esc(it.note) + '</span>' : '');
+          // With more than one option each row can be picked, so the
+          // request names the one the visitor wants (Jonathan, 26 Nov
+          // 2026). The cheapest starts picked.
+          if (st.items.length > 1) {
+            h += '<button type="button" class="nwv2-it nwv2-opt" data-item="' + esc(it.id) + '" data-k="it-' + esc(it.id) + '" aria-pressed="' + (it === st.sel) + '">' +
+              '<span class="nwv2-rad" aria-hidden="true"></span><span>' + body + '</span></button>';
+          } else {
+            h += '<div class="nwv2-it">' + body.replace('<span class="nwv2-it-top">', '<div class="nwv2-it-top">').replace('</span></span>', '</span></div>') + '</div>';
+          }
         });
         if (st.items.length > 3) h += '<a class="nwv2-all" href="#prices">See all ' + st.items.length + ' options</a>';
         // The total: only from a price the space gives per person (a
@@ -1881,7 +1902,7 @@
         if (top) (top.querySelector('#research-button-wrapper') || top).click();
         return;
       }
-      openSheet(st.items[0].id, 'go');
+      openSheet((st.sel || st.items[0]).id, 'go');
       // The team size chosen here is carried into the request.
       S.people = bucket(V2.people);
       render();
@@ -1891,12 +1912,17 @@
       if (!t) return;
       if (t.hasAttribute('data-need')) {
         V2.need = t.getAttribute('data-need');
+        V2.sel = null;
         track('picker_need', { slug: SLUG, need: V2.need });
         draw('need-' + V2.need);
       } else if (t.hasAttribute('data-step')) {
         var up = t.getAttribute('data-step') === '1';
         V2.people = Math.max(1, Math.min(50, V2.people + (up ? 1 : -1)));
         draw(up ? (V2.people >= 50 ? 'less' : 'more') : (V2.people <= 1 ? 'more' : 'less'));
+      } else if (t.hasAttribute('data-item')) {
+        V2.sel = t.getAttribute('data-item');
+        track('picker_item', { slug: SLUG, need: V2.need, item: V2.sel });
+        draw('it-' + V2.sel);
       } else if (t.classList.contains('nwv2-go')) {
         V2.go('box');
       }
