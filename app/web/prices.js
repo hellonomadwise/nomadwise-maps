@@ -1546,9 +1546,6 @@
       '.nwv2-hrs .r span:last-child{color:#5E6670;text-align:right}' +
       '.nwv2-site{display:flex;justify-content:space-between;gap:12px;padding:14px 16px;border-top:1px solid rgba(0,0,0,.08);font-size:14.5px;font-weight:700;color:#05434F;text-decoration:none}' +
       '.nwv2-site:hover{background:#F6F7F8}' +
-      '.nwv2-wide .left-column .nwv2-ads{width:100%;max-width:none;margin:8px 0 28px;align-self:auto}' +
-      '.nwv2-wide .left-column .nwv2-ads .w-dyn-items{display:flex;flex-direction:row;flex-wrap:wrap;gap:16px;align-items:flex-start}' +
-      '.nwv2-wide .left-column .nwv2-ads .w-dyn-item{flex:0 0 260px;width:260px;margin:0}' +
       // The name sits on the page itself across the full width; the
         // photos fill the left column and the box starts level with them
         // (Jonathan, 26 Nov 2026, after an earlier mock-up he liked).
@@ -2168,19 +2165,9 @@
       head = document.createElement('div');
       head.className = 'nwv2-head';
     }
-    // With the box, map and hours in the side column, the three banners
-    // would run far below the end of the page's own content and leave a
-    // long blank beside them. On a computer they sit in a row under
-    // "How a request works" instead.
-    var ads = null, adsHome = null;
-    [].slice.call(side.children).forEach(function (c) {
-      if (!ads && c.classList && c.classList.contains('w-dyn-list') && !c.classList.contains('is-hidden')) ads = c;
-    });
-    if (ads) {
-      adsHome = document.createComment('banners');
-      side.insertBefore(adsHome, ads);
-      ads.classList.add('nwv2-ads');
-    }
+    // The banners stay where they are, in the side column under the
+    // card (Jonathan, 26 Nov 2026: "absolutely no" to a row of banners
+    // in the page).
     document.body.classList.add('nwv2-wide');
     var mq = window.matchMedia('(min-width:992px)');
     var place = function () {
@@ -2200,12 +2187,7 @@
           if (map.parentNode !== mapCard) mapCard.insertBefore(map, mapCard.firstChild);
           after = mapCard;
         }
-        if (ads && ads.parentNode !== host) {
-          var hw = host.querySelector('.nwv2-how');
-          if (hw) host.insertBefore(ads, hw.nextSibling); else host.appendChild(ads);
-        }
       } else {
-        if (ads && ads.parentNode !== side) side.insertBefore(ads, adsHome);
         if (mapCard && map.parentNode !== host) {
           host.insertBefore(map, mapHome);
           if (mapCard.parentNode) mapCard.parentNode.removeChild(mapCard);
