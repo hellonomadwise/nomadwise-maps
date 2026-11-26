@@ -1394,14 +1394,24 @@
       // The lines must never widen the page: they take the width they
       // are given and no more (found on Masco, 26 Nov 2026: a long
       // address stretched the whole card on a phone).
-      '.nwv2-facts{display:flex;flex-direction:column;gap:2px;margin:6px 0 10px;font-family:Roboto,sans-serif;font-size:14px;line-height:1.5;color:#5E6670;flex:0 0 100%;width:100%;max-width:100%;contain:inline-size}',
+      '.nwv2-facts{display:flex;flex-direction:column;gap:6px;margin:8px 0 12px;font-family:Roboto,sans-serif;font-size:14.5px;line-height:1.5;color:#444B53;flex:0 0 100%;width:100%;max-width:100%;contain:inline-size}',
       '.nwv2-ln{white-space:nowrap;overflow:hidden;width:0;min-width:100%}',
       '.nwv2-ln.wrap{white-space:normal}',
-      // Links in the fact lines: the page's own dark text, medium weight, a
-      // thin underline (Jonathan, 26 Nov 2026: bold teal "feels off").
-      '.nwv2-ln a{color:#2C2C2C;font-weight:500;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px}',
+      // Each fact starts with a small icon (star, pin, clock) so the eye
+      // finds the rating, the address and the hours at once, and the two
+      // facts on the first line stand apart (Leonie, 26 Nov 2026: plain
+      // text, "missing some sort of icon", "too much unrelated info in the
+      // same style"). Links are Nomadwise teal, not black.
+      '.nwv2-ln a{color:#05434F;font-weight:500;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px}',
       '.nwv2-ln a:hover{text-decoration-thickness:2px}',
+      '.nwv2-ln svg{width:16px;height:16px;vertical-align:-3px;margin-right:6px;color:#2C2C2C}',
+      '.nwv2-ln svg.nwv2-star{color:#F5A623}',
+      '.nwv2-ln b{font-weight:700;color:#2C2C2C}',
+      '.nwv2-ln .gap{display:inline-block;width:20px}',
       '.nwv2-ln .dot{margin:0 6px}',
+      // The "Where to stay" banner is off the new page for now (Jonathan,
+      // 26 Nov 2026). Ubigi and SafetyWing stay.
+      'body.nwv2 .listings-5th-col .w-dyn-item:has(img[src*="stay-nearby-banner"]),body.nwv2 .listings-5th-col .w-dyn-item:has(img[alt^="Where to stay"]){display:none !important}',
       '.nwv2-sec{margin:32px 0;font-family:Roboto,sans-serif;color:#2C2C2C;contain:inline-size}',
       '.nwv2-sec h2{margin:0 0 14px;font-size:20px;line-height:1.3;font-weight:700}',
       '.nwv2-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:0;padding:0;list-style:none}',
@@ -1651,7 +1661,7 @@
     var rw = top.querySelector('.google-rating-wrapper');
     var rt = rw ? String(rw.textContent || '').replace(/\s+/g, ' ') : '';
     var rm = /(\d(?:[.,]\d)?)\s*\/?\s*\((\d[\d,]*)\)/.exec(rt);
-    var rating = rm ? rm[1] + ' (' + rm[2] + ') Google rating' : '';
+    var rating = rm ? '<b>' + esc(rm[1]) + '</b> (' + esc(rm[2]) + ' Google reviews)' : '';
     var addr = String(raw.address || '').replace(/\s+/g, ' ').trim();
     if (/^[A-Z0-9]{4}\+[A-Z0-9]{2,}/i.test(addr)) addr = '';
     var lat = Number(raw.lat), lng = Number(raw.lng), dir = '';
@@ -1688,14 +1698,27 @@
     var box = document.createElement('div');
     box.className = 'nwv2-facts';
     var l1 = [], l2 = [];
-    if (rating) l1.push({ k: 'rating', h: esc(rating) });
-    if (addr) l1.push({ k: 'addr', h: esc(addr) });
-    if (dir) l1.push({ k: 'dir', h: '<a href="' + esc(dir) + '" target="_blank" rel="noopener" data-nwv2="dir">Get directions</a>' });
-    if (hours) l2.push({ k: 'hours', h: esc(hours) });
-    if (hours && allDay) l2.push({ k: 'members', h: 'members 24/7' });
-    if (hours) l2.push({ k: 'all', h: '<a href="#nwp-week" data-nwv2="hours">See all hours</a>' });
+    var IC = {
+      r: '<svg class="nwv2-star" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.6l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5-5.8-3.1-5.8 3.1 1.1-6.5L2.6 9.4l6.5-.9z"/></svg>',
+      a: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>',
+      h: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>'
+    };
+    if (rating) l1.push({ k: 'rating', g: 'r', h: rating });
+    if (addr) l1.push({ k: 'addr', g: 'a', h: esc(addr) });
+    if (dir) l1.push({ k: 'dir', g: 'a', h: '<a href="' + esc(dir) + '" target="_blank" rel="noopener" data-nwv2="dir">Get directions</a>' });
+    if (hours) l2.push({ k: 'hours', g: 'h', h: esc(hours) });
+    if (hours && allDay) l2.push({ k: 'members', g: 'h', h: 'members 24/7' });
+    if (hours) l2.push({ k: 'all', g: 'h', h: '<a href="#nwp-week" data-nwv2="hours">See all hours</a>' });
     var draw = function (parts) {
-      return parts.map(function (p) { return p.h; }).join('<span class="dot" aria-hidden="true">·</span>');
+      // The first fact of each kind carries the icon; a wider gap sets
+      // the kinds apart, a dot joins what belongs together.
+      var out = '', last = null;
+      parts.forEach(function (p) {
+        if (last !== null) out += p.g === last ? '<span class="dot" aria-hidden="true">·</span>' : '<span class="gap"></span>';
+        out += (p.g !== last ? IC[p.g] : '') + p.h;
+        last = p.g;
+      });
+      return out;
     };
     var ln1 = document.createElement('div'), ln2 = document.createElement('div');
     ln1.className = ln2.className = 'nwv2-ln';
