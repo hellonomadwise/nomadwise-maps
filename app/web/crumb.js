@@ -68,11 +68,11 @@
   function track(ev, props) { try { if (window.posthog) window.posthog.capture(ev, props); } catch (e) {} }
   // Hovering a step shows the places beside it (other areas, cities or
   // countries) while a click still goes up to that step's page (Jonathan,
-  // 26 Nov 2026). Computers only, and for now only with the preview
-  // switch on, like the new listing page.
+  // 26 Nov 2026). Computers only. Live for everyone with the new
+  // listing page; ?preview=0 on a listing page turns it off in a browser.
   var HOVER = false;
   try {
-    HOVER = localStorage.getItem('nw_preview') === '1' && window.innerWidth >= 768 &&
+    HOVER = localStorage.getItem('nw_preview') !== '0' && window.innerWidth >= 768 &&
       window.matchMedia('(hover:hover) and (pointer:fine)').matches;
   } catch (e) {}
 

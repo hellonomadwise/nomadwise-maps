@@ -1372,12 +1372,16 @@
   // ?preview=0 turns it off. Visitors see today's page.
   // Step 1: two fact lines under the name, "How a request works", other
   // spaces nearby, and one small claim line.
-  var PREVIEW = false;
+  // LIVE FOR EVERYONE from 26 Nov 2026 (Jonathan: "im looking to move
+  // this design to live"). The switch stays as a way back: ...?preview=0
+  // shows the old page in that browser, ?preview=1 returns to the new one.
+  // To take the new page off for all visitors, set PREVIEW to false here.
+  var PREVIEW = true;
   try {
     var pq = new URLSearchParams(location.search).get('preview');
     if (pq === '1') localStorage.setItem('nw_preview', '1');
-    if (pq === '0') localStorage.removeItem('nw_preview');
-    PREVIEW = localStorage.getItem('nw_preview') === '1';
+    if (pq === '0') localStorage.setItem('nw_preview', '0');
+    PREVIEW = localStorage.getItem('nw_preview') !== '0';
   } catch (e) {}
 
   function v2Styles() {
@@ -1411,6 +1415,8 @@
       '.nwv2-ln b{font-weight:700;color:#2C2C2C}',
       '.nwv2-ln .gap{display:inline-block;width:20px}',
       '.nwv2-ln .dot{margin:0 6px}',
+      '.nwv2-ln.wrap a[data-nwv2="hours"]{display:block;margin-left:22px}',
+      '.nwv2-ln.wrap .dot:has(+ a[data-nwv2="hours"]){display:none}',
       // The "Where to stay" banner is off the new page for now (Jonathan,
       // 26 Nov 2026). Ubigi and SafetyWing stay.
       'body.nwv2 .listings-5th-col .w-dyn-item:has(img[src*="stay-nearby-banner"]),body.nwv2 .listings-5th-col .w-dyn-item:has(img[alt^="Where to stay"]){display:none !important}',
@@ -1786,7 +1792,12 @@
         }
         // Still too long with only what must stay: let it wrap rather
         // than cut anything off.
-        if (el.scrollWidth > el.clientWidth + 1) el.classList.add('wrap');
+        if (el.scrollWidth > el.clientWidth + 1) {
+          el.classList.add('wrap');
+          // The hours link then takes a line of its own, in full.
+          var sb = el.querySelector('a[data-nwv2="hours"]');
+          if (sb) sb.textContent = 'See all hours';
+        }
       });
     };
     fit();
