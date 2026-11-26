@@ -1518,19 +1518,26 @@
       '.nwv2-wide .nwv2-stick-in{position:sticky;top:84px;max-height:calc(100vh - 100px);overflow-y:auto;scrollbar-width:thin}' +
       '.nwv2-wide .nwv2-stick .nwv2-pick{margin:0;max-width:none;box-shadow:0 6px 20px rgba(20,32,50,.08)}' +
       '.nwv2-wide .nwv2-stick .nwv2-claim{margin:12px 0 0;text-align:center}' +
-      '.nwv2-head{flex:0 0 100%;width:100%;margin:3px 3px 20px;padding:24px;border-radius:8px;box-shadow:rgba(0,0,0,.15) 0 0 3px;background:#fff;contain:inline-size}' +
-        '.nwv2-head .quick-stack-41{display:block}' +
-        '.nwv2-head .gallery__component{display:block;margin-top:6px}' +
-        '.nwv2-head .row-4.is-gallery{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:minmax(0,1fr);gap:8px;height:clamp(300px,min(34vw,46vh),460px)}' +
-        '.nwv2-head .row-4.is-gallery>.col{height:100%;min-height:0;width:auto;max-width:none;padding:0}' +
-        '.nwv2-head .row-4.is-gallery>.col:last-child{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:minmax(0,1fr) minmax(0,1fr);gap:8px}' +
-        '.nwv2-head .gallery-popup__image-wrapper{height:100%;padding:0 !important;aspect-ratio:auto}' +
-        '.nwv2-head .gallery-popup__image-wrapper img{width:100%;height:100%;object-fit:cover}' +
-        '.nwv2-wide .listings-content-container{border-radius:8px}' +
+      // The name sits on the page itself across the full width; the
+        // photos fill the left column and the box starts level with them
+        // (Jonathan, 26 Nov 2026, after an earlier mock-up he liked).
+        '.nwv2-head{flex:0 0 100%;width:100%;padding:8px 3px 14px;contain:inline-size}' +
+        '.nwv2-wide .listings-content-container{box-shadow:none;padding:0;border-radius:0}' +
+        '.nwv2-wide .listing-wrapper{column-gap:28px}' +
+        '.nwv2-wide .left-column .quick-stack-41,.nwv2-wide .left-column .div-block-208,.nwv2-wide .gallery__component{display:block}' +
+        '.nwv2-wide .row-4.is-gallery{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:minmax(0,1fr);gap:8px;height:clamp(320px,min(36vw,50vh),520px);border-radius:8px;overflow:hidden}' +
+        '.nwv2-wide .row-4.is-gallery>.col{height:100%;min-height:0;width:auto;max-width:none;padding:0}' +
+        '.nwv2-wide .row-4.is-gallery>.col:last-child{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:minmax(0,1fr) minmax(0,1fr);gap:8px}' +
+        '.nwv2-wide .gallery-popup__image-wrapper{height:100%;padding:0 !important;aspect-ratio:auto}' +
+        '.nwv2-wide .gallery-popup__image-wrapper img{width:100%;height:100%;object-fit:cover;border-radius:0}' +
         '.nwv2-wide .listing-wrapper>.nwv2-nearby{flex:0 0 100%;width:100%;margin:8px 0 32px;padding:0 3px}' +
       '.nwv2-wide .listing-wrapper>.nwv2-nearby .nwv2-near{grid-template-columns:repeat(4,minmax(0,1fr))}' +
       '}',
-      '@media (min-width:1200px){.nwv2-wide .listings-5th-col.directory{flex-basis:370px;width:370px}}'
+      '@media (min-width:1200px){.nwv2-wide .listings-5th-col.directory{flex-basis:370px;width:370px}}',
+      // Laptops: the listing page, its breadcrumb and the menu open up
+      // to 1320px so the photos have room. Larger screens already go to
+      // 1440px. Listing pages only; article pages are untouched.
+      '@media (min-width:1200px) and (max-width:1919px){.nwv2-wide .container_coworking,.nwv2-wide .listing-wrapper,.nwv2-wide .container-31,.nwv2-wide .navbar-2 .container-10{max-width:min(1320px,calc(100vw - 96px)) !important;width:100%}}'
     ].join('\n');
     document.head.appendChild(st);
   }
@@ -2063,13 +2070,14 @@
     });
     var before = host.querySelector('section.nwp') || host.querySelector('.nwv2-how');
     if (card.children.length) { if (before) host.insertBefore(card, before); else host.appendChild(card); }
-    // The name and the photos run the full width above the two columns,
-    // so the photos are large on a laptop (Jonathan, 26 Nov 2026: "the
-    // photos might not be big enough"; the main one was 324px wide).
+    // The name and fact lines run the full width above the two columns
+    // (Jonathan, 26 Nov 2026: "the photos might not be big enough"; the
+    // main one was 324px wide on a laptop).
     var lc = document.querySelector('.left-column');
-    var top = lc ? lc.querySelector('.quick-stack-41') : null;
+    var top = lc ? lc.querySelector('.div-block-136') : null;
+    var topHome = top ? top.parentNode : null;
     var head = null;
-    if (top && top.parentNode === lc) {
+    if (top && topHome) {
       head = document.createElement('div');
       head.className = 'nwv2-head';
     }
@@ -2087,8 +2095,8 @@
           if (top.parentNode !== head) head.appendChild(top);
         }
       } else {
-        if (head && top.parentNode !== lc) {
-          lc.insertBefore(top, lc.firstChild);
+        if (head && top.parentNode !== topHome) {
+          topHome.insertBefore(top, topHome.firstChild);
           if (head.parentNode) head.parentNode.removeChild(head);
         }
         if (pick.parentNode !== host) host.insertBefore(pick, host.firstChild);
