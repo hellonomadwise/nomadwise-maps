@@ -74,9 +74,18 @@
   }
   // The price as a row shows it: the usual price struck through, then
   // ours, then a small "Nomadwise discount" mark.
+  // The price in three parts ("from", the amount, "/mo"), so a design
+  // can make only the amount bold. Without extra styling it reads
+  // exactly as before.
+  function priceParts(text) {
+    var m = /^(from\s+)?([^\s\d]*\d[\d,.]*)(.*)$/i.exec(text || '');
+    if (!m) return esc(text || '');
+    return (m[1] ? '<span class="nwp-pre">' + esc(m[1]) + '</span>' : '') + '<span class="nwp-amt">' + esc(m[2]) + '</span>' +
+      (m[3] ? '<span class="nwp-unit">' + esc(m[3]) + '</span>' : '');
+  }
   function priceHtml(it) {
-    if (!it.was) return esc(it.priceText);
-    return '<s class="nwp-was">' + esc(it.was) + '</s>' + esc(it.priceText) +
+    if (!it.was) return priceParts(it.priceText);
+    return '<s class="nwp-was">' + esc(it.was) + '</s>' + priceParts(it.priceText) +
       '<em class="nwp-deal">Nomadwise discount</em>';
   }
   function today0() { var d = new Date(); d.setHours(0, 0, 0, 0); return d; }
@@ -348,6 +357,7 @@
       '.nwp-rn{flex:1 1 auto;min-width:0;font-size:14.5px;line-height:1.35}',
       '.nwp-rn b{font-weight:700}',
       '.nwp-rn span{color:var(--nwp-muted);font-size:13px}',
+      '.nwp-dot{font-style:normal}',
       '.nwp-rp{font-size:14.5px;font-weight:700;white-space:nowrap}',
       '.nwp-rpw{white-space:normal;text-align:right}',
       '.nwp-tp .nwp-rpw{text-align:left}',
@@ -528,7 +538,7 @@
         (g.price ? '<div class="nwp-from">' + (g.fromWord ? '<small>FROM</small>' : '') + '<b>' + esc(g.price) + '</b><i>' + esc(g.per) + '</i></div>' : '<div class="nwp-from nwp-req"><b>Price on request</b></div>') + '</div>' +
         '<ul class="nwp-rows">';
       shownItems(g).forEach(function (it) {
-        h += '<li class="nwp-r"><span class="nwp-rn"><b>' + esc(it.name) + '</b>' + (it.note ? ' <span>· ' + esc(it.note) + '</span>' : '') + '</span>' +
+        h += '<li class="nwp-r"><span class="nwp-rn"><b>' + esc(it.name) + '</b>' + (it.note ? ' <span><i class="nwp-dot">· </i>' + esc(it.note) + '</span>' : '') + '</span>' +
           '<span class="nwp-rp' + (it.was ? ' nwp-rpw' : '') + '">' + priceHtml(it) + '</span>' + enqBtn(it) + '</li>';
       });
       h += moreBtn(g) + '</ul></section>';
@@ -1461,6 +1471,30 @@
         '.nwv2-tx{font-size:14.5px;line-height:1.45}' +
         '.nwv2-tx b{font-size:16px}' +
       '}',
+      // The price list on a computer as an aligned list (design A,
+      // Jonathan, 26 Nov 2026: the old one "seems a bit difficult to
+      // read"): a thin heading per kind of space, the name with its
+      // description on a line of its own, prices in one column with only
+      // the amount bold.
+      // These rules reach only the list form (it has .nwp-grp), never
+      // the tabbed form shown in a narrow column.
+      '.nwv2 .nwp-box:has(.nwp-grp){border:0;border-radius:0;overflow:visible;background:none}',
+      '.nwv2 .nwp-grp + .nwp-grp{border-top:0;margin-top:26px}',
+      '.nwv2 .nwp-grp .nwp-gh{background:none;padding:0 0 7px;border-bottom:2px solid #2C2C2C;align-items:baseline;gap:12px}',
+      '.nwv2 .nwp-grp .nwp-gimg,.nwv2 .nwp-grp .nwp-gh .nwp-from{display:none}',
+      '.nwv2 .nwp-grp .nwp-gt{display:flex;align-items:baseline;justify-content:space-between;gap:12px}',
+      '.nwv2 .nwp-grp .nwp-gt b{font-size:13px;letter-spacing:.06em;text-transform:uppercase}',
+      '.nwv2 .nwp-grp .nwp-gt span{margin:0;font-size:13px}',
+      '.nwv2 .nwp-grp .nwp-rows{padding:0}',
+      '.nwv2 .nwp-grp .nwp-r{display:grid;grid-template-columns:minmax(0,1fr) auto 96px;gap:16px;align-items:center;padding:14px 0;border-bottom:1px solid #ECEEF0}',
+      '.nwv2 .nwp-grp .nwp-r:last-child{border-bottom:0}',
+      '.nwv2 .nwp-grp .nwp-rn b{display:block;font-size:16px;line-height:1.35}',
+      '.nwv2 .nwp-grp .nwp-rn span{display:block;margin-top:2px;font-size:14px;line-height:1.45}',
+      '.nwv2 .nwp-grp .nwp-dot{display:none}',
+      '.nwv2 .nwp-grp .nwp-rp{font-weight:400;font-size:14px;color:#2C2C2C;text-align:right}',
+      '.nwv2 .nwp-grp .nwp-rp .nwp-pre,.nwv2 .nwp-grp .nwp-rp .nwp-unit{font-size:13px;color:#5E6670}',
+      '.nwv2 .nwp-grp .nwp-rp .nwp-amt{font-weight:700;font-size:17px}',
+      '.nwv2 .nwp-grp .nwp-enq{justify-self:end;min-height:40px;font-weight:500;font-size:14px}',
       // Step 3: photos, "What's here", and the two columns on a computer.
       '.nwv2-h{margin:28px 0 14px;font:700 20px/1.3 Roboto,sans-serif;color:#2C2C2C}',
       // What's here
