@@ -1399,6 +1399,9 @@
       '.nwv2-tx{padding:10px 12px;font-size:14px;line-height:1.4}',
       '.nwv2-tx b{display:block;font-weight:700}',
       '.nwv2-tx span{display:block;color:#5E6670}',
+      '.nwv2-tx b{margin-bottom:4px}',
+      '.nwv2-rate i{font-style:normal;color:#2C2C2C}',
+      '.nwv2-tx .nwv2-cp{margin-top:6px;color:#2C2C2C;font-weight:500}',
       '.nwv2-claim{margin:8px 0 24px;font-family:Roboto,sans-serif;font-size:13px;color:#5E6670}',
       '.nwv2-claim a{color:#5E6670;text-decoration:underline}',
       // Step 2: the "What do you need?" box. With it on the page the old
@@ -1445,7 +1448,12 @@
         '.nwv2-sec{margin:26px 0}.nwv2-sec h2{font-size:17px}' +
         '.nwv2-near{display:flex;overflow-x:auto;gap:10px;margin-right:-20px;padding-right:20px;scroll-snap-type:x mandatory;scrollbar-width:none}' +
         '.nwv2-near::-webkit-scrollbar{display:none}' +
-        '.nwv2-card{flex:0 0 160px;scroll-snap-align:start}' +
+        // One and a half cards across, so the next one shows there is
+        // more to swipe to.
+        '.nwv2-card{flex:0 0 64%;scroll-snap-align:start}' +
+        '.nwv2-pic{height:150px}' +
+        '.nwv2-tx{padding:12px 14px 14px;font-size:14.5px;line-height:1.45}' +
+        '.nwv2-tx b{font-size:16px}' +
       '}',
       // Step 3: photos, "What's here", and the two columns on a computer.
       '.nwv2-h{margin:28px 0 14px;font:700 20px/1.3 Roboto,sans-serif;color:#2C2C2C}',
@@ -1459,6 +1467,7 @@
       '.nwv2-amen:not(.all) .modal-filtertag-tag-empty{display:none}',
       '.nwv2-btn2{display:inline-flex;align-items:center;justify-content:center;min-height:44px;margin:8px 0 0;padding:8px 18px;border:1px solid #2C2C2C;border-radius:8px;background:#fff;font:500 15px/1.2 Roboto,sans-serif;color:#2C2C2C;cursor:pointer}',
       '.nwv2-btn2:hover{background:#F6F7F8}',
+      '@media (min-width:768px){.nwv2-amen-btn.nwv2-m{display:none}}',
       '.nwv2-btn2:focus-visible,.nwv2-view button:focus-visible{outline:2px solid #05434F;outline-offset:2px}',
       // Photos
       '.nwv2-all-ph{position:absolute;right:12px;bottom:12px;z-index:3;min-height:40px;margin:0;padding:6px 14px;border:1px solid #2C2C2C;border-radius:8px;background:#fff;font:500 14px/1.2 Roboto,sans-serif;color:#2C2C2C;cursor:pointer}',
@@ -1472,6 +1481,12 @@
       'html.nwv2-lock,html.nwv2-lock body{overflow:hidden !important}',
       '@media (max-width:767px){' +
       '.nwv2-h{margin:24px 0 12px;font-size:17px}' +
+        '.nwv2-amen{grid-template-columns:minmax(0,1fr);gap:16px}' +
+        '.nwv2-amen .modal-filtertag-tag{gap:16px}' +
+        '.nwv2-amen .modal-filtertag-tag .modal-filtertag-tagtext{font-size:16px !important}' +
+        '.nwv2-amen .modal-filtertag-tag .nw-amen-ico{width:24px !important;height:24px !important;flex-basis:24px}' +
+        '.nwv2-amen:not(.all) .nwv2-x5{display:none !important}' +
+        '.nwv2-amen-btn{display:flex;width:100%;min-height:48px;margin-top:16px;font-size:16px}' +
       '.nwv2-hasph .image-div-mobile .div-block-209{display:none !important}' +
         // The photo block keeps a 3:2 shape of its own, which left a gap
         // under the grid that grew on wider phones (Jonathan, 26 Nov 2026).
@@ -1825,13 +1840,14 @@
       var h = '<h2>' + esc(area && area.length < 40 ? 'Also in ' + area : 'Also nearby') + '</h2><div class="nwv2-near">';
       list.forEach(function (s) {
         var m = Number(s.metres);
-        var away = isFinite(m) ? (m < 1000 ? Math.max(50, Math.round(m / 10) * 10) + ' m away' : (m / 1000).toFixed(1).replace(/\.0$/, '') + ' km away') : '';
-        var rate = s.rating ? s.rating + (s.reviews ? ' (' + s.reviews + ')' : '') : '';
-        var meta = [rate, away].filter(Boolean).join(' · ');
+        // The distance says what it is measured from (Jonathan, 26 Nov
+        // 2026: "is that in context of the listing page? unclear").
+        var away = isFinite(m) ? (m < 1000 ? Math.max(50, Math.round(m / 10) * 10) + ' m' : (m / 1000).toFixed(1).replace(/\.0$/, '') + ' km') + ' from this space' : '';
+        var rate = s.rating ? '<span class="nwv2-rate"><i aria-hidden="true">\u2605</i> ' + esc(String(s.rating)) + (s.reviews ? ' (' + esc(String(s.reviews)) + ')' : '') + ' on Google</span>' : '';
         var price = nearPrice(s.prices);
         h += '<a class="nwv2-card" href="/coworking/' + esc(s.slug) + '" data-slug="' + esc(s.slug) + '">' +
           '<div class="nwv2-pic" aria-hidden="true"></div><div class="nwv2-tx"><b>' + esc(s.name) + '</b>' +
-          (meta ? '<span>' + esc(meta) + '</span>' : '') + (price ? '<span>' + esc(price) + '</span>' : '') + '</div></a>';
+          rate + (away ? '<span>' + esc(away) + '</span>' : '') + (price ? '<span class="nwv2-cp">' + esc(price) + '</span>' : '') + '</div></a>';
       });
       sec.innerHTML = h + '</div>';
       var how = host.querySelector('.nwv2-how');
@@ -1888,11 +1904,14 @@
     h.className = 'nwv2-h';
     h.textContent = 'What’s here';
     box.parentNode.insertBefore(h, box);
-    if (tags.length <= 6) { box.classList.add('all'); return; }
+    // Six show on a computer (two columns), five on a phone (one
+    // column, as Airbnb lists what a place offers), then "Show all N".
+    if (tags.length <= 5) { box.classList.add('all'); return; }
     tags.slice(6).forEach(function (t) { t.classList.add('nwv2-x'); });
+    tags[5].classList.add('nwv2-x5');
     var b = document.createElement('button');
     b.type = 'button';
-    b.className = 'nwv2-btn2';
+    b.className = 'nwv2-btn2 nwv2-amen-btn' + (tags.length <= 6 ? ' nwv2-m' : '');
     b.setAttribute('aria-expanded', 'false');
     b.textContent = 'Show all ' + tags.length;
     b.addEventListener('click', function () {
