@@ -1391,6 +1391,8 @@
   // listing is held unseen from the moment this script runs and fades in
   // when the new layout is ready. It shows anyway after 2.5 seconds, or
   // at once if anything fails, so the page can never stay blank.
+  // A small script in the head of the Webflow listing template adds the
+  // same nwv2-pre class before first paint; preShow() below clears both.
   var PRE = null;
   function preShow() {
     if (PRE === null) return;
