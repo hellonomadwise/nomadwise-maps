@@ -908,12 +908,19 @@ def _sweep_city(city, cowork_only=False):
                     places[row['google_place_id']] = row
         except Exception:  # noqa: BLE001
             pass
+    blocked = 0  # searches the daily Google limit stopped
     for (la, ln) in _grid(center[0], center[1], COWORK_CELL_M):
         if calls >= MAX_SWEEP_CALLS:
             break
         calls += 1
         try:
             res = _search_coworking(la, ln, 1800)
+        except google_meter.DailyLimitReached:
+            blocked += 1
+            continue
+        except Exception:  # noqa: BLE001
+            continue
+        try:
             for pl in (res or {}).get('places') or []:
                 if not _open_for_business(pl):
                     continue
@@ -935,6 +942,13 @@ def _sweep_city(city, cowork_only=False):
                 body=rows[i:i + 100])
         except Exception as e:  # noqa: BLE001
             print(f'Sweep upsert issue: {e}')
+    if blocked:
+        # 25 Nov 2026: Bangkok was marked swept after the day's Google
+        # limit stopped 14 of its 21 searches. A city cut short keeps
+        # what it found and is tried again the next night.
+        print(f'Sweep: {city} cut short, {blocked} searches stopped by '
+              'the daily Google limit; tried again next run.')
+        return
     req(f'{SUPABASE_URL}/rest/v1/city_sweeps',
         method='POST',
         headers=sb_headers({'Prefer': 'return=minimal'}),
