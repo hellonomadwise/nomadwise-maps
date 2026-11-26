@@ -1614,7 +1614,15 @@
       // box from staying in view.
       '.nwv2-wide .container-listings,.nwv2-wide .listing-wrapper{overflow:visible}' +
         // The banners keep their own width in the wider column.
-        '.nwv2-wide .listings-5th-col.directory>.w-dyn-list{width:100%;max-width:260px;align-self:center}' +
+        // Banners: tall ones stay 260 wide in the middle of the column; the
+        // wide SafetyWing one (740 x 420, made for this column) runs its
+        // full width (Jonathan, 26 Nov 2026). Ubigi is left as it is.
+        '.nwv2-wide .listings-5th-col.directory>.w-dyn-list{width:100%;max-width:none;align-self:stretch}' +
+        '.nwv2-wide .listings-5th-col.directory>.w-dyn-list>.w-dyn-items{display:flex;flex-direction:column;align-items:center;width:100%;max-width:none}' +
+        '.nwv2-wide .listings-5th-col.directory>.w-dyn-list .w-dyn-item{width:100%;max-width:260px}' +
+        '.nwv2-wide .listings-5th-col.directory>.w-dyn-list .w-dyn-item.nwv2-widead{max-width:none}' +
+        '.nwv2-wide .nwv2-widead .monis-rent-banner-desktop,.nwv2-wide .nwv2-widead a{display:block;width:100%;max-width:none;height:auto}' +
+        '.nwv2-wide .nwv2-widead img{display:block;width:100%;height:auto;aspect-ratio:740/420;object-fit:cover;border-radius:8px}' +
       '.nwv2-wide .listing-wrapper{flex-wrap:wrap;align-items:stretch}' +
       '.nwv2-wide .listing-wrapper>.quick-stack{flex:1 1 0;min-width:0;width:auto}' +
       '.nwv2-wide .listings-5th-col.directory{align-self:stretch;height:auto;flex:0 0 340px;width:340px;max-width:none;display:flex;flex-direction:column}' +
@@ -2335,9 +2343,30 @@
     // in the page).
     document.body.classList.add('nwv2-wide');
     var mq = window.matchMedia('(min-width:992px)');
+    // The SafetyWing banner: the site's own square one below 992px, the
+    // wide one at the full width of this column from 992px up.
+    var SW_WIDE = 'https://cdn.prod.website-files.com/64b6780f84d27e4bfd91f2d6/6b082a12e4cbe2034361b684_0002-1992240321205237671.jpeg';
+    var swImg = side.querySelector('.w-dyn-item a[href*="safetywing.com"] img');
+    var swItem = swImg && swImg.closest ? swImg.closest('.w-dyn-item') : null;
+    var swOld = swImg ? { src: swImg.getAttribute('src'), srcset: swImg.getAttribute('srcset'), sizes: swImg.getAttribute('sizes') } : null;
+    var swSet = function (wide) {
+      if (!swImg || !swItem) return;
+      if (wide === swItem.classList.contains('nwv2-widead')) return;
+      swItem.classList.toggle('nwv2-widead', wide);
+      if (wide) {
+        swImg.removeAttribute('srcset');
+        swImg.removeAttribute('sizes');
+        swImg.setAttribute('src', SW_WIDE);
+      } else {
+        if (swOld.srcset) swImg.setAttribute('srcset', swOld.srcset);
+        if (swOld.sizes) swImg.setAttribute('sizes', swOld.sizes);
+        swImg.setAttribute('src', swOld.src);
+      }
+    };
     var place = function () {
       var near = document.querySelector('.nwv2-nearby');
       var claim = document.querySelector('.nwv2-claim');
+      swSet(mq.matches);
       if (mq.matches) {
         if (pick.parentNode !== inner) inner.insertBefore(pick, inner.firstChild);
         if (claim && claim.parentNode !== inner) inner.appendChild(claim);
