@@ -2608,6 +2608,11 @@
       // works" and no request bar: the map with a red "Get directions"
       // leads the right-hand column instead. The page says which it is.
       CAFE = !!document.querySelector('.cafe-coworking-wrapper .cafe-type:not(.w-condition-invisible)');
+      // The week of hours in the page is headed "Overview" in Webflow;
+      // where it shows as it is (pages with no price list, on a phone)
+      // it says what it is.
+      var hh = document.querySelector('.left-column .div-block-77>.heading-14');
+      if (hh && /^\s*overview\s*$/i.test(hh.textContent || '')) hh.textContent = 'Opening hours';
       v2Facts(raw);
       v2Photos(name);
       v2Picker();
