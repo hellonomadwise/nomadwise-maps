@@ -1396,10 +1396,14 @@
       '.nwv2-steps b{flex:0 0 28px;height:28px;border-radius:8px;background:#FFF1F2;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px}',
       '.nwv2-near{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}',
       '@media (min-width:768px) and (max-width:1199px){.nwv2-near{grid-template-columns:repeat(2,minmax(0,1fr))}}',
-      '.nwv2-card{display:block;border:1px solid rgba(0,0,0,.1);border-radius:8px;overflow:hidden;color:#2C2C2C;text-decoration:none;background:#fff}',
-      '.nwv2-card:hover{box-shadow:0 4px 14px rgba(0,0,0,.08)}',
-      '.nwv2-pic{height:110px;background:#E9ECEF center/cover no-repeat}',
-      '.nwv2-tx{padding:10px 12px;font-size:14px;line-height:1.4}',
+      // A photo with a proper 4:3 shape and the words under it, no box
+      // round the card (Jonathan, 26 Nov 2026: the boxed cards with a
+      // shallow photo "look too wide somehow").
+      '.nwv2-card{display:block;color:#2C2C2C;text-decoration:none}',
+      '.nwv2-pic{aspect-ratio:4/3;border-radius:8px;background:#E9ECEF center/cover no-repeat}',
+      '.nwv2-card:hover .nwv2-pic{opacity:.92}',
+      '.nwv2-card:hover b{text-decoration:underline}',
+      '.nwv2-tx{padding:10px 0 0;font-size:14px;line-height:1.4}',
       '.nwv2-tx b{display:block;font-weight:700}',
       '.nwv2-tx span{display:block;color:#5E6670}',
       '.nwv2-tx b{margin-bottom:4px}',
@@ -1454,8 +1458,7 @@
         // One and a half cards across, so the next one shows there is
         // more to swipe to.
         '.nwv2-card{flex:0 0 64%;scroll-snap-align:start}' +
-        '.nwv2-pic{height:150px}' +
-        '.nwv2-tx{padding:12px 14px 14px;font-size:14.5px;line-height:1.45}' +
+        '.nwv2-tx{font-size:14.5px;line-height:1.45}' +
         '.nwv2-tx b{font-size:16px}' +
       '}',
       // Step 3: photos, "What's here", and the two columns on a computer.
@@ -2257,7 +2260,9 @@
       var e = es[es.length - 1];
       var on = !e.isIntersecting && e.boundingClientRect.top < 0;
       if (on) {
-        bar.style.top = (nav ? Math.round(nav.getBoundingClientRect().bottom) : 68) + 'px';
+        // One pixel under the menu's edge, so no sliver of the page shows
+        // between the two (Jonathan, 26 Nov 2026).
+        bar.style.top = (nav ? Math.floor(nav.getBoundingClientRect().bottom) - 1 : 67) + 'px';
         bar.firstChild.style.maxWidth = Math.round(wrapper.getBoundingClientRect().width) + 'px';
       }
       bar.classList.toggle('on', on);
