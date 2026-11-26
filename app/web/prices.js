@@ -1676,6 +1676,8 @@
       // with the address and directions, then the week of hours.
       '.nwv2-mapcard{width:100%;margin:0 0 16px;border:1px solid rgba(0,0,0,.1);border-radius:8px;overflow:hidden;background:#fff;font-family:Roboto,sans-serif}' +
       '.nwv2-mapcard .map-div-main{height:220px !important;min-height:0 !important;margin:0 !important}' +
+      '.map-div-main.nwv2-mapwide{display:block !important;height:360px !important;min-height:0 !important;margin:0 0 28px !important;border-radius:8px;overflow:hidden}' +
+      '.map-div-main.nwv2-mapwide>*,.map-div-main.nwv2-mapwide iframe{height:360px !important;width:100% !important}' +
       '.nwv2-mapcard .map-div-main>*,.nwv2-mapcard .map-div-main iframe{height:220px !important}' +
       '.nwv2-mapfoot{display:flex;flex-direction:column;gap:10px;padding:14px 16px 16px;font-size:14.5px;line-height:1.4;color:#2C2C2C}' +
       '.nwv2-mapfoot .nwv2-btn2{margin:0;text-decoration:none;width:100%}' +
@@ -2342,6 +2344,10 @@
     if (card.children.length) { if (before) host.insertBefore(card, before); else host.appendChild(card); }
     // The map, small, with the address and directions under it.
     var map = host.querySelector('.map-div-main'), mapHome = null, mapCard = null;
+    var mapLeft = !host.querySelector('section.nwp');
+    var mapH = document.createElement('h2');
+    mapH.className = 'nwv2-h nwv2-map-h';
+    mapH.textContent = 'Where it is';
     if (map && map.parentNode === host) {
       mapHome = document.createComment('map');
       host.insertBefore(mapHome, map);
@@ -2445,11 +2451,25 @@
         var after = stick;
         if (mapCard) {
           if (mapCard.parentNode !== side) side.insertBefore(mapCard, after.nextSibling);
-          if (map.parentNode !== mapCard) mapCard.insertBefore(map, mapCard.firstChild);
+          if (mapLeft) {
+            // A page with no price list is short on the left, so its map
+            // stays in the page, wide, under the photos and tags, and
+            // the card on the right keeps the address and the hours
+            // (Jonathan, 26 Nov 2026: "theres a bit of a gap here").
+            if (!map.classList.contains('nwv2-mapwide')) {
+              map.classList.add('nwv2-mapwide');
+              var row = host.querySelector('.nwv2-amen-row');
+              var at = row && row.parentNode === host ? row.nextSibling : host.firstChild;
+              host.insertBefore(mapH, at);
+              host.insertBefore(map, mapH.nextSibling);
+            }
+          } else if (map.parentNode !== mapCard) mapCard.insertBefore(map, mapCard.firstChild);
           after = mapCard;
         }
       } else {
-        if (mapCard && map.parentNode !== host) {
+        if (mapCard && (map.parentNode !== host || map.classList.contains('nwv2-mapwide'))) {
+          map.classList.remove('nwv2-mapwide');
+          if (mapH.parentNode) mapH.parentNode.removeChild(mapH);
           host.insertBefore(map, mapHome);
           if (mapCard.parentNode) mapCard.parentNode.removeChild(mapCard);
         }
