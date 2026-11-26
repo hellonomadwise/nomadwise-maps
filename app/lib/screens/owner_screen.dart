@@ -139,6 +139,8 @@ class _OwnerScreenState extends State<OwnerScreen> {
   // "Short on time?" and the Performance number on My listing
   // (migration 355).
   bool _helpClosed = false;
+  // The cappuccino price: the currency list stays shut until asked for.
+  bool _coffeeCurOpen = false;
   bool _helpShownLogged = false;
   bool _perfShownLogged = false;
   Timer? _helpTimer;
@@ -4739,7 +4741,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
 
   /// One price box: the amount only, with the currency shown beside it.
   Widget _priceField(TextEditingController c, String label,
-          {double width = 200}) =>
+          {double width = 200, bool autofocus = false}) =>
       SizedBox(
         width: width,
         // One way of writing numbers: "1.000" and "1,000" both become
@@ -4754,6 +4756,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
           },
           child: TextField(
           controller: c,
+          autofocus: autofocus,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           inputFormatters: [
             FilteringTextInputFormatter.allow(RegExp(r'[0-9.,kK ]')),
@@ -5128,6 +5131,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
 
   /// Edit pressed: another open part is put back first (one at a time).
   void _startEdit(String part) {
+    _coffeeCurOpen = false;
     if (_editing != null && _editing != part) {
       _trk.editEnd('close', _venueId); // moved on, not given up
       // What was typed in the part being left stays: it is kept as a
@@ -7219,9 +7223,42 @@ class _OwnerScreenState extends State<OwnerScreen> {
                   'approves it.',
                   style: muted),
               const SizedBox(height: 16),
-              _currencyPicker(),
-              const SizedBox(height: 16),
-              _priceField(_priceCoffee, 'Cappuccino', width: 220),
+              // One box, ready to type in (26 Nov 2026). The currency
+              // came first, as a box you can type into, and an owner
+              // opened this part twice and left it empty. The space's
+              // own currency is already chosen and shows in the box;
+              // the list opens only for somebody who prices in another.
+              _priceField(_priceCoffee, 'Cappuccino',
+                  width: 220, autofocus: true),
+              const SizedBox(height: 10),
+              if (_coffeeCurOpen)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: _currencyPicker(),
+                )
+              else
+                Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 6,
+                    children: [
+                      Text('In ${Price.name(_currency)} ($_currency).',
+                          style: muted),
+                      InkWell(
+                        onTap: () {
+                          _trk.step('coffee_currency', null, _venueId);
+                          setState(() => _coffeeCurOpen = true);
+                        },
+                        borderRadius: BorderRadius.circular(8),
+                        child: const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 6),
+                          child: Text('Change currency',
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: _perfRed)),
+                        ),
+                      ),
+                    ]),
             ]))
         : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             _partHead('Cappuccino price', 'coffee'),

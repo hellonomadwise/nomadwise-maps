@@ -71,6 +71,7 @@ const _actionNames = {
   'ask_dismissed': 'Closed it without sending',
   'wish_sent': 'Told us what they need',
   'wish_news_seen': 'Saw a request we had done',
+  'coffee_currency': 'Opened the currency list on the cappuccino price',
   'help_shown': 'Was offered: Short on time? We update your page for you',
   'help_dismissed': 'Closed Short on time?',
   'perf_shown': 'Saw a Performance number on My listing',

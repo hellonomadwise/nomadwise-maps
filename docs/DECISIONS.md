@@ -7246,3 +7246,11 @@ Migration 363, first five checks (25 Nov 2026, run by hand before switching on):
 
 ## 26 Nov 2026: an owner who sent a change counts as Hands-on (migration 364)
 Owen's read of 24 to 26 Nov. Stone Soup, a Looker, came back on 24 Nov, was shown "Short on time?" and six minutes later sent a change to their page, but the visit holds no edit_save step, only "submitted", so they stayed tagged Looker and would have been offered "Short on time?" again. The tag in Owner activity and the offer now both count a "submitted" step as a saved change. Database only. Why that visit recorded no edit steps is not yet known.
+
+## 26 Nov 2026: the cappuccino price is one box
+Owen's read: Sun Society, a new cafe owner in Bangkok, opened "Cappuccino price" twice on 26 Nov (27 seconds, then 3 seconds) and left it empty both times, while saving their description and tags in the same visit. Jonathan: "go on this".
+- What the part asked: a Currency box first (a list you can type into, already on the space's own currency), then the amount. A price typed into the first box finds no currency and goes nowhere.
+- Now: the amount box comes first and is ready to type in, with the currency sign in it as before. Under it: "In Thai Baht (THB). Change currency". The list opens only when that is pressed (step coffee_currency, so we see how often it is needed).
+- Not changed: the words above the box, how it is saved, and the price list of a coworking space.
+- What is not known: why they left. It rests on one owner. Their description mentions a co-working space, and as a cafe their account has no price list, so they may have been looking for somewhere to put those prices. That is Jonathan's call (the 6 Nov decision: a price list is for coworking spaces).
+- App only, no migration. Not seen on a screen from the session; the build is the compile check.
