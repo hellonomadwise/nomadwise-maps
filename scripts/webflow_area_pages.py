@@ -300,24 +300,42 @@ def meeting_rooms(page, rows, photos, info=None):
         span = (f', for {min(caps)} to {max(caps)} people' if caps and min(caps) != max(caps)
                 else (f', for {caps[0]} people' if caps else ''))
         nm = len(s['items'])
+        # A whole-building product ("7 rooms for 1 to 20 people") counts
+        # as its 7 rooms in the line under the name.
+        def rooms_in(i):
+            if capacity(i['name']):
+                return 1
+            m = next((re.match(r'^(\d+)\s+rooms?\b', d.strip(), re.I) for d in i['details']
+                      if re.match(r'^(\d+)\s+rooms?\b', d.strip(), re.I)), None)
+            return int(m.group(1)) if m else 1
+        nm_rooms = sum(rooms_in(i) for i in s['items'])
         card = [f'<article class="aw-card" data-space="{e(s["slug"])}"{geo_attrs(s, info, n_card)}>',
                 '<div class="aw-top">',
                 photo_html(s, photos, 112, 80).replace('{suffix}', '' if area.lower() in s['name'].lower() else e(', ' + area)),
                 '<div class="aw-tt">',
                 f'<h2 class="aw-h2">{num_badge(s, info, n_card)}<a href="/coworking/{e(s["slug"])}">{e(plain_space(s["name"]))}</a></h2>',
-                f'<div class="aw-sub">{nm} meeting room{"s" if nm != 1 else ""}{span}</div></div>',
+                f'<div class="aw-sub">{nm_rooms} meeting room{"s" if nm_rooms != 1 else ""}{span}</div></div>',
                 f'<div class="aw-from">From {money(s["items"][0]["amount"])} an hour</div></div>',
                 facts_html(s, info, area),
                 '<div class="aw-rows">']
         for k, i in enumerate(s['items']):
             cap = capacity(i['name'])
-            extra = ' · two rooms joined' if any('joined' in d.lower() for d in i['details']) else ''
+            # "Three rooms joined together" reads "three rooms joined"
+            # (26 Nov 2026: Fora joins up to four rooms).
+            joined = next((d for d in i['details'] if 'joined' in d.lower()), '')
+            extra = (' · ' + joined.lower().replace(' together', '')) if joined else ''
+            # A product for a whole set of rooms ("7 rooms for 1 to 20
+            # people") shows that line, so the row never stands bare
+            # (Jonathan, 26 Nov 2026: rooms without a size need more info).
+            span_d = next((d for d in i['details'] if re.search(r'\brooms?\b.*\bpeople\b', d, re.I)
+                           or re.match(r'^\d+\s+to\s+\d+\s+people$', d.strip(), re.I)), '')
             card.append(
                 f'<div class="aw-row{" aw-more" if k >= 3 else ""}" data-cap="{cap or 0}">'
                 f'<div class="aw-rn"><div class="aw-rname">{e(room_name(i["name"]))}</div>'
                 f'<div class="aw-rcap">{cap} people{extra}</div></div>' if cap else
                 f'<div class="aw-row{" aw-more" if k >= 3 else ""}" data-cap="0">'
-                f'<div class="aw-rn"><div class="aw-rname">{e(room_name(i["name"]))}</div></div>')
+                f'<div class="aw-rn"><div class="aw-rname">{e(room_name(i["name"]))}</div>'
+                + (f'<div class="aw-rcap">{e(span_d)}</div>' if span_d else '') + '</div>')
             card.append(f'<div class="aw-rp"><div class="aw-price">From {money(i["amount"])}</div>'
                         '<div class="aw-per">an hour</div></div>'
                         f'<a class="aw-req" href="{e(request_href(s, i))}" rel="nofollow" '
