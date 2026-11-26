@@ -1384,6 +1384,30 @@
     PREVIEW = localStorage.getItem('nw_preview') !== '0';
   } catch (e) {}
 
+  // No flash of the old layout (Jonathan, 26 Nov 2026: "for a split
+  // second it shows the old template widths, and then moves to the new
+  // one"). The page's own layout arrives first and the new one is built
+  // a moment later, once the space's prices have come back. So the
+  // listing is held unseen from the moment this script runs and fades in
+  // when the new layout is ready. It shows anyway after 2.5 seconds, or
+  // at once if anything fails, so the page can never stay blank.
+  var PRE = null;
+  function preShow() {
+    if (PRE === null) return;
+    clearTimeout(PRE);
+    PRE = null;
+    try { document.documentElement.classList.remove('nwv2-pre'); } catch (e) {}
+  }
+  if (PREVIEW && SLUG && !AREA && !FRAMED) {
+    try {
+      var pst = document.createElement('style');
+      pst.textContent = '.card_template_padding{transition:opacity .15s ease}html.nwv2-pre .card_template_padding{opacity:0;transition:none}';
+      (document.head || document.documentElement).appendChild(pst);
+      document.documentElement.classList.add('nwv2-pre');
+      PRE = setTimeout(preShow, 2500);
+    } catch (e) {}
+  }
+
   function v2Styles() {
     if (document.getElementById('nwv2-css')) return;
     var st = document.createElement('style');
@@ -2501,6 +2525,7 @@
       setTimeout(function () { document.body.classList.add('nwv2-chat'); }, 30000);
       track('listing_v2_preview', { slug: SLUG });
     } catch (e) {}
+    preShow();
   }
 
   function start() {
@@ -2522,7 +2547,7 @@
         }
         if (PREVIEW) v2(raw || {});
       })
-      .catch(function () {});
+      .catch(function () { preShow(); });
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
   else start();
