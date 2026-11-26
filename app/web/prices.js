@@ -1417,13 +1417,16 @@
       '.nwv2-ppl button{width:44px;height:44px;margin:0;padding:0;border:1px solid #C9CED4;border-radius:8px;background:#fff;font:400 20px/1 Roboto,sans-serif;color:#2C2C2C;cursor:pointer}',
       '.nwv2-ppl button[disabled]{opacity:.4;cursor:default}',
       '.nwv2-ppl b{min-width:24px;text-align:center;font-weight:700}',
-      '.nwv2-res{display:flex;flex-direction:column;gap:12px;padding-top:14px;border-top:1px solid rgba(0,0,0,.08)}',
-      '.nwv2-it{display:flex;justify-content:space-between;gap:12px;font-size:13.5px;line-height:1.4}',
-      '.nwv2-it b{display:block;font-size:15px;font-weight:700}',
-      '.nwv2-it span{display:block;color:#5E6670}',
-      '.nwv2-pr{text-align:right;white-space:nowrap;flex:none}',
-      '.nwv2-all{font-size:14px;font-weight:700;color:#05434F;text-decoration:underline}',
-      '.nwv2-tot{margin:0;padding:10px 12px;border-radius:8px;background:#F6F7F8;font-size:14px;line-height:1.45}',
+      '.nwv2-res{display:flex;flex-direction:column;gap:0;padding-top:14px;border-top:1px solid rgba(0,0,0,.08)}',
+      '.nwv2-it{padding:12px 0;border-top:1px solid rgba(0,0,0,.08)}',
+      '.nwv2-res>.nwv2-it:first-child{border-top:0;padding-top:0}',
+      '.nwv2-it-top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:2px 12px}',
+      '.nwv2-it-top>b{font:700 15px/1.35 Roboto,sans-serif;color:#2C2C2C;min-width:0}',
+      '.nwv2-note{display:block;margin-top:3px;font:400 13.5px/1.45 Roboto,sans-serif;color:#5E6670}',
+      '.nwv2-pr{font:400 13.5px/1.35 Roboto,sans-serif;color:#5E6670;white-space:nowrap}',
+      '.nwv2-pr b{font-size:15px;font-weight:700;color:#2C2C2C}',
+      '.nwv2-all{padding-top:4px;font-size:14px;font-weight:700;color:#05434F;text-decoration:underline}',
+      '.nwv2-tot{margin:4px 0 0;padding:10px 12px;border-radius:8px;background:#F6F7F8;font-size:14px;line-height:1.45}',
       '.nwv2-none{margin:0;font-size:14px;line-height:1.45;color:#5E6670}',
       '.nwv2-alt{display:flex;justify-content:space-between;gap:12px;font-size:14.5px;color:#2C2C2C;text-decoration:none}',
       '.nwv2-alt span{text-decoration:underline;color:#05434F;font-weight:700}',
@@ -1431,7 +1434,9 @@
       '.nwv2-go{min-height:48px;margin:0;padding:10px 16px;border:0;border-radius:8px;background:#FF444F;color:#fff;font:500 16px/1.2 Roboto,sans-serif;cursor:pointer}',
       '.nwv2-go:hover{background:#E63B45}',
       '.nwv2-pick button:focus-visible,.nwv2-pick a:focus-visible{outline:2px solid #05434F;outline-offset:2px}',
-      '.nwv2-sure{margin:0;font-size:12.5px;line-height:1.5;color:#5E6670;text-align:center}',
+      '.nwv2-sure{display:flex;flex-direction:column;gap:5px;margin:0;padding:0;list-style:none;font-size:13px;line-height:1.4;color:#5E6670;text-align:left}',
+      '.nwv2-sure li{display:flex;align-items:flex-start;gap:8px;margin:0;padding:0}',
+      '.nwv2-sure svg{flex:0 0 14px;width:14px;height:14px;margin-top:2px}',
       '@media (max-width:767px){' +
         '.nwv2-steps{grid-template-columns:1fr;gap:12px}' +
         // The hours are in the fact line; the week below stays out of
@@ -1687,6 +1692,7 @@
       return (a.amount || 0) - (b.amount || 0);
     });
   }
+  var TICK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
   function bucket(n) { return n <= 1 ? 'Just me' : n === 2 ? '2' : n <= 5 ? '3 to 5' : n <= 10 ? '6 to 10' : 'More than 10'; }
 
   function v2Picker() {
@@ -1732,8 +1738,15 @@
       h += '<div class="nwv2-res">';
       if (st.items.length) {
         st.items.slice(0, 3).forEach(function (it) {
-          h += '<div class="nwv2-it"><div><b>' + esc(it.name) + '</b>' + (it.note ? '<span>' + esc(it.note) + '</span>' : '') + '</div>' +
-            '<div class="nwv2-pr"><b>' + esc(it.priceText) + '</b>' + (it.perPerson && it.amount != null ? '<span>per person</span>' : '') + '</div></div>';
+          // Name and price share the first line (the price drops under
+          // the name when both do not fit); the description gets the
+          // full width below. Only the amount itself is bold (Jonathan,
+          // 26 Nov 2026: the two narrow columns looked cluttered).
+          var pm = /^(from\s+)?([^\s\d]*\d[\d,.]*)(.*)$/i.exec(it.priceText || '');
+          var ph = pm ? esc(pm[1] || '') + '<b>' + esc(pm[2]) + '</b>' + esc(pm[3]) : esc(it.priceText || '');
+          if (it.perPerson && it.amount != null) ph += ' per person';
+          h += '<div class="nwv2-it"><div class="nwv2-it-top"><b>' + esc(it.name) + '</b><span class="nwv2-pr">' + ph + '</span></div>' +
+            (it.note ? '<span class="nwv2-note">' + esc(it.note) + '</span>' : '') + '</div>';
         });
         if (st.items.length > 3) h += '<a class="nwv2-all" href="#prices">See all ' + st.items.length + ' options</a>';
         // The total: only from a price the space gives per person (a
@@ -1746,8 +1759,10 @@
         }
       }
       h += '</div><button type="button" class="nwv2-go" data-k="go">' + esc(st.cta) + '</button>' +
-        '<p class="nwv2-sure">Free, with no obligation. ' + esc(data.space) + ' replies to you by email.' +
-        (data.checked ? '<br>Prices from their own website, ' + esc(data.checked) + '.' : '') + '</p>';
+        // Three short lines, left aligned, each with a small tick
+        // (Jonathan, 26 Nov 2026: the centred paragraph looked poor).
+        '<ul class="nwv2-sure"><li>' + TICK + 'Free, with no obligation</li><li>' + TICK + esc(data.space) + ' replies to you by email</li>' +
+        (data.checked ? '<li>' + TICK + 'Prices from their own website, ' + esc(data.checked) + '</li>' : '') + '</ul>';
       box.innerHTML = h;
       if (bar) bar.innerHTML = '<b>' + esc(st.cta) + '</b>';
       if (focusKey) {
@@ -2041,7 +2056,7 @@
     box.setAttribute('aria-label', 'Ask for prices');
     box.innerHTML = '<h2>Ask for prices</h2><p class="nwv2-none">We do not have prices for ' + esc(who) +
       ' yet. Send a request, say what you need, and they reply to you by email.</p>' +
-      '<button type="button" class="nwv2-go">Send a request</button><p class="nwv2-sure">Free, with no obligation.</p>';
+      '<button type="button" class="nwv2-go">Send a request</button><ul class="nwv2-sure"><li>' + TICK + 'Free, with no obligation</li><li>' + TICK + 'They reply to you by email</li></ul>';
     host.insertBefore(box, host.firstChild);
     document.body.classList.add('nwv2-haspick');
     box.querySelector('.nwv2-go').addEventListener('click', function () {
