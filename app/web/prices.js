@@ -1373,8 +1373,11 @@
       // The old fact rows and the two claim boxes give way to the new ones.
       '.nwv2 .div-block-156,.nwv2 .nwp-addr,.nwv2 .div-block-header-3{display:none !important}',
       '.nwv2 .claim-banner,.nwv2 .claim-line-sidebar{display:none !important}',
-      '.nwv2-facts{display:flex;flex-direction:column;gap:2px;margin:6px 0 10px;font-family:Roboto,sans-serif;font-size:14px;line-height:1.5;color:#5E6670;min-width:0;flex:0 0 100%}',
-      '.nwv2-ln{white-space:nowrap;overflow:hidden;min-width:0}',
+      // The lines must never widen the page: they take the width they
+      // are given and no more (found on Masco, 26 Nov 2026: a long
+      // address stretched the whole card on a phone).
+      '.nwv2-facts{display:flex;flex-direction:column;gap:2px;margin:6px 0 10px;font-family:Roboto,sans-serif;font-size:14px;line-height:1.5;color:#5E6670;flex:0 0 100%;width:100%;max-width:100%;contain:inline-size}',
+      '.nwv2-ln{white-space:nowrap;overflow:hidden;width:0;min-width:100%}',
       '.nwv2-ln.wrap{white-space:normal}',
       '.nwv2-ln a{color:#05434F;font-weight:700;text-decoration:underline}',
       '.nwv2-ln .dot{margin:0 6px}',
@@ -1383,7 +1386,8 @@
       '.nwv2-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:0;padding:0;list-style:none}',
       '.nwv2-steps li{display:flex;gap:10px;align-items:flex-start;font-size:15px;line-height:1.45;margin:0}',
       '.nwv2-steps b{flex:0 0 28px;height:28px;border-radius:8px;background:#FFF1F2;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px}',
-      '.nwv2-near{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:14px}',
+      '.nwv2-near{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}',
+      '@media (min-width:768px) and (max-width:1199px){.nwv2-near{grid-template-columns:repeat(2,minmax(0,1fr))}}',
       '.nwv2-card{display:block;border:1px solid rgba(0,0,0,.1);border-radius:8px;overflow:hidden;color:#2C2C2C;text-decoration:none;background:#fff}',
       '.nwv2-card:hover{box-shadow:0 4px 14px rgba(0,0,0,.08)}',
       '.nwv2-pic{height:110px;background:#E9ECEF center/cover no-repeat}',
@@ -1394,6 +1398,9 @@
       '.nwv2-claim a{color:#5E6670;text-decoration:underline}',
       '@media (max-width:767px){' +
         '.nwv2-steps{grid-template-columns:1fr;gap:12px}' +
+        // The hours are in the fact line; the week below stays out of
+        // the way until "See all hours" is tapped.
+        '.nwv2 .div-block-77:has(.nwp-week.nwp-shut){display:none}' +
         '.nwv2-sec{margin:26px 0}.nwv2-sec h2{font-size:17px}' +
         '.nwv2-near{display:flex;overflow-x:auto;gap:10px;margin-right:-20px;padding-right:20px;scroll-snap-type:x mandatory}' +
         '.nwv2-card{flex:0 0 160px;scroll-snap-align:start}' +
