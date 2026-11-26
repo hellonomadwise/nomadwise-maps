@@ -1518,7 +1518,16 @@
       '.nwv2-wide .nwv2-stick-in{position:sticky;top:84px;max-height:calc(100vh - 100px);overflow-y:auto;scrollbar-width:thin}' +
       '.nwv2-wide .nwv2-stick .nwv2-pick{margin:0;max-width:none;box-shadow:0 6px 20px rgba(20,32,50,.08)}' +
       '.nwv2-wide .nwv2-stick .nwv2-claim{margin:12px 0 0;text-align:center}' +
-      '.nwv2-wide .listing-wrapper>.nwv2-nearby{flex:0 0 100%;width:100%;margin:8px 0 32px;padding:0 3px}' +
+      '.nwv2-head{flex:0 0 100%;width:100%;margin:3px 3px 20px;padding:24px;border-radius:8px;box-shadow:rgba(0,0,0,.15) 0 0 3px;background:#fff;contain:inline-size}' +
+        '.nwv2-head .quick-stack-41{display:block}' +
+        '.nwv2-head .gallery__component{display:block;margin-top:6px}' +
+        '.nwv2-head .row-4.is-gallery{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:minmax(0,1fr);gap:8px;height:clamp(300px,min(34vw,46vh),460px)}' +
+        '.nwv2-head .row-4.is-gallery>.col{height:100%;min-height:0;width:auto;max-width:none;padding:0}' +
+        '.nwv2-head .row-4.is-gallery>.col:last-child{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:minmax(0,1fr) minmax(0,1fr);gap:8px}' +
+        '.nwv2-head .gallery-popup__image-wrapper{height:100%;padding:0 !important;aspect-ratio:auto}' +
+        '.nwv2-head .gallery-popup__image-wrapper img{width:100%;height:100%;object-fit:cover}' +
+        '.nwv2-wide .listings-content-container{border-radius:8px}' +
+        '.nwv2-wide .listing-wrapper>.nwv2-nearby{flex:0 0 100%;width:100%;margin:8px 0 32px;padding:0 3px}' +
       '.nwv2-wide .listing-wrapper>.nwv2-nearby .nwv2-near{grid-template-columns:repeat(4,minmax(0,1fr))}' +
       '}',
       '@media (min-width:1200px){.nwv2-wide .listings-5th-col.directory{flex-basis:370px;width:370px}}'
@@ -1607,6 +1616,7 @@
       });
     };
     fit();
+    V2.fit = fit;
     var t = null;
     window.addEventListener('resize', function () { clearTimeout(t); t = setTimeout(fit, 150); });
     box.addEventListener('click', function (e) {
@@ -1667,7 +1677,7 @@
     return '';
   }
 
-  var V2 = { need: null, people: 1, go: null, near: null, place: null };
+  var V2 = { need: null, people: 1, go: null, near: null, place: null, fit: null };
   function nearbyList() {
     if (!V2.near) {
       V2.near = fetch(URL_ + '/rest/v1/rpc/page_nearby', {
@@ -2053,6 +2063,16 @@
     });
     var before = host.querySelector('section.nwp') || host.querySelector('.nwv2-how');
     if (card.children.length) { if (before) host.insertBefore(card, before); else host.appendChild(card); }
+    // The name and the photos run the full width above the two columns,
+    // so the photos are large on a laptop (Jonathan, 26 Nov 2026: "the
+    // photos might not be big enough"; the main one was 324px wide).
+    var lc = document.querySelector('.left-column');
+    var top = lc ? lc.querySelector('.quick-stack-41') : null;
+    var head = null;
+    if (top && top.parentNode === lc) {
+      head = document.createElement('div');
+      head.className = 'nwv2-head';
+    }
     document.body.classList.add('nwv2-wide');
     var mq = window.matchMedia('(min-width:992px)');
     var place = function () {
@@ -2062,7 +2082,15 @@
         if (pick.parentNode !== inner) inner.insertBefore(pick, inner.firstChild);
         if (claim && claim.parentNode !== inner) inner.appendChild(claim);
         if (near && near.parentNode !== wrapper) wrapper.appendChild(near);
+        if (head) {
+          if (head.parentNode !== wrapper) wrapper.insertBefore(head, wrapper.firstChild);
+          if (top.parentNode !== head) head.appendChild(top);
+        }
       } else {
+        if (head && top.parentNode !== lc) {
+          lc.insertBefore(top, lc.firstChild);
+          if (head.parentNode) head.parentNode.removeChild(head);
+        }
         if (pick.parentNode !== host) host.insertBefore(pick, host.firstChild);
         if (claim && claim.parentNode !== host) host.appendChild(claim);
         if (near && near.parentNode !== host) {
@@ -2071,9 +2099,9 @@
         }
       }
     };
-    V2.place = place;
-    place();
-    if (mq.addEventListener) mq.addEventListener('change', place); else if (mq.addListener) mq.addListener(place);
+    V2.place = function () { place(); if (V2.fit) V2.fit(); };
+    V2.place();
+    if (mq.addEventListener) mq.addEventListener('change', V2.place); else if (mq.addListener) mq.addListener(V2.place);
   }
 
   // A space with no prices on its page still gets the box, so every
