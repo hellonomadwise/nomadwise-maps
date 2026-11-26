@@ -1523,17 +1523,22 @@
       // These rules reach only the list form (it has .nwp-grp), never
       // the tabbed form shown in a narrow column.
       '.nwv2 .nwp-box:has(.nwp-grp){border:0;border-radius:0;overflow:visible;background:none}',
-      '.nwv2 .nwp-grp + .nwp-grp{border-top:0;margin-top:26px}',
-      '.nwv2 .nwp-grp .nwp-gh{background:none;padding:0 0 7px;border-bottom:2px solid #2C2C2C;align-items:baseline;gap:12px}',
+      // Each kind of space sits in its own thin box with its heading inside
+      // at the top (Leonie, 26 Nov 2026: the black line under a heading
+      // read as the bottom edge of the group above). Headings are black,
+      // the item names bold grey, descriptions a lighter grey.
+      '.nwv2 .nwp-grp{border:1px solid #E3E5E8;border-radius:8px;padding:16px 18px 4px}',
+      '.nwv2 .nwp-grp + .nwp-grp{border-top:1px solid #E3E5E8;margin-top:16px}',
+      '.nwv2 .nwp-grp .nwp-gh{background:none;padding:0 0 4px;border-bottom:0;align-items:baseline;gap:12px}',
       '.nwv2 .nwp-grp .nwp-gimg,.nwv2 .nwp-grp .nwp-gh .nwp-from{display:none}',
       '.nwv2 .nwp-grp .nwp-gt{display:flex;align-items:baseline;justify-content:space-between;gap:12px}',
-      '.nwv2 .nwp-grp .nwp-gt b{font-size:13px;letter-spacing:.06em;text-transform:uppercase}',
+      '.nwv2 .nwp-grp .nwp-gt b{font-size:14px;letter-spacing:.06em;text-transform:uppercase;color:#2C2C2C}',
       '.nwv2 .nwp-grp .nwp-gt span{margin:0;font-size:13px}',
       '.nwv2 .nwp-grp .nwp-rows{padding:0}',
       '.nwv2 .nwp-grp .nwp-r{display:grid;grid-template-columns:minmax(0,1fr) auto 96px;gap:16px;align-items:center;padding:14px 0;border-bottom:1px solid #ECEEF0}',
       '.nwv2 .nwp-grp .nwp-r:last-child{border-bottom:0}',
-      '.nwv2 .nwp-grp .nwp-rn b{display:block;font-size:16px;line-height:1.35}',
-      '.nwv2 .nwp-grp .nwp-rn span{display:block;margin-top:2px;font-size:14px;line-height:1.45}',
+      '.nwv2 .nwp-grp .nwp-rn b{display:block;font-size:16px;line-height:1.35;color:#5E6670}',
+      '.nwv2 .nwp-grp .nwp-rn span{display:block;margin-top:2px;font-size:14px;line-height:1.45;color:#7A828C}',
       '.nwv2 .nwp-grp .nwp-dot{display:none}',
       '.nwv2 .nwp-grp .nwp-rp{font-weight:400;font-size:14px;color:#2C2C2C;text-align:right}',
       '.nwv2 .nwp-grp .nwp-rp .nwp-pre,.nwv2 .nwp-grp .nwp-rp .nwp-unit{font-size:13px;color:#5E6670}',
