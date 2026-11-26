@@ -1400,6 +1400,9 @@
     PRE = null;
     try { document.documentElement.classList.remove('nwv2-pre'); } catch (e) {}
   }
+  // With the old page chosen (?preview=0), anything the head script set
+  // on this load is taken straight off again.
+  if (!PREVIEW) { try { document.documentElement.classList.remove('nwv2-pre', 'nwv2-w'); } catch (e) {} }
   if (PREVIEW && SLUG && !AREA && !FRAMED) {
     try {
       var pst = document.createElement('style');
