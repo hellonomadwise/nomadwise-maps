@@ -1378,6 +1378,9 @@
       // The old fact rows and the two claim boxes give way to the new ones.
       '.nwv2 .div-block-156,.nwv2 .nwp-addr,.nwv2 .div-block-header-3{display:none !important}',
       '.nwv2 .claim-banner,.nwv2 .claim-line-sidebar{display:none !important}',
+      // The chat bubble waits 30 seconds: someone still on the page by
+      // then may have a question (Jonathan, 26 Nov 2026).
+      'body.nwv2:not(.nwv2-chat) #nw-chat{display:none !important}',
       // The lines must never widen the page: they take the width they
       // are given and no more (found on Masco, 26 Nov 2026: a long
       // address stretched the whole card on a phone).
@@ -2102,6 +2105,7 @@
       v2Nearby();
       v2Claim();
       v2Wide();
+      setTimeout(function () { document.body.classList.add('nwv2-chat'); }, 30000);
       track('listing_v2_preview', { slug: SLUG });
     } catch (e) {}
   }
