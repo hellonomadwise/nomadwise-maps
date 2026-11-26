@@ -1725,16 +1725,19 @@
         '.nwv2-wide .row-4.is-gallery>.col:last-child>*:nth-child(n+3){display:none}' +
         '.nwv2-wide .row-4.is-gallery>.col>*,.nwv2-wide .gallery-popup__image-wrapper{border-radius:8px;overflow:hidden}' +
       '}',
-      // Cafes with no prices: no box; the map card leads the right-hand
-      // column with a red "Get directions", the claim line under it.
-      '.nwv2-pick.nwv2-cafehold{display:none !important}',
-      '@media (min-width:992px){' +
-        '.nwv2-cafe.nwv2-wide .listings-5th-col.directory>.nwv2-mapcard{order:-2}' +
-        '.nwv2-cafe.nwv2-wide .listings-5th-col.directory>.nwv2-stick{order:-1;padding:0 0 16px}' +
-        '.nwv2-cafe.nwv2-wide .nwv2-stick .nwv2-claim{margin:0}' +
-      '}',
-      '.nwv2-cafe .nwv2-mapfoot .nwv2-btn2{background:#FF444F;border-color:#FF444F;color:#fff}',
-      '.nwv2-cafe .nwv2-mapfoot .nwv2-btn2:hover{background:#E63B45;border-color:#E63B45}',
+      // The cafe box. Its directions and website replace the ones in the
+      // map card under it, so they are not shown twice.
+      '.nwv2-cafebox .nwv2-cl{display:flex;flex-direction:column;gap:8px;font-size:14.5px;line-height:1.4;color:#444B53}',
+      '.nwv2-cafebox .nwv2-cl>div{display:flex;align-items:flex-start;gap:8px}',
+      '.nwv2-cafebox .nwv2-cl svg{flex:0 0 16px;width:16px;height:16px;margin-top:2px;color:#FF444F}',
+      '.nwv2-cafebox .nwv2-cl svg.nwv2-star{color:#F5A623}',
+      '.nwv2-cafebox .nwv2-cl b{font-weight:700;color:#2C2C2C}',
+      '.nwv2-cafebox a.nwv2-go{display:flex;align-items:center;justify-content:center;text-decoration:none}',
+      '.nwv2-cafebox a.nwv2-btn2{margin:0;text-decoration:none;min-height:48px}',
+      '.nwv2-cafe .nwv2-mapfoot .nwv2-btn2,.nwv2-cafe .nwv2-site{display:none}',
+      '.nwv2-cafe .nwv2-mapfoot:not(:has(span)){display:none}',
+      // On a phone the rating and hours sit just above in the fact lines.
+      '@media (max-width:991px){.nwv2-cafebox .nwv2-cl{display:none}}',
       // Laptops: the listing page, its breadcrumb and the menu open up
       // to 1320px so the photos have room. Larger screens already go to
       // 1440px. Listing pages only; article pages are untouched.
@@ -1853,6 +1856,9 @@
     V2.fit = fit;
     V2.addr = addr;
     V2.dir = dir;
+    V2.rating = rating;
+    V2.hours = hours;
+    V2.ic = IC;
     var t = null;
     window.addEventListener('resize', function () { clearTimeout(t); t = setTimeout(fit, 150); });
     box.addEventListener('click', function (e) {
@@ -2463,7 +2469,7 @@
     V2.place = function () { place(); if (V2.fit) V2.fit(); };
     V2.place();
     if (mq.addEventListener) mq.addEventListener('change', V2.place); else if (mq.addListener) mq.addListener(V2.place);
-    if (!pick.classList.contains('nwv2-cafehold')) v2TopBar(pick, wrapper);
+    if (!pick.classList.contains('nwv2-cafebox')) v2TopBar(pick, wrapper);
   }
 
   // The request follows the visitor down the page on a computer: when
@@ -2529,6 +2535,44 @@
     });
   }
 
+  // The cafe box (design B, Jonathan, 26 Nov 2026): where a coworking
+  // space has its request box, a cafe has "Visit <name>" with what it
+  // is, its rating and hours, a red "Get directions" and "Visit
+  // website". Everything in it is already on the page; nothing is asked
+  // of the visitor.
+  function v2Cafe(name) {
+    var host = document.querySelector('.left-column .div-block-80');
+    if (!host || document.querySelector('.nwv2-pick')) return;
+    var h1 = document.querySelector('.div-block-136 h1');
+    var full = h1 ? String(h1.textContent || '').replace(/\s+/g, ' ').trim() : '';
+    var cut = full.lastIndexOf(' in ');
+    var who = name || (cut > 0 ? full.slice(0, cut) : full) || 'this cafe';
+    var loc = document.querySelector('.location-div');
+    var area = loc ? String(loc.textContent || '').split(',')[0].replace(/\s+/g, ' ').trim() : '';
+    var IC = V2.ic || {};
+    var site = document.querySelector('.modal-link-circles-container-5th a[href], .modal-link-circles-container a[href]');
+    var sh = site ? String(site.getAttribute('href') || '') : '';
+    if (!/^https?:\/\//i.test(sh) || MAPS.test(sh)) sh = '';
+    var box = document.createElement('section');
+    box.className = 'nwv2-pick nwv2-cafebox';
+    box.id = 'nwv2-pick';
+    box.setAttribute('aria-label', 'Visit ' + who);
+    var h = '<h2>Visit ' + esc(who) + '</h2><div class="nwv2-cl">' +
+      '<div>' + (IC.t || '') + '<span>Cafe' + (area ? ' in ' + esc(area) : '') + '</span></div>' +
+      (V2.rating ? '<div>' + (IC.r || '') + '<span>' + V2.rating + '</span></div>' : '') +
+      (V2.hours ? '<div>' + (IC.h || '') + '<span>' + esc(V2.hours) + '</span></div>' : '') + '</div>';
+    if (V2.dir) h += '<a class="nwv2-go" href="' + esc(V2.dir) + '" target="_blank" rel="noopener" data-c="dir">Get directions</a>';
+    if (sh) h += '<a class="nwv2-btn2" href="' + esc(sh) + '" target="_blank" rel="' + esc(site.getAttribute('rel') || 'noopener') + '" data-c="site">Visit website</a>';
+    if (!V2.dir && !sh && !V2.rating && !V2.hours) return;
+    box.innerHTML = h;
+    host.insertBefore(box, host.firstChild);
+    box.addEventListener('click', function (e) {
+      var a = e.target.closest ? e.target.closest('a[data-c]') : null;
+      if (!a) return;
+      track(a.getAttribute('data-c') === 'dir' ? 'directions_tap' : 'website_tap', { slug: SLUG, from: 'cafebox' });
+    });
+  }
+
   function v2(raw) {
     try {
       v2Styles();
@@ -2550,11 +2594,7 @@
       var plainCafe = CAFE && !document.querySelector('.nwv2-pick');
       if (plainCafe) {
         document.body.classList.add('nwv2-cafe');
-        var hold = document.createElement('section');
-        hold.className = 'nwv2-pick nwv2-cafehold';
-        hold.setAttribute('aria-hidden', 'true');
-        var chost = document.querySelector('.left-column .div-block-80');
-        if (chost) chost.insertBefore(hold, chost.firstChild);
+        v2Cafe(name);
       } else if (!document.querySelector('.nwv2-pick')) v2Ask(name);
       v2Amen();
       if (!plainCafe) v2Steps(name);
