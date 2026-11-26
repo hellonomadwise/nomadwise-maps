@@ -1403,13 +1403,15 @@
       '.nwv2-claim a{color:#5E6670;text-decoration:underline}',
       // Step 2: the "What do you need?" box. With it on the page the old
       // top button and the "See prices" link step aside.
-      '.nwv2-haspick .left-column .div-block-80>.buttons-wrapper,.nwv2-haspick .nwp-jump{display:none !important}',
+      '.nwv2-haspick .left-column .div-block-80>.buttons-wrapper>.research-button,.nwv2-haspick .left-column .div-block-80>.buttons-wrapper>.div-block-829,.nwv2-haspick .nwp-jump{display:none !important}',
       '.nwv2-pick{margin:4px 0 24px;padding:18px;border:1px solid rgba(0,0,0,.1);border-radius:8px;background:#fff;font-family:Roboto,sans-serif;color:#2C2C2C;display:flex;flex-direction:column;gap:14px;max-width:560px;contain:inline-size;scroll-margin-top:84px}',
       '.nwv2-pick *{box-sizing:border-box}',
       '.nwv2-pick h2{margin:0;font-size:18px;line-height:1.3;font-weight:700}',
       '.nwv2-needs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}',
       '.nwv2-needs button{min-height:48px;margin:0;padding:8px 10px;border:1px solid #C9CED4;border-radius:8px;background:#fff;font:500 14px/1.25 Roboto,sans-serif;color:#2C2C2C;cursor:pointer}',
       '.nwv2-needs button[aria-pressed="true"]{border:2px solid #FF444F;background:#FFF1F2;padding:7px 9px}',
+      '.nwv2-needs button:only-child{grid-column:1/-1}',
+      '.nwv2-needs button:last-child:nth-child(3){grid-column:1/-1}',
       '.nwv2-ppl{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:15px}',
       '.nwv2-ppl>div{display:flex;align-items:center;gap:12px}',
       '.nwv2-ppl button{width:44px;height:44px;margin:0;padding:0;border:1px solid #C9CED4;border-radius:8px;background:#fff;font:400 20px/1 Roboto,sans-serif;color:#2C2C2C;cursor:pointer}',
@@ -1439,7 +1441,58 @@
         '.nwv2-near{display:flex;overflow-x:auto;gap:10px;margin-right:-20px;padding-right:20px;scroll-snap-type:x mandatory;scrollbar-width:none}' +
         '.nwv2-near::-webkit-scrollbar{display:none}' +
         '.nwv2-card{flex:0 0 160px;scroll-snap-align:start}' +
-      '}'
+      '}',
+      // Step 3: photos, "What's here", and the two columns on a computer.
+      '.nwv2-h{margin:28px 0 14px;font:700 20px/1.3 Roboto,sans-serif;color:#2C2C2C}',
+      // What's here
+      '.nwv2-amen{display:grid !important;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 20px;margin:0 0 8px !important;height:auto !important;contain:inline-size}',
+      '.nwv2-amen .modal-filtertag-tag{border:0;background:none;box-shadow:none;padding:0;margin:0;gap:12px;height:auto;min-width:0;align-items:center}',
+      '.nwv2-amen .modal-filtertag-tag .modal-filtertag-tagtext{font:400 15px/1.35 Roboto,sans-serif !important;color:#2C2C2C;white-space:normal}',
+      '.nwv2-amen .modal-filtertag-tag .nw-amen-ico{width:22px !important;height:22px !important;flex:0 0 22px;color:#2C2C2C !important;stroke-width:1.6}',
+      '.nwv2-amen:not(.all) .nwv2-x{display:none !important}',
+      '.nwv2-amen .modal-filtertag-tag-empty{grid-column:1/-1;border:0;background:none;padding:0;margin:0;justify-self:start;font-size:13px;color:#5E6670;text-decoration:underline}',
+      '.nwv2-amen:not(.all) .modal-filtertag-tag-empty{display:none}',
+      '.nwv2-btn2{display:inline-flex;align-items:center;justify-content:center;min-height:44px;margin:8px 0 0;padding:8px 18px;border:1px solid #2C2C2C;border-radius:8px;background:#fff;font:500 15px/1.2 Roboto,sans-serif;color:#2C2C2C;cursor:pointer}',
+      '.nwv2-btn2:hover{background:#F6F7F8}',
+      '.nwv2-btn2:focus-visible,.nwv2-view button:focus-visible{outline:2px solid #05434F;outline-offset:2px}',
+      // Photos
+      '.nwv2-all-ph{position:absolute;right:12px;bottom:12px;z-index:3;min-height:40px;margin:0;padding:6px 14px;border:1px solid #2C2C2C;border-radius:8px;background:#fff;font:500 14px/1.2 Roboto,sans-serif;color:#2C2C2C;cursor:pointer}',
+      '.nwv2-ph{display:none}',
+      '.nwv2-view{position:fixed;inset:0;z-index:2147483000;background:#fff;overflow-y:auto;-webkit-overflow-scrolling:touch;font-family:Roboto,sans-serif}',
+      '.nwv2-view-top{position:sticky;top:0;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 16px;background:#fff;border-bottom:1px solid rgba(0,0,0,.08)}',
+      '.nwv2-view-top b{font-size:15px;font-weight:700;color:#2C2C2C;min-width:0;overflow-wrap:anywhere}',
+      '.nwv2-view-top button{flex:none;min-height:44px;margin:0;padding:8px 16px;border:1px solid #2C2C2C;border-radius:8px;background:#fff;font:500 15px/1.2 Roboto,sans-serif;color:#2C2C2C;cursor:pointer}',
+      '.nwv2-view-list{display:flex;flex-direction:column;gap:8px;max-width:900px;margin:0 auto;padding:12px 12px 40px}',
+      '.nwv2-view-list img{display:block;width:100%;height:auto;border-radius:8px;background:#E9ECEF}',
+      'html.nwv2-lock,html.nwv2-lock body{overflow:hidden !important}',
+      '@media (max-width:767px){' +
+      '.nwv2-h{margin:24px 0 12px;font-size:17px}' +
+      '.nwv2-hasph .image-div-mobile .div-block-209{display:none !important}' +
+      '.nwv2-ph{position:relative;display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);grid-template-rows:1fr 1fr;gap:4px;height:238px;margin:8px 12px 0;border-radius:8px;overflow:hidden;contain:inline-size}' +
+      '.nwv2-ph button.t{margin:0;padding:0;border:0;background:#E9ECEF center/cover no-repeat;cursor:pointer;min-width:0}' +
+      '.nwv2-ph button.t:first-child{grid-row:1/3}' +
+      '.nwv2-all-ph{right:8px;bottom:8px}' +
+      '}',
+      // Computer: two columns, the box on the right stays in view.
+      '.nwv2-stick,.nwv2-hrs-card{display:none}',
+      // From tablet width up the week of hours sits in the page and the
+      // old button in the side column gives way to the box.
+      '@media (min-width:768px){.nwv2-wide .nwv2-hrs-card{display:block;max-width:340px;margin:0 0 8px}.nwv2-wide .listings-5th-col.directory>.div-block-835{display:none !important}}',
+      '@media (min-width:992px){' +
+      // The page's own container hides overflow, which would stop the
+      // box from staying in view.
+      '.nwv2-wide .container-listings{overflow:visible}' +
+      '.nwv2-wide .listing-wrapper{flex-wrap:wrap;align-items:stretch}' +
+      '.nwv2-wide .listing-wrapper>.quick-stack{flex:1 1 0;min-width:0;width:auto}' +
+      '.nwv2-wide .listings-5th-col.directory{align-self:stretch;height:auto;flex:0 0 340px;width:340px;max-width:none;display:flex;flex-direction:column}' +
+      '.nwv2-wide .nwv2-stick{display:block;flex:1 1 auto;align-self:stretch;width:100%;padding-bottom:24px}' +
+      '.nwv2-wide .nwv2-stick-in{position:sticky;top:84px;max-height:calc(100vh - 100px);overflow-y:auto;scrollbar-width:thin}' +
+      '.nwv2-wide .nwv2-stick .nwv2-pick{margin:0;max-width:none;box-shadow:0 6px 20px rgba(20,32,50,.08)}' +
+      '.nwv2-wide .nwv2-stick .nwv2-claim{margin:12px 0 0;text-align:center}' +
+      '.nwv2-wide .listing-wrapper>.nwv2-nearby{flex:0 0 100%;width:100%;margin:8px 0 32px;padding:0 3px}' +
+      '.nwv2-wide .listing-wrapper>.nwv2-nearby .nwv2-near{grid-template-columns:repeat(4,minmax(0,1fr))}' +
+      '}',
+      '@media (min-width:1200px){.nwv2-wide .listings-5th-col.directory{flex-basis:370px;width:370px}}'
     ].join('\n');
     document.head.appendChild(st);
   }
@@ -1537,7 +1590,8 @@
         var b = document.querySelector('.nwp-hrs');
         var g = document.querySelector('.left-column .div-block-77 .wifi-openinghours-quickstack');
         if (b && b.getAttribute('aria-expanded') !== 'true') b.click();
-        var at = b || g;
+        var seen = function (el) { return el && el.getClientRects().length ? el : null; };
+        var at = seen(b) || seen(g) || seen(document.getElementById('nwv2-hours'));
         if (at) { try { at.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (er) { at.scrollIntoView(); } }
         track('hours_opened', { slug: SLUG, from: 'facts' });
       }
@@ -1580,7 +1634,7 @@
     return '';
   }
 
-  var V2 = { need: null, people: 1, go: null, near: null };
+  var V2 = { need: null, people: 1, go: null, near: null, place: null };
   function nearbyList() {
     if (!V2.near) {
       V2.near = fetch(URL_ + '/rest/v1/rpc/page_nearby', {
@@ -1598,8 +1652,7 @@
   // are shown; the button says what is being asked ("Request an office
   // for 4") and opens the request with that price and team size filled
   // in. A team total is shown only when the space's own words say the
-  // price is per person. When the space does not list what was picked,
-  // spaces close by that do are offered instead.
+  // price is per person. Only what the space itself lists is offered.
   var NEEDS = [
     ['day', 'A day pass', 'a day pass', 'day passes'],
     ['desk', 'A desk for the month', 'a desk', 'monthly desks'],
@@ -1640,7 +1693,7 @@
     box.setAttribute('aria-label', 'What do you need?');
     host.insertBefore(box, host.firstChild);
     document.body.classList.add('nwv2-haspick');
-    var nearby = [];
+    var have = NEEDS.filter(function (n) { return needItems(n[0]).length > 0; });
     var bar = document.querySelector('.nwp-bar');
 
     var state = function () {
@@ -1656,7 +1709,10 @@
     };
     var draw = function (focusKey) {
       var st = state(), h = '<h2>What do you need?</h2><div class="nwv2-needs" role="group" aria-label="What do you need?">';
-      NEEDS.forEach(function (n) {
+      // Only what this space itself offers: its page never points a
+      // visitor to another space (Jonathan, 26 Nov 2026: an owner whose
+      // page advertises other spaces would be rightly annoyed).
+      have.forEach(function (n) {
         h += '<button type="button" data-need="' + n[0] + '" data-k="need-' + n[0] + '" aria-pressed="' + (n[0] === V2.need) + '">' + esc(n[1]) + '</button>';
       });
       h += '</div><div class="nwv2-ppl"><span id="nwv2-ppl-l">How many people?</span><div role="group" aria-labelledby="nwv2-ppl-l">' +
@@ -1678,24 +1734,6 @@
           h += '<p class="nwv2-tot">For ' + V2.people + ' people: from ' + esc(tot) + (low.period === 'month' ? ' a month' : ' a day') +
             ', based on the price per person. ' + esc(data.space) + ' confirms the exact offer.</p>';
         }
-      } else {
-        var alt = [];
-        nearby.forEach(function (sp) {
-          var best = null;
-          (sp.prices || []).forEach(function (p) {
-            var det = (p.details || []).map(function (x) { return String(x || '').trim(); }).filter(Boolean);
-            var per = periodOf(p.name, det, p.category);
-            if (needOfKind(p.category, per) !== V2.need || p.amount == null) return;
-            if (V2.need === 'day' && per !== 'day') return;
-            if (!best || Number(p.amount) < Number(best.p.amount)) best = { p: p, per: per };
-          });
-          if (best && alt.length < 3) alt.push({ sp: sp, p: best.p, per: best.per });
-        });
-        h += '<p class="nwv2-none">' + esc(data.space) + ' does not list ' + st.def[3] + '.' + (alt.length ? ' Close by:' : ' Send a request and ask what they can offer.') + '</p>';
-        alt.forEach(function (a) {
-          h += '<a class="nwv2-alt" href="/coworking/' + esc(a.sp.slug) + '" data-slug="' + esc(a.sp.slug) + '"><span>' + esc(a.sp.name) + '</span>' +
-            '<b>from ' + esc(money(a.p.amount, a.p.currency, a.p.label).replace(/^from\s+/i, '')) + (a.per ? ' ' + PER[a.per] : '') + '</b></a>';
-        });
       }
       h += '</div><button type="button" class="nwv2-go" data-k="go">' + esc(st.cta) + '</button>' +
         '<p class="nwv2-sure">Free, with no obligation. ' + esc(data.space) + ' replies to you by email.' +
@@ -1733,12 +1771,9 @@
         draw(up ? (V2.people >= 50 ? 'less' : 'more') : (V2.people <= 1 ? 'more' : 'less'));
       } else if (t.classList.contains('nwv2-go')) {
         V2.go('box');
-      } else if (t.classList.contains('nwv2-alt')) {
-        track('picker_nearby_click', { slug: SLUG, need: V2.need, to: t.getAttribute('data-slug') });
       }
     });
     draw();
-    nearbyList().then(function (list) { nearby = Array.isArray(list) ? list : []; if (!state().items.length) draw(); });
     // On a phone the bar at the bottom shows whenever the box's own
     // button is off screen, and says the same thing.
     if (bar && window.IntersectionObserver) {
@@ -1776,6 +1811,7 @@
       sec.innerHTML = h + '</div>';
       var how = host.querySelector('.nwv2-how');
       if (how) host.insertBefore(sec, how.nextSibling); else host.appendChild(sec);
+      if (V2.place) V2.place();
       sec.addEventListener('click', function (e) {
         var a = e.target.closest && e.target.closest('a.nwv2-card');
         if (a) track('nearby_click', { slug: SLUG, to: a.getAttribute('data-slug') });
@@ -1811,6 +1847,199 @@
     host.appendChild(p);
   }
 
+  // ------------------------------------------- new page, step 3 (preview)
+  // Photos as a grid with "Show all N photos", the tags as a "What's
+  // here" list, and on a computer the "What do you need?" box fixed on
+  // the right while the page scrolls.
+  function v2Amen() {
+    var box = document.querySelector('.left-column .modal-filtertag-div');
+    if (!box || box.classList.contains('nwv2-amen')) return;
+    var tags = [].slice.call(box.querySelectorAll('.modal-filtertag-tag')).filter(function (t) {
+      return !t.classList.contains('w-condition-invisible') && t.style.display !== 'none';
+    });
+    if (!tags.length) return;
+    box.classList.add('nwv2-amen');
+    var h = document.createElement('h2');
+    h.className = 'nwv2-h';
+    h.textContent = 'What’s here';
+    box.parentNode.insertBefore(h, box);
+    if (tags.length <= 6) { box.classList.add('all'); return; }
+    tags.slice(6).forEach(function (t) { t.classList.add('nwv2-x'); });
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'nwv2-btn2';
+    b.setAttribute('aria-expanded', 'false');
+    b.textContent = 'Show all ' + tags.length;
+    b.addEventListener('click', function () {
+      var open = box.classList.toggle('all');
+      b.setAttribute('aria-expanded', String(open));
+      b.textContent = open ? 'Show fewer' : 'Show all ' + tags.length;
+      if (open) track('amenities_all', { slug: SLUG });
+    });
+    box.parentNode.insertBefore(b, box.nextSibling);
+  }
+
+  function v2Photos(space) {
+    if (document.querySelector('.nwv2-all-ph')) return;
+    var list = [], seen = {};
+    [].slice.call(document.querySelectorAll('.gallery__component img.gallery__image, .image-div-mobile .w-slide img')).forEach(function (im) {
+      var s = im.getAttribute('src') || '';
+      if (!/^https:\/\//i.test(s) || seen[s]) return;
+      if (im.classList.contains('w-dyn-bind-empty') || (im.closest && im.closest('.w-condition-invisible'))) return;
+      seen[s] = 1;
+      list.push(s);
+    });
+    if (list.length < 2) return;
+    var name = space || 'this space';
+    var view = null, last = null;
+    var shut = function () {
+      if (!view) return;
+      view.parentNode.removeChild(view);
+      view = null;
+      document.documentElement.classList.remove('nwv2-lock');
+      document.removeEventListener('keydown', onKey);
+      if (last && last.focus) { try { last.focus({ preventScroll: true }); } catch (e) {} }
+    };
+    var close = function () {
+      // Opening added a step to the browser's history, so the phone's
+      // back button closes the photos; closing by hand takes it back.
+      if (history.state && history.state.nwv2 === 'photos') history.back(); else shut();
+    };
+    var onKey = function (e) { if (e.key === 'Escape') close(); };
+    window.addEventListener('popstate', shut);
+    var open = function (at, from) {
+      if (view) return;
+      last = document.activeElement;
+      view = document.createElement('div');
+      view.className = 'nwv2-view';
+      view.setAttribute('role', 'dialog');
+      view.setAttribute('aria-modal', 'true');
+      view.setAttribute('aria-label', 'Photos of ' + name);
+      var h = '<div class="nwv2-view-top"><b>' + (space ? esc(space) + ', ' : '') + list.length + ' photos</b><button type="button">Close</button></div><div class="nwv2-view-list">';
+      list.forEach(function (s, i) {
+        h += '<img src="' + esc(s) + '" alt="' + esc(name) + ', photo ' + (i + 1) + '" loading="' + (i === at ? 'eager' : 'lazy') + '" width="1360" height="1020">';
+      });
+      view.innerHTML = h + '</div>';
+      document.body.appendChild(view);
+      document.documentElement.classList.add('nwv2-lock');
+      var btn = view.querySelector('button');
+      btn.addEventListener('click', close);
+      document.addEventListener('keydown', onKey);
+      try { history.pushState({ nwv2: 'photos' }, ''); } catch (e) {}
+      try { btn.focus({ preventScroll: true }); } catch (e) { btn.focus(); }
+      if (at > 0) { var im = view.querySelectorAll('img')[at]; if (im) im.scrollIntoView(); }
+      track('photos_open', { slug: SLUG, from: from, count: list.length });
+    };
+    var label = 'Show all ' + list.length + ' photos';
+    // Computer: the page's own grid, with the button on it.
+    var grid = document.querySelector('.gallery__component');
+    if (grid) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'nwv2-all-ph';
+      b.textContent = label;
+      b.addEventListener('click', function () { open(0, 'button'); });
+      grid.appendChild(b);
+      grid.addEventListener('click', function (e) {
+        var a = e.target.closest && e.target.closest('a.w-lightbox');
+        if (!a) return;
+        e.preventDefault();
+        e.stopPropagation();
+        var im = a.querySelector('img'), at = im ? list.indexOf(im.getAttribute('src')) : 0;
+        open(at < 0 ? 0 : at, 'grid');
+      }, true);
+    }
+    // Phone: one large photo and two small ones instead of the slider.
+    var mob = document.querySelector('.image-div-mobile');
+    if (mob && list.length >= 3) {
+      var g = document.createElement('div');
+      g.className = 'nwv2-ph';
+      var hh = '';
+      for (var i = 0; i < 3; i++) {
+        hh += '<button type="button" class="t" data-i="' + i + '" aria-label="' + esc(name) + ', photo ' + (i + 1) + ' of ' + list.length +
+          '" style="background-image:url(&quot;' + esc(list[i]) + '&quot;)"></button>';
+      }
+      g.innerHTML = hh + '<button type="button" class="nwv2-all-ph" data-i="0">' + label + '</button>';
+      g.addEventListener('click', function (e) {
+        var t = e.target.closest && e.target.closest('button');
+        if (t) open(Number(t.getAttribute('data-i')) || 0, 'phone');
+      });
+      mob.appendChild(g);
+      document.body.classList.add('nwv2-hasph');
+    }
+  }
+
+  // Computer: the box moves to the right-hand column and stays in view
+  // while the page scrolls; the week of hours it replaces there moves
+  // into the page, and "Also in <area>" runs the full width underneath.
+  function v2Wide() {
+    var side = document.querySelector('.listings-5th-col.directory');
+    var wrapper = document.querySelector('.listing-wrapper');
+    var host = document.querySelector('.left-column .div-block-80');
+    var pick = document.querySelector('.nwv2-pick');
+    if (!side || !wrapper || !host || !pick || !window.matchMedia || document.querySelector('.nwv2-stick')) return;
+    if (side.parentNode !== wrapper) return;
+    var stick = document.createElement('div');
+    stick.className = 'nwv2-stick';
+    var inner = document.createElement('div');
+    inner.className = 'nwv2-stick-in';
+    stick.appendChild(inner);
+    side.insertBefore(stick, side.firstChild);
+    // The hours card and the two round links, into the page.
+    var card = document.createElement('div');
+    card.className = 'nwv2-hrs-card';
+    card.id = 'nwv2-hours';
+    [].slice.call(side.children).forEach(function (c) {
+      if (c.classList && c.classList.contains('place_wrapper')) card.appendChild(c);
+    });
+    var before = host.querySelector('section.nwp') || host.querySelector('.nwv2-how');
+    if (card.children.length) { if (before) host.insertBefore(card, before); else host.appendChild(card); }
+    document.body.classList.add('nwv2-wide');
+    var mq = window.matchMedia('(min-width:992px)');
+    var place = function () {
+      var near = document.querySelector('.nwv2-nearby');
+      var claim = document.querySelector('.nwv2-claim');
+      if (mq.matches) {
+        if (pick.parentNode !== inner) inner.insertBefore(pick, inner.firstChild);
+        if (claim && claim.parentNode !== inner) inner.appendChild(claim);
+        if (near && near.parentNode !== wrapper) wrapper.appendChild(near);
+      } else {
+        if (pick.parentNode !== host) host.insertBefore(pick, host.firstChild);
+        if (claim && claim.parentNode !== host) host.appendChild(claim);
+        if (near && near.parentNode !== host) {
+          var how = host.querySelector('.nwv2-how');
+          if (how) host.insertBefore(near, how.nextSibling); else host.appendChild(near);
+        }
+      }
+    };
+    V2.place = place;
+    place();
+    if (mq.addEventListener) mq.addEventListener('change', place); else if (mq.addListener) mq.addListener(place);
+  }
+
+  // A space with no prices on its page still gets the box, so every
+  // listing reads the same way: one place to send a request from.
+  function v2Ask(space) {
+    if (document.querySelector('.nwv2-pick')) return;
+    var host = document.querySelector('.left-column .div-block-80');
+    var top = document.querySelector('.left-column .buttons-wrapper .research-button');
+    if (!host || !top) return;
+    var who = space || 'this space';
+    var box = document.createElement('section');
+    box.className = 'nwv2-pick';
+    box.id = 'nwv2-pick';
+    box.setAttribute('aria-label', 'Ask for prices');
+    box.innerHTML = '<h2>Ask for prices</h2><p class="nwv2-none">We do not have prices for ' + esc(who) +
+      ' yet. Send a request, say what you need, and they reply to you by email.</p>' +
+      '<button type="button" class="nwv2-go">Send a request</button><p class="nwv2-sure">Free, with no obligation.</p>';
+    host.insertBefore(box, host.firstChild);
+    document.body.classList.add('nwv2-haspick');
+    box.querySelector('.nwv2-go').addEventListener('click', function () {
+      track('picker_request', { slug: SLUG, need: 'ask', people: 1, from: 'box', matched: false });
+      (top.querySelector('#research-button-wrapper') || top).click();
+    });
+  }
+
   function v2(raw) {
     try {
       v2Styles();
@@ -1819,11 +2048,16 @@
       var page = document.querySelector('.left-column');
       if (page) page.classList.add('nwv2');
       document.body.classList.add('nwv2');
+      var name = data && data.space !== 'this space' ? data.space : (raw.space || '');
       v2Facts(raw);
+      v2Photos(name);
       v2Picker();
-      v2Steps(data && data.space !== 'this space' ? data.space : (raw.space || ''));
+      if (!document.querySelector('.nwv2-pick')) v2Ask(name);
+      v2Amen();
+      v2Steps(name);
       v2Nearby();
       v2Claim();
+      v2Wide();
       track('listing_v2_preview', { slug: SLUG });
     } catch (e) {}
   }
