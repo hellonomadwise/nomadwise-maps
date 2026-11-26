@@ -1649,8 +1649,8 @@
       // large photo with two stacked beside it, each with its own rounded
       // corners and a dark label, instead of the one-and-four mosaic with a
       // white button; "What's here" as soft pink tags with red icons, all
-      // shown, instead of a two-column icon list with "Show all"; nearby
-      // spaces as bordered cards. Red is the only accent, no teal.
+      // shown, instead of a two-column icon list with "Show all". Red is
+      // the only accent, no teal.
       '.nwv2-sure svg{color:#FF444F}',
       '.nwv2-all-ph{left:12px;right:auto;border:0;background:rgba(44,44,44,.92);color:#fff}',
       '@media (max-width:767px){.nwv2-all-ph{left:8px;right:auto}}',
@@ -1659,12 +1659,8 @@
       '.nwv2-amen .modal-filtertag-tag .modal-filtertag-tagtext{font:500 14px/1.3 Roboto,sans-serif !important;color:#2C2C2C;white-space:nowrap}',
       '.nwv2-amen .modal-filtertag-tag .nw-amen-ico{width:18px !important;height:18px !important;flex:0 0 18px;color:#FF444F !important;stroke-width:2}',
       '.nwv2-amen-row{margin:12px 0 0}',
-      '.nwv2-card{border:1px solid #E3E5E8;border-radius:8px;overflow:hidden;background:#fff}',
-      '.nwv2-card:hover{border-color:#C9CED4}',
-      '.nwv2-card:hover .nwv2-pic{opacity:1}',
-      '.nwv2-pic{border-radius:0;aspect-ratio:16/10}',
-      '.nwv2-tx{padding:12px 14px 14px}',
-      '.nwv2-rate i{color:#F5A623}',
+      // The nearby cards stay as they were, a photo with the words under
+      // it and no box (Jonathan, 26 Nov 2026: "we should keep this").
       '@media (min-width:992px){' +
         '.nwv2-wide .row-4.is-gallery{grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:10px;border-radius:0;overflow:visible}' +
         '.nwv2-wide .row-4.is-gallery>.col:last-child{grid-template-columns:minmax(0,1fr);grid-template-rows:none;grid-auto-rows:minmax(0,1fr);gap:10px}' +
