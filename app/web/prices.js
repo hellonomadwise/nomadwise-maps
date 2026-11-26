@@ -1536,11 +1536,16 @@
       '.nwv2-mapcard .map-div-main>*,.nwv2-mapcard .map-div-main iframe{height:220px !important}' +
       '.nwv2-mapfoot{display:flex;flex-direction:column;gap:10px;padding:14px 16px 16px;font-size:14.5px;line-height:1.4;color:#2C2C2C}' +
       '.nwv2-mapfoot .nwv2-btn2{margin:0;text-decoration:none;width:100%}' +
-      '.nwv2-wide .listings-5th-col .nwv2-hrs-card{max-width:none;width:100%;margin:0 0 16px}' +
+      '.nwv2-info.nwv2-wide .nwv2-hrs-card{display:none}' +
+      '.nwv2-hrs{padding:14px 16px 12px;border-top:1px solid rgba(0,0,0,.08);color:#2C2C2C}' +
+      '.nwv2-hrs .h{display:block;margin:0 0 6px;font-size:15px;font-weight:700}' +
+      '.nwv2-hrs .r{display:flex;justify-content:space-between;gap:12px;font-size:14px;line-height:1.9}' +
+      '.nwv2-hrs .r span:last-child{color:#5E6670;text-align:right}' +
+      '.nwv2-site{display:flex;justify-content:space-between;gap:12px;padding:14px 16px;border-top:1px solid rgba(0,0,0,.08);font-size:14.5px;font-weight:700;color:#05434F;text-decoration:none}' +
+      '.nwv2-site:hover{background:#F6F7F8}' +
       '.nwv2-wide .left-column .nwv2-ads{width:100%;max-width:none;margin:8px 0 28px;align-self:auto}' +
       '.nwv2-wide .left-column .nwv2-ads .w-dyn-items{display:flex;flex-direction:row;flex-wrap:wrap;gap:16px;align-items:flex-start}' +
       '.nwv2-wide .left-column .nwv2-ads .w-dyn-item{flex:0 0 260px;width:260px;margin:0}' +
-      '.nwv2-wide .listings-5th-col .nwv2-hrs-card .place_wrapper{width:100%;max-width:none}' +
       // The name sits on the page itself across the full width; the
         // photos fill the left column and the box starts level with them
         // (Jonathan, 26 Nov 2026, after an earlier mock-up he liked).
@@ -1666,7 +1671,7 @@
         document.body.classList.add('nwv2-hrs-seen');
         if (b && b.getAttribute('aria-expanded') !== 'true') b.click();
         var seen = function (el) { return el && el.getClientRects().length ? el : null; };
-        var at = seen(b) || seen(g) || seen(document.getElementById('nwv2-hours'));
+        var at = seen(b) || seen(g) || seen(document.getElementById('nwv2-hours')) || seen(document.querySelector('.nwv2-hrs'));
         if (at) { try { at.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (er) { at.scrollIntoView(); } }
         track('hours_opened', { slug: SLUG, from: 'facts' });
       }
@@ -2110,6 +2115,44 @@
       foot.addEventListener('click', function (e) {
         if (e.target.closest && e.target.closest('a')) track('directions_tap', { slug: SLUG, from: 'mapcard' });
       });
+      // The week of hours and the space's website live in the same card
+      // as the map, as plain rows, instead of a separate box and two
+      // round icons (Jonathan, 26 Nov 2026: "the opening hours looks
+      // misplaced, needs to be integrated better").
+      var wk = card.querySelector('.wifi-openinghours-quickstack-5th');
+      var wc = wk ? wk.querySelectorAll('.w-layout-cell') : [];
+      if (wc.length >= 14) {
+        var rows = '';
+        for (var d = 0; d < 7; d++) {
+          var dn = String(wc[d * 2].textContent || '').replace(/\s+/g, ' ').trim();
+          var dv = String(wc[d * 2 + 1].textContent || '').replace(/\s+/g, ' ').trim();
+          if (dn && dv) rows += '<div class="r"><span>' + esc(dn) + '</span><span>' + esc(dv) + '</span></div>';
+        }
+        if (rows) {
+          var hb = document.createElement('div');
+          hb.className = 'nwv2-hrs';
+          hb.innerHTML = '<b class="h">Opening hours</b>' + rows;
+          mapCard.appendChild(hb);
+        }
+      }
+      var site = card.querySelector('.modal-link-circles-container-5th a[href]');
+      var sh = site ? String(site.getAttribute('href') || '') : '';
+      if (/^https?:\/\//i.test(sh) && !MAPS.test(sh)) {
+        var host2 = '';
+        try { host2 = new URL(sh).hostname.replace(/^www\./i, ''); } catch (e) {}
+        if (host2) {
+          var sa = document.createElement('a');
+          sa.className = 'nwv2-site';
+          sa.href = sh;
+          sa.target = '_blank';
+          sa.rel = site.getAttribute('rel') || 'noopener';
+          sa.innerHTML = '<span>' + esc(host2) + '</span><span aria-hidden="true">\u2197</span>';
+          sa.setAttribute('aria-label', 'Website of this space, ' + host2);
+          sa.addEventListener('click', function () { track('website_tap', { slug: SLUG, from: 'infocard' }); });
+          mapCard.appendChild(sa);
+        }
+      }
+      document.body.classList.add('nwv2-info');
     }
     // The name and fact lines run the full width above the two columns
     // (Jonathan, 26 Nov 2026: "the photos might not be big enough"; the
@@ -2154,7 +2197,6 @@
           if (map.parentNode !== mapCard) mapCard.insertBefore(map, mapCard.firstChild);
           after = mapCard;
         }
-        if (card.children.length && card.parentNode !== side) side.insertBefore(card, after.nextSibling);
         if (ads && ads.parentNode !== host) {
           var hw = host.querySelector('.nwv2-how');
           if (hw) host.insertBefore(ads, hw.nextSibling); else host.appendChild(ads);
@@ -2165,10 +2207,7 @@
           host.insertBefore(map, mapHome);
           if (mapCard.parentNode) mapCard.parentNode.removeChild(mapCard);
         }
-        if (card.children.length && card.parentNode !== host) {
-          var bf = host.querySelector('section.nwp') || host.querySelector('.nwv2-how');
-          if (bf) host.insertBefore(card, bf); else host.appendChild(card);
-        }
+
         if (head && top.parentNode !== topHome) {
           topHome.insertBefore(top, topHome.firstChild);
           if (head.parentNode) head.parentNode.removeChild(head);
