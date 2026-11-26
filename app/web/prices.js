@@ -1489,6 +1489,9 @@
         // The hours are in the fact line; the week below stays out of
         // the way until "See all hours" is tapped.
         '.nwv2 .map-div-mobile{background:#E9ECEF;border-radius:8px;overflow:hidden}' +
+        // No request bar stuck to the bottom of a phone for now (Jonathan,
+        // 26 Nov 2026): the box and the price list carry the buttons.
+        'body.nwv2 .nwp-bar{display:none !important}' +
         'body:not(.nwv2-hrs-seen) .nwv2 .div-block-77:has(.nwp-week.nwp-shut){display:none}' +
         '.nwv2-sec{margin:26px 0}.nwv2-sec h2{font-size:17px}' +
         '.nwv2-near{display:flex;overflow-x:auto;gap:10px;margin-right:-20px;padding-right:20px;scroll-snap-type:x mandatory;scrollbar-width:none}' +
