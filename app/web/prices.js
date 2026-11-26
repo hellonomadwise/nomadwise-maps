@@ -1401,10 +1401,12 @@
       // finds the rating, the address and the hours at once, and the two
       // facts on the first line stand apart (Leonie, 26 Nov 2026: plain
       // text, "missing some sort of icon", "too much unrelated info in the
-      // same style"). Links are Nomadwise teal, not black.
-      '.nwv2-ln a{color:#05434F;font-weight:500;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px}',
-      '.nwv2-ln a:hover{text-decoration-thickness:2px}',
-      '.nwv2-ln svg{width:16px;height:16px;vertical-align:-3px;margin-right:6px;color:#2C2C2C}',
+      // same style"). Links: dark, a little heavier, no underline, no arrow,
+      // red on hover (Jonathan and Leonie, 26 Nov 2026: no teal, no
+      // underline, no arrow).
+      '.nwv2-ln a{color:#2C2C2C;font-weight:500;text-decoration:none}',
+      '.nwv2-ln a:hover{color:#FF444F}',
+      '.nwv2-ln svg{width:16px;height:16px;vertical-align:-3px;margin-right:6px;color:#FF444F}',
       '.nwv2-ln svg.nwv2-star{color:#F5A623}',
       '.nwv2-ln b{font-weight:700;color:#2C2C2C}',
       '.nwv2-ln .gap{display:inline-block;width:20px}',
@@ -1458,7 +1460,8 @@
       '.nwv2-note{display:block;margin-top:3px;font:400 13.5px/1.45 Roboto,sans-serif;color:#5E6670}',
       '.nwv2-pr{font:400 13.5px/1.35 Roboto,sans-serif;color:#5E6670;white-space:nowrap}',
       '.nwv2-pr b{font-size:15px;font-weight:700;color:#2C2C2C}',
-      '.nwv2-all{padding-top:4px;font-size:14px;font-weight:500;color:#2C2C2C;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px}',
+      '.nwv2-all{padding-top:4px;font-size:14px;font-weight:500;color:#2C2C2C;text-decoration:none}',
+      '.nwv2-all:hover{color:#FF444F}',
       // The request form on a computer: wider and shorter, two fields to a
       // row, the button beside the small print, so it fits a laptop screen
       // without scrolling (Jonathan, 26 Nov 2026: it was cut off on
@@ -1490,7 +1493,7 @@
       '.nwv2-alt b{font-weight:400;white-space:nowrap}',
       '.nwv2-go{min-height:48px;margin:0;padding:10px 16px;border:0;border-radius:8px;background:#FF444F;color:#fff;font:500 16px/1.2 Roboto,sans-serif;cursor:pointer}',
       '.nwv2-go:hover{background:#E63B45}',
-      '.nwv2-pick button:focus-visible,.nwv2-pick a:focus-visible{outline:2px solid #05434F;outline-offset:2px}',
+      '.nwv2-pick button:focus-visible,.nwv2-pick a:focus-visible{outline:2px solid #2C2C2C;outline-offset:2px}',
       '.nwv2-sure{display:flex;flex-direction:column;gap:5px;margin:0;padding:0;list-style:none;font-size:13px;line-height:1.4;color:#5E6670;text-align:left}',
       '.nwv2-sure li{display:flex;align-items:flex-start;gap:8px;margin:0;padding:0}',
       '.nwv2-sure svg{flex:0 0 14px;width:14px;height:14px;margin-top:2px}',
@@ -1553,7 +1556,7 @@
       '.nwv2-btn2{display:inline-flex;align-items:center;justify-content:center;min-height:44px;margin:8px 0 0;padding:8px 18px;border:1px solid #2C2C2C;border-radius:8px;background:#fff;font:500 15px/1.2 Roboto,sans-serif;color:#2C2C2C;cursor:pointer}',
       '.nwv2-btn2:hover{background:#F6F7F8}',
       '@media (min-width:768px){.nwv2-amen-btn.nwv2-m{display:none}}',
-      '.nwv2-btn2:focus-visible,.nwv2-view button:focus-visible{outline:2px solid #05434F;outline-offset:2px}',
+      '.nwv2-btn2:focus-visible,.nwv2-view button:focus-visible{outline:2px solid #2C2C2C;outline-offset:2px}',
       // Photos
       '.nwv2-all-ph{position:absolute;right:12px;bottom:12px;z-index:3;min-height:40px;margin:0;padding:6px 14px;border:1px solid #2C2C2C;border-radius:8px;background:#fff;font:500 14px/1.2 Roboto,sans-serif;color:#2C2C2C;cursor:pointer}',
       '.nwv2-ph{display:none}',
@@ -1623,7 +1626,7 @@
       '.nwv2-hrs .h{display:block;margin:0 0 6px;font-size:15px;font-weight:700}' +
       '.nwv2-hrs .r{display:flex;justify-content:space-between;gap:12px;font-size:14px;line-height:1.9}' +
       '.nwv2-hrs .r span:last-child{color:#5E6670;text-align:right}' +
-      '.nwv2-site{display:flex;justify-content:space-between;gap:12px;padding:14px 16px;border-top:1px solid rgba(0,0,0,.08);font-size:14.5px;font-weight:700;color:#05434F;text-decoration:none}' +
+      '.nwv2-site{display:flex;justify-content:space-between;gap:12px;padding:14px 16px;border-top:1px solid rgba(0,0,0,.08);font-size:14.5px;font-weight:700;color:#2C2C2C;text-decoration:none}' +
       '.nwv2-site:hover{background:#F6F7F8}' +
       // The name sits on the page itself across the full width; the
         // photos fill the left column and the box starts level with them
@@ -1641,6 +1644,33 @@
       '.nwv2-wide .listing-wrapper>.nwv2-nearby .nwv2-near{grid-template-columns:repeat(4,minmax(0,1fr))}' +
       '}',
       '@media (min-width:1200px){.nwv2-wide .listings-5th-col.directory{flex-basis:370px;width:370px}}',
+      // The Nomadwise look (26 Nov 2026). Leonie: the page "looks too much
+      // like airbnb", and should be spotted at once as Nomadwise. So: one
+      // large photo with two stacked beside it, each with its own rounded
+      // corners and a dark label, instead of the one-and-four mosaic with a
+      // white button; "What's here" as soft pink tags with red icons, all
+      // shown, instead of a two-column icon list with "Show all"; nearby
+      // spaces as bordered cards. Red is the only accent, no teal.
+      '.nwv2-sure svg{color:#FF444F}',
+      '.nwv2-all-ph{left:12px;right:auto;border:0;background:rgba(44,44,44,.92);color:#fff}',
+      '@media (max-width:767px){.nwv2-all-ph{left:8px;right:auto}}',
+      '.nwv2-amen{display:flex !important;flex-wrap:wrap;gap:8px}',
+      '.nwv2-amen .modal-filtertag-tag{flex:0 0 auto;width:auto;gap:8px;padding:8px 12px;border-radius:8px;background:#FFF1F2}',
+      '.nwv2-amen .modal-filtertag-tag .modal-filtertag-tagtext{font:500 14px/1.3 Roboto,sans-serif !important;color:#2C2C2C;white-space:nowrap}',
+      '.nwv2-amen .modal-filtertag-tag .nw-amen-ico{width:18px !important;height:18px !important;flex:0 0 18px;color:#FF444F !important;stroke-width:2}',
+      '.nwv2-amen-row{margin:12px 0 0}',
+      '.nwv2-card{border:1px solid #E3E5E8;border-radius:8px;overflow:hidden;background:#fff}',
+      '.nwv2-card:hover{border-color:#C9CED4}',
+      '.nwv2-card:hover .nwv2-pic{opacity:1}',
+      '.nwv2-pic{border-radius:0;aspect-ratio:16/10}',
+      '.nwv2-tx{padding:12px 14px 14px}',
+      '.nwv2-rate i{color:#F5A623}',
+      '@media (min-width:992px){' +
+        '.nwv2-wide .row-4.is-gallery{grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:10px;border-radius:0;overflow:visible}' +
+        '.nwv2-wide .row-4.is-gallery>.col:last-child{grid-template-columns:minmax(0,1fr);grid-template-rows:none;grid-auto-rows:minmax(0,1fr);gap:10px}' +
+        '.nwv2-wide .row-4.is-gallery>.col:last-child>*:nth-child(n+3){display:none}' +
+        '.nwv2-wide .row-4.is-gallery>.col>*,.nwv2-wide .gallery-popup__image-wrapper{border-radius:8px;overflow:hidden}' +
+      '}',
       // Laptops: the listing page, its breadcrumb and the menu open up
       // to 1320px so the photos have room. Larger screens already go to
       // 1440px. Listing pages only; article pages are untouched.
@@ -2072,25 +2102,10 @@
     box.parentNode.insertBefore(row, box.nextSibling);
     var add = box.querySelector('.modal-filtertag-tag-empty');
     if (add) row.appendChild(add);
-    // Six show on a computer (two columns), five on a phone (one
-    // column, as Airbnb lists what a place offers), then "Show all N".
-    if (tags.length <= 5) { box.classList.add('all'); row.classList.add('all'); return; }
-    if (tags.length <= 6) row.classList.add('m');
-    tags.slice(6).forEach(function (t) { t.classList.add('nwv2-x'); });
-    tags[5].classList.add('nwv2-x5');
-    var b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'nwv2-btn2 nwv2-amen-btn' + (tags.length <= 6 ? ' nwv2-m' : '');
-    b.setAttribute('aria-expanded', 'false');
-    b.textContent = 'Show all ' + tags.length;
-    b.addEventListener('click', function () {
-      var open = box.classList.toggle('all');
-      row.classList.toggle('all', open);
-      b.setAttribute('aria-expanded', String(open));
-      b.textContent = open ? 'Show fewer' : 'Show all ' + tags.length;
-      if (open) track('amenities_all', { slug: SLUG });
-    });
-    row.insertBefore(b, row.firstChild);
+    // As tags they are compact, so all of them show and there is no
+    // "Show all" button (26 Nov 2026).
+    box.classList.add('all');
+    row.classList.add('all');
   }
 
   function v2Photos(space) {
