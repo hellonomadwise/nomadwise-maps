@@ -1404,7 +1404,7 @@
       // same style"). Links: dark, a little heavier, no underline, no arrow,
       // red on hover (Jonathan and Leonie, 26 Nov 2026: no teal, no
       // underline, no arrow).
-      '.nwv2-ln a{color:#2C2C2C;font-weight:500;text-decoration:none}',
+      '.nwv2-ln a{color:#2C2C2C;font-weight:500;text-decoration:none;white-space:nowrap}',
       '.nwv2-ln a:hover{color:#FF444F}',
       '.nwv2-ln svg{width:16px;height:16px;vertical-align:-3px;margin-right:6px;color:#FF444F}',
       '.nwv2-ln svg.nwv2-star{color:#F5A623}',
@@ -1762,6 +1762,12 @@
           var k = drop.shift();
           parts = parts.filter(function (p) { return p.k !== k; });
           el.innerHTML = draw(parts);
+        }
+        // A narrow phone: "See all hours" shortens to "All hours" before
+        // the line is allowed to break.
+        if (el.scrollWidth > el.clientWidth + 1) {
+          var sa = el.querySelector('a[data-nwv2="hours"]');
+          if (sa) sa.textContent = 'All hours';
         }
         // Still too long with only what must stay: let it wrap rather
         // than cut anything off.
