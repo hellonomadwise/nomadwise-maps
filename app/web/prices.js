@@ -1436,7 +1436,7 @@
         '.nwv2-steps{grid-template-columns:1fr;gap:12px}' +
         // The hours are in the fact line; the week below stays out of
         // the way until "See all hours" is tapped.
-        '.nwv2 .div-block-77:has(.nwp-week.nwp-shut){display:none}' +
+        'body:not(.nwv2-hrs-seen) .nwv2 .div-block-77:has(.nwp-week.nwp-shut){display:none}' +
         '.nwv2-sec{margin:26px 0}.nwv2-sec h2{font-size:17px}' +
         '.nwv2-near{display:flex;overflow-x:auto;gap:10px;margin-right:-20px;padding-right:20px;scroll-snap-type:x mandatory;scrollbar-width:none}' +
         '.nwv2-near::-webkit-scrollbar{display:none}' +
@@ -1468,6 +1468,10 @@
       '@media (max-width:767px){' +
       '.nwv2-h{margin:24px 0 12px;font-size:17px}' +
       '.nwv2-hasph .image-div-mobile .div-block-209{display:none !important}' +
+        // The photo block keeps a 3:2 shape of its own, which left a gap
+        // under the grid that grew on wider phones (Jonathan, 26 Nov 2026).
+        '.nwv2-hasph .image-div-mobile{height:auto !important;min-height:0 !important;aspect-ratio:auto !important}' +
+        '.nwv2-hasph .image-div-mobile+.section-8{padding:0 0 2px}' +
       '.nwv2-ph{position:relative;display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);grid-template-rows:1fr 1fr;gap:4px;height:238px;margin:8px 12px 0;border-radius:8px;overflow:hidden;contain:inline-size}' +
       '.nwv2-ph button.t{margin:0;padding:0;border:0;background:#E9ECEF center/cover no-repeat;cursor:pointer;min-width:0}' +
       '.nwv2-ph button.t:first-child{grid-row:1/3}' +
@@ -1591,6 +1595,10 @@
         e.preventDefault();
         var b = document.querySelector('.nwp-hrs');
         var g = document.querySelector('.left-column .div-block-77 .wifi-openinghours-quickstack');
+        // Once opened from here the hours stay on the page: "Hide" folds
+        // them back to one line and no longer makes the block vanish
+        // (Jonathan, 26 Nov 2026).
+        document.body.classList.add('nwv2-hrs-seen');
         if (b && b.getAttribute('aria-expanded') !== 'true') b.click();
         var seen = function (el) { return el && el.getClientRects().length ? el : null; };
         var at = seen(b) || seen(g) || seen(document.getElementById('nwv2-hours'));
