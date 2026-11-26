@@ -1381,7 +1381,7 @@
       '.nwv2-ln.wrap{white-space:normal}',
       '.nwv2-ln a{color:#05434F;font-weight:700;text-decoration:underline}',
       '.nwv2-ln .dot{margin:0 6px}',
-      '.nwv2-sec{margin:32px 0;font-family:Roboto,sans-serif;color:#2C2C2C}',
+      '.nwv2-sec{margin:32px 0;font-family:Roboto,sans-serif;color:#2C2C2C;contain:inline-size}',
       '.nwv2-sec h2{margin:0 0 14px;font-size:20px;line-height:1.3;font-weight:700}',
       '.nwv2-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:0;padding:0;list-style:none}',
       '.nwv2-steps li{display:flex;gap:10px;align-items:flex-start;font-size:15px;line-height:1.45;margin:0}',
@@ -1402,7 +1402,8 @@
         // the way until "See all hours" is tapped.
         '.nwv2 .div-block-77:has(.nwp-week.nwp-shut){display:none}' +
         '.nwv2-sec{margin:26px 0}.nwv2-sec h2{font-size:17px}' +
-        '.nwv2-near{display:flex;overflow-x:auto;gap:10px;margin-right:-20px;padding-right:20px;scroll-snap-type:x mandatory}' +
+        '.nwv2-near{display:flex;overflow-x:auto;gap:10px;margin-right:-20px;padding-right:20px;scroll-snap-type:x mandatory;scrollbar-width:none}' +
+        '.nwv2-near::-webkit-scrollbar{display:none}' +
         '.nwv2-card{flex:0 0 160px;scroll-snap-align:start}' +
       '}'
     ].join('\n');
