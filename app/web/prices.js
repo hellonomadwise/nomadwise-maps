@@ -1579,7 +1579,9 @@
         // The photo block keeps a 3:2 shape of its own, which left a gap
         // under the grid that grew on wider phones (Jonathan, 26 Nov 2026).
         '.nwv2-hasph .image-div-mobile{height:auto !important;min-height:0 !important;aspect-ratio:auto !important}' +
-        '.nwv2-hasph .image-div-mobile+.section-8{padding:0 0 2px}' +
+        // The breadcrumb sits midway between the photos and the card
+        // below (Jonathan, 26 Nov 2026): 12px above its words, 13 below.
+        '.nwv2-hasph .image-div-mobile+.section-8{padding:5px 0 0}' +
       '.nwv2-ph{position:relative;display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);grid-template-rows:1fr 1fr;gap:4px;height:238px;margin:8px 12px 0;border-radius:8px;overflow:hidden;contain:inline-size}' +
       '.nwv2-ph button.t{margin:0;padding:0;border:0;background:#E9ECEF center/cover no-repeat;cursor:pointer;min-width:0}' +
       '.nwv2-ph button.t:first-child{grid-row:1/3}' +
