@@ -1901,7 +1901,8 @@
     var tags = [].slice.call(box.querySelectorAll('.modal-filtertag-tag')).filter(function (t) {
       return !t.classList.contains('w-condition-invisible') && t.style.display !== 'none';
     });
-    if (!tags.length) return;
+    // With no tags at all, the lone "Add a tag" box is left out too.
+    if (!tags.length) { box.style.display = 'none'; return; }
     box.classList.add('nwv2-amen');
     var h = document.createElement('h2');
     h.className = 'nwv2-h';
@@ -2037,7 +2038,18 @@
     card.className = 'nwv2-hrs-card';
     card.id = 'nwv2-hours';
     [].slice.call(side.children).forEach(function (c) {
-      if (c.classList && c.classList.contains('place_wrapper')) card.appendChild(c);
+      if (!c.classList || !c.classList.contains('place_wrapper')) return;
+      // A week with no hours in it is not shown as an empty box
+      // (Jonathan, 26 Nov 2026, Living On Air Kertasari).
+      var week = c.querySelector('.wifi-openinghours-quickstack-5th');
+      if (week) {
+        var cells = week.querySelectorAll('.w-layout-cell'), any = false;
+        for (var i = 1; i < cells.length && i < 14; i += 2) {
+          if (/\d|closed|open/i.test(cells[i].textContent || '')) any = true;
+        }
+        if (!any) { c.style.display = 'none'; return; }
+      }
+      card.appendChild(c);
     });
     var before = host.querySelector('section.nwp') || host.querySelector('.nwv2-how');
     if (card.children.length) { if (before) host.insertBefore(card, before); else host.appendChild(card); }
