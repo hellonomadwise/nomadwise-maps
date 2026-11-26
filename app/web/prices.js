@@ -1502,6 +1502,18 @@
       '}',
       // Computer: two columns, the box on the right stays in view.
       '.nwv2-stick,.nwv2-hrs-card{display:none}',
+      // Computer: once the box has scrolled away, a slim bar under the
+      // menu keeps the request one click away all the way down the page.
+      '.nwv2-topbar{display:none}',
+      '@media (min-width:992px){' +
+        '.nwv2-topbar.on{display:block;position:fixed;left:0;right:0;z-index:900;background:#fff;border-bottom:1px solid rgba(0,0,0,.1);box-shadow:0 4px 14px rgba(20,32,50,.06);font-family:Roboto,sans-serif}' +
+        '.nwv2-topbar>div{display:flex;align-items:center;justify-content:space-between;gap:20px;margin:0 auto;padding:10px 3px;box-sizing:border-box}' +
+        '.nwv2-topbar b.n{font-size:16px;font-weight:700;color:#2C2C2C;min-width:0;overflow-wrap:anywhere}' +
+        '.nwv2-topbar .r{display:flex;align-items:center;gap:16px;flex:none}' +
+        '.nwv2-topbar .p{font-size:14px;color:#5E6670;white-space:nowrap}' +
+        '.nwv2-topbar .p b{font-size:16px;font-weight:700;color:#2C2C2C}' +
+        '.nwv2-topbar .nwv2-go{min-height:44px;padding:8px 22px}' +
+      '}',
       // From tablet width up the week of hours sits in the page and the
       // old button in the side column gives way to the box.
       '@media (min-width:768px){.nwv2-wide .nwv2-hrs-card{display:block;max-width:340px;margin:0 0 8px}.nwv2-wide .listings-5th-col.directory>.div-block-835{display:none !important}}',
@@ -1514,10 +1526,18 @@
       '.nwv2-wide .listing-wrapper{flex-wrap:wrap;align-items:stretch}' +
       '.nwv2-wide .listing-wrapper>.quick-stack{flex:1 1 0;min-width:0;width:auto}' +
       '.nwv2-wide .listings-5th-col.directory{align-self:stretch;height:auto;flex:0 0 340px;width:340px;max-width:none;display:flex;flex-direction:column}' +
-      '.nwv2-wide .nwv2-stick{display:block;flex:1 1 auto;align-self:stretch;width:100%;padding-bottom:24px}' +
-      '.nwv2-wide .nwv2-stick-in{position:sticky;top:84px;max-height:calc(100vh - 100px);overflow-y:auto;scrollbar-width:thin}' +
+      '.nwv2-wide .nwv2-stick{display:block;flex:0 0 auto;align-self:stretch;width:100%;padding-bottom:16px}' +
       '.nwv2-wide .nwv2-stick .nwv2-pick{margin:0;max-width:none;box-shadow:0 6px 20px rgba(20,32,50,.08)}' +
       '.nwv2-wide .nwv2-stick .nwv2-claim{margin:12px 0 0;text-align:center}' +
+      // Under the box, as on the mock-up Jonathan liked: a small map
+      // with the address and directions, then the week of hours.
+      '.nwv2-mapcard{width:100%;margin:0 0 16px;border:1px solid rgba(0,0,0,.1);border-radius:8px;overflow:hidden;background:#fff;font-family:Roboto,sans-serif}' +
+      '.nwv2-mapcard .map-div-main{height:220px !important;min-height:0 !important;margin:0 !important}' +
+      '.nwv2-mapcard .map-div-main>*,.nwv2-mapcard .map-div-main iframe{height:220px !important}' +
+      '.nwv2-mapfoot{display:flex;flex-direction:column;gap:10px;padding:14px 16px 16px;font-size:14.5px;line-height:1.4;color:#2C2C2C}' +
+      '.nwv2-mapfoot .nwv2-btn2{margin:0;text-decoration:none;width:100%}' +
+      '.nwv2-wide .listings-5th-col .nwv2-hrs-card{max-width:none;width:100%;margin:0 0 16px}' +
+      '.nwv2-wide .listings-5th-col .nwv2-hrs-card .place_wrapper{width:100%;max-width:none}' +
       // The name sits on the page itself across the full width; the
         // photos fill the left column and the box starts level with them
         // (Jonathan, 26 Nov 2026, after an earlier mock-up he liked).
@@ -1624,6 +1644,8 @@
     };
     fit();
     V2.fit = fit;
+    V2.addr = addr;
+    V2.dir = dir;
     var t = null;
     window.addEventListener('resize', function () { clearTimeout(t); t = setTimeout(fit, 150); });
     box.addEventListener('click', function (e) {
@@ -1684,7 +1706,7 @@
     return '';
   }
 
-  var V2 = { need: null, people: 1, go: null, near: null, place: null, fit: null };
+  var V2 = { need: null, people: 1, go: null, near: null, place: null, fit: null, addr: '', dir: '' };
   function nearbyList() {
     if (!V2.near) {
       V2.near = fetch(URL_ + '/rest/v1/rpc/page_nearby', {
@@ -2070,6 +2092,22 @@
     });
     var before = host.querySelector('section.nwp') || host.querySelector('.nwv2-how');
     if (card.children.length) { if (before) host.insertBefore(card, before); else host.appendChild(card); }
+    // The map, small, with the address and directions under it.
+    var map = host.querySelector('.map-div-main'), mapHome = null, mapCard = null;
+    if (map && map.parentNode === host) {
+      mapHome = document.createComment('map');
+      host.insertBefore(mapHome, map);
+      mapCard = document.createElement('div');
+      mapCard.className = 'nwv2-mapcard';
+      var foot = document.createElement('div');
+      foot.className = 'nwv2-mapfoot';
+      foot.innerHTML = (V2.addr ? '<span>' + esc(V2.addr) + '</span>' : '') +
+        (V2.dir ? '<a class="nwv2-btn2" href="' + esc(V2.dir) + '" target="_blank" rel="noopener">Get directions</a>' : '');
+      if (foot.children.length) mapCard.appendChild(foot);
+      foot.addEventListener('click', function (e) {
+        if (e.target.closest && e.target.closest('a')) track('directions_tap', { slug: SLUG, from: 'mapcard' });
+      });
+    }
     // The name and fact lines run the full width above the two columns
     // (Jonathan, 26 Nov 2026: "the photos might not be big enough"; the
     // main one was 324px wide on a laptop).
@@ -2094,7 +2132,22 @@
           if (head.parentNode !== wrapper) wrapper.insertBefore(head, wrapper.firstChild);
           if (top.parentNode !== head) head.appendChild(top);
         }
+        var after = stick;
+        if (mapCard) {
+          if (mapCard.parentNode !== side) side.insertBefore(mapCard, after.nextSibling);
+          if (map.parentNode !== mapCard) mapCard.insertBefore(map, mapCard.firstChild);
+          after = mapCard;
+        }
+        if (card.children.length && card.parentNode !== side) side.insertBefore(card, after.nextSibling);
       } else {
+        if (mapCard && map.parentNode !== host) {
+          host.insertBefore(map, mapHome);
+          if (mapCard.parentNode) mapCard.parentNode.removeChild(mapCard);
+        }
+        if (card.children.length && card.parentNode !== host) {
+          var bf = host.querySelector('section.nwp') || host.querySelector('.nwv2-how');
+          if (bf) host.insertBefore(card, bf); else host.appendChild(card);
+        }
         if (head && top.parentNode !== topHome) {
           topHome.insertBefore(top, topHome.firstChild);
           if (head.parentNode) head.parentNode.removeChild(head);
@@ -2110,6 +2163,45 @@
     V2.place = function () { place(); if (V2.fit) V2.fit(); };
     V2.place();
     if (mq.addEventListener) mq.addEventListener('change', V2.place); else if (mq.addListener) mq.addListener(V2.place);
+    v2TopBar(pick, wrapper);
+  }
+
+  // The request follows the visitor down the page on a computer: when
+  // the box is out of view, a slim bar under the menu shows the space,
+  // the price for what is picked and the same button (Jonathan, 26 Nov
+  // 2026: map and hours beside the photos, and the request still
+  // following down the page).
+  function v2TopBar(pick, wrapper) {
+    if (document.querySelector('.nwv2-topbar') || !window.IntersectionObserver) return;
+    var h1 = document.querySelector('.div-block-136 h1');
+    var name = data && data.space !== 'this space' ? data.space : (h1 ? String(h1.textContent || '').replace(/\s+/g, ' ').trim() : '');
+    var bar = document.createElement('div');
+    bar.className = 'nwv2-topbar';
+    bar.innerHTML = '<div><b class="n">' + esc(name) + '</b><span class="r"><span class="p"></span><button type="button" class="nwv2-go"></button></span></div>';
+    document.body.appendChild(bar);
+    var btn = bar.querySelector('button'), price = bar.querySelector('.p');
+    var sync = function () {
+      var go = pick.querySelector('.nwv2-go'), pr = pick.querySelector('.nwv2-pr');
+      btn.textContent = go ? go.textContent : 'Send a request';
+      price.innerHTML = pr ? pr.innerHTML : '';
+    };
+    sync();
+    if (window.MutationObserver) new MutationObserver(sync).observe(pick, { childList: true });
+    btn.addEventListener('click', function () {
+      var go = pick.querySelector('.nwv2-go');
+      track('topbar_request', { slug: SLUG });
+      if (go) go.click();
+    });
+    var nav = document.querySelector('.w-nav');
+    new IntersectionObserver(function (es) {
+      var e = es[es.length - 1];
+      var on = !e.isIntersecting && e.boundingClientRect.top < 0;
+      if (on) {
+        bar.style.top = (nav ? Math.round(nav.getBoundingClientRect().bottom) : 68) + 'px';
+        bar.firstChild.style.maxWidth = Math.round(wrapper.getBoundingClientRect().width) + 'px';
+      }
+      bar.classList.toggle('on', on);
+    }, { threshold: 0 }).observe(pick);
   }
 
   // A space with no prices on its page still gets the box, so every
