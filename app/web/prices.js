@@ -1481,7 +1481,9 @@
       '@media (min-width:992px){' +
       // The page's own container hides overflow, which would stop the
       // box from staying in view.
-      '.nwv2-wide .container-listings{overflow:visible}' +
+      '.nwv2-wide .container-listings,.nwv2-wide .listing-wrapper{overflow:visible}' +
+        // The banners keep their own width in the wider column.
+        '.nwv2-wide .listings-5th-col.directory>.w-dyn-list{width:100%;max-width:260px;align-self:center}' +
       '.nwv2-wide .listing-wrapper{flex-wrap:wrap;align-items:stretch}' +
       '.nwv2-wide .listing-wrapper>.quick-stack{flex:1 1 0;min-width:0;width:auto}' +
       '.nwv2-wide .listings-5th-col.directory{align-self:stretch;height:auto;flex:0 0 340px;width:340px;max-width:none;display:flex;flex-direction:column}' +
