@@ -1389,9 +1389,25 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   /// button to use it, the other options, and the map.
   List<Widget> _claudeHint(Map<String, dynamic> v, Map<String, dynamic> p,
       Map<String, dynamic> a, Widget mapButton, String nearbyName) {
+    // A "new" Location Claude suggested may have been created since it
+    // answered (Jonathan, 27 Nov 2026: "its saying create CBD but CBD is
+    // already created"): then it is offered as the existing one.
+    final regionId = '${p['region_id'] ?? a['region_id'] ?? ''}';
+    Map<String, dynamic> settle(Map<String, dynamic> o) {
+      if (o['kind'] != 'new') return o;
+      final want = '${o['name'] ?? ''}'.trim().toLowerCase();
+      final hit = _locations
+          .where((l) =>
+              '${l['region_id']}' == regionId &&
+              '${l['name'] ?? ''}'.trim().toLowerCase() == want)
+          .firstOrNull;
+      if (hit == null) return o;
+      return {...o, 'kind': 'existing', 'location_id': hit['id'],
+        'name': hit['name']};
+    }
     final options = [
       for (final o in (a['options'] as List? ?? const []))
-        if (o is Map) Map<String, dynamic>.from(o),
+        if (o is Map) settle(Map<String, dynamic>.from(o)),
     ];
     final note = '${a['note'] ?? ''}'.trim();
     final current = '${p['location'] ?? ''}'.trim().toLowerCase();
