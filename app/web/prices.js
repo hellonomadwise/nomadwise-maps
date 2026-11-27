@@ -489,7 +489,10 @@
       '.nwp-ok.nwp-ok-s .nwp-sum{margin:10px 0 0}',
       '.nwp-also{grid-column:1/-1;display:flex;flex-direction:column;gap:12px;padding:8px 4px 12px;text-align:left}',
       '.nwp-also h4{margin:8px 0 0;font-size:16px;line-height:1.35;font-weight:700;color:var(--nwp-ink)}',
-      '.nwp-al-list{display:flex;flex-direction:column;border:1px solid var(--nwp-line);border-radius:8px;overflow:hidden}',
+      '.nwp-ok.nwp-still svg circle,.nwp-ok.nwp-still svg path{animation:none;stroke-dashoffset:0}',
+      '.nwp-al-wrap{position:relative}',
+      '.nwp-al-nav{display:none}',
+      '.nwp-al-list{display:flex;flex-direction:column;border:1px solid rgba(0,0,0,.16);border-radius:8px;overflow:hidden}',
       '.nwp-al-row{position:relative;display:flex;align-items:stretch;border-top:1px solid var(--nwp-line);background:#fff}',
       '.nwp-al-row:first-child{border-top:0}',
       '.nwp-al{flex:1 1 auto;min-width:0;display:flex;align-items:center;gap:12px;margin:0;padding:12px 4px 12px 12px;border:0;background:transparent;text-align:left;font:inherit;color:var(--nwp-ink);cursor:pointer}',
@@ -531,7 +534,15 @@
       '.nwp-ok.nwp-ok-s .nwp-sum span{width:auto;font-size:12.5px}' +
       '.nwp-also{padding:6px 4px 8px}' +
       '.nwp-al-list:not(.nwp-al-n1){flex-direction:row;gap:12px;border:0;border-radius:0;overflow:visible}' +
-      '.nwp-al-list:not(.nwp-al-n1) .nwp-al-row{flex:1 1 0;min-width:0;flex-direction:column;border:1px solid var(--nwp-line);border-radius:8px;overflow:hidden}' +
+      '.nwp-al-list:not(.nwp-al-n1) .nwp-al-row{flex:1 1 0;min-width:0;flex-direction:column;border:1px solid rgba(0,0,0,.16);border-radius:8px;overflow:hidden}' +
+      '.nwp-al-list.nwp-al-n4{overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;overscroll-behavior-x:contain}' +
+      '.nwp-al-list.nwp-al-n4::-webkit-scrollbar{display:none}' +
+      '.nwp-al-list.nwp-al-n4 .nwp-al-row{flex:0 0 calc((100% - 24px) / 3.2);scroll-snap-align:start}' +
+      '.nwp-al-nav{position:absolute;top:52px;transform:translateY(-50%);width:36px;height:36px;border-radius:50%;border:1px solid rgba(0,0,0,.14);background:#fff;color:#2C2C2C;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;box-shadow:0 2px 8px rgba(20,32,50,.18);z-index:2}' +
+      '.nwp-al-nav[hidden]{display:none}' +
+      '.nwp-al-nav svg{width:18px;height:18px}' +
+      '.nwp-al-next{right:-8px}.nwp-al-next svg{transform:rotate(-90deg)}' +
+      '.nwp-al-prev{left:-8px}.nwp-al-prev svg{transform:rotate(90deg)}' +
       '.nwp-al-list:not(.nwp-al-n1) .nwp-al{flex-direction:column;align-items:stretch;gap:10px;padding:0 0 4px}' +
       '.nwp-al-list:not(.nwp-al-n1) .nwp-al-pic{width:100%;height:104px;border-radius:0}' +
       '.nwp-al-list:not(.nwp-al-n1) .nwp-al-box,.nwp-al-list:not(.nwp-al-n1) .nwp-al-spin{position:absolute;top:10px;left:10px;margin:0;box-shadow:0 1px 4px rgba(20,32,50,.25)}' +
@@ -729,7 +740,7 @@
     nearbyList().then(function (list) {
       if (!Array.isArray(list) || !S.sent || SLUG !== from) return;
       var asked = askedList();
-      ALSO.list = list.filter(function (s) { return s && s.slug && s.name && asked.indexOf(String(s.slug).toLowerCase()) < 0; }).slice(0, 3);
+      ALSO.list = list.filter(function (s) { return s && s.slug && s.name && asked.indexOf(String(s.slug).toLowerCase()) < 0; }).slice(0, 4);
       if (cb) cb(ALSO.list.length);
       if (!ALSO.list.length) return;
       if (!DEMO) track('also_offer_shown', { slug: SLUG, spaces: ALSO.list.length, from: SITE ? 'site' : 'prices' });
@@ -753,7 +764,7 @@
     var head = ALSO.did && !ALSO.busy
       ? 'Sent to ' + ALSO.did + ' more ' + (ALSO.did === 1 ? 'space' : 'spaces') + '. Each one replies to you by email.'
       : 'Want to also send your request to these spaces?';
-    var h = '<div class="nwp-also"><h4 id="nwp-also-h">' + esc(head) + '</h4><div class="nwp-al-list nwp-al-n' + ALSO.list.length + '" role="group" aria-labelledby="nwp-also-h">';
+    var h = '<div class="nwp-also"><h4 id="nwp-also-h">' + esc(head) + '</h4><div class="nwp-al-wrap"><div class="nwp-al-list nwp-al-n' + ALSO.list.length + '" role="group" aria-labelledby="nwp-also-h">';
     ALSO.list.forEach(function (s) {
       var st = ALSO.st[s.slug] || '';
       var on = !!ALSO.on[s.slug];
@@ -775,6 +786,11 @@
         (price ? '<span>' + esc(price) + '</span>' : '') + word + '</span></button>' +
         '<a class="nwp-al-view" href="/coworking/' + esc(s.slug) + '" target="_blank" rel="noopener" data-a="also-view" data-v="' + esc(s.slug) + '" data-k="view-' + esc(s.slug) + '" aria-label="View ' + esc(s.name) + ' in a new tab">View</a></div>';
     });
+    // More than three: the row scrolls sideways on a computer, with an
+    // arrow at each end that has more to show (Jonathan, 27 Nov 2026).
+    h += '</div>' + (ALSO.list.length > 3
+      ? '<button type="button" class="nwp-al-nav nwp-al-prev" data-a="also-nav" data-v="-1" aria-label="Earlier spaces" hidden>' + ICON_CHEV + '</button>' +
+        '<button type="button" class="nwp-al-nav nwp-al-next" data-a="also-nav" data-v="1" aria-label="More spaces">' + ICON_CHEV + '</button>' : '');
     return h + '</div>' + (DEMO ? '<p class="nwp-al-demo">This is a preview. Nothing is sent from this screen.</p>' : '') + '</div>';
   }
   // Its button stays in view under the list, as Send request does.
@@ -878,12 +894,31 @@
     })();
   }
 
+  // The green tick draws itself once, when the screen first shows. A
+  // later redraw (a space ticked, a request going out) leaves it still
+  // (Jonathan, 27 Nov 2026: it replayed on every click).
+  var OK_DRAWN = false;
+  function okStill() {
+    var was = OK_DRAWN;
+    OK_DRAWN = true;
+    return was ? ' nwp-still' : '';
+  }
+  // The arrows beside a row of more than three spaces.
+  function alsoArrows() {
+    if (!sheet) return;
+    var l = sheet.querySelector('.nwp-al-list'), p = sheet.querySelector('.nwp-al-prev'), n = sheet.querySelector('.nwp-al-next');
+    if (!l || !p || !n) return;
+    var more = l.scrollWidth - l.clientWidth > 4;
+    p.hidden = !more || l.scrollLeft < 4;
+    n.hidden = !more || l.scrollLeft > l.scrollWidth - l.clientWidth - 4;
+  }
+
   // The pop-up's inside: the price, the form, Send; or "Sent".
   function modalHtml() {
     if (SITE) {
       return '<div class="nwp-hd"><div class="nwp-hd-t"><small>Your request to</small><h2 id="nwp-dlg-h">' + esc(spaceName()) + '</h2></div>' +
         '<button type="button" class="nwp-x" data-a="close" data-k="x" aria-label="Close">' + ICON_X + '</button></div>' +
-        '<div class="nwp-bd"><div class="nwp-ok nwp-ok-s" role="status">' + ICON_OK +
+        '<div class="nwp-bd"><div class="nwp-ok nwp-ok-s' + okStill() + '" role="status">' + ICON_OK +
         '<h3>Request sent</h3><p>' + esc(spaceName()) + ' will reply to you by email' + (S.email ? ' at <b>' + esc(S.email) + '</b>' : '') + '.</p></div>' +
         alsoHtml() + '</div>' + alsoFoot();
     }
@@ -900,7 +935,7 @@
       if (S.sentTime) rows.push(['Time', S.sentTime]);
       var sum = '<div class="nwp-sum">' + rows.map(function (r) { return '<div><span>' + esc(r[0]) + '</span><b>' + esc(r[1]) + '</b></div>'; }).join('') + '</div>';
       var also = alsoHtml();
-      return head + '<div class="nwp-bd"><div class="nwp-ok' + (also ? ' nwp-ok-s' : '') + '" role="status">' + ICON_OK +
+      return head + '<div class="nwp-bd"><div class="nwp-ok' + (also ? ' nwp-ok-s' : '') + okStill() + '" role="status">' + ICON_OK +
         '<h3>Request sent</h3><p>' + esc(data.space) + ' will reply to you by email at <b>' + esc(S.email) + '</b>.</p>' +
         // Once the extra requests have gone the table steps aside, so
         // "Sent" beside each space is in view without scrolling.
@@ -982,9 +1017,14 @@
       // near the bottom must not jump the list back to the top).
       var bd0 = sheet.querySelector('.nwp-bd');
       var bdAt = bd0 && S.sent ? bd0.scrollTop : 0;
+      var al0 = sheet.querySelector('.nwp-al-list');
+      var alAt = al0 ? al0.scrollLeft : 0;
       sheet.querySelector('.nwp-dlg').innerHTML = S.sheetOpen ? modalHtml() : '';
       var bd1 = sheet.querySelector('.nwp-bd');
       if (bd1 && bdAt) bd1.scrollTop = bdAt;
+      var al1 = sheet.querySelector('.nwp-al-list');
+      if (al1 && alAt) al1.scrollLeft = alAt;
+      alsoArrows();
     }
     if (key) {
       var scope = S.sheetOpen && sheet ? sheet : root;
@@ -1051,12 +1091,21 @@
     if (a === 'close') { closeSheet(); return; }
     if (a === 'send') { send(); return; }
     if (a === 'also-send') { alsoSend(); return; }
+    if (a === 'also-nav') {
+      var row = sheet.querySelector('.nwp-al-list'), card = row && row.querySelector('.nwp-al-row');
+      if (row && card) { try { row.scrollBy({ left: (+v) * (card.offsetWidth + 12), behavior: REDUCED ? 'auto' : 'smooth' }); } catch (e) { row.scrollLeft += (+v) * (card.offsetWidth + 12); } }
+      return;
+    }
     if (a === 'also-view') { track('also_view', { slug: SLUG, to: v }); return; }
     if (a === 'also') {
       if (ALSO.busy || ALSO.st[v]) return;
       ALSO.on[v] = !ALSO.on[v];
       if (!DEMO) track('also_tick', { slug: SLUG, to: v, on: !!ALSO.on[v] });
-      render();
+      // Only the tick and the button change; the rest of the screen is
+      // left exactly as it is.
+      b.setAttribute('aria-checked', String(!!ALSO.on[v]));
+      var ft = sheet.querySelector('.nwp-ft-also');
+      if (ft) ft.outerHTML = alsoFoot(); else render();
       return;
     }
     if (a === 'tab') { S.tab = +v; }
@@ -1216,7 +1265,7 @@
     }
     (function wait() {
       if (shown(done)) {
-        S.sending = false; S.sent = true; S.error = ''; S.focusKey = 'done';
+        S.sending = false; S.sent = true; S.error = ''; S.focusKey = 'done'; OK_DRAWN = false;
         S.sentWhen = S.flexible ? 'Flexible on dates' : (S.date ? (kind === 'start' ? 'Starting ' : '') + fmtDate(S.date, true) : 'Not given');
         S.sentTime = kind === 'hour' ? 'From ' + S.time + ', ' + S.length : '';
         track('price_enquiry_sent', { space: data.space, price: it.full, slug: SLUG, newsletter: !!S.news, from: AREA ? location.pathname : 'listing' });
@@ -1303,6 +1352,7 @@
       el.addEventListener('keydown', onKey);
     });
     sheet.addEventListener('focusout', onFocusOut);
+    sheet.addEventListener('scroll', function (e) { if (e.target && e.target.classList && e.target.classList.contains('nwp-al-list')) alsoArrows(); }, true);
     document.addEventListener('keydown', function (e) {
       if (!S.sheetOpen) return;
       if (e.key === 'Escape') { closeSheet(); return; }
@@ -1362,7 +1412,7 @@
     if (!w || !w.text.trim() || !EMAIL_OK(w.email)) return;
     SITE = { text: w.text };
     S.name = w.name.trim(); S.email = w.email.trim(); S.news = !!w.news;
-    S.picked = null; S.sent = true; S.error = ''; S.bad = null;
+    S.picked = null; S.sent = true; S.error = ''; S.bad = null; OK_DRAWN = false;
     alsoOffer(function (n) {
       if (!n || !SITE) { SITE = null; S.sent = false; return; }
       ensureSheet();
@@ -1458,7 +1508,7 @@
     if (q !== 'sent' || !data || !data.groups.length || !sheet) return;
     var it = data.groups[0].items[0];
     if (!it) return;
-    DEMO = true;
+    DEMO = true; OK_DRAWN = false;
     S.picked = it.id;
     var k = kindOf(it);
     S.kindFor = k;
