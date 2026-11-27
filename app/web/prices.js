@@ -66,6 +66,9 @@
   // "Want to also send your request to these spaces?" on the Request
   // sent screen (Jonathan, 27 Nov 2026; see alsoHtml below).
   var ALSO = { list: [], on: {}, st: {}, pics: {}, busy: false, did: 0 };
+  // A look at the Request sent screen without sending anything
+  // (/coworking/<slug>?show=sent; see sentDemo).
+  var DEMO = false;
 
   // ------------------------------------------------------------ helpers
   function esc(t) {
@@ -503,6 +506,7 @@
       '.nwp-al-view:hover{color:var(--nwp-red)}',
       '.nwp-al-no{min-height:36px;margin:0;padding:0 8px;border:0;background:none;font-family:inherit;font-size:14px;font-weight:500;color:var(--nwp-muted);cursor:pointer}',
       '.nwp-al-no:hover{color:var(--nwp-ink)}',
+      '.nwp-al-demo{margin:0;font-size:12.5px;color:var(--nwp-muted)}',
       '.nwp-ft.nwp-ft-also{display:flex !important;flex-direction:column;gap:6px}',
       '.nwp-ft-also .nwp-send,.nwp-ft-also .nwp-done-btn{width:100% !important;min-width:0}',
       // On a computer the screen is laid out landscape, like the request
@@ -721,7 +725,7 @@
       var asked = askedList();
       ALSO.list = list.filter(function (s) { return s && s.slug && s.name && asked.indexOf(String(s.slug).toLowerCase()) < 0; }).slice(0, 3);
       if (!ALSO.list.length) return;
-      track('also_offer_shown', { slug: SLUG, spaces: ALSO.list.length });
+      if (!DEMO) track('also_offer_shown', { slug: SLUG, spaces: ALSO.list.length });
       render();
       ALSO.list.forEach(function (s) {
         if (ALSO.pics[s.slug]) return;
@@ -764,7 +768,7 @@
         (price ? '<span>' + esc(price) + '</span>' : '') + word + '</span></button>' +
         '<a class="nwp-al-view" href="/coworking/' + esc(s.slug) + '" target="_blank" rel="noopener" data-a="also-view" data-v="' + esc(s.slug) + '" data-k="view-' + esc(s.slug) + '" aria-label="View ' + esc(s.name) + ' in a new tab">View</a></div>';
     });
-    return h + '</div></div>';
+    return h + '</div>' + (DEMO ? '<p class="nwp-al-demo">This is a preview. Nothing is sent from this screen.</p>' : '') + '</div>';
   }
   // Its button stays in view under the list, as Send request does.
   function alsoFoot() {
@@ -842,7 +846,7 @@
     var text = requestText(it, alsoWhat(it));
     var from = SLUG;
     ALSO.busy = true;
-    track('also_send_pressed', { slug: SLUG, spaces: todo.length });
+    if (!DEMO) track('also_send_pressed', { slug: SLUG, spaces: todo.length });
     var i = 0;
     (function next() {
       if (i >= todo.length) {
@@ -856,6 +860,8 @@
       var s = todo[i++];
       ALSO.st[s.slug] = 'sending'; ALSO.on[s.slug] = false;
       if (S.sheetOpen && S.sent) render();
+      // The preview only acts it out.
+      if (DEMO) { setTimeout(function () { ALSO.st[s.slug] = 'sent'; ALSO.did++; next(); }, 900); return; }
       alsoSendOne(s, text, function (ok) {
         ALSO.st[s.slug] = ok ? 'sent' : 'fail';
         if (ok) { ALSO.did++; askedAdd(String(s.slug).toLowerCase()); }
@@ -1004,6 +1010,7 @@
   }
   function closeSheet() {
     if (!S.sheetOpen) return;
+    if (DEMO) { DEMO = false; ALSO.list = []; ALSO.busy = false; S.email = ''; S.people = 'Just me'; S.kindFor = null; }
     S.sheetOpen = false;
     sheet.classList.remove('in');
     document.documentElement.style.overflow = '';
@@ -1032,7 +1039,7 @@
     if (a === 'also') {
       if (ALSO.busy || ALSO.st[v]) return;
       ALSO.on[v] = !ALSO.on[v];
-      track('also_tick', { slug: SLUG, to: v, on: !!ALSO.on[v] });
+      if (!DEMO) track('also_tick', { slug: SLUG, to: v, on: !!ALSO.on[v] });
       render();
       return;
     }
@@ -1384,6 +1391,36 @@
     try { root.scrollIntoView({ block: 'start' }); } catch (e) {}
     openSheet(id);
     track('area_page_request_opened', { slug: SLUG, from: document.referrer || '' });
+  }
+
+  // /coworking/<slug>?show=sent opens the Request sent screen as a
+  // visitor would see it after sending, with the spaces nearby, so it
+  // can be looked at on the real page (Jonathan, 27 Nov 2026: "show me
+  // example live url"). Nothing is sent or counted; pressing the button
+  // only acts it out.
+  function sentDemo() {
+    var q = '';
+    try { q = new URLSearchParams(location.search).get('show') || ''; } catch (e) { return; }
+    if (q !== 'sent' || !data || !data.groups.length || !sheet) return;
+    var it = data.groups[0].items[0];
+    if (!it) return;
+    DEMO = true;
+    S.picked = it.id;
+    var k = kindOf(it);
+    S.kindFor = k;
+    S.date = openDay(k === 'start' ? nextMonday() : addDays(today0(), 1));
+    S.flexible = false;
+    S.people = '3 to 5';
+    S.email = 'you@example.com';
+    S.sent = true; S.error = ''; S.bad = null;
+    S.sentWhen = (k === 'start' ? 'Starting ' : '') + fmtDate(S.date, true);
+    S.sentTime = k === 'hour' ? 'From ' + S.time + ', ' + S.length : '';
+    S.sheetOpen = true;
+    document.documentElement.style.overflow = 'hidden';
+    sheet.classList.add('open');
+    render();
+    requestAnimationFrame(function () { requestAnimationFrame(function () { sheet.classList.add('in'); }); });
+    alsoOffer();
   }
 
   // ---------------------------------------------------- area pages
@@ -2945,7 +2982,7 @@
         if (raw && raw.show) {
           SHUT = Array.isArray(raw.closed_days) ? raw.closed_days.map(Number) : [];
           data = shape(raw);
-          if (data.groups.length && mount()) { smallHeading(); jumpLink(); foldHours(); requestBar(); addressLine(raw); fromLink(); }
+          if (data.groups.length && mount()) { smallHeading(); jumpLink(); foldHours(); requestBar(); addressLine(raw); fromLink(); sentDemo(); }
         }
         if (PREVIEW) v2(raw || {});
       })
