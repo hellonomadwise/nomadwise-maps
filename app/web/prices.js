@@ -470,7 +470,9 @@
       '.nwp-sum div{display:flex;gap:12px;padding:9px 12px;border-bottom:1px solid rgba(0,0,0,.05)}',
       '.nwp-sum div:last-child{border-bottom:0}',
       '.nwp-sum span{width:70px;flex:none;color:var(--nwp-muted)}',
-      '.nwp-done-btn{min-height:44px;width:100%;border:0;border-radius:8px;background:var(--nwp-teal);color:#fff;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer}',
+      '.nwp-done-btn{min-height:44px;width:100%;border:0;border-radius:8px;background:var(--nwp-red);color:#fff;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer}',
+      // Red, as every main button on the page (Jonathan, 27 Nov 2026: "use the red option"; it was teal).
+      '.nwp-done-btn:hover{filter:brightness(.96)}',
       // also send to spaces nearby (27 Nov 2026)
       '.nwp-ok.nwp-ok-s{padding:18px 4px 0;gap:8px}',
       '.nwp-ok.nwp-ok-s>svg{width:44px;height:44px;flex:none;overflow:visible}',
@@ -768,7 +770,6 @@
   function alsoFoot() {
     if (!ALSO.list.length) return '';
     var n = ALSO.list.filter(function (s) { return ALSO.on[s.slug]; }).length;
-    var left = ALSO.list.filter(function (s) { return !ALSO.st[s.slug]; }).length;
     var h = '<div class="nwp-ft nwp-ft-also">';
     if (ALSO.busy) {
       h += '<button type="button" class="nwp-send" disabled aria-busy="true"><span class="nwp-spin" aria-hidden="true"></span>Sending</button>';
@@ -776,7 +777,7 @@
       h += '<button type="button" class="nwp-send" data-a="also-send" data-k="also-send">Send to ' + n + (n === 1 ? ' space' : ' spaces') + '</button>' +
         '<button type="button" class="nwp-al-no" data-a="close" data-k="done">No thanks</button>';
     } else {
-      h += '<button type="button" class="nwp-done-btn" data-a="close" data-k="done">' + (ALSO.did || !left ? 'Done' : 'No thanks') + '</button>';
+      h += '<button type="button" class="nwp-done-btn" data-a="close" data-k="done">' + 'Done' + '</button>';
     }
     return h + '</div>';
   }
