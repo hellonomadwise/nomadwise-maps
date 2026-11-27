@@ -568,23 +568,23 @@
       '.nwp-also{padding:6px 4px 8px}' +
       '.nwp-al-list:not(.nwp-al-n1){flex-direction:row;gap:12px;border:0;border-radius:0;overflow:visible}' +
       '.nwp-al-list:not(.nwp-al-n1) .nwp-al-row{flex:1 1 0;min-width:0;flex-direction:column;border:1px solid rgba(0,0,0,.16);border-radius:8px;overflow:hidden}' +
-      '.nwp-al-list.nwp-al-n4{overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;overscroll-behavior-x:contain}' +
-      '.nwp-al-list.nwp-al-n4::-webkit-scrollbar{display:none}' +
-      '.nwp-al-list.nwp-al-n4 .nwp-al-row{flex:0 0 calc((100% - 24px) / 3.2);scroll-snap-align:start}' +
-      '.nwp-al-nav{position:absolute;top:52px;transform:translateY(-50%);width:36px;height:36px;border-radius:50%;border:1px solid rgba(0,0,0,.14);background:#fff;color:#2C2C2C;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;box-shadow:0 2px 8px rgba(20,32,50,.18);z-index:2}' +
+      '.nwp-al-list.nwp-al-n3,.nwp-al-list.nwp-al-n4{overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;overscroll-behavior-x:contain}' +
+      '.nwp-al-list.nwp-al-n3::-webkit-scrollbar,.nwp-al-list.nwp-al-n4::-webkit-scrollbar{display:none}' +
+      '.nwp-al-list.nwp-al-n3 .nwp-al-row,.nwp-al-list.nwp-al-n4 .nwp-al-row{flex:0 0 calc((100% - 24px) / 2.5);scroll-snap-align:start}' +
+      '.nwp-al-nav{position:absolute;top:62px;transform:translateY(-50%);width:36px;height:36px;border-radius:50%;border:1px solid rgba(0,0,0,.14);background:#fff;color:#2C2C2C;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;box-shadow:0 2px 8px rgba(20,32,50,.18);z-index:2}' +
       '.nwp-al-nav[hidden]{display:none}' +
       '.nwp-al-nav svg{width:18px;height:18px}' +
       '.nwp-al-next{right:-8px}.nwp-al-next svg{transform:rotate(-90deg)}' +
       '.nwp-al-prev{left:-8px}.nwp-al-prev svg{transform:rotate(90deg)}' +
       '.nwp-al-list:not(.nwp-al-n1) .nwp-al{flex-direction:column;align-items:stretch;gap:10px;padding:0 0 4px}' +
-      '.nwp-al-list:not(.nwp-al-n1) .nwp-al-pic{width:100%;height:104px;border-radius:0}' +
+      '.nwp-al-list:not(.nwp-al-n1) .nwp-al-pic{width:100%;height:124px;border-radius:0}' +
       '.nwp-al-list:not(.nwp-al-n1) .nwp-al-box,.nwp-al-list:not(.nwp-al-n1) .nwp-al-spin{position:absolute;top:10px;left:10px;margin:0;box-shadow:0 1px 4px rgba(20,32,50,.25)}' +
       '.nwp-al-list:not(.nwp-al-n1) .nwp-al-spin{background:#fff;box-shadow:0 0 0 4px #fff,0 1px 6px 4px rgba(20,32,50,.2)}' +
       '.nwp-al-list:not(.nwp-al-n1) .is-fail .nwp-al-box{display:none}' +
       '.nwp-al-list:not(.nwp-al-n1) .nwp-al-tx{padding:0 12px}' +
       '.nwp-al-list:not(.nwp-al-n1) .nwp-al-view{align-self:flex-start;padding:6px 12px 12px}' +
       '.nwp-al-list:not(.nwp-al-n1) .nwp-al{padding-bottom:12px}' +
-      '.nwp-al-list:not(.nwp-al-n1) .nwp-ph-nav{position:absolute;top:52px;transform:translateY(-50%);width:28px;height:28px;border-radius:50%;border:0;background:rgba(255,255,255,.92);color:#2C2C2C;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;box-shadow:0 1px 4px rgba(20,32,50,.25);opacity:0;transition:opacity .15s}' +
+      '.nwp-al-list:not(.nwp-al-n1) .nwp-ph-nav{position:absolute;top:62px;transform:translateY(-50%);width:28px;height:28px;border-radius:50%;border:0;background:rgba(255,255,255,.92);color:#2C2C2C;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;box-shadow:0 1px 4px rgba(20,32,50,.25);opacity:0;transition:opacity .15s}' +
       '.nwp-al-list:not(.nwp-al-n1) .nwp-al-row:hover .nwp-ph-nav,.nwp-al-list:not(.nwp-al-n1) .nwp-ph-nav:focus-visible{opacity:1}' +
       '@media (hover:none){.nwp-al-list:not(.nwp-al-n1) .nwp-ph-nav{opacity:1}}' +
       '.nwp-ph-nav svg{width:16px;height:16px}' +
@@ -980,9 +980,10 @@
         (nph > 1 ? '<button type="button" class="nwp-ph-nav nwp-ph-prev" data-a="card-ph" data-v="' + esc(s.slug) + '" data-d="-1" aria-label="Previous photo of ' + esc(s.name) + '">' + ICON_CHEV + '</button>' +
           '<button type="button" class="nwp-ph-nav nwp-ph-next" data-a="card-ph" data-v="' + esc(s.slug) + '" data-d="1" aria-label="Next photo of ' + esc(s.name) + '">' + ICON_CHEV + '</button>' : '') + '</div>';
     });
-    // More than three: the row scrolls sideways on a computer, with an
-    // arrow at each end that has more to show (Jonathan, 27 Nov 2026).
-    h += '</div>' + (ALSO.list.length > 3
+    // Three or four: the row scrolls sideways on a computer, two and a
+    // half cards in view so each photo is wider, with an arrow at each
+    // end that has more to show (Jonathan, 27 Nov 2026).
+    h += '</div>' + (ALSO.list.length > 2
       ? '<button type="button" class="nwp-al-nav nwp-al-prev" data-a="also-nav" data-v="-1" aria-label="Earlier spaces" hidden>' + ICON_CHEV + '</button>' +
         '<button type="button" class="nwp-al-nav nwp-al-next" data-a="also-nav" data-v="1" aria-label="More spaces">' + ICON_CHEV + '</button>' : '');
     return h + '</div>' + (DEMO ? '<p class="nwp-al-demo">This is a preview. Nothing is sent from this screen.</p>' : '') + '</div>';
