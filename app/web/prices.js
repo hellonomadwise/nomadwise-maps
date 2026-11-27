@@ -494,7 +494,19 @@
       '.nwp-ok.nwp-ok-s .nwp-sum{margin:10px 0 0}',
       '.nwp-also{grid-column:1/-1;display:flex;flex-direction:column;gap:12px;padding:8px 4px 12px;text-align:left}',
       '.nwp-also h4{margin:8px 0 0;font-size:16px;line-height:1.35;font-weight:700;color:var(--nwp-ink)}',
-      '.nwp-ok.nwp-still svg circle,.nwp-ok.nwp-still svg path{animation:none;stroke-dashoffset:0}',
+      '.nwp-ok.nwp-still svg circle,.nwp-ok.nwp-still svg path,.nwp-ok-ic.nwp-still svg circle,.nwp-ok-ic.nwp-still svg path{animation:none;stroke-dashoffset:0}',
+      '.nwp-hd.nwp-hd-sent{align-items:center;gap:12px}',
+      '.nwp-ok-ic{flex:none;display:flex}',
+      '.nwp-ok-ic svg{width:38px;height:38px;overflow:visible}',
+      '.nwp-ok-ic svg circle{stroke-dasharray:151;stroke-dashoffset:151;animation:nwp-draw .5s ' + EASE + ' forwards}',
+      '.nwp-ok-ic svg path{stroke-dasharray:36;stroke-dashoffset:36;animation:nwp-draw .35s .35s ' + EASE + ' forwards}',
+      '.nwp-hd-sent h2{margin:0 0 2px}',
+      '.nwp-hd-sent small{display:block;font-size:13.5px;line-height:1.4;color:var(--nwp-muted)}',
+      '.nwp-hd-sent small b{color:var(--nwp-ink);font-weight:500}',
+      '.nwp-sent-line{grid-column:1/-1;margin:0;padding:0 4px;font-size:13.5px;line-height:1.45;color:var(--nwp-ink);text-align:left}',
+      '.nwp-sent-line span{color:var(--nwp-muted)}',
+      '.nwp-bd-sent .nwp-also{padding-top:0}',
+      '.nwp-bd-sent .nwp-also h4{margin-top:2px}',
       '.nwp-al-wrap{position:relative}',
       '.nwp-al-nav{display:none}',
       '.nwp-al-list{display:flex;flex-direction:column;border:1px solid rgba(0,0,0,.16);border-radius:8px;overflow:hidden}',
@@ -1121,6 +1133,16 @@
   }
 
   // The pop-up's inside: the price, the form, Send; or "Sent".
+  // The Request sent screen with spaces to offer keeps its top short:
+  // the tick, "Request sent" and who replies sit in the top bar itself,
+  // and what was asked is one line (Jonathan, 27 Nov 2026: "does it
+  // not still feel a little tall").
+  function sentHead() {
+    return '<div class="nwp-hd nwp-hd-sent" role="status"><span class="nwp-ok-ic' + okStill() + '" aria-hidden="true">' + ICON_OK + '</span>' +
+      '<div class="nwp-hd-t"><h2 id="nwp-dlg-h">Request sent</h2><small>' + esc(spaceName()) + ' will reply to you by email' +
+      (S.email ? ' at <b>' + esc(S.email) + '</b>' : '') + '.</small></div>' +
+      '<button type="button" class="nwp-x" data-a="close" data-k="x" aria-label="Close">' + ICON_X + '</button></div>';
+  }
   function modalHtml() {
     var ds = S.sent ? detailSpace() : null;
     if (ds) {
@@ -1129,11 +1151,7 @@
         '<div class="nwp-bd">' + alsoDetailHtml(ds) + '</div>' + alsoFoot();
     }
     if (SITE) {
-      return '<div class="nwp-hd"><div class="nwp-hd-t"><small>Your request to</small><h2 id="nwp-dlg-h">' + esc(spaceName()) + '</h2></div>' +
-        '<button type="button" class="nwp-x" data-a="close" data-k="x" aria-label="Close">' + ICON_X + '</button></div>' +
-        '<div class="nwp-bd"><div class="nwp-ok nwp-ok-s' + okStill() + '" role="status">' + ICON_OK +
-        '<h3>Request sent</h3><p>' + esc(spaceName()) + ' will reply to you by email' + (S.email ? ' at <b>' + esc(S.email) + '</b>' : '') + '.</p></div>' +
-        alsoHtml() + '</div>' + alsoFoot();
+      return sentHead() + '<div class="nwp-bd nwp-bd-sent">' + alsoHtml() + '</div>' + alsoFoot();
     }
     var it = pickedItem();
     if (!it) return '';
@@ -1148,6 +1166,10 @@
       if (S.sentTime) rows.push(['Time', S.sentTime]);
       var sum = '<div class="nwp-sum">' + rows.map(function (r) { return '<div><span>' + esc(r[0]) + '</span><b>' + esc(r[1]) + '</b></div>'; }).join('') + '</div>';
       var also = alsoHtml();
+      if (also) {
+        var line = [it.full + ' (' + it.askText + ')', S.people === 'Just me' ? '1 person' : S.people + ' people', S.sentWhen, S.sentTime].filter(Boolean).join(' \u00b7 ');
+        return sentHead() + '<div class="nwp-bd nwp-bd-sent"><p class="nwp-sent-line"><span>Your request:</span> ' + esc(line) + '</p>' + also + '</div>' + alsoFoot();
+      }
       return head + '<div class="nwp-bd"><div class="nwp-ok' + (also ? ' nwp-ok-s' : '') + okStill() + '" role="status">' + ICON_OK +
         '<h3>Request sent</h3><p>' + esc(data.space) + ' will reply to you by email at <b>' + esc(S.email) + '</b>.</p>' +
         // Once the extra requests have gone the table steps aside, so
