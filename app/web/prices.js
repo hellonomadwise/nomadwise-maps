@@ -69,6 +69,11 @@
   // A look at the Request sent screen without sending anything
   // (/coworking/<slug>?show=sent; see sentDemo).
   var DEMO = false;
+  // A request sent from the site's own pop-up (a page with no prices):
+  // what the visitor wrote, so the same can go to spaces nearby.
+  var SITE = null;
+  var SPACE = '';
+  function spaceName() { return (data && data.space && data.space !== 'this space' ? data.space : SPACE) || 'this space'; }
 
   // ------------------------------------------------------------ helpers
   function esc(t) {
@@ -294,6 +299,7 @@
   // with the form: "super slick, as if we are a fully funded series A
   // SaaS". Motion is turned off for people who ask their device for less.
   function addStyles() {
+    if (document.getElementById('nwp-css')) return;
     var EASE = 'cubic-bezier(.2,.8,.2,1)';
     var css = [
       '.nwp,.nwp-sheet{--nwp-red:' + RED + ';--nwp-red-ink:#D7303A;--nwp-teal:' + TEAL + ';--nwp-ink:#2C2C2C;--nwp-muted:#5E6670;--nwp-line:rgba(0,0,0,.08);--nwp-soft:#F8F8FA}',
@@ -714,7 +720,7 @@
     if (it.cat === 'coworking' && it.period === 'month') return 'A desk for the month';
     return it.full;
   }
-  function alsoOffer() {
+  function alsoOffer(cb) {
     // Requests still going out from the last one are left to finish.
     if (ALSO.busy) return;
     ALSO.list = []; ALSO.on = {}; ALSO.st = {}; ALSO.did = 0;
@@ -724,8 +730,9 @@
       if (!Array.isArray(list) || !S.sent || SLUG !== from) return;
       var asked = askedList();
       ALSO.list = list.filter(function (s) { return s && s.slug && s.name && asked.indexOf(String(s.slug).toLowerCase()) < 0; }).slice(0, 3);
+      if (cb) cb(ALSO.list.length);
       if (!ALSO.list.length) return;
-      if (!DEMO) track('also_offer_shown', { slug: SLUG, spaces: ALSO.list.length });
+      if (!DEMO) track('also_offer_shown', { slug: SLUG, spaces: ALSO.list.length, from: SITE ? 'site' : 'prices' });
       render();
       ALSO.list.forEach(function (s) {
         if (ALSO.pics[s.slug]) return;
@@ -753,7 +760,7 @@
       var away = awayText(s.metres);
       var facts = [];
       if (s.rating) facts.push('<i aria-hidden="true">\u2605</i> ' + esc(String(s.rating)) + ' on Google');
-      if (away) facts.push(esc(away + ' from ' + (String(data.space).split(' - ')[0].trim() || 'this space')));
+      if (away) facts.push(esc(away + ' from ' + (String(spaceName()).split(' - ')[0].trim() || 'this space')));
       var price = nearPrice(s.prices);
       var mark = st === 'sending' ? '<span class="nwp-spin nwp-al-spin" aria-hidden="true"></span>'
         : '<span class="nwp-al-box" aria-hidden="true">' + TICK + '</span>';
@@ -840,10 +847,10 @@
   }
   function alsoSend() {
     var it = pickedItem();
-    if (!it || ALSO.busy || !S.sent) return;
+    if ((!it && !SITE) || ALSO.busy || !S.sent) return;
     var todo = ALSO.list.filter(function (s) { return ALSO.on[s.slug] && !ALSO.st[s.slug]; });
     if (!todo.length) return;
-    var text = requestText(it, alsoWhat(it));
+    var text = SITE ? SITE.text : requestText(it, alsoWhat(it));
     var from = SLUG;
     ALSO.busy = true;
     if (!DEMO) track('also_send_pressed', { slug: SLUG, spaces: todo.length });
@@ -873,6 +880,13 @@
 
   // The pop-up's inside: the price, the form, Send; or "Sent".
   function modalHtml() {
+    if (SITE) {
+      return '<div class="nwp-hd"><div class="nwp-hd-t"><small>Your request to</small><h2 id="nwp-dlg-h">' + esc(spaceName()) + '</h2></div>' +
+        '<button type="button" class="nwp-x" data-a="close" data-k="x" aria-label="Close">' + ICON_X + '</button></div>' +
+        '<div class="nwp-bd"><div class="nwp-ok nwp-ok-s" role="status">' + ICON_OK +
+        '<h3>Request sent</h3><p>' + esc(spaceName()) + ' will reply to you by email' + (S.email ? ' at <b>' + esc(S.email) + '</b>' : '') + '.</p></div>' +
+        alsoHtml() + '</div>' + alsoFoot();
+    }
     var it = pickedItem();
     if (!it) return '';
     var gi = groupOf(it.id);
@@ -930,17 +944,18 @@
   }
 
   function render() {
-    if (!root || !data) return;
+    if (!sheet && (!root || !data)) return;
     var active = document.activeElement;
     var key = S.focusKey || (active && active.getAttribute && active.getAttribute('data-k'));
-    var phone = root.clientWidth < 560;
+    var drawList = !!(root && data);
+    var phone = drawList ? root.clientWidth < 560 : window.innerWidth < 768;
     S.phone = phone;
     // The strip of tabs keeps its place when the list is redrawn, so
     // choosing "Other" does not jump the strip back to the start
     // (Jonathan, 24 Nov 2026).
-    var strip = root.querySelector('.nwp-tabs');
+    var strip = drawList ? root.querySelector('.nwp-tabs') : null;
     var stripAt = strip ? strip.scrollLeft : 0;
-    root.innerHTML =
+    if (drawList) root.innerHTML =
       '<h2 class="nwp-h">Passes and prices at ' + esc(data.space) + '</h2>' +
       '<p class="nwp-sub">' + (data.vat ? 'All prices ' + esc(data.vat.replace(/^prices?\s+/i, '')) + ', set by ' + esc(data.space) : 'Prices set by ' + esc(data.space)) +
       (data.checked ? ', ' + esc(data.checked) : '') + '. ' +
@@ -949,7 +964,7 @@
       // does not, so the Request button stays the way to ask.
       (data.site ? ' <a class="nwp-site" href="' + esc(data.site) + '" target="_blank" rel="noopener">Visit website</a>' : '') + '</p>' +
       (phone ? tabsHtml() : listHtml());
-    try {
+    if (drawList) try {
       strip = root.querySelector('.nwp-tabs');
       if (strip && strip.scrollWidth > strip.clientWidth) {
         strip.scrollLeft = stripAt;
@@ -973,7 +988,7 @@
     }
     if (key) {
       var scope = S.sheetOpen && sheet ? sheet : root;
-      var el = scope.querySelector('[data-k="' + key + '"]');
+      var el = scope && scope.querySelector('[data-k="' + key + '"]');
       if (el && el.focus) { try { el.focus({ preventScroll: true }); } catch (e) { el.focus(); } }
     }
     S.focusKey = null;
@@ -1018,8 +1033,9 @@
     var finish = function () {
       sheet.classList.remove('open');
       if (S.sent) { S.sent = false; S.message = ''; }
+      SITE = null;
       sheet.querySelector('.nwp-dlg').innerHTML = '';
-      var bt = AREA ? AREA_BTN : (back && root.querySelector('[data-k="' + back + '"]'));
+      var bt = AREA ? AREA_BTN : (back && root && root.querySelector('[data-k="' + back + '"]'));
       if (bt) { try { bt.focus({ preventScroll: true }); } catch (e) { bt.focus(); } }
     };
     if (REDUCED) finish(); else setTimeout(finish, S.phone ? 300 : 200);
@@ -1253,13 +1269,34 @@
     root.setAttribute('aria-label', 'Passes and prices');
     if (AREA) { root.hidden = true; document.body.appendChild(root); }
     else host.insertBefore(root, desc.nextSibling);
+    [root].forEach(function (el) {
+      el.addEventListener('click', onClick);
+      el.addEventListener('change', onChange);
+      el.addEventListener('input', onInput);
+      el.addEventListener('keydown', onKey);
+    });
+    ensureSheet();
+    render();
+    // Tabs on a phone, the list on a computer: switch when the column crosses over.
+    var rt = null;
+    window.addEventListener('resize', function () {
+      clearTimeout(rt);
+      rt = setTimeout(function () { if ((root.clientWidth < 560) !== S.phone) render(); }, 150);
+    });
+    return true;
+  }
+  // The pop-up itself, made once. A page with no price list has it too,
+  // for the Request sent screen after the site's own pop-up.
+  function ensureSheet() {
+    if (sheet) return;
+    addStyles();
     sheet = document.createElement('div');
     sheet.className = 'nwp-sheet';
     sheet.innerHTML = '<div class="nwp-dlg" role="dialog" aria-modal="true" aria-labelledby="nwp-dlg-h"></div>';
     document.body.appendChild(sheet);
     // A click on the dimmed page around the pop-up closes it.
     sheet.addEventListener('mousedown', function (e) { if (e.target === sheet) closeSheet(); });
-    [root, sheet].forEach(function (el) {
+    [sheet].forEach(function (el) {
       el.addEventListener('click', onClick);
       el.addEventListener('change', onChange);
       el.addEventListener('input', onInput);
@@ -1279,14 +1316,6 @@
         else if (!sheet.contains(document.activeElement)) { e.preventDefault(); first.focus(); }
       }
     });
-    render();
-    // Tabs on a phone, the list on a computer: switch when the column crosses over.
-    var rt = null;
-    window.addEventListener('resize', function () {
-      clearTimeout(rt);
-      rt = setTimeout(function () { if ((root.clientWidth < 560) !== S.phone) render(); }, 150);
-    });
-    return true;
   }
 
   // Any enquiry sent from this page (the price list or the site's own
@@ -1305,6 +1334,11 @@
     var f = ev.target;
     if (!f || f.id !== 'wf-form-Research-Form') return;
     var box = f.parentElement, done = box && box.querySelector('.w-form-done'), t0 = Date.now();
+    // Whose send this is, and what was written, are read now: by the
+    // time the thank-you shows the form may be cleared.
+    var ours = S.sending || ALSO.busy || FRAMED;
+    var val = function (n) { var el = f.querySelector('[name="' + n + '"]'); return el ? (el.type === 'checkbox' ? el.checked : String(el.value || '')) : ''; };
+    var wrote = { text: val('Text-area'), name: val('Name-Of-Customer-2'), email: val('email-of-customer-2'), news: !!val('Agree-to-Receive-Marketing-2') };
     (function look() {
       if (done && getComputedStyle(done).display !== 'none') {
         setTimeout(nudge, 1500);
@@ -1312,12 +1346,32 @@
         // on a page with no matching price) had no "sent" step in the
         // visitor numbers; one from the price list is counted already
         // (Jonathan, 27 Nov 2026).
-        if (!S.sending && !ALSO.busy && !FRAMED) { track('site_enquiry_sent', { slug: SLUG }); askedAdd(SLUG); }
+        if (!ours) { track('site_enquiry_sent', { slug: SLUG }); askedAdd(SLUG); siteSent(wrote); }
         return;
       }
       if (Date.now() - t0 < 60000) setTimeout(look, 500);
     })();
   }, true);
+
+  // After a request sent from the site's own pop-up, the Request sent
+  // screen with the spaces nearby opens over it (Jonathan, 27 Nov 2026:
+  // "do 1"). Only when there is a space to offer; otherwise the site's
+  // own thank-you is left as it is.
+  function siteSent(w) {
+    if (AREA || FRAMED || !PREVIEW || CAFE || S.sheetOpen || ALSO.busy) return;
+    if (!w || !w.text.trim() || !EMAIL_OK(w.email)) return;
+    SITE = { text: w.text };
+    S.name = w.name.trim(); S.email = w.email.trim(); S.news = !!w.news;
+    S.picked = null; S.sent = true; S.error = ''; S.bad = null;
+    alsoOffer(function (n) {
+      if (!n || !SITE) { SITE = null; S.sent = false; return; }
+      ensureSheet();
+      S.sheetOpen = true; S.returnKey = null; S.focusKey = null;
+      document.documentElement.style.overflow = 'hidden';
+      sheet.classList.add('open');
+      requestAnimationFrame(function () { requestAnimationFrame(function () { sheet.classList.add('in'); }); });
+    });
+  }
 
   // ------------------------------------------- temporarily closed
   // The owner marked the space temporarily closed in their Owner
@@ -2979,6 +3033,7 @@
     }).then(function (r) { return r.ok ? r.json() : null; })
       .then(function (raw) {
         if (raw && raw.closed) showClosed(raw.closed);
+        if (raw && raw.space) SPACE = String(raw.space);
         if (raw && raw.show) {
           SHUT = Array.isArray(raw.closed_days) ? raw.closed_days.map(Number) : [];
           data = shape(raw);
