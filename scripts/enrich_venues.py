@@ -304,7 +304,10 @@ try:
         '?select=id,name,google_place_id,g_synced_at,closed_seen_at,'
         'google_photo_urls,country,ptype:g_details->>primaryType,'
         'full_at:g_details->>full_at'
-        '&google_place_id=not.is.null',
+        '&google_place_id=not.is.null'
+        # Retired and removed spaces have no page and are not on the
+        # map: no need to keep asking Google about them (27 Nov 2026).
+        '&or=(website_status.is.null,website_status.not.in.(retired,removed))',
         headers=sb_headers())
 except Exception as e:  # noqa: BLE001
     rows = []

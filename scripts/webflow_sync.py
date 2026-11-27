@@ -848,6 +848,9 @@ def day_fields(v):
     return out
 
 
+FRESH_AGAIN_DAYS = 30   # a place Google gave no hours or rating is not
+                        # asked again for a month (see fresh_google)
+
 FRESH_FIELDS = ','.join([
     'displayName', 'rating', 'userRatingCount',
     'currentOpeningHours', 'regularOpeningHours',
@@ -871,6 +874,21 @@ def fresh_google(v):
     pid = v.get('google_place_id')
     if (have_hours and have_rating) or not (PLACES_KEY and pid):
         return v
+    # Asked recently (here, or by the nightly refresh's full read): Google
+    # has no hours or rating for this place, so asking again changes
+    # nothing. Until 27 Nov 2026 such spaces were asked on every push
+    # run, every ten minutes while queued, and every night once live:
+    # about 90 "Place Details Enterprise" calls a day, the line with
+    # only 1,000 free a month (Jonathan: "trim it").
+    last = max(str(g.get('fresh_at') or ''), str(g.get('full_at') or ''))
+    if last:
+        try:
+            at = datetime.datetime.fromisoformat(last.replace('Z', '+00:00'))
+            if at > datetime.datetime.now(datetime.timezone.utc) - \
+                    datetime.timedelta(days=FRESH_AGAIN_DAYS):
+                return v
+        except ValueError:
+            pass
     try:
         d = _call(f'https://places.googleapis.com/v1/places/{pid}',
                   {'X-Goog-Api-Key': PLACES_KEY,
@@ -887,6 +905,8 @@ def fresh_google(v):
             merged[k] = d[k]
     merged['primaryType'] = d.get('primaryType') or merged.get(
         'primaryType') or 'unknown'
+    merged['fresh_at'] = datetime.datetime.now(
+        datetime.timezone.utc).isoformat()
     patch = {'g_details': merged}
     if d.get('rating') is not None:
         patch['google_rating_snapshot'] = d['rating']
