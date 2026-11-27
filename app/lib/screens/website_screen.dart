@@ -1250,8 +1250,9 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   Future<void> _pickLocation(Map<String, dynamic> v) async {
     final p = _prepared(v);
     final regionId = p['region_id'] ?? _regionFor(v)?['id'];
-    final inRegion =
-        _locations.where((l) => l['region_id'] == regionId).toList();
+    final regionName = '${p['region'] ?? _regionFor(v)?['name'] ?? ''}'.trim();
+    final inRegion = _withRegion(
+        _locations.where((l) => l['region_id'] == regionId), regionName);
     final picked = await showModalBottomSheet<Map<String, dynamic>>(
         context: context,
         isScrollControlled: true,
@@ -1265,6 +1266,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
             ],
             forName: v['name'],
             onRefresh: _refreshFromWebflow,
+            hint: 'Search Locations',
             title: 'Which Location is ${v['name']} in?',
             subtitle: inRegion.isEmpty
                 ? 'This Region has no Locations on the site yet, so the '
@@ -10269,8 +10271,9 @@ class _EditVenuePageState extends State<_EditVenuePage> {
   }
 
   Future<void> _pickLocation() async {
-    final inRegion =
-        widget.locations.where((l) => l['region_id'] == _regionId).toList();
+    final inRegion = _withRegion(
+        widget.locations.where((l) => l['region_id'] == _regionId),
+        '${_region?['name'] ?? ''}'.trim());
     final picked = await showModalBottomSheet<Map<String, dynamic>>(
         context: context,
         isScrollControlled: true,
@@ -10286,6 +10289,7 @@ class _EditVenuePageState extends State<_EditVenuePage> {
               ...inRegion,
             ],
             forName: widget.venue.name,
+            hint: 'Search Locations',
             title: 'Which Location is ${widget.venue.name} in?',
             subtitle: inRegion.isEmpty
                 ? 'This Region has no Locations on the site yet.'
@@ -11672,6 +11676,23 @@ class _VenueSearchSheetState extends State<_VenueSearchSheet> {
       ),
     );
   }
+}
+
+/// Locations for a picker, each with its city under it ("Melbourne,
+/// Australia" rather than "Australia": Jonathan, 27 Nov 2026, "CBD,
+/// Australia is super generic").
+List<Map<String, dynamic>> _withRegion(
+    Iterable<Map<String, dynamic>> locations, String region) {
+  String? under(Map<String, dynamic> l) {
+    final s = [
+      if (region.isNotEmpty) region,
+      if ('${l['country'] ?? ''}'.trim().isNotEmpty) '${l['country']}'.trim(),
+    ].join(', ');
+    return s.isEmpty ? null : s;
+  }
+  return [
+    for (final l in locations) {...l, 'country': under(l)},
+  ];
 }
 
 // ------------------------------------------------------------ region picker
