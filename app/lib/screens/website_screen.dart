@@ -487,6 +487,13 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
         }
         _nextUpFolded = false;
       });
+      // A new Location or Region on its way: read the list again every
+      // 20 seconds until the space has moved on.
+      if ((_inbox ?? const []).any((v) =>
+          v['website_status'] == 'queued' && _awaiting(v) != null) &&
+          _photoWait == null) {
+        _waitForPhotos();
+      }
       _ringMenu();
       // Pages being built or going live are watched until they arrive.
       _watchPages();
@@ -1782,10 +1789,16 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       if (v['website_status'] == 'queued') {
         if (v['website_approved_at'] != null) continue; // shown in Drafts
         final p = _prepared(v);
-        if (p.isEmpty) {
+        if (_awaiting(v) != null) {
+          // A Location or Region asked for from the app is created by
+          // the next run, a minute or two: shown as on its way under
+          // Queued, not as Blocked (Jonathan, 27 Nov 2026: "can we do
+          // loading on new locations and regions").
+          preparing.add(v);
+        } else if (p.isEmpty) {
           // Not prepared yet: still show straight away whether a
           // Region is known, since without one nothing can happen.
-          if (_regionFor(v) == null || _awaiting(v) != null) {
+          if (_regionFor(v) == null) {
             needsRegion.add(v);
           } else {
             preparing.add(v);
@@ -6119,7 +6132,47 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                 fontSize: 13.5, color: Brand.inkMuted, height: 1.5)),
       );
 
+  Widget _creatingTile(Map<String, dynamic> v, String awaiting) {
+    return _card(
+      tint: Brand.field,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        _title(v, badge: 'CREATING', badgeColor: Brand.inkSecondary),
+        const SizedBox(height: 10),
+        Text('Creating $awaiting on nomadwise.io',
+            style: const TextStyle(
+                fontSize: 13.5, fontWeight: FontWeight.w700, color: Brand.ink)),
+        const SizedBox(height: 8),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: const LinearProgressIndicator(
+              minHeight: 6,
+              color: Brand.accent,
+              backgroundColor: Brand.border),
+        ),
+        const SizedBox(height: 8),
+        const Text(
+            'Usually a minute or two. The space is linked to it and moves to '
+            'Ready to approve by itself; this list updates on its own.',
+            style: TextStyle(
+                fontSize: 12, height: 1.4, color: Brand.inkSecondary)),
+        const SizedBox(height: 4),
+        Wrap(spacing: 4, alignment: WrapAlignment.end, children: [
+          TextButton(
+              onPressed: () => _unqueue(v),
+              style: TextButton.styleFrom(foregroundColor: Brand.inkSecondary),
+              child: const Text('Remove')),
+          TextButton.icon(
+              onPressed: () => _editVenue(v),
+              icon: const Icon(Icons.place_outlined, size: 16),
+              label: const Text('Change place')),
+        ]),
+      ]),
+    );
+  }
+
   Widget _preparingTile(Map<String, dynamic> v) {
+    final awaiting = _awaiting(v);
+    if (awaiting != null) return _creatingTile(v, awaiting);
     final region = _regionFor(v);
     final chosen = v['website_region_override'] != null;
     return _card(
