@@ -7269,3 +7269,8 @@ Built in `app/web/prices.js`, on the "Request sent" screen of the price list req
 - Also new: `site_enquiry_sent`, for a request sent from the site's own pop-up (the "What do you need" box on a page with no matching price), which had no "sent" step before.
 
 Not built yet: the small map with numbered pins (needs each nearby space's position from `page_nearby`), and the same offer after a request sent from the site's own pop-up.
+
+### Later on 27 Nov: the Request sent screen, spacing and landscape (Jonathan)
+Jonathan on the first pictures: the green circle looked cut off, check padding and spacing throughout; on a computer the height was too much, lay it out landscape, the other spaces side by side.
+- Computer: "Request sent" and the reply line sit in one row beside the tick; what was asked is one strip (What, People, When); the spaces are cards side by side with the photo on top and the tick box on the photo; "No thanks" and the red button sit at the bottom right. About 650px tall with three spaces. One space alone keeps the row layout.
+- Phone: more room above the tick, even gaps between the blocks. Once the extra requests have gone, the What/People/When table steps aside and the screen returns to the top, so "Sent" beside each space is in view without scrolling.

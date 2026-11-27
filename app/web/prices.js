@@ -472,17 +472,16 @@
       '.nwp-sum span{width:70px;flex:none;color:var(--nwp-muted)}',
       '.nwp-done-btn{min-height:44px;width:100%;border:0;border-radius:8px;background:var(--nwp-teal);color:#fff;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer}',
       // also send to spaces nearby (27 Nov 2026)
-      '.nwp-ok.nwp-ok-s{padding:6px 20px 0;gap:6px}',
-      '.nwp-ok.nwp-ok-s>svg{width:40px;height:40px}',
-      '.nwp-ok.nwp-ok-s .nwp-sum{margin:6px 0 0}',
-      '.nwp-ft.nwp-ft-also{display:flex !important;flex-direction:column;gap:6px}',
-      '.nwp-ft-also .nwp-send,.nwp-ft-also .nwp-done-btn{width:100% !important;min-width:0}',
-      '.nwp-also{grid-column:1/-1;display:flex;flex-direction:column;gap:12px;padding:4px 4px 8px;text-align:left}',
-      '.nwp-also h4{margin:6px 0 0;font-size:16px;line-height:1.35;font-weight:700;color:var(--nwp-ink)}',
+      '.nwp-ok.nwp-ok-s{padding:18px 4px 0;gap:8px}',
+      '.nwp-ok.nwp-ok-s>svg{width:44px;height:44px;flex:none;overflow:visible}',
+      '.nwp-ok.nwp-ok-s h3{margin:2px 0 0}',
+      '.nwp-ok.nwp-ok-s .nwp-sum{margin:10px 0 0}',
+      '.nwp-also{grid-column:1/-1;display:flex;flex-direction:column;gap:12px;padding:8px 4px 12px;text-align:left}',
+      '.nwp-also h4{margin:8px 0 0;font-size:16px;line-height:1.35;font-weight:700;color:var(--nwp-ink)}',
       '.nwp-al-list{display:flex;flex-direction:column;border:1px solid var(--nwp-line);border-radius:8px;overflow:hidden}',
-      '.nwp-al-row{display:flex;align-items:stretch;border-top:1px solid var(--nwp-line)}',
+      '.nwp-al-row{position:relative;display:flex;align-items:stretch;border-top:1px solid var(--nwp-line);background:#fff}',
       '.nwp-al-row:first-child{border-top:0}',
-      '.nwp-al{flex:1 1 auto;min-width:0;display:flex;align-items:center;gap:12px;margin:0;padding:10px 4px 10px 12px;border:0;background:#fff;text-align:left;font:inherit;color:var(--nwp-ink);cursor:pointer}',
+      '.nwp-al{flex:1 1 auto;min-width:0;display:flex;align-items:center;gap:12px;margin:0;padding:12px 4px 12px 12px;border:0;background:transparent;text-align:left;font:inherit;color:var(--nwp-ink);cursor:pointer}',
       '.nwp-al[disabled]{cursor:default}',
       '.nwp-al:not([disabled]):hover{background:var(--nwp-soft)}',
       '.nwp-al-box{flex:none;width:22px;height:22px;border:1.5px solid #9AA1A9;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#fff;background:#fff}',
@@ -493,15 +492,44 @@
       '.is-fail .nwp-al-box{visibility:hidden}',
       '.nwp-al-spin{flex:none;width:18px;height:18px;margin:0 2px;border-color:rgba(0,0,0,.18);border-top-color:var(--nwp-ink)}',
       '.nwp-al-pic{flex:none;width:56px;height:56px;border-radius:8px;background:#E9ECEF center/cover no-repeat}',
-      '.nwp-al-tx{min-width:0;display:flex;flex-direction:column;gap:2px;font-size:13px;line-height:1.4;color:var(--nwp-muted)}',
-      '.nwp-al-tx b{font-size:14.5px;font-weight:700;color:var(--nwp-ink);overflow-wrap:anywhere}',
+      '.nwp-al-tx{min-width:0;display:flex;flex-direction:column;gap:3px;font-size:13px;line-height:1.4;color:var(--nwp-muted)}',
+      '.nwp-al-tx b{font-size:14.5px;line-height:1.3;font-weight:700;color:var(--nwp-ink);overflow-wrap:anywhere}',
       '.nwp-al-tx i{font-style:normal;color:#E8A317}',
       '.nwp-al-st{font-weight:700;color:#1F8A4C}',
       '.nwp-al-st.nwp-al-bad{color:#B3261E;font-weight:500}',
       '.nwp-al-view{flex:none;display:flex;align-items:center;padding:0 14px;font-size:13.5px;font-weight:500;color:var(--nwp-ink);text-decoration:none}',
       '.nwp-al-view:hover{color:var(--nwp-red)}',
-      '.nwp-al-no{min-height:36px;margin:0;padding:0;border:0;background:none;font-family:inherit;font-size:14px;font-weight:500;color:var(--nwp-muted);cursor:pointer}',
+      '.nwp-al-no{min-height:36px;margin:0;padding:0 8px;border:0;background:none;font-family:inherit;font-size:14px;font-weight:500;color:var(--nwp-muted);cursor:pointer}',
       '.nwp-al-no:hover{color:var(--nwp-ink)}',
+      '.nwp-ft.nwp-ft-also{display:flex !important;flex-direction:column;gap:6px}',
+      '.nwp-ft-also .nwp-send,.nwp-ft-also .nwp-done-btn{width:100% !important;min-width:0}',
+      // On a computer the screen is laid out landscape, like the request
+      // form (Jonathan, 27 Nov 2026: the height was too much; the other
+      // spaces side by side). "Request sent" sits in one row, what was
+      // asked in one strip, the spaces as cards in a row, the button at
+      // the bottom right.
+      '@media (min-width:768px){' +
+      '.nwp-ok.nwp-ok-s{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;column-gap:14px;row-gap:2px;text-align:left;padding:8px 4px 0}' +
+      '.nwp-ok.nwp-ok-s>svg{grid-row:1/3}' +
+      '.nwp-ok.nwp-ok-s h3{margin:0;align-self:end}' +
+      '.nwp-ok.nwp-ok-s p{max-width:none;align-self:start}' +
+      '.nwp-ok.nwp-ok-s .nwp-sum{grid-column:1/-1;display:flex;margin:14px 0 0}' +
+      '.nwp-ok.nwp-ok-s .nwp-sum div{flex:1 1 0;min-width:0;flex-direction:column;gap:2px;padding:10px 14px;border-bottom:0;border-right:1px solid rgba(0,0,0,.06)}' +
+      '.nwp-ok.nwp-ok-s .nwp-sum div:last-child{border-right:0}' +
+      '.nwp-ok.nwp-ok-s .nwp-sum span{width:auto;font-size:12.5px}' +
+      '.nwp-also{padding:6px 4px 8px}' +
+      '.nwp-al-list:not(.nwp-al-n1){flex-direction:row;gap:12px;border:0;border-radius:0;overflow:visible}' +
+      '.nwp-al-list:not(.nwp-al-n1) .nwp-al-row{flex:1 1 0;min-width:0;flex-direction:column;border:1px solid var(--nwp-line);border-radius:8px;overflow:hidden}' +
+      '.nwp-al-list:not(.nwp-al-n1) .nwp-al{flex-direction:column;align-items:stretch;gap:10px;padding:0 0 4px}' +
+      '.nwp-al-list:not(.nwp-al-n1) .nwp-al-pic{width:100%;height:104px;border-radius:0}' +
+      '.nwp-al-list:not(.nwp-al-n1) .nwp-al-box,.nwp-al-list:not(.nwp-al-n1) .nwp-al-spin{position:absolute;top:10px;left:10px;margin:0;box-shadow:0 1px 4px rgba(20,32,50,.25)}' +
+      '.nwp-al-list:not(.nwp-al-n1) .nwp-al-spin{background:#fff;box-shadow:0 0 0 4px #fff,0 1px 6px 4px rgba(20,32,50,.2)}' +
+      '.nwp-al-list:not(.nwp-al-n1) .is-fail .nwp-al-box{display:none}' +
+      '.nwp-al-list:not(.nwp-al-n1) .nwp-al-tx{padding:0 12px}' +
+      '.nwp-al-list:not(.nwp-al-n1) .nwp-al-view{align-self:flex-start;padding:6px 12px 12px}' +
+      '.nwp-ft.nwp-ft-also{flex-direction:row-reverse;align-items:center;justify-content:flex-start;gap:8px 20px}' +
+      '.nwp-ft-also .nwp-send,.nwp-ft-also .nwp-done-btn{width:auto !important;min-width:230px;padding:0 24px}' +
+      '}',
       // phone: the pop-up slides up and fills the screen
       '@media (max-width: 767px){.nwp-sheet{padding:0;align-items:flex-end}.nwp-dlg{max-width:none;max-height:none;height:100%;border-radius:0;transform:translateY(100%);opacity:1;transition:transform .3s ' + EASE + '}.nwp-sheet.in .nwp-dlg{transform:none}.nwp-in,.nwp-when{height:46px;font-size:16px}.nwp-sg{min-height:42px;font-size:15px}.nwp-d{height:40px;font-size:15px}.nwp-send{min-height:50px;font-size:17px}.nwp-q{min-height:36px;font-size:14px}.nwp-nav{width:40px;height:40px}.nwp-two{grid-template-columns:1fr}.nwp-x{width:44px;height:44px}}',
       '@media (prefers-reduced-motion: reduce){.nwp,.nwp *,.nwp-sheet,.nwp-sheet *{animation:none !important;transition:none !important}}'
@@ -712,7 +740,7 @@
     var head = ALSO.did && !ALSO.busy
       ? 'Sent to ' + ALSO.did + ' more ' + (ALSO.did === 1 ? 'space' : 'spaces') + '. Each one replies to you by email.'
       : 'Want to also send your request to these spaces?';
-    var h = '<div class="nwp-also"><h4 id="nwp-also-h">' + esc(head) + '</h4><div class="nwp-al-list" role="group" aria-labelledby="nwp-also-h">';
+    var h = '<div class="nwp-also"><h4 id="nwp-also-h">' + esc(head) + '</h4><div class="nwp-al-list nwp-al-n' + ALSO.list.length + '" role="group" aria-labelledby="nwp-also-h">';
     ALSO.list.forEach(function (s) {
       var st = ALSO.st[s.slug] || '';
       var on = !!ALSO.on[s.slug];
@@ -748,7 +776,7 @@
       h += '<button type="button" class="nwp-send" data-a="also-send" data-k="also-send">Send to ' + n + (n === 1 ? ' space' : ' spaces') + '</button>' +
         '<button type="button" class="nwp-al-no" data-a="close" data-k="done">No thanks</button>';
     } else {
-      h += '<button type="button" class="nwp-done-btn" data-a="close" data-k="done">' + (ALSO.did || !left ? 'Done' : 'No thanks, done') + '</button>';
+      h += '<button type="button" class="nwp-done-btn" data-a="close" data-k="done">' + (ALSO.did || !left ? 'Done' : 'No thanks') + '</button>';
     }
     return h + '</div>';
   }
@@ -818,7 +846,10 @@
     (function next() {
       if (i >= todo.length) {
         ALSO.busy = false; S.focusKey = 'done';
-        if (S.sheetOpen && S.sent) render();
+        if (S.sheetOpen && S.sent) {
+          render();
+          try { sheet.querySelector('.nwp-bd').scrollTop = 0; } catch (e) {}
+        }
         return;
       }
       var s = todo[i++];
@@ -849,7 +880,10 @@
       var sum = '<div class="nwp-sum">' + rows.map(function (r) { return '<div><span>' + esc(r[0]) + '</span><b>' + esc(r[1]) + '</b></div>'; }).join('') + '</div>';
       var also = alsoHtml();
       return head + '<div class="nwp-bd"><div class="nwp-ok' + (also ? ' nwp-ok-s' : '') + '" role="status">' + ICON_OK +
-        '<h3>Request sent</h3><p>' + esc(data.space) + ' will reply to you by email at <b>' + esc(S.email) + '</b>.</p>' + sum +
+        '<h3>Request sent</h3><p>' + esc(data.space) + ' will reply to you by email at <b>' + esc(S.email) + '</b>.</p>' +
+        // Once the extra requests have gone the table steps aside, so
+        // "Sent" beside each space is in view without scrolling.
+        (also && ALSO.did && !ALSO.busy ? '' : sum) +
         (also ? '' : '<button type="button" class="nwp-done-btn" data-a="close" data-k="done">Done</button>') + '</div>' + also + '</div>' + alsoFoot();
     }
     var kind = kindOf(it);
