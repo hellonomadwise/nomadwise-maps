@@ -875,7 +875,11 @@ def _row_from_place(pl, cowork=False):
             pl.get('primaryType') or ('coworking_space' if cowork else None),
         'rating': pl.get('rating'),
         'user_rating_count': pl.get('userRatingCount'),
-        **({'hours': hours} if hours else {}),
+        # Always present (None when Google gives none): a batch whose rows
+        # carry different keys is refused whole by the database, which
+        # lost every place found by the Manchester (26 Nov 2026) and
+        # Bangkok (25 Nov) coworking sweeps.
+        'hours': hours or None,
     }
 
 
