@@ -69,6 +69,8 @@
   // What each nearby space's own page says (photos, features, hours,
   // area, map) and its full price list, read once when first needed.
   var INFO = {}, DET = {};
+  // Which of a space's photos its card is showing.
+  var PH = {};
   // A look at the Request sent screen without sending anything
   // (/coworking/<slug>?show=sent; see sentDemo).
   var DEMO = false;
@@ -516,6 +518,7 @@
       '.nwp-al-st.nwp-al-bad{color:#B3261E;font-weight:500}',
       '.nwp-al-view{flex:none;display:flex;align-items:center;margin:0;padding:0 14px;border:0;background:none;font-family:inherit;font-size:13.5px;font-weight:500;color:var(--nwp-ink);text-decoration:none;cursor:pointer;white-space:nowrap}',
       '.nwp-al-pr{color:var(--nwp-ink)}',
+      '.nwp-ph-nav{display:none}',
       '.nwp-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:3px}',
       '.nwp-chip{padding:2px 8px;border-radius:999px;background:#FFF0F1;color:#2C2C2C;font-size:12px;line-height:1.5;white-space:nowrap}',
       // one space's details, inside the pop-up
@@ -580,6 +583,13 @@
       '.nwp-al-list:not(.nwp-al-n1) .is-fail .nwp-al-box{display:none}' +
       '.nwp-al-list:not(.nwp-al-n1) .nwp-al-tx{padding:0 12px}' +
       '.nwp-al-list:not(.nwp-al-n1) .nwp-al-view{align-self:flex-start;padding:6px 12px 12px}' +
+      '.nwp-al-list:not(.nwp-al-n1) .nwp-al{padding-bottom:12px}' +
+      '.nwp-al-list:not(.nwp-al-n1) .nwp-ph-nav{position:absolute;top:52px;transform:translateY(-50%);width:28px;height:28px;border-radius:50%;border:0;background:rgba(255,255,255,.92);color:#2C2C2C;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;box-shadow:0 1px 4px rgba(20,32,50,.25);opacity:0;transition:opacity .15s}' +
+      '.nwp-al-list:not(.nwp-al-n1) .nwp-al-row:hover .nwp-ph-nav,.nwp-al-list:not(.nwp-al-n1) .nwp-ph-nav:focus-visible{opacity:1}' +
+      '@media (hover:none){.nwp-al-list:not(.nwp-al-n1) .nwp-ph-nav{opacity:1}}' +
+      '.nwp-ph-nav svg{width:16px;height:16px}' +
+      '.nwp-ph-next{right:8px}.nwp-ph-next svg{transform:rotate(-90deg)}' +
+      '.nwp-ph-prev{left:8px}.nwp-ph-prev svg{transform:rotate(90deg)}' +
       '.nwp-det-cols:not(.one){grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}' +
       '.nwp-det-ph img{height:180px}' +
       '.nwp-al-nav.nwp-det-nav{top:50%}.nwp-det-nav.nwp-al-next{right:8px}.nwp-det-nav.nwp-al-prev{left:8px}' +
@@ -948,20 +958,27 @@
       var info = INFO[s.slug] || {};
       var rate = alsoRate(s), where = alsoWhere(s);
       var price = alsoPrice(s);
+      var hrs = '';
+      try { if (info.hours && info.hours.length === 7) hrs = hoursLine(info.hours.map(function (r) { return r[1]; })).replace(/:00\b/g, ''); } catch (e) {}
+      var nph = (info.photos || []).length;
       var mark = st === 'sending' ? '<span class="nwp-spin nwp-al-spin" aria-hidden="true"></span>'
         : '<span class="nwp-al-box" aria-hidden="true">' + TICK + '</span>';
       var word = st === 'sent' ? '<span class="nwp-al-st">Sent</span>'
         : st === 'sending' ? '<span class="nwp-al-st">Sending</span>'
         : st === 'fail' ? '<span class="nwp-al-st nwp-al-bad">Not sent. Open their page to ask them.</span>' : '';
-      var pic = ALSO.pics[s.slug];
+      var pic = nph ? info.photos[(PH[s.slug] || 0) % nph] : ALSO.pics[s.slug];
       h += '<div class="nwp-al-row' + (st ? ' is-' + st : '') + '">' +
         '<button type="button" class="nwp-al" role="checkbox" aria-checked="' + (on || st === 'sent') + '" data-a="also" data-v="' + esc(s.slug) + '" data-k="also-' + esc(s.slug) + '"' + (st || ALSO.busy ? ' disabled' : '') + '>' +
         mark + '<span class="nwp-al-pic" data-s="' + esc(s.slug) + '"' + (pic ? ' style="background-image:url(&quot;' + esc(pic) + '&quot;)"' : '') + '></span>' +
         '<span class="nwp-al-tx"><b>' + esc(s.name) + '</b>' + (rate ? '<span>' + rate + '</span>' : '') + (where ? '<span>' + esc(where) + '</span>' : '') +
+        (hrs ? '<span>' + esc(hrs) + '</span>' : '') +
         (price ? '<span class="nwp-al-pr">' + esc(price) + '</span>' : '') + chips(info.tags, 2) + word + '</span></button>' +
-        // "More details" opens inside this pop-up (it was "View", a new
-        // tab, which took the visitor away from sending).
-        '<button type="button" class="nwp-al-view" data-a="also-detail" data-v="' + esc(s.slug) + '" data-k="view-' + esc(s.slug) + '" aria-label="More details about ' + esc(s.name) + '">More details</button></div>';
+        // Everything needed to decide is on the card itself; there is no
+        // link away and no second screen (Jonathan, 27 Nov 2026: "just
+        // the info they need to know or want to know, within the card").
+        // The photo can be flicked through where the space has several.
+        (nph > 1 ? '<button type="button" class="nwp-ph-nav nwp-ph-prev" data-a="card-ph" data-v="' + esc(s.slug) + '" data-d="-1" aria-label="Previous photo of ' + esc(s.name) + '">' + ICON_CHEV + '</button>' +
+          '<button type="button" class="nwp-ph-nav nwp-ph-next" data-a="card-ph" data-v="' + esc(s.slug) + '" data-d="1" aria-label="Next photo of ' + esc(s.name) + '">' + ICON_CHEV + '</button>' : '') + '</div>';
     });
     // More than three: the row scrolls sideways on a computer, with an
     // arrow at each end that has more to show (Jonathan, 27 Nov 2026).
@@ -1293,6 +1310,15 @@
       return;
     }
     if (a === 'also-detail') { alsoOpenDetail(v); return; }
+    if (a === 'card-ph') {
+      var pl = (INFO[v] || {}).photos || [];
+      if (pl.length < 2) return;
+      PH[v] = ((PH[v] || 0) + (+b.getAttribute('data-d')) + pl.length) % pl.length;
+      var pe = sheet.querySelector('.nwp-al-pic[data-s="' + v + '"]');
+      if (pe) pe.style.backgroundImage = 'url("' + pl[PH[v]].replace(/"/g, '%22') + '")';
+      if (!DEMO) track('also_photo', { slug: SLUG, to: v });
+      return;
+    }
     if (a === 'det-back' || a === 'det-add' || a === 'det-remove') {
       var cur = ALSO.detail;
       if (cur && a !== 'det-back' && !ALSO.busy && !ALSO.st[cur]) {
