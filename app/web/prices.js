@@ -65,7 +65,10 @@
 
   // "Want to also send your request to these spaces?" on the Request
   // sent screen (Jonathan, 27 Nov 2026; see alsoHtml below).
-  var ALSO = { list: [], on: {}, st: {}, pics: {}, busy: false, did: 0 };
+  var ALSO = { list: [], on: {}, st: {}, pics: {}, busy: false, did: 0, detail: null };
+  // What each nearby space's own page says (photos, features, hours,
+  // area, map) and its full price list, read once when first needed.
+  var INFO = {}, DET = {};
   // A look at the Request sent screen without sending anything
   // (/coworking/<slug>?show=sent; see sentDemo).
   var DEMO = false;
@@ -511,7 +514,34 @@
       '.nwp-al-tx i{font-style:normal;color:#E8A317}',
       '.nwp-al-st{font-weight:700;color:#1F8A4C}',
       '.nwp-al-st.nwp-al-bad{color:#B3261E;font-weight:500}',
-      '.nwp-al-view{flex:none;display:flex;align-items:center;padding:0 14px;font-size:13.5px;font-weight:500;color:var(--nwp-ink);text-decoration:none}',
+      '.nwp-al-view{flex:none;display:flex;align-items:center;margin:0;padding:0 14px;border:0;background:none;font-family:inherit;font-size:13.5px;font-weight:500;color:var(--nwp-ink);text-decoration:none;cursor:pointer;white-space:nowrap}',
+      '.nwp-al-pr{color:var(--nwp-ink)}',
+      '.nwp-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:3px}',
+      '.nwp-chip{padding:2px 8px;border-radius:999px;background:#FFF0F1;color:#2C2C2C;font-size:12px;line-height:1.5;white-space:nowrap}',
+      // one space's details, inside the pop-up
+      '.nwp-det{grid-column:1/-1;display:flex;flex-direction:column;gap:14px;text-align:left;font-size:14px;line-height:1.45;color:var(--nwp-ink)}',
+      '.nwp-det-back{align-self:flex-start;display:inline-flex;align-items:center;gap:4px;min-height:32px;margin:-4px 0 -6px -4px;padding:0 6px 0 0;border:0;background:none;font-family:inherit;font-size:14px;font-weight:500;color:var(--nwp-ink);cursor:pointer}',
+      '.nwp-det-back svg{width:18px;height:18px;transform:rotate(90deg)}',
+      '.nwp-det-back:hover{color:var(--nwp-red)}',
+      '.nwp-det-meta{margin:0;color:var(--nwp-muted)}',
+      '.nwp-det-meta i{font-style:normal;color:#E8A317}',
+      '.nwp-det-phw{position:relative}',
+      '.nwp-det-ph{display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;border-radius:8px}',
+      '.nwp-det-ph::-webkit-scrollbar{display:none}',
+      '.nwp-det-ph img{flex:0 0 auto;height:150px;width:auto;min-width:120px;max-width:82%;border-radius:8px;object-fit:cover;scroll-snap-align:start;background:#E9ECEF}',
+      '.nwp-det-cols{display:grid;grid-template-columns:minmax(0,1fr);gap:16px}',
+      '.nwp-det-cols>div{display:flex;flex-direction:column;gap:16px;min-width:0}',
+      '.nwp-det h5{margin:0 0 6px;font-size:14px;line-height:1.3;font-weight:700}',
+      '.nwp-det section p{margin:0 0 8px;color:var(--nwp-muted)}',
+      '.nwp-det-list{border:1px solid rgba(0,0,0,.12);border-radius:8px}',
+      '.nwp-det-list div{display:flex;justify-content:space-between;gap:12px;padding:7px 12px;border-top:1px solid rgba(0,0,0,.06);font-size:13.5px}',
+      '.nwp-det-list div:first-child{border-top:0}',
+      '.nwp-det-list span{color:var(--nwp-muted);min-width:0;overflow-wrap:anywhere}',
+      '.nwp-det-list b{font-weight:500;text-align:right;white-space:nowrap}',
+      '.nwp-det-more{margin:6px 0 0 !important;font-size:13px}',
+      '.nwp-det-map{display:block;width:100%;height:150px;border:0;border-radius:8px;background:#E9ECEF;margin:0 0 8px}',
+      '.nwp-det-link{align-self:flex-start;font-size:13.5px;font-weight:500;color:var(--nwp-ink);text-decoration:none}',
+      '.nwp-det-link:hover{color:var(--nwp-red)}',
       '.nwp-al-view:hover{color:var(--nwp-red)}',
       '.nwp-al-no{min-height:36px;margin:0;padding:0 8px;border:0;background:none;font-family:inherit;font-size:14px;font-weight:500;color:var(--nwp-muted);cursor:pointer}',
       '.nwp-al-no:hover{color:var(--nwp-ink)}',
@@ -550,6 +580,9 @@
       '.nwp-al-list:not(.nwp-al-n1) .is-fail .nwp-al-box{display:none}' +
       '.nwp-al-list:not(.nwp-al-n1) .nwp-al-tx{padding:0 12px}' +
       '.nwp-al-list:not(.nwp-al-n1) .nwp-al-view{align-self:flex-start;padding:6px 12px 12px}' +
+      '.nwp-det-cols:not(.one){grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}' +
+      '.nwp-det-ph img{height:180px}' +
+      '.nwp-al-nav.nwp-det-nav{top:50%}.nwp-det-nav.nwp-al-next{right:8px}.nwp-det-nav.nwp-al-prev{left:8px}' +
       '.nwp-ft.nwp-ft-also{flex-direction:row-reverse;align-items:center;justify-content:flex-start;gap:8px 20px}' +
       '.nwp-ft-also .nwp-send,.nwp-ft-also .nwp-done-btn{width:auto !important;min-width:230px;padding:0 24px}' +
       '}',
@@ -734,7 +767,7 @@
   function alsoOffer(cb) {
     // Requests still going out from the last one are left to finish.
     if (ALSO.busy) return;
-    ALSO.list = []; ALSO.on = {}; ALSO.st = {}; ALSO.did = 0;
+    ALSO.list = []; ALSO.on = {}; ALSO.st = {}; ALSO.did = 0; ALSO.detail = null;
     if (AREA || FRAMED || !PREVIEW || CAFE) return;
     var from = SLUG;
     nearbyList().then(function (list) {
@@ -745,18 +778,162 @@
       if (!ALSO.list.length) return;
       if (!DEMO) track('also_offer_shown', { slug: SLUG, spaces: ALSO.list.length, from: SITE ? 'site' : 'prices' });
       render();
-      ALSO.list.forEach(function (s) {
-        if (ALSO.pics[s.slug]) return;
-        fetch('/coworking/' + s.slug).then(function (r) { return r.ok ? r.text() : ''; }).then(function (t) {
-          var mm = /<meta[^>]+property="og:image"[^>]+content="([^"]+)"/i.exec(t || '') ||
-            /<meta[^>]+content="([^"]+)"[^>]+property="og:image"/i.exec(t || '');
-          if (!mm || !/^https:\/\//i.test(mm[1])) return;
-          ALSO.pics[s.slug] = mm[1].replace(/"/g, '%22');
-          var el = sheet && sheet.querySelector('.nwp-al-pic[data-s="' + s.slug + '"]');
-          if (el) el.style.backgroundImage = 'url("' + ALSO.pics[s.slug] + '")';
-        }).catch(function () {});
-      });
+      ALSO.list.forEach(alsoInfo);
     }).catch(function () {});
+  }
+  // A nearby space's own page, read once: its photos, features, week of
+  // hours, area and map, so a visitor can decide without leaving this
+  // screen (Jonathan, 27 Nov 2026: "View" took them away from sending).
+  // Every piece is optional: what the page does not have is left out.
+  function alsoInfo(s) {
+    if (INFO[s.slug]) return;
+    var info = INFO[s.slug] = { photos: [], tags: [], hours: [], area: '', map: '' };
+    fetch('/coworking/' + s.slug).then(function (r) { return r.ok ? r.text() : ''; }).then(function (t) {
+      if (!t) return;
+      var mm = /<meta[^>]+property="og:image"[^>]+content="([^"]+)"/i.exec(t) ||
+        /<meta[^>]+content="([^"]+)"[^>]+property="og:image"/i.exec(t);
+      if (mm && /^https:\/\//i.test(mm[1])) ALSO.pics[s.slug] = mm[1].replace(/"/g, '%22');
+      try {
+        var d = new DOMParser().parseFromString(t, 'text/html');
+        var gone = function (el) { return !!(el.closest && el.closest('.w-condition-invisible')); };
+        [].slice.call(d.querySelectorAll('.gallery__component img.gallery__image, .image-div-mobile .w-slide img')).forEach(function (im) {
+          var u = im.getAttribute('src') || im.getAttribute('data-src') || '';
+          if (/^https:\/\//i.test(u) && info.photos.indexOf(u) < 0 && info.photos.length < 8 && !gone(im)) info.photos.push(u);
+        });
+        [].slice.call(d.querySelectorAll('.modal-filtertag-div .modal-filtertag-tag')).forEach(function (el) {
+          if (gone(el) || el.classList.contains('modal-filtertag-tag-empty')) return;
+          var w = String(el.textContent || '').replace(/\s+/g, ' ').trim();
+          if (w && w.length <= 32 && !/^add a tag$/i.test(w) && info.tags.indexOf(w) < 0) info.tags.push(w);
+        });
+        var grid = d.querySelector('.div-block-77 .wifi-openinghours-quickstack');
+        var cells = grid ? grid.querySelectorAll('.w-layout-cell') : [];
+        if (cells.length >= 14) {
+          for (var i = 0; i < 7; i++) {
+            var dy = String(cells[i * 2].textContent || '').replace(/\s+/g, ' ').trim();
+            var vl = String(cells[i * 2 + 1].textContent || '').replace(/\s+/g, ' ').trim();
+            if (!dy || !vl) { info.hours = []; break; }
+            info.hours.push([dy, vl]);
+          }
+        }
+        var loc = d.querySelector('.location-div');
+        var ar = loc ? String(loc.textContent || '').split(',')[0].replace(/\s+/g, ' ').trim() : '';
+        if (ar && ar.length < 40) info.area = ar;
+        var fr = d.querySelector('.map-div-mobile iframe');
+        var src = fr ? (fr.getAttribute('src') || fr.getAttribute('data-src') || '') : '';
+        if (/^https:\/\/(www\.)?google\.[a-z.]+\/maps/i.test(src)) info.map = src;
+      } catch (e) {}
+      if (!info.photos.length && ALSO.pics[s.slug]) info.photos.push(ALSO.pics[s.slug]);
+      if (S.sheetOpen && S.sent && !ALSO.busy) render();
+    }).catch(function () {});
+  }
+  // The price on a card answers what was just asked: a day pass shows
+  // that space's day pass. A space with prices but not for this says so.
+  var NEED_WORD = { day: 'Day pass', desk: 'Desk', office: 'Private office', room: 'Meeting room' };
+  var PER_SAY = { hour: ' an hour', 'half day': ' a half day', day: ' a day', week: ' a week', month: ' a month', year: ' a year' };
+  function alsoPrice(s) {
+    var it = SITE ? null : pickedItem();
+    var need = it ? needOfKind(it.cat, it.period) : null;
+    if (!need) return nearPrice(s.prices);
+    var best = null, bper = '';
+    (s.prices || []).forEach(function (p) {
+      if (p.amount == null) return;
+      var details = (p.details || []).map(function (x) { return String(x || '').trim(); }).filter(Boolean);
+      var per = periodOf(p.name, details, p.category);
+      if (needOfKind(p.category, per) !== need) return;
+      if (!best || Number(p.amount) < Number(best.amount)) { best = p; bper = per; }
+    });
+    if (!best) return (s.prices || []).length ? NEED_WORD[need] + ': price on request' : '';
+    return NEED_WORD[need] + ' from ' + money(best.amount, best.currency, best.label).replace(/^from\s+/i, '') +
+      (need === 'day' && bper === 'day' ? '' : (PER_SAY[bper] || ''));
+  }
+  function alsoWhere(s) {
+    var away = awayText(s.metres), info = INFO[s.slug] || {};
+    var from = away ? away + ' from ' + (String(spaceName()).split(' - ')[0].trim() || 'this space') : '';
+    return [info.area, from].filter(Boolean).join(' \u00b7 ');
+  }
+  function alsoRate(s) {
+    if (!s.rating) return '';
+    var n = Number(s.reviews);
+    return '<i aria-hidden="true">\u2605</i> ' + esc(String(s.rating)) + ' on Google' + (n > 0 ? ' (' + esc(String(n)) + (n === 1 ? ' review)' : ' reviews)') : '');
+  }
+  function chips(list, max) {
+    var l = (list || []).slice(0, max || 99);
+    return l.length ? '<span class="nwp-chips">' + l.map(function (w) { return '<span class="nwp-chip">' + esc(w) + '</span>'; }).join('') + '</span>' : '';
+  }
+  function detailSpace() {
+    return ALSO.detail ? ALSO.list.filter(function (s) { return s.slug === ALSO.detail; })[0] || null : null;
+  }
+  function alsoOpenDetail(slug) {
+    ALSO.detail = slug;
+    var s = detailSpace();
+    if (!s) { ALSO.detail = null; return; }
+    if (!DEMO) track('also_details', { slug: SLUG, to: slug });
+    alsoInfo(s);
+    if (!DET[slug]) {
+      DET[slug] = { loading: true };
+      fetch(URL_ + '/rest/v1/rpc/page_prices', {
+        method: 'POST',
+        headers: { apikey: KEY, Authorization: 'Bearer ' + KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ p_slug: slug })
+      }).then(function (r) { return r.ok ? r.json() : null; }).then(function (raw) {
+        DET[slug] = raw || {};
+        if (S.sheetOpen && S.sent && ALSO.detail === slug) render();
+      }).catch(function () { DET[slug] = {}; });
+    }
+    S.focusKey = 'det-back';
+    render();
+    try { sheet.querySelector('.nwp-bd').scrollTop = 0; } catch (e) {}
+  }
+  // One space, in this same pop-up: photos, where it is, hours, prices
+  // and features, with "Add to my request" at the bottom.
+  function alsoDetailHtml(s) {
+    var info = INFO[s.slug] || {}, raw = DET[s.slug] || {};
+    var h = '<div class="nwp-det"><button type="button" class="nwp-det-back" data-a="det-back" data-k="det-back">' + ICON_CHEV + 'Back to spaces</button>';
+    var meta = [alsoRate(s), esc(alsoWhere(s))].filter(Boolean);
+    if (meta.length) h += '<p class="nwp-det-meta">' + meta.join(' \u00b7 ') + '</p>';
+    var ph = info.photos || [];
+    if (ph.length) {
+      h += '<div class="nwp-det-phw"><div class="nwp-det-ph">' + ph.map(function (u, i) {
+        return '<img src="' + esc(u) + '" alt="' + esc(s.name) + ', photo ' + (i + 1) + '" loading="' + (i < 2 ? 'eager' : 'lazy') + '">';
+      }).join('') + '</div>' + (ph.length > 1
+        ? '<button type="button" class="nwp-al-nav nwp-al-prev nwp-det-nav" data-a="also-nav" data-v="-1" aria-label="Earlier photos" hidden>' + ICON_CHEV + '</button>' +
+          '<button type="button" class="nwp-al-nav nwp-al-next nwp-det-nav" data-a="also-nav" data-v="1" aria-label="More photos">' + ICON_CHEV + '</button>' : '') + '</div>';
+    }
+    var left = '', right = '';
+    // Where it is.
+    var addr = String(raw.address || '').replace(/\s+/g, ' ').trim();
+    if (/^[A-Z0-9]{4}\+[A-Z0-9]{2,}/i.test(addr)) addr = '';
+    var lat = Number(raw.lat), lng = Number(raw.lng), hasLL = raw.lat != null && raw.lng != null && isFinite(lat) && isFinite(lng);
+    var mapSrc = info.map || (hasLL ? 'https://www.google.com/maps?q=' + lat + ',' + lng + '&z=15&output=embed' : '');
+    var gm = hasLL ? 'https://www.google.com/maps/search/?api=1&query=' + lat + ',' + lng + (raw.place ? '&query_place_id=' + encodeURIComponent(raw.place) : '') : '';
+    if (addr || mapSrc || info.area) {
+      left += '<section><h5>Where it is</h5>' +
+        (addr || info.area ? '<p>' + esc([addr, info.area].filter(Boolean).join(', ')) + '</p>' : '') +
+        (mapSrc ? '<iframe class="nwp-det-map" src="' + esc(mapSrc) + '" title="Map of ' + esc(s.name) + '" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>' : '') +
+        (gm ? '<a class="nwp-det-link" href="' + esc(gm) + '" target="_blank" rel="noopener">Open in Google Maps</a>' : '') + '</section>';
+    }
+    // Hours.
+    if (info.hours && info.hours.length === 7) {
+      left += '<section><h5>Opening hours</h5><div class="nwp-det-list">' + info.hours.map(function (r) {
+        return '<div><span>' + esc(r[0]) + '</span><b>' + esc(r[1]) + '</b></div>';
+      }).join('') + '</div></section>';
+    }
+    // Prices, as on the space's own page.
+    var groups = [];
+    try { if (raw && raw.show && raw.prices && raw.prices.length) groups = shape(raw).groups; } catch (e) {}
+    if (groups.length) {
+      var rows = [];
+      groups.forEach(function (g) { g.items.forEach(function (it) { rows.push(it); }); });
+      right += '<section><h5>Prices</h5><div class="nwp-det-list">' + rows.slice(0, 10).map(function (it) {
+        return '<div><span>' + esc(it.full) + '</span><b>' + esc(it.priceText) + '</b></div>';
+      }).join('') + '</div>' + (rows.length > 10 ? '<p class="nwp-det-more">And ' + (rows.length - 10) + ' more on their page.</p>' : '') + '</section>';
+    } else if (DET[s.slug] && DET[s.slug].loading) {
+      right += '<section><h5>Prices</h5><p>Loading\u2026</p></section>';
+    }
+    if (info.tags && info.tags.length) right += '<section><h5>What\u2019s here</h5>' + chips(info.tags) + '</section>';
+    if (left || right) h += '<div class="nwp-det-cols' + (left && right ? '' : ' one') + '">' + (left ? '<div>' + left + '</div>' : '') + (right ? '<div>' + right + '</div>' : '') + '</div>';
+    h += '<a class="nwp-det-link" href="/coworking/' + esc(s.slug) + '" target="_blank" rel="noopener" data-a="also-view" data-v="' + esc(s.slug) + '">Open their full page in a new tab</a>';
+    return h + '</div>';
   }
   function alsoHtml() {
     if (!ALSO.list.length) return '';
@@ -768,11 +945,9 @@
     ALSO.list.forEach(function (s) {
       var st = ALSO.st[s.slug] || '';
       var on = !!ALSO.on[s.slug];
-      var away = awayText(s.metres);
-      var facts = [];
-      if (s.rating) facts.push('<i aria-hidden="true">\u2605</i> ' + esc(String(s.rating)) + ' on Google');
-      if (away) facts.push(esc(away + ' from ' + (String(spaceName()).split(' - ')[0].trim() || 'this space')));
-      var price = nearPrice(s.prices);
+      var info = INFO[s.slug] || {};
+      var rate = alsoRate(s), where = alsoWhere(s);
+      var price = alsoPrice(s);
       var mark = st === 'sending' ? '<span class="nwp-spin nwp-al-spin" aria-hidden="true"></span>'
         : '<span class="nwp-al-box" aria-hidden="true">' + TICK + '</span>';
       var word = st === 'sent' ? '<span class="nwp-al-st">Sent</span>'
@@ -782,9 +957,11 @@
       h += '<div class="nwp-al-row' + (st ? ' is-' + st : '') + '">' +
         '<button type="button" class="nwp-al" role="checkbox" aria-checked="' + (on || st === 'sent') + '" data-a="also" data-v="' + esc(s.slug) + '" data-k="also-' + esc(s.slug) + '"' + (st || ALSO.busy ? ' disabled' : '') + '>' +
         mark + '<span class="nwp-al-pic" data-s="' + esc(s.slug) + '"' + (pic ? ' style="background-image:url(&quot;' + esc(pic) + '&quot;)"' : '') + '></span>' +
-        '<span class="nwp-al-tx"><b>' + esc(s.name) + '</b>' + (facts.length ? '<span>' + facts.join(' \u00b7 ') + '</span>' : '') +
-        (price ? '<span>' + esc(price) + '</span>' : '') + word + '</span></button>' +
-        '<a class="nwp-al-view" href="/coworking/' + esc(s.slug) + '" target="_blank" rel="noopener" data-a="also-view" data-v="' + esc(s.slug) + '" data-k="view-' + esc(s.slug) + '" aria-label="View ' + esc(s.name) + ' in a new tab">View</a></div>';
+        '<span class="nwp-al-tx"><b>' + esc(s.name) + '</b>' + (rate ? '<span>' + rate + '</span>' : '') + (where ? '<span>' + esc(where) + '</span>' : '') +
+        (price ? '<span class="nwp-al-pr">' + esc(price) + '</span>' : '') + chips(info.tags, 2) + word + '</span></button>' +
+        // "More details" opens inside this pop-up (it was "View", a new
+        // tab, which took the visitor away from sending).
+        '<button type="button" class="nwp-al-view" data-a="also-detail" data-v="' + esc(s.slug) + '" data-k="view-' + esc(s.slug) + '" aria-label="More details about ' + esc(s.name) + '">More details</button></div>';
     });
     // More than three: the row scrolls sideways on a computer, with an
     // arrow at each end that has more to show (Jonathan, 27 Nov 2026).
@@ -798,6 +975,16 @@
     if (!ALSO.list.length) return '';
     var n = ALSO.list.filter(function (s) { return ALSO.on[s.slug]; }).length;
     var h = '<div class="nwp-ft nwp-ft-also">';
+    var ds = detailSpace();
+    if (ds) {
+      var dst = ALSO.st[ds.slug];
+      if (dst || ALSO.busy) h += '<button type="button" class="nwp-done-btn" data-a="det-back" data-k="det-go">Back to spaces</button>';
+      else if (ALSO.on[ds.slug]) h += '<button type="button" class="nwp-send" data-a="det-back" data-k="det-go">Added. Back to spaces</button>' +
+        '<button type="button" class="nwp-al-no" data-a="det-remove" data-k="det-rm">Remove from my request</button>';
+      else h += '<button type="button" class="nwp-send" data-a="det-add" data-k="det-go">Add to my request</button>' +
+        '<button type="button" class="nwp-al-no" data-a="det-back" data-k="det-no">Back</button>';
+      return h + '</div>';
+    }
     if (ALSO.busy) {
       h += '<button type="button" class="nwp-send" disabled aria-busy="true"><span class="nwp-spin" aria-hidden="true"></span>Sending</button>';
     } else if (n > 0) {
@@ -906,15 +1093,23 @@
   // The arrows beside a row of more than three spaces.
   function alsoArrows() {
     if (!sheet) return;
-    var l = sheet.querySelector('.nwp-al-list'), p = sheet.querySelector('.nwp-al-prev'), n = sheet.querySelector('.nwp-al-next');
-    if (!l || !p || !n) return;
-    var more = l.scrollWidth - l.clientWidth > 4;
-    p.hidden = !more || l.scrollLeft < 4;
-    n.hidden = !more || l.scrollLeft > l.scrollWidth - l.clientWidth - 4;
+    [].slice.call(sheet.querySelectorAll('.nwp-al-wrap, .nwp-det-phw')).forEach(function (w) {
+      var l = w.firstElementChild, p = w.querySelector('.nwp-al-prev'), n = w.querySelector('.nwp-al-next');
+      if (!l || !p || !n) return;
+      var more = l.scrollWidth - l.clientWidth > 4;
+      p.hidden = !more || l.scrollLeft < 4;
+      n.hidden = !more || l.scrollLeft > l.scrollWidth - l.clientWidth - 4;
+    });
   }
 
   // The pop-up's inside: the price, the form, Send; or "Sent".
   function modalHtml() {
+    var ds = S.sent ? detailSpace() : null;
+    if (ds) {
+      return '<div class="nwp-hd"><div class="nwp-hd-t"><small>A space nearby</small><h2 id="nwp-dlg-h">' + esc(ds.name) + '</h2></div>' +
+        '<button type="button" class="nwp-x" data-a="close" data-k="x" aria-label="Close">' + ICON_X + '</button></div>' +
+        '<div class="nwp-bd">' + alsoDetailHtml(ds) + '</div>' + alsoFoot();
+    }
     if (SITE) {
       return '<div class="nwp-hd"><div class="nwp-hd-t"><small>Your request to</small><h2 id="nwp-dlg-h">' + esc(spaceName()) + '</h2></div>' +
         '<button type="button" class="nwp-x" data-a="close" data-k="x" aria-label="Close">' + ICON_X + '</button></div>' +
@@ -1073,7 +1268,7 @@
     var finish = function () {
       sheet.classList.remove('open');
       if (S.sent) { S.sent = false; S.message = ''; }
-      SITE = null;
+      SITE = null; ALSO.detail = null;
       sheet.querySelector('.nwp-dlg').innerHTML = '';
       var bt = AREA ? AREA_BTN : (back && root && root.querySelector('[data-k="' + back + '"]'));
       if (bt) { try { bt.focus({ preventScroll: true }); } catch (e) { bt.focus(); } }
@@ -1092,8 +1287,22 @@
     if (a === 'send') { send(); return; }
     if (a === 'also-send') { alsoSend(); return; }
     if (a === 'also-nav') {
-      var row = sheet.querySelector('.nwp-al-list'), card = row && row.querySelector('.nwp-al-row');
-      if (row && card) { try { row.scrollBy({ left: (+v) * (card.offsetWidth + 12), behavior: REDUCED ? 'auto' : 'smooth' }); } catch (e) { row.scrollLeft += (+v) * (card.offsetWidth + 12); } }
+      var row = b.parentElement && b.parentElement.firstElementChild, card = row && row.firstElementChild;
+      var step = row && row.classList.contains('nwp-det-ph') ? Math.round(row.clientWidth * 0.7) : (card ? card.offsetWidth + 12 : 0);
+      if (row && step) { try { row.scrollBy({ left: (+v) * step, behavior: REDUCED ? 'auto' : 'smooth' }); } catch (e) { row.scrollLeft += (+v) * step; } }
+      return;
+    }
+    if (a === 'also-detail') { alsoOpenDetail(v); return; }
+    if (a === 'det-back' || a === 'det-add' || a === 'det-remove') {
+      var cur = ALSO.detail;
+      if (cur && a !== 'det-back' && !ALSO.busy && !ALSO.st[cur]) {
+        ALSO.on[cur] = a === 'det-add';
+        if (!DEMO) track('also_tick', { slug: SLUG, to: cur, on: !!ALSO.on[cur], from: 'details' });
+      }
+      ALSO.detail = null;
+      S.focusKey = cur ? 'view-' + cur : null;
+      render();
+      try { sheet.querySelector('.nwp-bd').scrollTop = 0; } catch (e) {}
       return;
     }
     if (a === 'also-view') { track('also_view', { slug: SLUG, to: v }); return; }
@@ -1352,7 +1561,8 @@
       el.addEventListener('keydown', onKey);
     });
     sheet.addEventListener('focusout', onFocusOut);
-    sheet.addEventListener('scroll', function (e) { if (e.target && e.target.classList && e.target.classList.contains('nwp-al-list')) alsoArrows(); }, true);
+    sheet.addEventListener('load', function (e) { if (e.target && e.target.tagName === 'IMG') alsoArrows(); }, true);
+    sheet.addEventListener('scroll', function (e) { if (e.target && e.target.classList && (e.target.classList.contains('nwp-al-list') || e.target.classList.contains('nwp-det-ph'))) alsoArrows(); }, true);
     document.addEventListener('keydown', function (e) {
       if (!S.sheetOpen) return;
       if (e.key === 'Escape') { closeSheet(); return; }
