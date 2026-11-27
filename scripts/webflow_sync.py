@@ -957,7 +957,7 @@ def short_name(name, area=None, region=None):
         p = (place or '').strip()
         if not p:
             continue
-        m = re.match(r'^(.*?)[\s,\-–(]+' + re.escape(p) + r'\)?\s*$', n, re.I)
+        m = re.match(r'^(.*?)[\s,\-–(|;]+' + re.escape(p) + r'\)?\s*$', n, re.I)
         if m and len(m.group(1).strip()) >= 3:
             return m.group(1).strip()
     return n
@@ -975,6 +975,12 @@ def h1_label(name, area, region):
     if area:
         if _names_place(n, area):
             return n if _names_place(n, region) else f"{n} - {region}"
+        # An area whose name already carries the city ("Nijmegen
+        # Centrum", "City of London", "Kuta (Bali)") is not followed by
+        # the city again (Jonathan, 27 Nov 2026: "shouldn't say Nijmegen
+        # twice").
+        if _names_place(area, region):
+            return f"{n} in {area}"
         return f"{n} in {area} - {region}"
     if _names_place(n, region):
         return n
