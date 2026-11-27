@@ -435,7 +435,7 @@
       // The chosen one: white with a red outline and red bold words
       // (Jonathan, 27 Nov 2026: the teal fill was too heavy; lighter,
       // "but clear that it's been selected").
-      '.nwp-sg[aria-checked="true"]{border-color:var(--nwp-red);box-shadow:inset 0 0 0 1px var(--nwp-red);background:#fff;color:var(--nwp-red-ink)}',
+      '.nwp-sg[aria-checked="true"]{border-color:var(--nwp-red);background:#fff;color:var(--nwp-red-ink)}',
       '.nwp-in{height:42px;border:1.5px solid #D5DAE0;border-radius:8px;padding:0 12px;font-family:inherit;font-size:15px;background:#fff;color:var(--nwp-ink);width:100%;transition:border-color .15s,box-shadow .15s}',
       '.nwp-in:focus{border-color:var(--nwp-teal);box-shadow:0 0 0 3px rgba(44,44,44,.10);outline:none}',
       // One ring when typing, not two.
