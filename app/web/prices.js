@@ -532,7 +532,7 @@
       '.nwp-al-pr{color:var(--nwp-ink)}',
       '.nwp-ph-nav{display:none}',
       '.nwp-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:3px}',
-      '.nwp-chip{padding:2px 8px;border-radius:999px;background:#FFF0F1;color:#2C2C2C;font-size:12px;line-height:1.5;white-space:nowrap}',
+      '.nwp-chip{padding:2px 8px;border-radius:8px;background:#FFF0F1;color:#2C2C2C;font-size:12px;line-height:1.5;white-space:nowrap}',
       // one space's details, inside the pop-up
       '.nwp-det{grid-column:1/-1;display:flex;flex-direction:column;gap:14px;text-align:left;font-size:14px;line-height:1.45;color:var(--nwp-ink)}',
       '.nwp-det-back{align-self:flex-start;display:inline-flex;align-items:center;gap:4px;min-height:32px;margin:-4px 0 -6px -4px;padding:0 6px 0 0;border:0;background:none;font-family:inherit;font-size:14px;font-weight:500;color:var(--nwp-ink);cursor:pointer}',
@@ -583,20 +583,20 @@
       '.nwp-al-list.nwp-al-n3,.nwp-al-list.nwp-al-n4{overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;overscroll-behavior-x:contain}' +
       '.nwp-al-list.nwp-al-n3::-webkit-scrollbar,.nwp-al-list.nwp-al-n4::-webkit-scrollbar{display:none}' +
       '.nwp-al-list.nwp-al-n3 .nwp-al-row,.nwp-al-list.nwp-al-n4 .nwp-al-row{flex:0 0 calc((100% - 24px) / 2.5);scroll-snap-align:start}' +
-      '.nwp-al-nav{position:absolute;top:62px;transform:translateY(-50%);width:36px;height:36px;border-radius:50%;border:1px solid rgba(0,0,0,.14);background:#fff;color:#2C2C2C;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;box-shadow:0 2px 8px rgba(20,32,50,.18);z-index:2}' +
+      '.nwp-al-nav{position:absolute;top:73px;transform:translateY(-50%);width:36px;height:36px;border-radius:50%;border:1px solid rgba(0,0,0,.14);background:#fff;color:#2C2C2C;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;box-shadow:0 2px 8px rgba(20,32,50,.18);z-index:2}' +
       '.nwp-al-nav[hidden]{display:none}' +
       '.nwp-al-nav svg{width:18px;height:18px}' +
       '.nwp-al-next{right:-8px}.nwp-al-next svg{transform:rotate(-90deg)}' +
       '.nwp-al-prev{left:-8px}.nwp-al-prev svg{transform:rotate(90deg)}' +
       '.nwp-al-list:not(.nwp-al-n1) .nwp-al{flex-direction:column;align-items:stretch;gap:10px;padding:0 0 4px}' +
-      '.nwp-al-list:not(.nwp-al-n1) .nwp-al-pic{width:100%;height:124px;border-radius:0}' +
+      '.nwp-al-list:not(.nwp-al-n1) .nwp-al-pic{width:100%;height:146px;border-radius:0}' +
       '.nwp-al-list:not(.nwp-al-n1) .nwp-al-box,.nwp-al-list:not(.nwp-al-n1) .nwp-al-spin{position:absolute;top:10px;left:10px;margin:0;box-shadow:0 1px 4px rgba(20,32,50,.25)}' +
       '.nwp-al-list:not(.nwp-al-n1) .nwp-al-spin{background:#fff;box-shadow:0 0 0 4px #fff,0 1px 6px 4px rgba(20,32,50,.2)}' +
       '.nwp-al-list:not(.nwp-al-n1) .is-fail .nwp-al-box{display:none}' +
       '.nwp-al-list:not(.nwp-al-n1) .nwp-al-tx{padding:0 12px}' +
       '.nwp-al-list:not(.nwp-al-n1) .nwp-al-view{align-self:flex-start;padding:6px 12px 12px}' +
       '.nwp-al-list:not(.nwp-al-n1) .nwp-al{padding-bottom:12px}' +
-      '.nwp-al-list:not(.nwp-al-n1) .nwp-ph-nav{position:absolute;top:62px;transform:translateY(-50%);width:28px;height:28px;border-radius:50%;border:0;background:rgba(255,255,255,.92);color:#2C2C2C;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;box-shadow:0 1px 4px rgba(20,32,50,.25);opacity:0;transition:opacity .15s}' +
+      '.nwp-al-list:not(.nwp-al-n1) .nwp-ph-nav{position:absolute;top:73px;transform:translateY(-50%);width:28px;height:28px;border-radius:50%;border:0;background:rgba(255,255,255,.92);color:#2C2C2C;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;box-shadow:0 1px 4px rgba(20,32,50,.25);opacity:0;transition:opacity .15s}' +
       '.nwp-al-list:not(.nwp-al-n1) .nwp-al-row:hover .nwp-ph-nav,.nwp-al-list:not(.nwp-al-n1) .nwp-ph-nav:focus-visible{opacity:1}' +
       '@media (hover:none){.nwp-al-list:not(.nwp-al-n1) .nwp-ph-nav{opacity:1}}' +
       '.nwp-ph-nav svg{width:16px;height:16px}' +
