@@ -307,12 +307,13 @@
     if (document.getElementById('nwp-css')) return;
     var EASE = 'cubic-bezier(.2,.8,.2,1)';
     var css = [
-      '.nwp,.nwp-sheet{--nwp-red:' + RED + ';--nwp-red-ink:#D7303A;--nwp-teal:' + TEAL + ';--nwp-ink:#2C2C2C;--nwp-muted:#5E6670;--nwp-line:rgba(0,0,0,.08);--nwp-soft:#F8F8FA}',
+      '.nwp,.nwp-sheet{--nwp-red:' + RED + ';--nwp-red-ink:#D7303A;--nwp-teal:#2C2C2C;--nwp-ink:#2C2C2C;--nwp-muted:#5E6670;--nwp-line:rgba(0,0,0,.08);--nwp-soft:#F8F8FA}',
       '.nwp *,.nwp-sheet *{box-sizing:border-box}',
       '.nwp label,.nwp-sheet label{margin:0;font-weight:400}',
       '.nwp{margin:28px 0 36px;font-family:inherit;color:var(--nwp-ink);scroll-margin-top:84px;animation:nwp-in .35s ' + EASE + ' both}',
       '.nwp-mr{list-style:none;margin:0;padding:0;border-top:1px solid rgba(0,0,0,.05)}',
-      '.nwp-more{display:block;width:100%;min-height:44px;margin:0;padding:0;border:0;background:transparent;font-family:inherit;font-size:14.5px;font-weight:700;color:var(--nwp-teal);text-decoration:underline;text-align:center;cursor:pointer}',
+      '.nwp-more{display:block;width:100%;min-height:44px;margin:0;padding:0;border:0;background:transparent;font-family:inherit;font-size:14.5px;font-weight:500;color:var(--nwp-ink);text-decoration:none;text-align:center;cursor:pointer}',
+      '.nwp-more:hover,.nwp-site:hover,.nwp-trust a:hover{color:var(--nwp-red)}',
       '.nwp-addr{display:flex;flex-wrap:wrap;align-items:baseline;gap:0 8px;margin:2px 0 8px;font-family:Roboto,sans-serif;font-size:14px;line-height:1.4;color:#5E6670}',
       '.nwp-addr span{white-space:nowrap}',
       '.nwp-addr a{flex:none;color:#05434F;font-weight:700;text-decoration:underline;white-space:nowrap}',
@@ -350,7 +351,7 @@
       '@keyframes nwp-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}',
       '.nwp h2.nwp-h{margin:0 0 4px;font-size:21px;font-weight:700;line-height:1.25}',
       '.nwp-sub{margin:0 0 14px;font-size:14px;line-height:1.45;color:var(--nwp-muted)}',
-      '.nwp-site{color:var(--nwp-teal);font-weight:700;text-decoration:underline;white-space:nowrap}',
+      '.nwp-site{color:var(--nwp-ink);font-weight:500;text-decoration:none;white-space:nowrap}',
       // shared: the Request button
       '.nwp-enq{flex:none;min-height:34px;padding:0 14px;border-radius:8px;border:1.5px solid var(--nwp-red);background:#fff;color:var(--nwp-red-ink);font-family:inherit;font-weight:700;font-size:13.5px;line-height:1;cursor:pointer;transition:background .15s,color .15s,transform .1s}',
       '.nwp-enq:hover{background:var(--nwp-red);color:#fff}',
@@ -431,12 +432,17 @@
       '.nwp-seg-people{display:grid;grid-template-columns:repeat(5,minmax(0,1fr))}.nwp-seg-people .nwp-sg{padding:0 4px;white-space:nowrap}',
       '.nwp-sg{min-height:38px;padding:0 13px;border-radius:8px;border:1.5px solid #D5DAE0;background:#fff;color:var(--nwp-ink);font-family:inherit;font-size:14px;font-weight:500;cursor:pointer;transition:border-color .15s,background .15s,color .15s}',
       '.nwp-sg:hover{border-color:#AEB6BF}',
-      '.nwp-sg[aria-checked="true"]{border-color:var(--nwp-teal);background:var(--nwp-teal);color:#fff}',
+      // The chosen one: white with a red outline and red bold words
+      // (Jonathan, 27 Nov 2026: the teal fill was too heavy; lighter,
+      // "but clear that it's been selected").
+      '.nwp-sg[aria-checked="true"]{border-color:var(--nwp-red);box-shadow:inset 0 0 0 1px var(--nwp-red);background:#fff;color:var(--nwp-red-ink);font-weight:700}',
       '.nwp-in{height:42px;border:1.5px solid #D5DAE0;border-radius:8px;padding:0 12px;font-family:inherit;font-size:15px;background:#fff;color:var(--nwp-ink);width:100%;transition:border-color .15s,box-shadow .15s}',
-      '.nwp-in:focus{border-color:var(--nwp-teal);box-shadow:0 0 0 3px rgba(5,67,79,.12);outline:none}',
+      '.nwp-in:focus{border-color:var(--nwp-teal);box-shadow:0 0 0 3px rgba(44,44,44,.10);outline:none}',
+      // One ring when typing, not two.
+      '.nwp-sheet .nwp-in:focus-visible{outline:none}',
       '.nwp-in.bad{border-color:#D93025;box-shadow:0 0 0 3px rgba(217,48,37,.10)}',
       '.nwp-ck{display:flex;align-items:flex-start;gap:10px;font-size:13.5px;line-height:1.45;color:var(--nwp-ink);cursor:pointer}',
-      '.nwp-ck input{flex:none;width:18px;height:18px;margin:1px 0 0;accent-color:var(--nwp-teal);cursor:pointer}',
+      '.nwp-ck input{flex:none;width:18px;height:18px;margin:1px 0 0;accent-color:var(--nwp-red);cursor:pointer}',
       'textarea.nwp-in{height:auto;min-height:64px;padding:10px 12px;resize:vertical;line-height:1.45}',
       '.nwp-hint{font-size:12.5px;color:#C5221F;min-height:0}',
       '.nwp-hint:empty{display:none}',
@@ -459,7 +465,7 @@
       '.nwp-wd{text-align:center;font-size:11px;font-weight:700;color:var(--nwp-muted);padding-bottom:2px}',
       '.nwp-d{height:36px;border-radius:8px;font-family:inherit;font-size:14px;cursor:pointer;background:#fff;color:var(--nwp-ink);border:1px solid transparent;padding:0;transition:background .12s,border-color .12s}',
       '.nwp-d:hover:not(:disabled){background:var(--nwp-soft)}',
-      '.nwp-d.today{font-weight:700;border-color:var(--nwp-teal)}',
+      '.nwp-d.today{font-weight:700;border-color:#AEB6BF}',
       '.nwp-d.on{background:var(--nwp-red);color:#fff;font-weight:700;border-color:var(--nwp-red)}',
       '.nwp-d:disabled{color:#B4BAC1;cursor:default;text-decoration:line-through;background:transparent}',
       '.nwp-d.blank{visibility:hidden}',
@@ -472,7 +478,7 @@
       '.nwp-spin{width:18px;height:18px;border-radius:50%;border:2.5px solid rgba(255,255,255,.4);border-top-color:#fff;animation:nwp-rot .7s linear infinite}',
       '@keyframes nwp-rot{to{transform:rotate(360deg)}}',
       '.nwp-trust{margin:0;font-size:12px;color:var(--nwp-muted);text-align:left;line-height:1.45}',
-      '.nwp-trust a{color:var(--nwp-teal)}',
+      '.nwp-trust a{color:var(--nwp-ink);font-weight:500;text-decoration:none}',
       // sent
       '.nwp-ok{padding:28px 20px 22px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px}',
       '.nwp-ok svg circle{stroke-dasharray:151;stroke-dashoffset:151;animation:nwp-draw .5s ' + EASE + ' forwards}',
