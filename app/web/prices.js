@@ -63,6 +63,10 @@
     name: '', email: '', message: '', news: false, sheetOpen: false, focusKey: null
   };
 
+  // "Want to also send your request to these spaces?" on the Request
+  // sent screen (Jonathan, 27 Nov 2026; see alsoHtml below).
+  var ALSO = { list: [], on: {}, st: {}, pics: {}, busy: false, did: 0 };
+
   // ------------------------------------------------------------ helpers
   function esc(t) {
     return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) {
@@ -467,6 +471,37 @@
       '.nwp-sum div:last-child{border-bottom:0}',
       '.nwp-sum span{width:70px;flex:none;color:var(--nwp-muted)}',
       '.nwp-done-btn{min-height:44px;width:100%;border:0;border-radius:8px;background:var(--nwp-teal);color:#fff;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer}',
+      // also send to spaces nearby (27 Nov 2026)
+      '.nwp-ok.nwp-ok-s{padding:6px 20px 0;gap:6px}',
+      '.nwp-ok.nwp-ok-s>svg{width:40px;height:40px}',
+      '.nwp-ok.nwp-ok-s .nwp-sum{margin:6px 0 0}',
+      '.nwp-ft.nwp-ft-also{display:flex !important;flex-direction:column;gap:6px}',
+      '.nwp-ft-also .nwp-send,.nwp-ft-also .nwp-done-btn{width:100% !important;min-width:0}',
+      '.nwp-also{grid-column:1/-1;display:flex;flex-direction:column;gap:12px;padding:4px 4px 8px;text-align:left}',
+      '.nwp-also h4{margin:6px 0 0;font-size:16px;line-height:1.35;font-weight:700;color:var(--nwp-ink)}',
+      '.nwp-al-list{display:flex;flex-direction:column;border:1px solid var(--nwp-line);border-radius:8px;overflow:hidden}',
+      '.nwp-al-row{display:flex;align-items:stretch;border-top:1px solid var(--nwp-line)}',
+      '.nwp-al-row:first-child{border-top:0}',
+      '.nwp-al{flex:1 1 auto;min-width:0;display:flex;align-items:center;gap:12px;margin:0;padding:10px 4px 10px 12px;border:0;background:#fff;text-align:left;font:inherit;color:var(--nwp-ink);cursor:pointer}',
+      '.nwp-al[disabled]{cursor:default}',
+      '.nwp-al:not([disabled]):hover{background:var(--nwp-soft)}',
+      '.nwp-al-box{flex:none;width:22px;height:22px;border:1.5px solid #9AA1A9;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#fff;background:#fff}',
+      '.nwp-al-box svg{width:15px;height:15px;opacity:0}',
+      '.nwp-al[aria-checked="true"] .nwp-al-box{background:var(--nwp-red);border-color:var(--nwp-red)}',
+      '.nwp-al[aria-checked="true"] .nwp-al-box svg{opacity:1}',
+      '.is-sent .nwp-al-box{background:#1F8A4C !important;border-color:#1F8A4C !important}',
+      '.is-fail .nwp-al-box{visibility:hidden}',
+      '.nwp-al-spin{flex:none;width:18px;height:18px;margin:0 2px;border-color:rgba(0,0,0,.18);border-top-color:var(--nwp-ink)}',
+      '.nwp-al-pic{flex:none;width:56px;height:56px;border-radius:8px;background:#E9ECEF center/cover no-repeat}',
+      '.nwp-al-tx{min-width:0;display:flex;flex-direction:column;gap:2px;font-size:13px;line-height:1.4;color:var(--nwp-muted)}',
+      '.nwp-al-tx b{font-size:14.5px;font-weight:700;color:var(--nwp-ink);overflow-wrap:anywhere}',
+      '.nwp-al-tx i{font-style:normal;color:#E8A317}',
+      '.nwp-al-st{font-weight:700;color:#1F8A4C}',
+      '.nwp-al-st.nwp-al-bad{color:#B3261E;font-weight:500}',
+      '.nwp-al-view{flex:none;display:flex;align-items:center;padding:0 14px;font-size:13.5px;font-weight:500;color:var(--nwp-ink);text-decoration:none}',
+      '.nwp-al-view:hover{color:var(--nwp-red)}',
+      '.nwp-al-no{min-height:36px;margin:0;padding:0;border:0;background:none;font-family:inherit;font-size:14px;font-weight:500;color:var(--nwp-muted);cursor:pointer}',
+      '.nwp-al-no:hover{color:var(--nwp-ink)}',
       // phone: the pop-up slides up and fills the screen
       '@media (max-width: 767px){.nwp-sheet{padding:0;align-items:flex-end}.nwp-dlg{max-width:none;max-height:none;height:100%;border-radius:0;transform:translateY(100%);opacity:1;transition:transform .3s ' + EASE + '}.nwp-sheet.in .nwp-dlg{transform:none}.nwp-in,.nwp-when{height:46px;font-size:16px}.nwp-sg{min-height:42px;font-size:15px}.nwp-d{height:40px;font-size:15px}.nwp-send{min-height:50px;font-size:17px}.nwp-q{min-height:36px;font-size:14px}.nwp-nav{width:40px;height:40px}.nwp-two{grid-template-columns:1fr}.nwp-x{width:44px;height:44px}}',
       '@media (prefers-reduced-motion: reduce){.nwp,.nwp *,.nwp-sheet,.nwp-sheet *{animation:none !important;transition:none !important}}'
@@ -608,6 +643,196 @@
     return h + '</div>';
   }
 
+  // ---------------------------------------------- also send to nearby
+  // After a request is sent, the same request can go to up to three
+  // spaces nearby (Jonathan, 27 Nov 2026: "Want to also send your
+  // request to these spaces?"). That morning a visitor sent a request
+  // for a team of 3 to 5, went to a nearby space's page and had to
+  // start again; the second request arrived as one person, no date.
+  //  - Nothing is ticked to start with: a space only gets a request
+  //    from a visitor who chose it by name.
+  //  - The spaces are the page's own "Also in <area>" ones (page_nearby),
+  //    so a page on Nomadwise Premium offers none (26 Nov 2026 rule).
+  //  - Each one is sent through that space's own page, loaded out of
+  //    sight, exactly as an area page does, so it is filed, passed on
+  //    and counted like any other request. The space is not told the
+  //    visitor asked anyone else.
+  function askedList() {
+    try { return JSON.parse(sessionStorage.getItem('nw_asked') || '[]') || []; } catch (e) { return []; }
+  }
+  function askedAdd(slug) {
+    try {
+      var l = askedList();
+      if (l.indexOf(slug) < 0) { l.push(slug); sessionStorage.setItem('nw_asked', JSON.stringify(l.slice(-30))); }
+    } catch (e) {}
+  }
+  function awayText(metres) {
+    var m = Number(metres);
+    if (!isFinite(m)) return '';
+    return (m < 1000 ? Math.max(50, Math.round(m / 10) * 10) + ' m' : (m / 1000).toFixed(1).replace(/\.0$/, '') + ' km');
+  }
+  // What is being asked, in words any space understands: the price's own
+  // name belongs to the space it came from ("Meeting room Tokyo").
+  function alsoWhat(it) {
+    if (it.cat === 'meeting_room') return 'A meeting room';
+    if (it.cat === 'private_office') return 'A private office';
+    if (it.cat === 'coworking' && it.period === 'day') return 'A day pass';
+    if (it.cat === 'coworking' && it.period === 'month') return 'A desk for the month';
+    return it.full;
+  }
+  function alsoOffer() {
+    // Requests still going out from the last one are left to finish.
+    if (ALSO.busy) return;
+    ALSO.list = []; ALSO.on = {}; ALSO.st = {}; ALSO.did = 0;
+    if (AREA || FRAMED || !PREVIEW || CAFE) return;
+    var from = SLUG;
+    nearbyList().then(function (list) {
+      if (!Array.isArray(list) || !S.sent || SLUG !== from) return;
+      var asked = askedList();
+      ALSO.list = list.filter(function (s) { return s && s.slug && s.name && asked.indexOf(String(s.slug).toLowerCase()) < 0; }).slice(0, 3);
+      if (!ALSO.list.length) return;
+      track('also_offer_shown', { slug: SLUG, spaces: ALSO.list.length });
+      render();
+      ALSO.list.forEach(function (s) {
+        if (ALSO.pics[s.slug]) return;
+        fetch('/coworking/' + s.slug).then(function (r) { return r.ok ? r.text() : ''; }).then(function (t) {
+          var mm = /<meta[^>]+property="og:image"[^>]+content="([^"]+)"/i.exec(t || '') ||
+            /<meta[^>]+content="([^"]+)"[^>]+property="og:image"/i.exec(t || '');
+          if (!mm || !/^https:\/\//i.test(mm[1])) return;
+          ALSO.pics[s.slug] = mm[1].replace(/"/g, '%22');
+          var el = sheet && sheet.querySelector('.nwp-al-pic[data-s="' + s.slug + '"]');
+          if (el) el.style.backgroundImage = 'url("' + ALSO.pics[s.slug] + '")';
+        }).catch(function () {});
+      });
+    }).catch(function () {});
+  }
+  function alsoHtml() {
+    if (!ALSO.list.length) return '';
+    var n = ALSO.list.filter(function (s) { return ALSO.on[s.slug]; }).length;
+    var head = ALSO.did && !ALSO.busy
+      ? 'Sent to ' + ALSO.did + ' more ' + (ALSO.did === 1 ? 'space' : 'spaces') + '. Each one replies to you by email.'
+      : 'Want to also send your request to these spaces?';
+    var h = '<div class="nwp-also"><h4 id="nwp-also-h">' + esc(head) + '</h4><div class="nwp-al-list" role="group" aria-labelledby="nwp-also-h">';
+    ALSO.list.forEach(function (s) {
+      var st = ALSO.st[s.slug] || '';
+      var on = !!ALSO.on[s.slug];
+      var away = awayText(s.metres);
+      var facts = [];
+      if (s.rating) facts.push('<i aria-hidden="true">\u2605</i> ' + esc(String(s.rating)) + ' on Google');
+      if (away) facts.push(esc(away + ' from ' + (String(data.space).split(' - ')[0].trim() || 'this space')));
+      var price = nearPrice(s.prices);
+      var mark = st === 'sending' ? '<span class="nwp-spin nwp-al-spin" aria-hidden="true"></span>'
+        : '<span class="nwp-al-box" aria-hidden="true">' + TICK + '</span>';
+      var word = st === 'sent' ? '<span class="nwp-al-st">Sent</span>'
+        : st === 'sending' ? '<span class="nwp-al-st">Sending</span>'
+        : st === 'fail' ? '<span class="nwp-al-st nwp-al-bad">Not sent. Open their page to ask them.</span>' : '';
+      var pic = ALSO.pics[s.slug];
+      h += '<div class="nwp-al-row' + (st ? ' is-' + st : '') + '">' +
+        '<button type="button" class="nwp-al" role="checkbox" aria-checked="' + (on || st === 'sent') + '" data-a="also" data-v="' + esc(s.slug) + '" data-k="also-' + esc(s.slug) + '"' + (st || ALSO.busy ? ' disabled' : '') + '>' +
+        mark + '<span class="nwp-al-pic" data-s="' + esc(s.slug) + '"' + (pic ? ' style="background-image:url(&quot;' + esc(pic) + '&quot;)"' : '') + '></span>' +
+        '<span class="nwp-al-tx"><b>' + esc(s.name) + '</b>' + (facts.length ? '<span>' + facts.join(' \u00b7 ') + '</span>' : '') +
+        (price ? '<span>' + esc(price) + '</span>' : '') + word + '</span></button>' +
+        '<a class="nwp-al-view" href="/coworking/' + esc(s.slug) + '" target="_blank" rel="noopener" data-a="also-view" data-v="' + esc(s.slug) + '" data-k="view-' + esc(s.slug) + '" aria-label="View ' + esc(s.name) + ' in a new tab">View</a></div>';
+    });
+    return h + '</div></div>';
+  }
+  // Its button stays in view under the list, as Send request does.
+  function alsoFoot() {
+    if (!ALSO.list.length) return '';
+    var n = ALSO.list.filter(function (s) { return ALSO.on[s.slug]; }).length;
+    var left = ALSO.list.filter(function (s) { return !ALSO.st[s.slug]; }).length;
+    var h = '<div class="nwp-ft nwp-ft-also">';
+    if (ALSO.busy) {
+      h += '<button type="button" class="nwp-send" disabled aria-busy="true"><span class="nwp-spin" aria-hidden="true"></span>Sending</button>';
+    } else if (n > 0) {
+      h += '<button type="button" class="nwp-send" data-a="also-send" data-k="also-send">Send to ' + n + (n === 1 ? ' space' : ' spaces') + '</button>' +
+        '<button type="button" class="nwp-al-no" data-a="close" data-k="done">No thanks</button>';
+    } else {
+      h += '<button type="button" class="nwp-done-btn" data-a="close" data-k="done">' + (ALSO.did || !left ? 'Done' : 'No thanks, done') + '</button>';
+    }
+    return h + '</div>';
+  }
+  // One space: its own page, out of sight; its form filled and sent by
+  // Webflow's own handler. Never tried twice, so nothing is sent twice.
+  function alsoSendOne(s, text, cb) {
+    var fr = document.createElement('iframe');
+    fr.setAttribute('aria-hidden', 'true');
+    fr.tabIndex = -1;
+    fr.title = '';
+    fr.style.cssText = 'position:absolute;left:-10000px;top:0;width:400px;height:600px;border:0;opacity:0;pointer-events:none';
+    fr.src = '/coworking/' + s.slug;
+    document.body.appendChild(fr);
+    var over = false;
+    var end = function (ok) {
+      if (over) return;
+      over = true;
+      // The page inside asks for the request to be filed a moment after
+      // it is sent (nudge); it is left alone until then.
+      setTimeout(function () { try { fr.remove(); } catch (e) {} }, ok ? 5000 : 0);
+      cb(ok);
+    };
+    var t0 = Date.now();
+    (function ready() {
+      var form = null, W = null;
+      try {
+        var d = fr.contentDocument;
+        W = fr.contentWindow;
+        if (d && d.readyState === 'complete' && W && (W.Webflow || W.jQuery)) form = d.getElementById('wf-form-Research-Form');
+      } catch (e) { end(false); return; }
+      if (!form) {
+        if (Date.now() - t0 < 25000) { setTimeout(ready, 300); return; }
+        end(false); return;
+      }
+      var box = form.closest('.w-form');
+      var done = box && box.querySelector('.w-form-done');
+      var fail = box && box.querySelector('.w-form-fail');
+      if (!done) { end(false); return; }
+      try {
+        fillForm(form, W, text);
+        if (form.checkValidity && !form.checkValidity()) { end(false); return; }
+        var btn = form.querySelector('[type="submit"]');
+        if (form.requestSubmit) form.requestSubmit(btn || undefined);
+        else if (W.jQuery) W.jQuery(form).trigger('submit');
+        else if (btn) btn.click();
+        else { end(false); return; }
+      } catch (e) { end(false); return; }
+      var t1 = Date.now();
+      var shown = function (el) { try { return el && W.getComputedStyle(el).display !== 'none'; } catch (e) { return false; } };
+      (function wait() {
+        if (shown(done)) { end(true); return; }
+        if (shown(fail) || Date.now() - t1 > 45000) { end(false); return; }
+        setTimeout(wait, 300);
+      })();
+    })();
+  }
+  function alsoSend() {
+    var it = pickedItem();
+    if (!it || ALSO.busy || !S.sent) return;
+    var todo = ALSO.list.filter(function (s) { return ALSO.on[s.slug] && !ALSO.st[s.slug]; });
+    if (!todo.length) return;
+    var text = requestText(it, alsoWhat(it));
+    var from = SLUG;
+    ALSO.busy = true;
+    track('also_send_pressed', { slug: SLUG, spaces: todo.length });
+    var i = 0;
+    (function next() {
+      if (i >= todo.length) {
+        ALSO.busy = false; S.focusKey = 'done';
+        if (S.sheetOpen && S.sent) render();
+        return;
+      }
+      var s = todo[i++];
+      ALSO.st[s.slug] = 'sending'; ALSO.on[s.slug] = false;
+      if (S.sheetOpen && S.sent) render();
+      alsoSendOne(s, text, function (ok) {
+        ALSO.st[s.slug] = ok ? 'sent' : 'fail';
+        if (ok) { ALSO.did++; askedAdd(String(s.slug).toLowerCase()); }
+        track('also_request_sent', { slug: from, to: s.slug, ok: !!ok });
+        next();
+      });
+    })();
+  }
+
   // The pop-up's inside: the price, the form, Send; or "Sent".
   function modalHtml() {
     var it = pickedItem();
@@ -622,9 +847,10 @@
       var rows = [['What', it.full + ' (' + it.askText + ')'], ['People', S.people], ['When', S.sentWhen]];
       if (S.sentTime) rows.push(['Time', S.sentTime]);
       var sum = '<div class="nwp-sum">' + rows.map(function (r) { return '<div><span>' + esc(r[0]) + '</span><b>' + esc(r[1]) + '</b></div>'; }).join('') + '</div>';
-      return head + '<div class="nwp-bd"><div class="nwp-ok" role="status">' + ICON_OK +
+      var also = alsoHtml();
+      return head + '<div class="nwp-bd"><div class="nwp-ok' + (also ? ' nwp-ok-s' : '') + '" role="status">' + ICON_OK +
         '<h3>Request sent</h3><p>' + esc(data.space) + ' will reply to you by email at <b>' + esc(S.email) + '</b>.</p>' + sum +
-        '<button type="button" class="nwp-done-btn" data-a="close" data-k="done">Done</button></div></div>';
+        (also ? '' : '<button type="button" class="nwp-done-btn" data-a="close" data-k="done">Done</button>') + '</div>' + also + '</div>' + alsoFoot();
     }
     var kind = kindOf(it);
     keepAhead(kind);
@@ -695,7 +921,15 @@
         }
       }
     } catch (e) {}
-    if (sheet) sheet.querySelector('.nwp-dlg').innerHTML = S.sheetOpen ? modalHtml() : '';
+    if (sheet) {
+      // The pop-up keeps its place when it is redrawn (ticking a space
+      // near the bottom must not jump the list back to the top).
+      var bd0 = sheet.querySelector('.nwp-bd');
+      var bdAt = bd0 && S.sent ? bd0.scrollTop : 0;
+      sheet.querySelector('.nwp-dlg').innerHTML = S.sheetOpen ? modalHtml() : '';
+      var bd1 = sheet.querySelector('.nwp-bd');
+      if (bd1 && bdAt) bd1.scrollTop = bdAt;
+    }
     if (key) {
       var scope = S.sheetOpen && sheet ? sheet : root;
       var el = scope.querySelector('[data-k="' + key + '"]');
@@ -758,6 +992,15 @@
     if (a === 'enq') { openSheet(v, b.getAttribute('data-k')); return; }
     if (a === 'close') { closeSheet(); return; }
     if (a === 'send') { send(); return; }
+    if (a === 'also-send') { alsoSend(); return; }
+    if (a === 'also-view') { track('also_view', { slug: SLUG, to: v }); return; }
+    if (a === 'also') {
+      if (ALSO.busy || ALSO.st[v]) return;
+      ALSO.on[v] = !ALSO.on[v];
+      track('also_tick', { slug: SLUG, to: v, on: !!ALSO.on[v] });
+      render();
+      return;
+    }
     if (a === 'tab') { S.tab = +v; }
     else if (a === 'more') { S.more[v] = true; track('prices_show_all', { slug: SLUG, group: v }); }
     else if (a === 'seg') {
@@ -823,6 +1066,36 @@
   }
 
   // ------------------------------------------------------------ sending
+  // The request as the space reads it. The emails that follow pick out
+  // these lines (Asking about, People, Day or Starting, Time), so they
+  // keep their wording.
+  function requestText(it, what) {
+    var kind = kindOf(it);
+    var when = S.flexible ? 'Flexible on dates' : (S.date ? fmtDate(S.date, true) : 'Not given');
+    var lines = [
+      'Asking about: ' + what,
+      'People: ' + S.people,
+      (kind === 'start' ? 'Starting: ' : 'Day: ') + when
+    ];
+    if (kind === 'hour') lines.push('Time: from ' + S.time + ', ' + S.length);
+    if (S.message.trim()) lines.push('', S.message.trim());
+    lines.push('', '(Sent from the price list on the page.)');
+    return lines.join('\n');
+  }
+  function fillForm(form, W, text) {
+    function set(name, val) {
+      var el = form.querySelector('[name="' + name + '"]');
+      if (!el) return;
+      if (el.type === 'checkbox') el.checked = !!val; else el.value = val;
+      el.dispatchEvent(new W.Event('input', { bubbles: true }));
+      el.dispatchEvent(new W.Event('change', { bubbles: true }));
+    }
+    set('Text-area', text);
+    set('Name-Of-Customer-2', S.name);
+    set('email-of-customer-2', S.email);
+    set('ticked-terms-2', true);
+    set('Agree-to-Receive-Marketing-2', S.news);
+  }
   function send() {
     var it = pickedItem();
     if (!it || S.sending) return;
@@ -854,27 +1127,7 @@
     var box = form && form.closest('.w-form');
     if (!form) { S.error = 'Sorry, this could not be sent from here. Please email spaces@nomadwise.io.'; render(); return; }
     var kind = kindOf(it);
-    var when = S.flexible ? 'Flexible on dates' : (S.date ? fmtDate(S.date, true) : 'Not given');
-    var lines = [
-      'Asking about: ' + it.full + ' (' + it.askText + ')',
-      'People: ' + S.people,
-      (kind === 'start' ? 'Starting: ' : 'Day: ') + when
-    ];
-    if (kind === 'hour') lines.push('Time: from ' + S.time + ', ' + S.length);
-    if (S.message.trim()) lines.push('', S.message.trim());
-    lines.push('', '(Sent from the price list on the page.)');
-    function set(name, val) {
-      var el = form.querySelector('[name="' + name + '"]');
-      if (!el) return;
-      if (el.type === 'checkbox') el.checked = !!val; else el.value = val;
-      el.dispatchEvent(new W.Event('input', { bubbles: true }));
-      el.dispatchEvent(new W.Event('change', { bubbles: true }));
-    }
-    set('Text-area', lines.join('\n'));
-    set('Name-Of-Customer-2', S.name);
-    set('email-of-customer-2', S.email);
-    set('ticked-terms-2', true);
-    set('Agree-to-Receive-Marketing-2', S.news);
+    fillForm(form, W, requestText(it, it.full + ' (' + it.askText + ')'));
     // The form's own checks (its email field is stricter than ours).
     if (form.checkValidity && !form.checkValidity()) {
       var bad = form.querySelector(':invalid');
@@ -909,6 +1162,7 @@
         S.sentWhen = S.flexible ? 'Flexible on dates' : (S.date ? (kind === 'start' ? 'Starting ' : '') + fmtDate(S.date, true) : 'Not given');
         S.sentTime = kind === 'hour' ? 'From ' + S.time + ', ' + S.length : '';
         track('price_enquiry_sent', { space: data.space, price: it.full, slug: SLUG, newsletter: !!S.news, from: AREA ? location.pathname : 'listing' });
+        if (!AREA) { askedAdd(SLUG); alsoOffer(); }
         // the pop-up form is ready again for the next one
         setTimeout(function () {
           try {
@@ -1010,7 +1264,15 @@
     if (!f || f.id !== 'wf-form-Research-Form') return;
     var box = f.parentElement, done = box && box.querySelector('.w-form-done'), t0 = Date.now();
     (function look() {
-      if (done && getComputedStyle(done).display !== 'none') { setTimeout(nudge, 1500); return; }
+      if (done && getComputedStyle(done).display !== 'none') {
+        setTimeout(nudge, 1500);
+        // A request sent from the site's own pop-up ("What do you need"
+        // on a page with no matching price) had no "sent" step in the
+        // visitor numbers; one from the price list is counted already
+        // (Jonathan, 27 Nov 2026).
+        if (!S.sending && !ALSO.busy && !FRAMED) { track('site_enquiry_sent', { slug: SLUG }); askedAdd(SLUG); }
+        return;
+      }
       if (Date.now() - t0 < 60000) setTimeout(look, 500);
     })();
   }, true);

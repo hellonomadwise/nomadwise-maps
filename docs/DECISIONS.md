@@ -7254,3 +7254,18 @@ Owen's read: Sun Society, a new cafe owner in Bangkok, opened "Cappuccino price"
 - Not changed: the words above the box, how it is saved, and the price list of a coworking space.
 - What is not known: why they left. It rests on one owner. Their description mentions a co-working space, and as a cafe their account has no price list, so they may have been looking for somewhere to put those prices. That is Jonathan's call (the 6 Nov decision: a price list is for coworking spaces).
 - App only, no migration. Not seen on a screen from the session; the build is the compile check.
+
+## 27 Nov 2026: "Want to also send your request to these spaces?" (Jonathan)
+
+A visitor sent by ChatGPT asked myOffice (Dubai Marina) for desks for a team of 3 to 5 from Monday, went on to a nearby space's page and had to start again; the second request arrived as one person with no date. Jonathan: after a request is sent, offer to send it to other spaces, with enough about each to choose (and where it is).
+
+Built in `app/web/prices.js`, on the "Request sent" screen of the price list request:
+- Up to three spaces from the page's own "Also in <area>" list (`page_nearby`), each with photo, name, Google rating, distance from the space just asked, lowest price, and a "View" link that opens in a new tab.
+- Nothing is ticked to start with. The button counts the ticks ("Send to 2 spaces"). A space only gets a request from a visitor who chose it by name.
+- Each one goes through that space's own page loaded out of sight (as area pages do), so it is filed, passed on and held exactly like any request. The words say what is wanted in general terms ("A day pass"), with the same people, day and message. The space is not told the visitor asked anyone else.
+- A page on Nomadwise Premium offers none (`page_nearby` returns nothing there, the 26 Nov rule). Not on cafe pages or area pages. Spaces already asked in the same visit are left out.
+- A send is never tried twice: one that fails says "Not sent. Open their page to ask them."
+- Counted in PostHog: `also_offer_shown`, `also_tick`, `also_send_pressed`, `also_request_sent` (with `to` and `ok`), `also_view`.
+- Also new: `site_enquiry_sent`, for a request sent from the site's own pop-up (the "What do you need" box on a page with no matching price), which had no "sent" step before.
+
+Not built yet: the small map with numbered pins (needs each nearby space's position from `page_nearby`), and the same offer after a request sent from the site's own pop-up.
