@@ -97,8 +97,14 @@ NEGATIVE = FOOD + [
     'a blurry or very dark photo',
 ]
 TASTE_WEIGHT = 1.0    # how much the learned taste vector moves scores
-PROMPT_VERSION = 2    # bump when the brief changes: scored spaces still
+PROMPT_VERSION = 3    # bump when the brief changes: scored spaces still
                       # waiting for approval are rescored under the new one
+                      # (3: no near-identical photos chosen together)
+SAME = 0.95           # embeddings this close are the same photo or nearly
+                      # (a crop, a resize, the same shot twice): never two
+                      # of them on one page (migration 369 checks it too)
+SIMILAR = 0.92        # this close is usually two views of one corner:
+                      # avoided while there are other good photos
 FOOD_HARD = 0.30      # this much belief that it is a food close-up and
                       # the photo is never "good", whatever the taste
                       # bonus says; it sinks to the bottom of the list
@@ -416,7 +422,7 @@ def score_all(v, cands, model, prompts, taste):
     for c, e in zip(keep, embs):
         base, total, label, good = score(e, prompts, taste)
         scored.append(dict(c, score=round(total, 3), base=round(base, 3),
-                           label=label, good=good, pv=PROMPT_VERSION))
+                           label=label, good=good, pv=PROMPT_VERSION, _e=e))
         rows.append({'uri': c['uri'], 'venue_id': v['id'],
                      'embedding': [round(x, 4) for x in e],
                      'label': label, 'base': round(base, 3)})
@@ -431,7 +437,8 @@ def score_all(v, cands, model, prompts, taste):
 
 def suggest():
     cols = ('&select=id,name,google_place_id,website_photos,website_photos_auto,'
-            'google_photo_urls,photos:g_details->photos')
+            'google_photo_urls,photos:g_details->photos,'
+            'website_photo_candidates')
     try:
         todo = sb('venues?website_status=eq.queued&website_approved_at=is.null'
                   '&website_photo_candidates=is.null' + cols +
@@ -463,6 +470,16 @@ def suggest():
 
     for v in todo:
         cands = candidates_for(v)
+        if v.get('_rescore'):
+            # Rescoring keeps every photo found before (some came from
+            # the wider list, which is not asked for again).
+            have = {c['uri'] for c in cands}
+            for c in (v.get('website_photo_candidates') or []):
+                if isinstance(c, dict) and c.get('uri') and c['uri'] not in have:
+                    cands.append({'uri': c['uri'],
+                                  'thumb': c.get('thumb') or thumb_of(c['uri']),
+                                  'source': c.get('source') or 'google'})
+                    have.add(c['uri'])
         if not cands:
             # Nothing to offer; remember we looked so it is not retried
             # every ten minutes. Edit -> Refresh clears it.
@@ -474,7 +491,7 @@ def suggest():
 
         scored = score_all(v, cands, model, prompts, taste) if model else []
         good_n = sum(1 for c in scored if c.get('good'))
-        if model and scored and good_n < SUGGEST:
+        if model and scored and good_n < SUGGEST and not v.get('_rescore'):
             # Not five usable ones among the snapshot's six: widen to the
             # place's full list (one Details call, a few more links).
             more = [c for c in candidates_for(v, wide=True)
@@ -493,15 +510,42 @@ def suggest():
                                    base=None, label=None, good=True))
 
         ranked = sorted(scored, key=lambda c: -c['score'])
-        chosen = [c for c in ranked if c.get('good')][:SUGGEST]
+
+        def close(c, picked, limit):
+            # Too like a photo already picked (Jonathan, 28 Nov 2026: no
+            # duplicates within the selected five).
+            e = c.get('_e')
+            return e is not None and any(
+                x.get('_e') is not None and dot(e, x['_e']) >= limit
+                for x in picked)
+
+        chosen = []
+        # Good and different first; then good ones that are only similar
+        # (two views of a room); never the same photo twice.
+        for limit in (SIMILAR, SAME):
+            for c in ranked:
+                if len(chosen) >= SUGGEST:
+                    break
+                if c.get('good') and c not in chosen and not close(c, chosen, limit):
+                    chosen.append(c)
         # Five is the target; the rest are filled with the best of the
         # weak ones, flagged so the card says "check them".
         for c in ranked:
             if len(chosen) >= SUGGEST:
                 break
-            if c not in chosen:
+            if c not in chosen and not close(c, chosen, SAME):
                 c['weak'] = True
                 chosen.append(c)
+        # Each candidate that repeats a better one is marked, so the
+        # card can say so if it is picked by hand.
+        for i, c in enumerate(ranked):
+            for x in ranked[:i]:
+                if (c.get('_e') is not None and x.get('_e') is not None
+                        and dot(c['_e'], x['_e']) >= SAME):
+                    c['same_as'] = x['uri']
+                    break
+        for c in ranked:
+            c.pop('_e', None)
         chosen_uris = {c['uri'] for c in chosen}
         for c in ranked:
             c['suggested'] = c['uri'] in chosen_uris

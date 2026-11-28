@@ -3496,6 +3496,13 @@ class SupabaseService {
     return Map<String, dynamic>.from(r as Map);
   }
 
+  /// The photo part of the Ready to approve checklist (migration 369):
+  /// {venue id: {photos, unchecked, dups: [{a, b, a_uri, b_uri, sim}]}}.
+  Future<Map<String, dynamic>> readyPhotoChecks() async {
+    final r = await _db.rpc('admin_ready_photo_checks');
+    return Map<String, dynamic>.from(r as Map);
+  }
+
   Future<Map<String, dynamic>> listingChecksLatest() async {
     final r = await _db.rpc('admin_listing_checks_latest');
     return Map<String, dynamic>.from(r as Map);

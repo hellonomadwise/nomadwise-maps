@@ -269,6 +269,22 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
 
   /// Claude's check of each space's own website (migration 363), by
   /// venue id; and the spaces whose check is still out.
+/// The photo checks for Ready to approve (migration 369), by venue id.
+  Map<String, Map<String, dynamic>> _photoChecks = const {};
+
+  Future<void> _loadPhotoChecks() async {
+    try {
+      final r = await _supabase.readyPhotoChecks();
+      if (!mounted) return;
+      setState(() => _photoChecks = {
+            for (final e in r.entries)
+              if (e.value is Map) e.key: Map<String, dynamic>.from(e.value as Map),
+          });
+    } catch (_) {
+      // Not there yet: the photo line goes by the count alone.
+    }
+  }
+
   Map<String, Map<String, dynamic>> _siteCheck = const {};
   Set<String> _siteCheckWaiting = const {};
 
@@ -379,6 +395,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     final firstLoad = _inbox == null;
     _loadClaudeLoc();
     _loadSiteChecks();
+    _loadPhotoChecks();
     try {
       final passOnF = _supabase.enquiriesToPassOn();
       final heldEnqF = _supabase.enquiriesHeld();
@@ -1347,7 +1364,8 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
                 initialRegionId: (_prepared(v)['region_id'] ??
                     _regionFor(v)?['id']) as String?,
                 initialName: name,
-                venueId: '${v['id']}')));
+                venueId: '${v['id']}',
+                googleNames: _googleAreas(v))));
     if (made == null || !mounted) return false;
     await _update(
         v,
@@ -5427,6 +5445,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       'ready' => [
           if (_listingsGoal != null && g.ready.isNotEmpty)
             ListingsGoalStrip(goal: _listingsGoal!),
+          if (g.ready.isNotEmpty) _approveGreenBar(g.ready),
           ...g.ready.map(_readyCard),
         ],
       'region' => g.needsRegion.map(_needsRegionCard).toList(),
@@ -8736,7 +8755,9 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     return null;
   }
 
-  static const minPhotos = 3;
+  // Five, not three (Jonathan, 28 Nov 2026: "minimise the risk that
+  // ... a space doesn't have enough photos").
+  static const minPhotos = 5;
 
   /// Links the founder pasted for the page.
   static List<String> _pasted(Map<String, dynamic> v) =>
@@ -9441,6 +9462,287 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     }
   }
 
+  // ------------------------------------------------ the checklist
+  //
+  // Jonathan, 28 Nov 2026: "I want to minimise the risk that a space is
+  // allocated to the wrong location, or a new location is created that
+  // is the incorrect name, or a space doesn't have enough photos, or a
+  // space has duplicates of photos within the selected 5", then "If
+  // you're confident that approve all green works, then go ahead".
+  // Four lines on every card, green or amber (red when the website
+  // check says no). Only a card with all four green can be approved
+  // with the others in one go.
+
+  static String _low(Object? x) => '${x ?? ''}'.trim().toLowerCase();
+
+  /// Claude's first Location option for this space, with a "new" one
+  /// that has since been created read as the existing one.
+  Map<String, dynamic>? _claudeTop(Map<String, dynamic> v, Map<String, dynamic> p) {
+    final a = _claudeFor(v, p);
+    if (a == null) return null;
+    final opts = (a['options'] as List? ?? const []);
+    if (opts.isEmpty || opts.first is! Map) return {'kind': 'none'};
+    final o = Map<String, dynamic>.from(opts.first as Map);
+    if (o['kind'] == 'new') {
+      final rid = '${p['region_id'] ?? a['region_id'] ?? ''}';
+      final hit = _locations
+          .where((l) => '${l['region_id']}' == rid && _low(l['name']) == _low(o['name']))
+          .firstOrNull;
+      if (hit != null) return {...o, 'kind': 'existing', 'location_id': hit['id'], 'name': hit['name']};
+    }
+    return o;
+  }
+
+  /// (state, words): state 'ok', 'warn' or 'bad'.
+  (String, String) _checkWebsite(Map<String, dynamic> v) {
+    final c = _siteCheck['${v['id']}'];
+    if (c == null) {
+      return ('warn', _siteCheckWaiting.contains('${v['id']}')
+          ? 'Website: being checked'
+          : 'Website: not checked yet');
+    }
+    final verdict = '${c['verdict'] ?? ''}';
+    if (verdict == 'not_coworking') return ('bad', 'Website: not coworking for our visitors');
+    if (verdict == 'closed') return ('bad', 'Website: looks closed');
+    if (verdict != 'list') return ('warn', 'Website: worth a look yourself');
+    if ('${c['same_place'] ?? ''}' != 'yes') {
+      return ('warn', 'Website: coworking, but not sure it is this exact place');
+    }
+    return ('ok', 'Website: coworking you can list');
+  }
+
+  (String, String) _checkLocation(Map<String, dynamic> v) {
+    final p = _prepared(v);
+    final current = '${p['location'] ?? ''}'.trim();
+    if (p['location_chosen'] == true) {
+      return ('ok', current.isEmpty
+          ? 'Location: Region page only, your choice'
+          : 'Location: $current, your choice');
+    }
+    final top = _claudeTop(v, p);
+    if (top == null) {
+      return ('warn', _claudeWaiting.contains('${v['id']}')
+          ? 'Location: asking Claude'
+          : 'Location: no answer from Claude yet');
+    }
+    final name = '${top['name'] ?? ''}'.trim();
+    if (top['kind'] == 'none' || name.isEmpty) {
+      return ('warn', 'Location: Claude says none fits; choose the Region page or one');
+    }
+    if (top['kind'] == 'new') return ('warn', 'Location: Claude suggests a new one, $name');
+    if (current.isEmpty) return ('warn', 'Location: none set; Claude says $name');
+    if (_low(name) != _low(current)) {
+      return ('warn', 'Location: the page has $current, Claude says $name');
+    }
+    if ('${top['confidence'] ?? ''}' != 'high') {
+      return ('warn', 'Location: $current, but Claude is not sure');
+    }
+    final note = p['location_note'];
+    final nearby = note is Map ? '${note['location'] ?? ''}'.trim() : '';
+    final google = _googleAreas(v).map(_low).toList();
+    final byNearby = nearby.isNotEmpty && _low(nearby) == _low(current);
+    final byGoogle = google.any((g) => g == _low(current) || g.contains(_low(current)));
+    if (byNearby && byGoogle) {
+      return ('ok', 'Location: $current (Claude, nearby places and Google agree)');
+    }
+    if (byNearby) return ('ok', 'Location: $current (Claude and nearby places agree)');
+    if (byGoogle) return ('ok', 'Location: $current (Claude and Google agree)');
+    return ('warn', nearby.isNotEmpty
+        ? 'Location: Claude says $current, the nearby places say $nearby'
+        : 'Location: only Claude says $current; check the map');
+  }
+
+  (String, String) _checkPhotos(Map<String, dynamic> v) {
+    final n = _photoCount(v);
+    if (n < minPhotos) return ('warn', 'Photos: $n of $minPhotos');
+    final c = _photoChecks['${v['id']}'];
+    final dups = (c?['dups'] as List?) ?? const [];
+    if (dups.isNotEmpty) {
+      final d = dups.first is Map ? dups.first as Map : const {};
+      return ('warn', dups.length == 1
+          ? 'Photos: ${d['a']} and ${d['b']} look like the same photo'
+          : 'Photos: ${dups.length} pairs look like the same photo');
+    }
+    if (c == null) return ('warn', 'Photos: $n, not yet checked for repeats');
+    final unchecked = (c['unchecked'] as num?)?.toInt() ?? 0;
+    return ('ok', unchecked > 0
+        ? 'Photos: $n, no repeats among the ${n - unchecked} that could be compared'
+        : 'Photos: $n, all different');
+  }
+
+  (String, String) _checkName(Map<String, dynamic> v) {
+    final name = '${v['name'] ?? ''}'.trim();
+    if (name.contains(';') || name.contains('|')) {
+      return ('warn', 'Name: looks like Google added words after the name');
+    }
+    if (name.length > 50) return ('warn', 'Name: long (${name.length} letters); shorten it?');
+    final letters = name.replaceAll(RegExp(r'[^A-Za-z]'), '');
+    if (letters.length > 8 && letters == letters.toUpperCase()) {
+      return ('warn', 'Name: all in capitals');
+    }
+    return ('ok', 'Name: $name');
+  }
+
+  List<(String, String)> _checks(Map<String, dynamic> v) =>
+      [_checkWebsite(v), _checkLocation(v), _checkPhotos(v), _checkName(v)];
+
+  bool _allGreen(Map<String, dynamic> v) =>
+      _checks(v).every((c) => c.$1 == 'ok');
+
+  Widget _checklist(Map<String, dynamic> v) {
+    final checks = _checks(v);
+    final green = checks.every((c) => c.$1 == 'ok');
+    Color color(String s) => s == 'ok'
+        ? Brand.success
+        : s == 'bad'
+            ? const Color(0xFFD42F3A)
+            : Brand.goldTextDark;
+    IconData icon(String s) => s == 'ok'
+        ? Icons.check_circle
+        : s == 'bad'
+            ? Icons.cancel
+            : Icons.error_outline;
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+      decoration: BoxDecoration(
+          color: green ? Brand.successTint : Brand.field,
+          borderRadius: BorderRadius.circular(8)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        for (final c in checks)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 2),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Icon(icon(c.$1), size: 16, color: color(c.$1)),
+              const SizedBox(width: 6),
+              Expanded(
+                  child: Text(c.$2,
+                      style: TextStyle(
+                          fontSize: 12.5,
+                          height: 1.35,
+                          fontWeight: c.$1 == 'ok' ? FontWeight.w500 : FontWeight.w700,
+                          color: c.$1 == 'ok' ? Brand.ink : color(c.$1)))),
+            ]),
+          ),
+      ]),
+    );
+  }
+
+  Widget _approveGreenBar(List<Map<String, dynamic>> ready) {
+    final green = ready.where(_allGreen).toList();
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
+      decoration: BoxDecoration(
+          color: Brand.surface,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Brand.border)),
+      child: Row(children: [
+        Expanded(
+          child: Text(
+              green.isEmpty
+                  ? 'No page has all four checks green yet.'
+                  : '${green.length} of ${ready.length} have all four checks green.',
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Brand.ink)),
+        ),
+        if (green.isNotEmpty)
+          ElevatedButton.icon(
+              onPressed: _approvingGreen ? null : () => _approveAllGreen(green),
+              style: ElevatedButton.styleFrom(backgroundColor: Brand.success),
+              icon: const Icon(Icons.done_all, size: 18),
+              label: Text(_approvingGreen ? 'Approving…' : 'Approve all green')),
+      ]),
+    );
+  }
+
+  bool _approvingGreen = false;
+
+  /// Approves every all-green page, as Approve on each would (built,
+  /// checked and put live by the run), after one confirmation that
+  /// names them.
+  Future<void> _approveAllGreen(List<Map<String, dynamic>> green) async {
+    final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+              title: Text('Approve ${green.length} pages?'),
+              content: DialogBody(
+                  child: SingleChildScrollView(
+                child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                          'Each has all four checks green. Each page is built in '
+                          'Webflow with its photos and goes live by itself once '
+                          'it passes the usual check; one that does not waits '
+                          'under In Webflow.',
+                          style: TextStyle(fontSize: 13, height: 1.4)),
+                      const SizedBox(height: 10),
+                      for (final v in green)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 3),
+                          child: Text('${v['name']} · ${_prepared(v)['location'] ?? _prepared(v)['region'] ?? ''}',
+                              style: const TextStyle(fontSize: 13)),
+                        ),
+                    ]),
+              )),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    child: const Text('Not yet')),
+                ElevatedButton(
+                    onPressed: () => Navigator.pop(ctx, true),
+                    child: Text('Approve ${green.length}')),
+              ],
+            ));
+    if (ok != true || !mounted) return;
+    setState(() => _approvingGreen = true);
+    var done = 0;
+    final failed = <String>[];
+    for (final v in green) {
+      final fields = _approveFields(v);
+      if (fields == null) {
+        failed.add('${v['name']}');
+        continue;
+      }
+      try {
+        await _supabase.updateVenueFields(v['id'], fields);
+        _recordPicks(v);
+        done++;
+      } catch (_) {
+        failed.add('${v['name']}');
+      }
+    }
+    if (!mounted) return;
+    setState(() => _approvingGreen = false);
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('$done approved. They are built, checked and go live by '
+            'themselves; Pages shows how far each is.'
+            '${failed.isEmpty ? '' : ' Not approved: ${failed.join(', ')}.'}'),
+        duration: const Duration(seconds: 6)));
+    await _load();
+  }
+
+  /// What Approve writes for a page, or null when it cannot be
+  /// approved as it is (no slug or Region, too few photos).
+  Map<String, dynamic>? _approveFields(Map<String, dynamic> v) {
+    final p = _prepared(v);
+    final region = _regionFor(v);
+    final slug = p['slug'] ?? (region != null ? _slugPreview(v, region) : null);
+    final regionName = p['region'] ?? region?['name'];
+    if (slug == null || regionName == null) return null;
+    if (_photoCount(v) < minPhotos) return null;
+    final at = DateTime.now().toUtc().toIso8601String();
+    return {
+      'website_approved_at': at,
+      'website_publish_requested_at': at,
+      'website_slug_override': slug,
+      if (region != null) 'website_region_override': region['id'],
+      'website_photos_auto': false,
+    };
+  }
+
   Widget _readyCard(Map<String, dynamic> v) {
     final p = _prepared(v);
     final facts = Map<String, dynamic>.from(p['facts'] as Map? ?? {});
@@ -9451,6 +9753,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         _title(v, badge: 'REVIEW'),
         _ownerNote(v),
+        _checklist(v),
         ..._siteCheckBox(v),
         const SizedBox(height: 10),
 
@@ -12846,13 +13149,18 @@ class _NewLocationPage extends StatefulWidget {
   final String? initialRegionId;
   final String? initialName;
   final String? venueId;
+
+  /// Google's own names for the area at the space, most specific
+  /// first, shown beside the name about to be created.
+  final List<String> googleNames;
   const _NewLocationPage(
       {required this.supabase,
       required this.regions,
       this.locations = const [],
       this.initialRegionId,
       this.initialName,
-      this.venueId});
+      this.venueId,
+      this.googleNames = const []});
   @override
   State<_NewLocationPage> createState() => _NewLocationPageState();
 }
@@ -12920,8 +13228,117 @@ class _NewLocationPageState extends State<_NewLocationPage> {
     }
   }
 
+  static String _plain(String x) =>
+      x.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+
+  static int _distance(String a, String b) {
+    if (a == b) return 0;
+    if (a.isEmpty) return b.length;
+    if (b.isEmpty) return a.length;
+    var prev = List<int>.generate(b.length + 1, (i) => i);
+    for (var i = 1; i <= a.length; i++) {
+      final cur = <int>[i];
+      for (var j = 1; j <= b.length; j++) {
+        cur.add([
+          prev[j] + 1,
+          cur[j - 1] + 1,
+          prev[j - 1] + (a[i - 1] == b[j - 1] ? 0 : 1),
+        ].reduce((x, y) => x < y ? x : y));
+      }
+      prev = cur;
+    }
+    return prev[b.length];
+  }
+
+  /// What to look at before this name is created (Jonathan, 28 Nov
+  /// 2026: "minimise the risk that ... a new location is created that
+  /// is the incorrect name"): a Location in the city with a close name,
+  /// the city's name repeated, a number, a street word, or a name Google
+  /// does not use for the spot.
+  List<String> get _warnings {
+    final name = _name.text.trim();
+    if (name.isEmpty) return const [];
+    final out = <String>[];
+    final mine = _plain(name);
+    final r = _region;
+    if (r != null) {
+      final same = widget.locations
+          .where((l) => l['region_id'] == r['id'])
+          .map((l) => '${l['name'] ?? ''}'.trim())
+          .where((n) => n.isNotEmpty)
+          .where((n) {
+            final o = _plain(n);
+            if (o.isEmpty) return false;
+            if (o == mine) return true;
+            if (o.length >= 3 && mine.length >= 3 &&
+                (o.contains(mine) || mine.contains(o))) {
+              return true;
+            }
+            return _distance(o, mine) <= 2;
+          })
+          .toList();
+      if (same.isNotEmpty) {
+        out.add('${r['name']} already has a Location with a close name: '
+            '${same.take(4).join(', ')}. Use that one instead?');
+      }
+      final city = '${r['name'] ?? ''}'.trim();
+      if (city.isNotEmpty &&
+          RegExp(r'\b' + RegExp.escape(city) + r'\b', caseSensitive: false)
+              .hasMatch(name)) {
+        out.add('The name repeats the city ($city). The page already says '
+            'it is in $city.');
+      }
+    }
+    if (RegExp(r'\d').hasMatch(name)) {
+      out.add('The name has a number in it. Is it a street address rather '
+          'than an area?');
+    }
+    if (RegExp(r'\b(street|road|rd|avenue|ave|lane|ln|boulevard|blvd)\b',
+            caseSensitive: false)
+        .hasMatch(name)) {
+      out.add('The name is a street. Fine where people call the area that '
+          '(St Kilda Road), but check it is not just the address.');
+    }
+    final g = widget.googleNames
+        .map((x) => x.trim())
+        .where((x) => x.isNotEmpty)
+        .toList();
+    if (g.isNotEmpty && !g.any((x) => _plain(x) == mine)) {
+      out.add('Google calls this spot ${g.take(3).join(', ')}, not $name.');
+    }
+    return out;
+  }
+
   Future<void> _create() async {
     final name = _name.text.trim();
+    final warnings = _warnings;
+    if (warnings.isNotEmpty && name.isNotEmpty && _region != null) {
+      final go = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+                title: Text('Create $name?'),
+                content: DialogBody(
+                    child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                      for (final w in warnings)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Text(w, style: const TextStyle(fontSize: 13, height: 1.4)),
+                        ),
+                    ])),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text('Change the name')),
+                  ElevatedButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      child: const Text('Create anyway')),
+                ],
+              ));
+      if (go != true) return;
+    }
     if (name.isEmpty || _region == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text('A name and a Region are needed.')));
@@ -13028,6 +13445,26 @@ class _NewLocationPageState extends State<_NewLocationPage> {
                 decoration: const InputDecoration(
                     labelText: 'About the area (optional)',
                     alignLabelWithHint: true)),
+            if (widget.googleNames.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Text('Google calls this spot: ${widget.googleNames.take(4).join(' · ')}',
+                  style: const TextStyle(fontSize: 12.5, color: Brand.inkSecondary)),
+            ],
+            for (final w in _warnings)
+              Container(
+                margin: const EdgeInsets.only(top: 8),
+                padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+                decoration: BoxDecoration(
+                    color: Brand.goldTint, borderRadius: BorderRadius.circular(8)),
+                child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Icon(Icons.error_outline, size: 16, color: Brand.goldTextDark),
+                  const SizedBox(width: 6),
+                  Expanded(
+                      child: Text(w,
+                          style: const TextStyle(
+                              fontSize: 12.5, height: 1.4, color: Brand.goldTextDark))),
+                ]),
+              ),
             const SizedBox(height: 14),
             Container(
               padding: const EdgeInsets.all(12),
