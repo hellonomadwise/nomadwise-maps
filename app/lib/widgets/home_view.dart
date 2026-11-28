@@ -748,8 +748,19 @@ class _HomeViewState extends State<HomeView> {
     final claimed = _num(l['claimed']);
     final claimedGoal = live > 0 ? claimed / live * goal : 0.0;
     final premium = claimedGoal * _num(m['premium_share']) * _num(m['premium_eur_month']);
-    final perRequest = _num(m['office_share']) * _num(m['office_close']) * _num(m['office_fee_eur']) +
-        (1 - _num(m['office_share'])) * _num(m['desk_book']) * _num(m['desk_fee_eur']);
+    // Fees by ticket size (migration 370); the older single office rate
+    // is the fallback when the tiers are missing.
+    final tiers = [
+      if (m['tiers'] is List)
+        for (final t in m['tiers'] as List)
+          if (t is Map) Map<String, dynamic>.from(t)
+    ];
+    double tierPer(Map<String, dynamic> t) =>
+        _num(t['share']) * _num(t['book']) * _num(t['fee_eur']);
+    final perRequest = tiers.isNotEmpty
+        ? tiers.fold<double>(0, (s, t) => s + tierPer(t))
+        : _num(m['office_share']) * _num(m['office_close']) * _num(m['office_fee_eur']) +
+            (1 - _num(m['office_share'])) * _num(m['desk_book']) * _num(m['desk_fee_eur']);
     final feesGoal = reqGoal * 30 * perRequest;
     final feesNow = reqNow * 30 * perRequest;
     final total = premium + feesGoal;
@@ -770,6 +781,12 @@ class _HomeViewState extends State<HomeView> {
         ]);
     final pctOffice = (_num(m['office_share']) * 100).round();
     final close = _num(m['office_close']) > 0 ? (1 / _num(m['office_close'])).round() : 0;
+    final feeGuess = tiers.isNotEmpty
+        ? 'the ticket split comes from sorting the real requests so far; the booking rates and fees are guesses'
+        : '$pctOffice% of requests are for an office and 1 in $close of those becomes a deal, our fee '
+            '${money.format(_num(m['office_fee_eur']))} (10% of a year for a team of four); '
+            '${(_num(m['desk_book']) * 100).round()}% of other requests book, fee '
+            '${money.format(_num(m['desk_fee_eur']))}';
     return [
       const SizedBox(height: 12),
       Container(
@@ -810,20 +827,91 @@ class _HomeViewState extends State<HomeView> {
               style: const TextStyle(fontSize: 12, color: Brand.inkSecondary)),
           ..._premiumWhatIf(goal, live > 0 ? claimed / live : 0.0,
               _num(m['premium_share']), _num(m['premium_eur_month']), money, round),
+          ..._feesByTicket(goal, tiers, reqGoal * 30, money, round),
           const SizedBox(height: 6),
           Text(
               'Worked out from: ${req60.round()} requests in the last 60 days across '
               '${cw.round()} coworking pages, kept per page as the new pages are '
               'coworking; ${claimed.round()} of ${_whole(live)} pages claimed. '
               'Guesses, not yet seen: ${(_num(m['premium_share']) * 100).round()}% of claimed spaces pay '
-              'Premium at about ${money.format(_num(m['premium_eur_month']))} a month; $pctOffice% of requests '
-              'are for an office and 1 in $close of those becomes a deal, our fee '
-              '${money.format(_num(m['office_fee_eur']))} (10% of a year for a team of four); '
-              '${(_num(m['desk_book']) * 100).round()}% of other requests book, fee '
-              '${money.format(_num(m['desk_fee_eur']))}. More requests per page (area pages, '
-              'better ranking) move every line.',
+              'Premium at about ${money.format(_num(m['premium_eur_month']))} a month; '
+              '$feeGuess. '
+              'More requests per page (area pages, better ranking) move every line.',
               style: const TextStyle(fontSize: 11, height: 1.4, color: Brand.inkMuted)),
         ]),
+      ),
+    ];
+  }
+
+  /// Fees on bookings at the goal, by ticket size (Jonathan, 28 Nov
+  /// 2026: "how the % of booking request plays out, with small
+  /// products, medium and higher ticket"). One row per tier from the
+  /// model: share of requests, share that book, our fee, fees a month.
+  List<Widget> _feesByTicket(int goal, List<Map<String, dynamic>> tiers, double reqMonth,
+      NumberFormat money, String Function(double) round) {
+    if (tiers.isEmpty || reqMonth <= 0) return const [];
+    String pct(double v) {
+      if (v <= 0) return '0%';
+      if (v < 0.1 && (1 / v).round() >= 10 && ((1 / v) - (1 / v).round()).abs() < 0.2) {
+        return '1 in ${(1 / v).round()}';
+      }
+      return '${(v * 100).round()}%';
+    }
+    const head = TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Brand.inkSecondary);
+    const body = TextStyle(fontSize: 12.5, color: Brand.ink);
+    const strong = TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: Brand.ink);
+    Widget c(String t, TextStyle st, {bool left = false}) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 3),
+        child: Text(t, style: st, textAlign: left ? TextAlign.left : TextAlign.right));
+    double total = 0;
+    final rows = <TableRow>[];
+    for (final t in tiers) {
+      final n = reqMonth * _num(t['share']);
+      final fees = n * _num(t['book']) * _num(t['fee_eur']);
+      total += fees;
+      rows.add(TableRow(children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 5),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('${t['label'] ?? ''}', style: strong),
+            Text('${t['what'] ?? ''}',
+                style: const TextStyle(fontSize: 11, height: 1.3, color: Brand.inkMuted)),
+          ]),
+        ),
+        c('${(_num(t['share']) * 100).round()}%', body),
+        c(pct(_num(t['book'])), body),
+        c(money.format(_num(t['fee_eur'])), body),
+        c(round(fees), strong),
+      ]));
+    }
+    return [
+      const SizedBox(height: 10),
+      Text('Fees on bookings at ${_short(goal.toDouble())}, by ticket size',
+          style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: Brand.ink)),
+      const SizedBox(height: 2),
+      Text('About ${reqMonth.round()} requests a month, split by what visitors ask for.',
+          style: const TextStyle(fontSize: 11.5, height: 1.35, color: Brand.inkSecondary)),
+      const SizedBox(height: 4),
+      Table(
+        columnWidths: const {0: FlexColumnWidth(2.4), 4: FlexColumnWidth(1.3)},
+        defaultVerticalAlignment: TableCellVerticalAlignment.top,
+        children: [
+          TableRow(children: [
+            const Text('Ticket', style: head),
+            const Text('Requests', style: head, textAlign: TextAlign.right),
+            const Text('Book', style: head, textAlign: TextAlign.right),
+            const Text('Fee', style: head, textAlign: TextAlign.right),
+            const Text('A month', style: head, textAlign: TextAlign.right),
+          ]),
+          ...rows,
+          TableRow(children: [
+            c('Total', strong, left: true),
+            const SizedBox.shrink(),
+            const SizedBox.shrink(),
+            const SizedBox.shrink(),
+            c(round(total), strong),
+          ]),
+        ],
       ),
     ];
   }
