@@ -1,0 +1,18 @@
+{
+  "newly_applied": [
+    {
+      "file": "migration371_listings_goal_cafes.sql",
+      "status": "applied"
+    }
+  ],
+  "failed": [],
+  "error": null,
+  "share_pages": {
+    "venues": 1276,
+    "found": 5386,
+    "with_picture": 6559,
+    "skipped": 403,
+    "live_picture": true,
+    "seconds": 6.3
+  }
+}
