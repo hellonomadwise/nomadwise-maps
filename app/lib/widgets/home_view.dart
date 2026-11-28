@@ -714,8 +714,32 @@ class _HomeViewState extends State<HomeView> {
             barGap: phone ? 1 : 3,
             compactLabels: phone,
           ),
-        const SizedBox(height: 6),
-        ..._goalPicture(l, goal, live),
+        // The money model lives on its own screen (Jonathan, 28 Nov
+        // 2026: "I'd not like this modelling showing on the main
+        // dashboard screen, but somewhere else accessible. I'm wanting
+        // dashboard to have the running numbers as is").
+        if (l['model'] is Map && (l['model'] as Map).isNotEmpty)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                builder: (_) => Scaffold(
+                  backgroundColor: Brand.surface,
+                  appBar: AppBar(
+                      titleSpacing: 0,
+                      title: Text('What ${_whole(goal)} could mean')),
+                  body: SafeArea(
+                    child: ListView(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                      children: _goalPicture(l, goal, live),
+                    ),
+                  ),
+                ),
+              )),
+              icon: const Icon(Icons.insights_outlined, size: 16),
+              label: Text('What ${_whole(goal)} could mean'),
+            ),
+          ),
         const SizedBox(height: 6),
         Text(
             'Dashed line: $daily a day. Green when a day reaches it. The '
