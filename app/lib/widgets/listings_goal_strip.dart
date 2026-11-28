@@ -25,6 +25,12 @@ class ListingsGoalStrip extends StatelessWidget {
     final days = goal['days'] is List ? goal['days'] as List : const [];
     final today = days.isEmpty || days.last is! Map ? 0 : _n((days.last as Map)['n']);
     final streak = _n(goal['streak']);
+    final pace = goal['pace'] is num ? (goal['pace'] as num).toDouble() : 0.0;
+    final left = target - live;
+    final done = pace > 0 && left > 0
+        ? DateFormat('MMM yyyy')
+            .format(DateTime.now().add(Duration(days: (left / pace).ceil())))
+        : null;
     const small = TextStyle(fontSize: 12, color: Brand.inkSecondary);
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -51,6 +57,12 @@ class ListingsGoalStrip extends StatelessWidget {
               if (streak > 0)
                 Text(streak == 1 ? '1 day in a row' : '$streak days in a row',
                     style: small),
+              Text(
+                  '${pace.toStringAsFixed(1)} a day${done == null ? '' : ' · done by $done'}',
+                  style: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                      color: Brand.accent)),
             ]),
         const SizedBox(height: 8),
         ClipRRect(

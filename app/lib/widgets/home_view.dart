@@ -585,6 +585,16 @@ class _HomeViewState extends State<HomeView> {
       return DateFormat('MMM yyyy').format(d);
     }
 
+    // How long until done at the current pace, in words.
+    String howLong(double perDay) {
+      if (perDay <= 0) return 'no pace yet';
+      final days = (left / perDay).ceil();
+      if (days < 60) return 'in $days days';
+      final months = days / 30.4;
+      if (months < 24) return 'in ${months.round()} months';
+      return 'in ${_trim(double.parse((months / 12).toStringAsFixed(1)))} years';
+    }
+
     Widget tile(String big, String small, {Color? color}) => Container(
           padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
           decoration: BoxDecoration(
@@ -645,6 +655,38 @@ class _HomeViewState extends State<HomeView> {
                 : 'Next milestone ${_whole(next)}: ${_whole(next - live)} to go',
             style: const TextStyle(
                 fontSize: 12.5, fontWeight: FontWeight.w700, color: Brand.ink)),
+        // Average a day and when it is done at that pace (Jonathan,
+        // 28 Nov 2026: "Want to see average per day, and estimated
+        // completion date to see how long until done").
+        if (left > 0)
+          Container(
+            margin: const EdgeInsets.only(top: 12),
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+            decoration: BoxDecoration(
+                color: const Color(0xFFFFF4F4),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFFFD6D8))),
+            child: Wrap(spacing: 24, runSpacing: 8, children: [
+              Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                Text('${_trim(pace)} a day',
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Brand.ink)),
+                const Text('average, last 14 days',
+                    style: TextStyle(fontSize: 11.5, color: Brand.inkSecondary)),
+              ]),
+              Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                Text(pace > 0 ? when(pace) : 'Not yet',
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Brand.accent)),
+                Text('estimated finish, ${howLong(pace)}',
+                    style: const TextStyle(fontSize: 11.5, color: Brand.inkSecondary)),
+              ]),
+              Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                Text(when(daily.toDouble()),
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Brand.success)),
+                Text('finish at $daily a day, ${howLong(daily.toDouble())}',
+                    style: const TextStyle(fontSize: 11.5, color: Brand.inkSecondary)),
+              ]),
+            ]),
+          ),
         const SizedBox(height: 12),
         Wrap(spacing: 8, runSpacing: 8, children: [
           tile('$today of $daily', 'new today',
@@ -674,12 +716,9 @@ class _HomeViewState extends State<HomeView> {
           ),
         const SizedBox(height: 6),
         Text(
-            [
-              'Dashed line: $daily a day. Green when a day reaches it.',
-              if (left > 0) 'At $daily a day, ${_whole(goal)} by ${when(daily.toDouble())}.',
-              if (left > 0 && pace > 0)
-                'At the last 14 days\' pace (${_trim(pace)} a day): ${when(pace)}.',
-            ].join(' '),
+            'Dashed line: $daily a day. Green when a day reaches it. The '
+            'estimate moves with the last 14 days, so a good week pulls it '
+            'closer.',
             style: const TextStyle(fontSize: 11.5, height: 1.4, color: Brand.inkMuted)),
       ]),
     );
