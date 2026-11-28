@@ -7333,3 +7333,7 @@ Jonathan's screenshot showed numbers breaking over two lines on mobile ("€10,0
 ## 28 Nov 2026: the money model moves off Home
 
 Jonathan: "I'd not like this modelling showing on the main dashboard screen, but somewhere else accessible. I'm wanting dashboard to have the running numbers as is." The "What 10,000 could mean" box (headline, table, Premium grid, fees by ticket size, worked-out-from note) now opens on its own screen from a "What 10,000 could mean" link under the new-pages chart on Home. Home keeps the running numbers: progress bar, pace and finish date, today, streak, last 7 days, best day and the chart.
+
+## 28 Nov 2026: cafes on the "What 10,000 could mean" screen (migration 371)
+
+Jonathan asked how cafes could make money, saw a mockup, and said "Okay go on cafes". The model screen (not Home) now ends with "What cafés could add": café pages live, café views by month as bars, and three ideas with today (EUR 0) and a month: stay and eSIM links on café pages (views x EUR 0.01, a tenth of an eSIM article), featured cafés (one EUR 10 a month spot per city with 10+ cafés), café Premium (claimed cafés x 10% x EUR 4). About EUR 190 a month at 28 Nov traffic; almost all of it is featured spots. The app cannot read PostHog, so views live in sync_settings 'listings_goal' -> 'cafes' -> 'months', written by a weekly scheduled task that reads PostHog (project 99075) for the live café pages. The rates are guesses in the same place.

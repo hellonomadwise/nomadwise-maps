@@ -731,7 +731,7 @@ class _HomeViewState extends State<HomeView> {
                   body: SafeArea(
                     child: ListView(
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                      children: _goalPicture(l, goal, live),
+                      children: [..._goalPicture(l, goal, live), ..._cafeLine(l)],
                     ),
                   ),
                 ),
@@ -861,6 +861,149 @@ class _HomeViewState extends State<HomeView> {
               'Premium at about ${money.format(_num(m['premium_eur_month']))} a month; '
               '$feeGuess. '
               'More requests per page (area pages, better ranking) move every line.',
+              style: const TextStyle(fontSize: 11, height: 1.4, color: Brand.inkMuted)),
+        ]),
+      ),
+    ];
+  }
+
+  /// What cafe pages could add (Jonathan, 28 Nov 2026: "Haven't looked
+  /// at how we could monetise cafes", then "Okay go on cafes" after the
+  /// mockup). Views by month come from PostHog, saved into the model by
+  /// the weekly cafe views task (migration 371). Three ideas: stay and
+  /// eSIM links on cafe pages (per view), one featured cafe spot per
+  /// city with enough cafes, and cafe Premium. Rates are guesses kept in
+  /// sync_settings 'listings_goal' -> 'cafes'.
+  List<Widget> _cafeLine(Map<String, dynamic> l) {
+    final m = l['model'] is Map ? Map<String, dynamic>.from(l['model'] as Map) : const <String, dynamic>{};
+    final c = m['cafes'] is Map ? Map<String, dynamic>.from(m['cafes'] as Map) : const <String, dynamic>{};
+    final st = l['cafe_stats'] is Map ? Map<String, dynamic>.from(l['cafe_stats'] as Map) : const <String, dynamic>{};
+    final months = [
+      if (c['months'] is List)
+        for (final x in c['months'] as List)
+          if (x is Map) Map<String, dynamic>.from(x)
+    ];
+    if (months.isEmpty) return const [];
+    final money = NumberFormat.currency(symbol: '€', decimalDigits: 0);
+    String round(double v) => v >= 1000
+        ? money.format((v / 100).round() * 100)
+        : v >= 100
+            ? money.format((v / 10).round() * 10)
+            : money.format(v);
+    final views = _num(months.last['views']);
+    final live = _num(st['live']);
+    final claimed = _num(st['claimed']);
+    final cities = _num(st['cities_featured']);
+    final perView = _num(c['per_view_eur']);
+    final featured = _num(c['featured_eur_month']);
+    final minCafes = _num(c['featured_min_cafes']).round();
+    final prem = _num(c['premium_eur_month']);
+    final share = _num(c['premium_share']);
+    final links = views * perView;
+    final spots = cities * featured;
+    final premium = claimed * share * prem;
+    final total = links + spots + premium;
+    final maxViews = months.fold<double>(1, (a, x) => math.max(a, _num(x['views'])));
+    // Each block is the 30 days to its date, so it is named by that
+    // date's month ("Nov · 1,168").
+    String monthLabel(Map<String, dynamic> x) {
+      final d = DateTime.tryParse('${x['to'] ?? ''}');
+      final n = _whole(_num(x['views']).round());
+      return d == null ? n : '${DateFormat('MMM').format(d)} · $n';
+    }
+    const head = TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Brand.inkSecondary);
+    const strong = TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: Brand.ink);
+    const soft = TextStyle(fontSize: 12.5, color: Brand.inkSecondary);
+    Widget num1(String t, TextStyle st) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 4),
+        child: Text(t, style: st, maxLines: 1, softWrap: false, textAlign: TextAlign.right));
+    TableRow idea(String name, String how, double v) => TableRow(children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 5),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(name, style: strong),
+              Text(how, style: const TextStyle(fontSize: 11, height: 1.3, color: Brand.inkMuted)),
+            ]),
+          ),
+          num1(money.format(0), soft),
+          num1(round(v), strong),
+        ]);
+    return [
+      const SizedBox(height: 12),
+      Container(
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+        decoration: BoxDecoration(
+            color: const Color(0xFFF1F8F3),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFFCDE8D4))),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          const Text('What cafés could add',
+              style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: Brand.ink)),
+          const SizedBox(height: 2),
+          Text('About ${round(total)} a month',
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Brand.success)),
+          const SizedBox(height: 4),
+          Text('${_whole(live.round())} café pages · ${_whole(views.round())} views in the last 30 days',
+              style: const TextStyle(fontSize: 12, color: Brand.inkSecondary)),
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 46,
+            child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+              for (final (i, x) in months.indexed) ...[
+                if (i > 0) const SizedBox(width: 8),
+                Expanded(
+                  child: Container(
+                    height: math.max(4, 46 * _num(x['views']) / maxViews),
+                    decoration: BoxDecoration(
+                        color: const Color(0xFF97C459), borderRadius: BorderRadius.circular(4)),
+                  ),
+                ),
+              ],
+            ]),
+          ),
+          const SizedBox(height: 3),
+          Row(children: [
+            for (final (i, x) in months.indexed) ...[
+              if (i > 0) const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                    monthLabel(x),
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    softWrap: false,
+                    style: const TextStyle(fontSize: 11, color: Brand.inkSecondary)),
+              ),
+            ],
+          ]),
+          const SizedBox(height: 8),
+          Table(
+            columnWidths: const {0: FlexColumnWidth(), 1: IntrinsicColumnWidth(), 2: IntrinsicColumnWidth()},
+            children: [
+              TableRow(children: [
+                const Text('Idea', style: head),
+                num1('Today', head),
+                num1('A month', head),
+              ]),
+              idea('Stay and eSIM links',
+                  '${_whole(views.round())} views × ${NumberFormat.currency(symbol: '€', decimalDigits: 2).format(perView)}', links),
+              idea('Featured cafés',
+                  '${cities.round()} cities with $minCafes+ cafés × ${money.format(featured)}', spots),
+              idea('Café Premium',
+                  '${claimed.round()} claimed × ${(share * 100).round()}% × ${money.format(prem)}', premium),
+              TableRow(children: [
+                const Padding(padding: EdgeInsets.symmetric(vertical: 5), child: Text('Total', style: strong)),
+                const SizedBox.shrink(),
+                num1(round(total), strong),
+              ]),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+              'Views from PostHog, last read ${c['as_of'] ?? ''}. Guesses, not yet seen: '
+              '${NumberFormat.currency(symbol: '€', decimalDigits: 2).format(perView)} a view from links '
+              '(a tenth of an eSIM article), one ${money.format(featured)} featured spot a month per city, '
+              'café Premium ${money.format(prem)} a month with ${(share * 100).round()}% of claimed cafés paying. '
+              'Café traffic is seasonal, so compare it with the same months next year.',
               style: const TextStyle(fontSize: 11, height: 1.4, color: Brand.inkMuted)),
         ]),
       ),
