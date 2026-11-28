@@ -9475,6 +9475,14 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
               muted: p['location'] == null && p['location_chosen'] != true),
         ),
         ..._locationHint(v, p),
+        // The nearby map on the card itself, so the Location can be
+        // judged without opening it (Jonathan, 28 Nov 2026).
+        NearbyMiniMap(
+            key: ValueKey('minimap-${v['id']}'),
+            venueId: '${v['id']}',
+            regionId: _regionFor(v)?['id'] as String?,
+            areaNames: _googleAreas(v),
+            onOpen: () => _openNearby(v)),
         _kv(Icons.title, p['h1'] ?? ''),
         // No opening-hours line (change request 6): the hours fill
         // themselves in from Google, so it only added noise here.

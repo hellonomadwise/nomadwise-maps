@@ -911,3 +911,257 @@ class _LegendEntry {
   int colorIndex = -1;
   _LegendEntry(this.id, this.name);
 }
+
+/// The nearby-places map, small, on a card in Ready to approve: the
+/// space as the dark dot and the listed places around it coloured by
+/// their Location, with the Locations named under it. Tapping it opens
+/// the full map. Jonathan, 28 Nov 2026: "I'm opening up the choose from
+/// map, to assess whether it looks like it's in the correct area, as
+/// well as assessing it compared with the others that have been
+/// assigned. Maybe the map on this screen?"
+///
+/// Built only while the card is on screen (the list builds cards as
+/// they scroll in), so a Google map load is counted per card seen.
+class NearbyMiniMap extends StatefulWidget {
+  final String venueId;
+  final String? regionId;
+  final List<String> areaNames;
+  final VoidCallback onOpen;
+  const NearbyMiniMap(
+      {super.key,
+      required this.venueId,
+      required this.onOpen,
+      this.regionId,
+      this.areaNames = const []});
+
+  @override
+  State<NearbyMiniMap> createState() => _NearbyMiniMapState();
+}
+
+class _NearbyMiniMapState extends State<NearbyMiniMap> {
+  static const _palette = _NearbySpacesScreenState._palette;
+  static const _noLocation = _NearbySpacesScreenState._noLocation;
+  static const _hereColor = _NearbySpacesScreenState._hereColor;
+
+  // The help for each space, kept while the app is open, so scrolling
+  // back to a card does not ask again.
+  static final Map<String, Map<String, dynamic>> _cache = {};
+  static final Map<int, BitmapDescriptor> _dots = {};
+  static BitmapDescriptor? _here;
+
+  Map<String, dynamic>? _help;
+  bool _failed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final h = _cache[widget.venueId] ??
+          await SupabaseService().locationHelp(widget.venueId,
+              regionId: widget.regionId, areaNames: widget.areaNames);
+      _cache[widget.venueId] = h;
+      for (final e in _legend(h)) {
+        _dots[e.colorIndex] ??= await _dot(
+            e.colorIndex < 0 ? _noLocation : _palette[e.colorIndex]);
+      }
+      _here ??= await _dot(_hereColor, big: true);
+      if (mounted) setState(() => _help = h);
+    } catch (_) {
+      if (mounted) setState(() => _failed = true);
+    }
+  }
+
+  static Future<BitmapDescriptor> _dot(Color color, {bool big = false}) async {
+    try {
+      const px = 64.0;
+      final recorder = ui.PictureRecorder();
+      final canvas = Canvas(recorder);
+      const centre = Offset(px / 2, px / 2);
+      canvas.drawCircle(centre, px / 2 - 2, Paint()..color = Colors.white);
+      canvas.drawCircle(centre, px / 2 - 9, Paint()..color = color);
+      if (big) {
+        canvas.drawCircle(centre, px / 7, Paint()..color = Colors.white);
+      }
+      final image =
+          await recorder.endRecording().toImage(px.toInt(), px.toInt());
+      final data = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (data == null) return BitmapDescriptor.defaultMarker;
+      final size = big ? 24.0 : 16.0;
+      return BitmapDescriptor.bytes(data.buffer.asUint8List(),
+          width: size, height: size);
+    } catch (_) {
+      return BitmapDescriptor.defaultMarker;
+    }
+  }
+
+  static List<Map<String, dynamic>> _maps(Object? list) => [
+        for (final x in (list is List ? list : const []))
+          if (x is Map) Map<String, dynamic>.from(x),
+      ];
+
+  static double? _num(Object? x) => x is num ? x.toDouble() : null;
+
+  static List<_LegendEntry> _legend(Map<String, dynamic> h) {
+    final byId = <String, _LegendEntry>{};
+    var none = 0;
+    for (final s in _maps(h['spots'])) {
+      final id = '${s['location_id'] ?? ''}';
+      if (id.isEmpty) {
+        none++;
+        continue;
+      }
+      final name = '${s['location'] ?? ''}'.trim();
+      byId
+          .putIfAbsent(
+              id, () => _LegendEntry(id, name.isEmpty ? 'A Location' : name))
+          .count++;
+    }
+    final out = byId.values.toList()
+      ..sort((a, b) => b.count != a.count
+          ? b.count.compareTo(a.count)
+          : a.name.compareTo(b.name));
+    for (var i = 0; i < out.length; i++) {
+      out[i].colorIndex = i % _palette.length;
+    }
+    if (none > 0) {
+      out.add(_LegendEntry('', 'No Location')
+        ..count = none
+        ..colorIndex = -1);
+    }
+    return out;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final border = BorderRadius.circular(8);
+    Widget frame(Widget child) => Padding(
+          padding: const EdgeInsets.only(top: 6, bottom: 4),
+          child: ClipRRect(
+              borderRadius: border,
+              child: SizedBox(height: 190, width: double.infinity, child: child)),
+        );
+    if (_failed) return const SizedBox.shrink();
+    final h = _help;
+    if (h == null) {
+      return frame(Container(
+          color: Brand.field,
+          alignment: Alignment.center,
+          child: const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2))));
+    }
+    final venue = h['venue'] is Map
+        ? Map<String, dynamic>.from(h['venue'] as Map)
+        : const <String, dynamic>{};
+    final lat = _num(venue['lat']);
+    final lng = _num(venue['lng']);
+    if (lat == null || lng == null) return const SizedBox.shrink();
+    final verdict = h['verdict'] is Map
+        ? Map<String, dynamic>.from(h['verdict'] as Map)
+        : const <String, dynamic>{};
+    final legend = _legend(h);
+    final colorOf = {for (final e in legend) e.id: e.colorIndex};
+    final compared = _num(verdict['radius_km']) ?? 8;
+    final zoom = compared <= 1.5
+        ? 13.2
+        : compared <= 4
+            ? 12.0
+            : 11.0;
+    final spots = _maps(h['spots']);
+    final markers = <Marker>{
+      for (final s in spots)
+        if (_num(s['lat']) != null && _num(s['lng']) != null)
+          Marker(
+            markerId: MarkerId('${s['id']}'),
+            position: LatLng(_num(s['lat'])!, _num(s['lng'])!),
+            icon: _dots[colorOf['${s['location_id'] ?? ''}'] ?? -1] ??
+                BitmapDescriptor.defaultMarker,
+            anchor: const Offset(0.5, 0.5),
+          ),
+      Marker(
+        markerId: const MarkerId('this-space'),
+        position: LatLng(lat, lng),
+        icon: _here ?? BitmapDescriptor.defaultMarker,
+        anchor: const Offset(0.5, 0.5),
+        // ignore: deprecated_member_use
+        zIndex: 10,
+      ),
+    };
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      frame(Stack(children: [
+        GoogleMap(
+          initialCameraPosition:
+              CameraPosition(target: LatLng(lat, lng), zoom: zoom),
+          markers: markers,
+          onMapCreated: (_) => GoogleMeter.countMapLoad(),
+          myLocationButtonEnabled: false,
+          zoomControlsEnabled: false,
+          scrollGesturesEnabled: false,
+          zoomGesturesEnabled: false,
+          rotateGesturesEnabled: false,
+          tiltGesturesEnabled: false,
+          mapToolbarEnabled: false,
+          style: '''[
+            {"featureType": "poi.business",
+             "stylers": [{"visibility": "off"}]}
+          ]''',
+        ),
+        // Over the map, so the page still scrolls past it and a tap
+        // opens the full map.
+        Positioned.fill(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: widget.onOpen,
+            child: const SizedBox.expand(),
+          ),
+        ),
+        Positioned(
+          right: 6,
+          bottom: 6,
+          child: Material(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            elevation: 1,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: widget.onOpen,
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.open_in_full, size: 13, color: Brand.ink),
+                  SizedBox(width: 4),
+                  Text('Open map',
+                      style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                          color: Brand.ink)),
+                ]),
+              ),
+            ),
+          ),
+        ),
+      ])),
+      Wrap(spacing: 10, runSpacing: 2, children: [
+        _key(_hereColor, 'This space'),
+        for (final e in legend)
+          _key(e.colorIndex < 0 ? _noLocation : _palette[e.colorIndex],
+              '${e.name} (${e.count})'),
+      ]),
+    ]);
+  }
+
+  Widget _key(Color c, String label) => Row(mainAxisSize: MainAxisSize.min, children: [
+        Container(
+            width: 9,
+            height: 9,
+            decoration: BoxDecoration(color: c, shape: BoxShape.circle)),
+        const SizedBox(width: 4),
+        Text(label,
+            style: const TextStyle(fontSize: 11.5, color: Brand.inkSecondary)),
+      ]);
+}
