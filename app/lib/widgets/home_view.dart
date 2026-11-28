@@ -797,9 +797,17 @@ class _HomeViewState extends State<HomeView> {
               row('Requests a month', a(reqNow * 30), a(reqGoal * 30)),
               row('Claimed spaces', _whole(claimed.round()), _whole(claimedGoal.round())),
               row('Premium a month', money.format(_num(l['mrr_eur'])), round(premium)),
-              row('Fees on bookings a month', round(feesNow), round(feesGoal)),
+              // Nothing is charged yet, so today's fees are €0; what
+              // today's requests would bring is said under the table
+              // (Jonathan, 28 Nov 2026, asked what the €260 was).
+              row('Fees on bookings a month', money.format(0), round(feesGoal)),
             ],
           ),
+          const SizedBox(height: 4),
+          Text(
+              'We charge no fees yet. If we did, today\'s ${a(reqNow * 30)} '
+              'requests a month would bring about ${round(feesNow)}.',
+              style: const TextStyle(fontSize: 12, color: Brand.inkSecondary)),
           const SizedBox(height: 6),
           Text(
               'Worked out from: ${req60.round()} requests in the last 60 days across '
