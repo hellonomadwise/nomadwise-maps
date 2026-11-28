@@ -808,6 +808,8 @@ class _HomeViewState extends State<HomeView> {
               'We charge no fees yet. If we did, today\'s ${a(reqNow * 30)} '
               'requests a month would bring about ${round(feesNow)}.',
               style: const TextStyle(fontSize: 12, color: Brand.inkSecondary)),
+          ..._premiumWhatIf(goal, live > 0 ? claimed / live : 0.0,
+              _num(m['premium_share']), _num(m['premium_eur_month']), money, round),
           const SizedBox(height: 6),
           Text(
               'Worked out from: ${req60.round()} requests in the last 60 days across '
@@ -823,6 +825,63 @@ class _HomeViewState extends State<HomeView> {
               style: const TextStyle(fontSize: 11, height: 1.4, color: Brand.inkMuted)),
         ]),
       ),
+    ];
+  }
+
+  /// What if: Premium a month at the goal for other claim rates and
+  /// prices (Jonathan, 28 Nov 2026, asked why 10,000 listings only
+  /// gives about EUR 200 of Premium: it is claim rate x share paying x
+  /// price, all three small today). Rows are claim rates, columns
+  /// prices; today's cell is marked. The share that pays stays as the
+  /// guess in the model, said in the heading.
+  List<Widget> _premiumWhatIf(int goal, double rateNow, double share,
+      double priceNow, NumberFormat money, String Function(double) round) {
+    if (share <= 0 || priceNow <= 0) return const [];
+    final rates = <double>[rateNow, for (final r in const [0.05, 0.10, 0.20]) if (r > rateNow + 0.005) r];
+    final prices = <double>[priceNow, for (final p in const [15.0, 30.0, 50.0]) if (p > priceNow + 1) p];
+    String pct(double r) => r < 0.1 ? '${(r * 100).toStringAsFixed(1)}%' : '${(r * 100).round()}%';
+    const head = TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Brand.inkSecondary);
+    Widget cell(String t, {bool bold = false, bool today = false, bool left = false}) => Container(
+          padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 4),
+          decoration: today
+              ? BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFCDE8D4)))
+              : null,
+          child: Text(t,
+              textAlign: left ? TextAlign.left : TextAlign.right,
+              style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: bold ? FontWeight.w800 : FontWeight.w500,
+                  color: Brand.ink)),
+        );
+    return [
+      const SizedBox(height: 10),
+      Text('What if: Premium a month at ${_short(goal.toDouble())}',
+          style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: Brand.ink)),
+      const SizedBox(height: 2),
+      Text('By share of pages claimed (rows) and Premium price a month (columns), '
+          'with ${(share * 100).round()}% of claimed spaces paying.',
+          style: const TextStyle(fontSize: 11.5, height: 1.35, color: Brand.inkSecondary)),
+      const SizedBox(height: 4),
+      Table(
+        columnWidths: const {0: FlexColumnWidth(1.4)},
+        children: [
+          TableRow(children: [
+            const Text('Claimed', style: head),
+            for (final (i, p) in prices.indexed)
+              Text(i == 0 ? '${money.format(p)} now' : money.format(p), style: head, textAlign: TextAlign.right),
+          ]),
+          for (final (j, r) in rates.indexed)
+            TableRow(children: [
+              cell(j == 0 ? '${pct(r)} now' : pct(r), left: true),
+              for (final (i, p) in prices.indexed)
+                cell(round(goal * r * share * p), bold: i > 0 || j > 0, today: i == 0 && j == 0),
+            ]),
+        ],
+      ),
+      const SizedBox(height: 4),
+      const Text('The two multiply: doubling claims or doubling the price each doubles Premium.',
+          style: TextStyle(fontSize: 11.5, color: Brand.inkSecondary)),
     ];
   }
 
