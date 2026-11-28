@@ -7325,3 +7325,7 @@ Jonathan asked why 10,000 listings only gives about EUR 200 of Premium a month. 
 ## 28 Nov 2026: fees by ticket size on the goal card (migration 370)
 
 Jonathan: "how the % of booking request plays out, with small products, medium and higher ticket" and "Looking to refine how mrr could look per 10,000 spaces". The fee line on "What 10,000 could mean" is now worked out per ticket size, with a table under the Premium grid: small (hour, day pass, meeting room: 60% of requests, 12% book, fee EUR 5), medium (monthly desk, team for a few weeks: 30%, 7%, EUR 100), high (private office, team of four for a year: 10%, 1 in 15, EUR 3,300). The split comes from sorting the 13 real people behind the 18 requests in the last 120 days; booking rates and fees are guesses, kept in sync_settings 'listings_goal' -> 'tiers'. At 28 Nov this gives about EUR 3,900 a month in fees at 10,000 (was EUR 5,600 with the single 15% office rate); almost all of it is the high tier.
+
+## 28 Nov 2026: goal card tables fit a phone
+
+Jonathan's screenshot showed numbers breaking over two lines on mobile ("€10,00 / 0", "1 in / 15", "€3,30 / 0", "Request / s"). Both tables on "What 10,000 could mean" now give number columns their own width (they never wrap) and let the label column take the rest; the Premium grid shows EUR 10,000 and up as "EUR 10k"; the fee table's "Requests" heading is now "Share".

@@ -862,7 +862,11 @@ class _HomeViewState extends State<HomeView> {
     const strong = TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: Brand.ink);
     Widget c(String t, TextStyle st, {bool left = false}) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 3),
-        child: Text(t, style: st, textAlign: left ? TextAlign.left : TextAlign.right));
+        child: Text(t,
+            style: st,
+            maxLines: 1,
+            softWrap: false,
+            textAlign: left ? TextAlign.left : TextAlign.right));
     double total = 0;
     final rows = <TableRow>[];
     for (final t in tiers) {
@@ -893,15 +897,23 @@ class _HomeViewState extends State<HomeView> {
           style: const TextStyle(fontSize: 11.5, height: 1.35, color: Brand.inkSecondary)),
       const SizedBox(height: 4),
       Table(
-        columnWidths: const {0: FlexColumnWidth(2.4), 4: FlexColumnWidth(1.3)},
+        // Numbers never wrap on a phone: number columns take their own
+        // width, the ticket column takes what is left (28 Nov 2026).
+        columnWidths: const {
+          0: FlexColumnWidth(),
+          1: IntrinsicColumnWidth(),
+          2: IntrinsicColumnWidth(),
+          3: IntrinsicColumnWidth(),
+          4: IntrinsicColumnWidth(),
+        },
         defaultVerticalAlignment: TableCellVerticalAlignment.top,
         children: [
           TableRow(children: [
             const Text('Ticket', style: head),
-            const Text('Requests', style: head, textAlign: TextAlign.right),
-            const Text('Book', style: head, textAlign: TextAlign.right),
-            const Text('Fee', style: head, textAlign: TextAlign.right),
-            const Text('A month', style: head, textAlign: TextAlign.right),
+            c('Share', head),
+            c('Book', head),
+            c('Fee', head),
+            c('A month', head),
           ]),
           ...rows,
           TableRow(children: [
@@ -928,6 +940,8 @@ class _HomeViewState extends State<HomeView> {
     final rates = <double>[rateNow, for (final r in const [0.05, 0.10, 0.20]) if (r > rateNow + 0.005) r];
     final prices = <double>[priceNow, for (final p in const [15.0, 30.0, 50.0]) if (p > priceNow + 1) p];
     String pct(double r) => r < 0.1 ? '${(r * 100).toStringAsFixed(1)}%' : '${(r * 100).round()}%';
+    // EUR 10,000 and up as "EUR 10k" so five columns fit a phone.
+    String compact(double v) => v >= 10000 ? '€${(v / 1000).round()}k' : round(v);
     const head = TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Brand.inkSecondary);
     Widget cell(String t, {bool bold = false, bool today = false, bool left = false}) => Container(
           padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 4),
@@ -936,6 +950,8 @@ class _HomeViewState extends State<HomeView> {
                   border: Border.all(color: const Color(0xFFCDE8D4)))
               : null,
           child: Text(t,
+              maxLines: left ? null : 1,
+              softWrap: left,
               textAlign: left ? TextAlign.left : TextAlign.right,
               style: TextStyle(
                   fontSize: 12.5,
@@ -952,18 +968,28 @@ class _HomeViewState extends State<HomeView> {
           style: const TextStyle(fontSize: 11.5, height: 1.35, color: Brand.inkSecondary)),
       const SizedBox(height: 4),
       Table(
-        columnWidths: const {0: FlexColumnWidth(1.4)},
+        columnWidths: const {
+          0: FlexColumnWidth(),
+          1: IntrinsicColumnWidth(),
+          2: IntrinsicColumnWidth(),
+          3: IntrinsicColumnWidth(),
+          4: IntrinsicColumnWidth(),
+        },
         children: [
           TableRow(children: [
-            const Text('Claimed', style: head),
+            const Text('Claimed', style: head, maxLines: 1, softWrap: false),
             for (final (i, p) in prices.indexed)
-              Text(i == 0 ? '${money.format(p)} now' : money.format(p), style: head, textAlign: TextAlign.right),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Text(i == 0 ? '${money.format(p)} now' : money.format(p),
+                    style: head, textAlign: TextAlign.right, maxLines: 1, softWrap: false),
+              ),
           ]),
           for (final (j, r) in rates.indexed)
             TableRow(children: [
               cell(j == 0 ? '${pct(r)} now' : pct(r), left: true),
               for (final (i, p) in prices.indexed)
-                cell(round(goal * r * share * p), bold: i > 0 || j > 0, today: i == 0 && j == 0),
+                cell(compact(goal * r * share * p), bold: i > 0 || j > 0, today: i == 0 && j == 0),
             ]),
         ],
       ),
