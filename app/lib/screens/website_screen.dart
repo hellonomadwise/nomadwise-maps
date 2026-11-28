@@ -44,6 +44,7 @@ import 'email_log_screen.dart';
 import 'feedback_inbox_screen.dart';
 import 'listing_updates_screen.dart';
 import 'nearby_spaces_screen.dart';
+import '../widgets/listings_goal_strip.dart';
 import 'owner_insights_screen.dart';
 import 'admin_owner_activity_screen.dart';
 import 'admin_claim_plan_screen.dart';
@@ -249,6 +250,16 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
   /// Clean-up, day by day (migration 354): one row a day for the chart
   /// above the Closed and No Location lists.
   List<Map<String, dynamic>> _qualityDays = const [];
+
+  /// The listings goal (migration 367): for Home's card and the strip
+  /// at the top of Ready to approve.
+  Map<String, dynamic>? _listingsGoal;
+
+  void _loadListingsGoal() {
+    _supabase.listingsGoal().then((g) {
+      if (mounted) setState(() => _listingsGoal = g);
+    }).catchError((_) {});
+  }
 
   /// Claude's newest answer on the Location of each space in Ready to
   /// approve, asked by itself (migration 362), by venue id; and the
@@ -511,6 +522,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
           setState(() => _noLocationCount = n);
         }
       }).catchError((_) {});
+      _loadListingsGoal();
       // The days behind the Clean-up chart: their own reading too.
       _supabase.adminQualityHistory().then((r) {
         final days = [
@@ -4135,6 +4147,7 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
     return HomeView(
       data: _home,
       error: _homeError,
+      listings: _listingsGoal,
       groups: ready
           ? _homeGroups()
           : const [HomeGroup('Reading what there is to do…', [])],
@@ -5411,7 +5424,11 @@ class _WebsiteScreenState extends State<WebsiteScreen> {
           if (_freeUsed.isNotEmpty) _freeUsedCard(),
           if (_answers.isNotEmpty) _answersCard(),
         ],
-      'ready' => g.ready.map(_readyCard).toList(),
+      'ready' => [
+          if (_listingsGoal != null && g.ready.isNotEmpty)
+            ListingsGoalStrip(goal: _listingsGoal!),
+          ...g.ready.map(_readyCard),
+        ],
       'region' => g.needsRegion.map(_needsRegionCard).toList(),
       'fresh' => g.fresh.map(_freshCard).toList(),
       'preparing' => g.preparing.map(_preparingTile).toList(),

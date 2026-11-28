@@ -3489,6 +3489,13 @@ class SupabaseService {
   /// (migration 363): {checks: {venue id: {verdict, confidence,
   /// what_it_is, can_buy, prices, website, same_place, reason,
   /// watch_out, check, at, feedback}}, waiting: [venue ids]}.
+  /// Pages live against the goal, new pages each day for 30 days, the
+  /// streak and the best day (migration 367).
+  Future<Map<String, dynamic>> listingsGoal() async {
+    final r = await _db.rpc('admin_listings_goal');
+    return Map<String, dynamic>.from(r as Map);
+  }
+
   Future<Map<String, dynamic>> listingChecksLatest() async {
     final r = await _db.rpc('admin_listing_checks_latest');
     return Map<String, dynamic>.from(r as Map);

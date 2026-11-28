@@ -54,6 +54,10 @@ class HomeView extends StatefulWidget {
   /// A bar of "Outreach sent each week" tapped: its week (a Monday)
   /// and the switch above the chart ('' all, 'listed', 'new').
   final void Function(DateTime week, String who)? onOutreachWeek;
+
+  /// admin_listings_goal() (migration 367): pages live against the
+  /// goal, new pages each day, the streak. Null until read.
+  final Map<String, dynamic>? listings;
   const HomeView({
     super.key,
     required this.data,
@@ -62,6 +66,7 @@ class HomeView extends StatefulWidget {
     this.error,
     this.actions = const [],
     this.onOutreachWeek,
+    this.listings,
   });
 
   @override
@@ -202,6 +207,10 @@ class _HomeViewState extends State<HomeView> {
                   ]),
                 )
               else ...[
+                if (widget.listings != null) ...[
+                  _listingsCard(phone),
+                  const SizedBox(height: 14),
+                ],
                 phone ? _standPhone() : _standWide(inner),
                 const SizedBox(height: 14),
                 _outreachCard(phone),
@@ -542,6 +551,139 @@ class _HomeViewState extends State<HomeView> {
   }
 
   // ------------------------------------------------ owners each day
+
+  /// Listings live against the goal (Jonathan, 28 Nov 2026: "I want a
+  /// goal of getting 10k listings live so want to gamify to get this
+  /// done"): how far along, the next milestone, today against the daily
+  /// target, the streak, the best day, and new pages each day for 30
+  /// days with the daily target as a dashed line.
+  Widget _listingsCard(bool phone) {
+    final l = widget.listings ?? const <String, dynamic>{};
+    final live = _num(l['live']).round();
+    final goal = _num(l['goal']) > 0 ? _num(l['goal']).round() : 10000;
+    final daily = _num(l['daily']) > 0 ? _num(l['daily']).round() : 25;
+    final days = [
+      for (final x in (l['days'] as List? ?? const []))
+        if (x is Map) Map<String, dynamic>.from(x),
+    ];
+    final today = days.isEmpty ? 0 : _num(days.last['n']).round();
+    final week = days.length < 7
+        ? 0
+        : days.sublist(days.length - 7).fold(0.0, (t, d) => t + _num(d['n'])).round();
+    final streak = _num(l['streak']).round();
+    final bestN = _num(l['best_n']).round();
+    final bestDay = _date(l['best_day']);
+    final pace = _num(l['pace']);
+    final left = math.max(goal - live, 0);
+    // Milestones: every 250 to 2,000, every 500 to 5,000, then 1,000.
+    final step = live < 2000 ? 250 : live < 5000 ? 500 : 1000;
+    final next = math.min(((live ~/ step) + 1) * step, goal);
+    final pct = (live / goal * 100);
+    String when(double perDay) {
+      if (perDay <= 0) return '';
+      final d = DateTime.now().add(Duration(days: (left / perDay).ceil()));
+      return DateFormat('MMM yyyy').format(d);
+    }
+
+    Widget tile(String big, String small, {Color? color}) => Container(
+          padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+          decoration: BoxDecoration(
+              color: Brand.field, borderRadius: BorderRadius.circular(8)),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+            Text(big,
+                style: TextStyle(
+                    fontSize: 17, fontWeight: FontWeight.w800, color: color ?? Brand.ink)),
+            Text(small, style: const TextStyle(fontSize: 11.5, color: Brand.inkSecondary)),
+          ]),
+        );
+    String label(int i) {
+      final d = _date(days[i]['day']);
+      if (d == null) return '';
+      if (d.weekday == DateTime.monday || i == days.length - 1) {
+        return DateFormat('d MMM').format(d);
+      }
+      return '';
+    }
+
+    const met = Brand.success;
+    const under = _blue;
+    return _Card(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Text.rich(
+            TextSpan(children: [
+              const TextSpan(
+                  text: 'Listings live', style: TextStyle(fontWeight: FontWeight.w800)),
+              TextSpan(
+                  text: ' · goal ${_whole(goal)}',
+                  style: const TextStyle(fontWeight: FontWeight.w500, color: Brand.inkSecondary)),
+            ]),
+            style: const TextStyle(fontSize: 13.5, color: Brand.ink)),
+        const SizedBox(height: 8),
+        Wrap(crossAxisAlignment: WrapCrossAlignment.end, spacing: 8, children: [
+          Text(_whole(live),
+              style: const TextStyle(fontSize: 30, height: 1.1, fontWeight: FontWeight.w800)),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Text('of ${_whole(goal)} · ${pct.toStringAsFixed(1)}%',
+                style: const TextStyle(fontSize: 13, color: Brand.inkSecondary)),
+          ),
+        ]),
+        const SizedBox(height: 8),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: (live / goal).clamp(0.005, 1.0),
+            minHeight: 10,
+            backgroundColor: Brand.field,
+            color: Brand.accent,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+            live >= goal
+                ? 'Goal reached.'
+                : 'Next milestone ${_whole(next)}: ${_whole(next - live)} to go',
+            style: const TextStyle(
+                fontSize: 12.5, fontWeight: FontWeight.w700, color: Brand.ink)),
+        const SizedBox(height: 12),
+        Wrap(spacing: 8, runSpacing: 8, children: [
+          tile('$today of $daily', 'new today',
+              color: today >= daily ? met : Brand.ink),
+          tile(streak == 1 ? '1 day' : '$streak days', 'in a row',
+              color: streak >= 3 ? Brand.accent : Brand.ink),
+          tile(_whole(week), 'last 7 days'),
+          if (bestN > 0)
+            tile('$bestN',
+                'best day${bestDay == null ? '' : ', ${DateFormat('d MMM').format(bestDay)}'}'),
+        ]),
+        const SizedBox(height: 14),
+        Text(phone ? 'New pages each day' : 'New pages live each day · last 30 days',
+            style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: Brand.ink)),
+        const SizedBox(height: 4),
+        if (days.isNotEmpty)
+          HomeBarChart(
+            target: daily.toDouble(),
+            columns: [
+              for (final (i, d) in days.indexed)
+                BarColumn(label(i),
+                    [(_num(d['n']), _num(d['n']) >= daily ? met : under)]),
+            ],
+            height: phone ? 90 : 110,
+            barGap: phone ? 1 : 3,
+            compactLabels: phone,
+          ),
+        const SizedBox(height: 6),
+        Text(
+            [
+              'Dashed line: $daily a day. Green when a day reaches it.',
+              if (left > 0) 'At $daily a day, ${_whole(goal)} by ${when(daily.toDouble())}.',
+              if (left > 0 && pace > 0)
+                'At the last 14 days\' pace (${_trim(pace)} a day): ${when(pace)}.',
+            ].join(' '),
+            style: const TextStyle(fontSize: 11.5, height: 1.4, color: Brand.inkMuted)),
+      ]),
+    );
+  }
 
   /// Owners each day, the last 30 days: claimed, signed in, sent
   /// changes, took a badge, one row of bars each over the same days (Jonathan,
