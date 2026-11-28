@@ -715,6 +715,8 @@ class _HomeViewState extends State<HomeView> {
             compactLabels: phone,
           ),
         const SizedBox(height: 6),
+        ..._goalPicture(l, goal, live),
+        const SizedBox(height: 6),
         Text(
             'Dashed line: $daily a day. Green when a day reaches it. The '
             'estimate moves with the last 14 days, so a good week pulls it '
@@ -722,6 +724,98 @@ class _HomeViewState extends State<HomeView> {
             style: const TextStyle(fontSize: 11.5, height: 1.4, color: Brand.inkMuted)),
       ]),
     );
+  }
+
+  /// What the goal could mean, worked out from today's rates (Jonathan,
+  /// 28 Nov 2026: "paint a picture on why 10,000 is good ... average
+  /// daily requests ... an average mrr of x based on xyz metrics").
+  /// Requests scale with coworking pages (requests come to those); the
+  /// cafes stay as they are. The money lines use the assumptions kept
+  /// with the goal (migration 368).
+  List<Widget> _goalPicture(Map<String, dynamic> l, int goal, int live) {
+    final m = l['model'] is Map
+        ? Map<String, dynamic>.from(l['model'] as Map)
+        : const <String, dynamic>{};
+    if (m.isEmpty) return const [];
+    final cw = _num(l['live_coworking']);
+    final cafes = math.max(live - cw, 0.0);
+    final req60 = _num(l['requests_60']);
+    if (cw <= 0) return const [];
+    final perPage = req60 / 60 / cw; // a day, per coworking page
+    final reqNow = req60 / 60;
+    final cwAtGoal = math.max(goal - cafes, cw);
+    final reqGoal = perPage * cwAtGoal; // a day
+    final claimed = _num(l['claimed']);
+    final claimedGoal = live > 0 ? claimed / live * goal : 0.0;
+    final premium = claimedGoal * _num(m['premium_share']) * _num(m['premium_eur_month']);
+    final perRequest = _num(m['office_share']) * _num(m['office_close']) * _num(m['office_fee_eur']) +
+        (1 - _num(m['office_share'])) * _num(m['desk_book']) * _num(m['desk_fee_eur']);
+    final feesGoal = reqGoal * 30 * perRequest;
+    final feesNow = reqNow * 30 * perRequest;
+    final total = premium + feesGoal;
+    final money = NumberFormat.currency(symbol: '€', decimalDigits: 0);
+    String round(double v) => v >= 1000
+        ? money.format((v / 100).round() * 100)
+        : v >= 100
+            ? money.format((v / 10).round() * 10)
+            : money.format(v);
+    String a(double v) => v < 10 ? v.toStringAsFixed(1) : _whole(v.round());
+    const head = TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: Brand.inkSecondary);
+    const now = TextStyle(fontSize: 13, color: Brand.inkSecondary);
+    const at = TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: Brand.ink);
+    TableRow row(String what, String today, String goalV) => TableRow(children: [
+          Padding(padding: const EdgeInsets.symmetric(vertical: 5), child: Text(what, style: const TextStyle(fontSize: 13, color: Brand.ink))),
+          Padding(padding: const EdgeInsets.symmetric(vertical: 5), child: Text(today, style: now, textAlign: TextAlign.right)),
+          Padding(padding: const EdgeInsets.symmetric(vertical: 5), child: Text(goalV, style: at, textAlign: TextAlign.right)),
+        ]);
+    final pctOffice = (_num(m['office_share']) * 100).round();
+    final close = _num(m['office_close']) > 0 ? (1 / _num(m['office_close'])).round() : 0;
+    return [
+      const SizedBox(height: 12),
+      Container(
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+        decoration: BoxDecoration(
+            color: const Color(0xFFF1F8F3),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFFCDE8D4))),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Text('What ${_whole(goal)} could mean',
+              style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: Brand.ink)),
+          const SizedBox(height: 2),
+          Text('About ${round(total)} a month, at today\'s rates',
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Brand.success)),
+          const SizedBox(height: 8),
+          Table(
+            columnWidths: const {0: FlexColumnWidth(2.2), 1: FlexColumnWidth(1), 2: FlexColumnWidth(1.2)},
+            children: [
+              TableRow(children: [
+                const Text('', style: head),
+                const Text('Today', style: head, textAlign: TextAlign.right),
+                Text('At ${_short(goal.toDouble())}', style: head, textAlign: TextAlign.right),
+              ]),
+              row('Requests a day', a(reqNow), a(reqGoal)),
+              row('Requests a month', a(reqNow * 30), a(reqGoal * 30)),
+              row('Claimed spaces', _whole(claimed.round()), _whole(claimedGoal.round())),
+              row('Premium a month', money.format(_num(l['mrr_eur'])), round(premium)),
+              row('Fees on bookings a month', round(feesNow), round(feesGoal)),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+              'Worked out from: ${req60.round()} requests in the last 60 days across '
+              '${cw.round()} coworking pages, kept per page as the new pages are '
+              'coworking; ${claimed.round()} of ${_whole(live)} pages claimed. '
+              'Guesses, not yet seen: ${(_num(m['premium_share']) * 100).round()}% of claimed spaces pay '
+              'Premium at about ${money.format(_num(m['premium_eur_month']))} a month; $pctOffice% of requests '
+              'are for an office and 1 in $close of those becomes a deal, our fee '
+              '${money.format(_num(m['office_fee_eur']))} (10% of a year for a team of four); '
+              '${(_num(m['desk_book']) * 100).round()}% of other requests book, fee '
+              '${money.format(_num(m['desk_fee_eur']))}. More requests per page (area pages, '
+              'better ranking) move every line.',
+              style: const TextStyle(fontSize: 11, height: 1.4, color: Brand.inkMuted)),
+        ]),
+      ),
+    ];
   }
 
   /// Owners each day, the last 30 days: claimed, signed in, sent
